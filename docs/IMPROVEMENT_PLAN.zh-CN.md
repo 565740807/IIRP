@@ -39,7 +39,7 @@
 | 阶段 | 目标 | 规模 | 依赖 |
 |---|---|---|---|
 | P0 收口保全 | 不丢任何现有工作，仓库可干净提交 | 小 | — |
-| P1 发布准备 | 私有 GitHub 仓库可上传、可安装、CI 可跑 | 中 | P0 |
+| P1 发布准备 | 完成 | 2026-10-04 | 私有仓库 <https://github.com/565740807/iirp2>，`main` 为单一初始提交 `IIRP 初始版本`（干净历史，提交身份为 GitHub noreply；本地旧分支和 `refs/codex/*` 未推送、未删除）。CI（push 到 main）：后端 4 分 45 秒、前端 53 秒、gitleaks 11 秒，全部通过；手动触发的 slow 作业 2 分 49 秒通过。首次推送的 CI 因测试用 `pytest` 而非 `python -m pytest` 导致 `scripts` 无法导入而失败，已修。CI 上无偶发失败；本机观察到的偶发/稳定失败见 P2“待修稳定性问题”。克隆安装验证：克隆 6.4MB（`.git` 1.4MB），gitleaks 无发现；以独立项目 `iirpclone`（端口 18091）按 README 启动，`/health/ready` 与 `/api/v1/home` 均 200，随后已 `down -v`、删除镜像和克隆目录，iirp2 三个容器未重建。**发现**：全新数据库中 SEC 与行情自动更新默认开启，启动后数秒内即对外请求（本次约 1.5 分钟内取回约 2400 份申报后被手动停掉 worker），README/RUNBOOK 原写“默认关闭”与代码不符，已更正；是否改为默认关闭待决定。其余：4 个 Dependabot 分组 PR（#1–#4）因基于修复前的 ci.yml 而 CI 失败，未合并；Actions 用量控制见第三节 CI 与安全。 |
 | P2 性能与存储 | 首页和任务页达到规划时限，数据库瘦身 | 大 | P0 |
 | P3 行情与界面基础 | 行情可靠且过期可见；统一组件、配色、类型 | 大 | P2 |
 | P4 板块研究 | 11 大板块 / 25 行业组排行、热力图、K 线、月度与区间分析 | 大 | P3 |
@@ -106,6 +106,14 @@ P5 与 P3/P4 写入面基本独立，可在 P2 之后并行推进。
 
 **数据库资源**
 - PostgreSQL 内存上限 768MiB → 2GiB，按 [PGTune](https://github.com/le0pard/pgtune) 设定 `shared_buffers`、`work_mem`、`effective_cache_size`，写进 `deploy/compose.yaml`。
+
+**待修稳定性问题**（2026-10-04 本机 `./iirp check` 观察，GitHub CI 上均未复现；修复时不得放宽租约、锁或超时预算）
+
+| 测试 | 现象 | 判断 |
+|---|---|---|
+| `test_event_compute_capacity::test_accepted_notes_survive_real_pool_frozen_reads_and_exports[ascii_17mib]` | 本机两次都返回 503 `database_timeout` | 稳定失败，与 PG 768MiB 上限有关；CI 的 PG 无内存上限时通过。D13 提高到 2GiB 后复测 |
+| `test_maintenance_lifecycle::test_real_long_backup_control_and_group_reaping[renew/pause/cancel/expired/token/parent_stop/child_sigkill]`、`test_sigkill_parent_is_detected_by_child_during_blocking_dump` | 首轮在高负载下 8 秒有界等待超时；单独重跑 7/8 通过，`[renew]` 另在线程未退出处失败 | 偶发，对机器负载敏感；考虑让等待按进程状态而不是固定 8 秒 |
+| `test_event_overlap_reads::test_frozen_interval_endpoint_and_missing_window_pages` | 夹具 `TRUNCATE` 锁超时（setup 阶段） | 偶发，疑为上一个用例的连接尚未释放；重跑通过 |
 
 **完成标准**（在当前真实数据量上）
 
@@ -286,7 +294,7 @@ P5 与 P3/P4 写入面基本独立，可在 P2 之后并行推进。
 | 阶段 | 状态 | 日期 | 备注 |
 |---|---|---|---|
 | P0 收口保全 | 完成 | 2026-10-04 | `codex/data-lifecycle` 本地提交检查点（gitleaks 无发现）；`work/` 已 `mv` 到仓库外 `IIRP2-archive/work-2026-10-04`（4.6GB，同一文件系统），`.gitignore` 加 `work/` 并移出已跟踪的 `work/planning/*.json`。归档前后各跑 `./iirp check`：首次 1060 通过 / 2 跳过 / 9 失败 / 1 错误（锁超时与 8 秒等待超时，单独重跑后多数通过，属偶发与容量问题，与归档无关；17MiB 备注用例两次复现失败），第二次 1070 通过 / 2 跳过 / 0 失败。未推送。 |
-| P1 发布准备 | 本地清理完成，待推送 | 2026-10-04 | 分支 `publish-prep`：文档精简并归档、本机路径清零、MIT LICENSE、README 重写（含首页截图）、`ci.yml`/`dependabot.yml`/gitleaks、`validation.yml` 仅手动。`./iirp check` 通过；gitleaks 当前树无发现。**未完成**：干净新历史（orphan 分支）与 GitHub noreply 提交身份（推送前再做）、GitHub 上 CI 实际运行、全新目录 `git clone` 后按 README 安装的验证、`slow` 标记后 CI 实际耗时未测。旧提交历史中有 70 条 gitleaks `generic-api-key` 命中，均为已移除的 `frontend/design`、`work/planning` 中的哈希字段误报，不进入新历史。 |
+| P1 发布准备 | 完成 | 2026-10-04 | 私有仓库 <https://github.com/565740807/iirp2>，`main` 为单一初始提交 `IIRP 初始版本`（干净历史，提交身份为 GitHub noreply；本地旧分支和 `refs/codex/*` 未推送、未删除）。CI（push 到 main）：后端 4 分 45 秒、前端 53 秒、gitleaks 11 秒，全部通过；手动触发的 slow 作业 2 分 49 秒通过。首次推送的 CI 因测试用 `pytest` 而非 `python -m pytest` 导致 `scripts` 无法导入而失败，已修。CI 上无偶发失败；本机观察到的偶发/稳定失败见 P2“待修稳定性问题”。克隆安装验证：克隆 6.4MB（`.git` 1.4MB），gitleaks 无发现；以独立项目 `iirpclone`（端口 18091）按 README 启动，`/health/ready` 与 `/api/v1/home` 均 200，随后已 `down -v`、删除镜像和克隆目录，iirp2 三个容器未重建。**发现**：全新数据库中 SEC 与行情自动更新默认开启，启动后数秒内即对外请求（本次约 1.5 分钟内取回约 2400 份申报后被手动停掉 worker），README/RUNBOOK 原写“默认关闭”与代码不符，已更正；是否改为默认关闭待决定。其余：4 个 Dependabot 分组 PR（#1–#4）因基于修复前的 ci.yml 而 CI 失败，未合并；Actions 用量控制见第三节 CI 与安全。 |
 | P2 性能与存储 | 未开始 | — | — |
 | P3 行情与界面基础 | 未开始 | — | — |
 | P4 板块研究 | 未开始 | — | — |
