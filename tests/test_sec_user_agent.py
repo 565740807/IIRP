@@ -89,6 +89,12 @@ def automatic_sec_batches():
         return s.scalar(select(func.count()).select_from(Batch).where(Batch.kind == "sec_latest"))
 
 
+@pytest.fixture(autouse=True)
+def no_storage_inventory(monkeypatch):
+    """/api/v1/system would start a background inventory that holds a connection."""
+    monkeypatch.setattr("iirp.maintenance.storage_state", lambda: {})
+
+
 def test_first_start_without_contact_keeps_policy_on_but_sends_nothing(user_agent, sec_requests):
     from iirp.maintenance import schedule_tick
 
