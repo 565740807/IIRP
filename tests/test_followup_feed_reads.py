@@ -13,10 +13,10 @@ from iirp.api import app
 from iirp.business_models import FeedManifest, FeedRevision, FeedSession
 from iirp.config import settings
 from iirp.db import session
-from iirp.feed_snapshots import cleanup_feed_manifests
+from iirp.feed_snapshots import cleanup_feed_manifests, freeze_feed_session
 from iirp.maintenance import cleanup
 from iirp.models import now
-from sqlalchemy import select, text
+from sqlalchemy import func, select, text
 from test_sec_facts import FIXTURE, clean, isolated_database, save  # noqa: F401
 
 
@@ -28,13 +28,19 @@ def client(tmp_path, monkeypatch):
 
 
 def frozen_feed():
+    """A reading session frozen as a revision manifest, as before watermarks.
+
+    New sessions no longer write manifests; these sessions stay readable until
+    they expire, and their manifests are reclaimed by the normal cleanup.
+    """
     with session() as s, s.begin():
         assert s.scalar(text("SELECT current_database()")).startswith("iirp_v1_test_")
         save(s)
-        original = sec_facts.feed(s)
-        saved = s.get(FeedSession, original["session_id"])
+        ids = [row["id"] for row in sec_facts.latest_feed_metadata(s, "all", "transaction")]
+        saved = freeze_feed_session(s, ids, {"purpose": "feed", "kind": "all", "order": "transaction",
+                                             "as_of": now().isoformat()})
         s.get(FeedManifest, saved.manifest_hash).created_at = now() - timedelta(days=2)
-        return original
+        return sec_facts.feed(s, saved.id)
 
 
 @pytest.mark.parametrize("path", ["page", "group", "updates", "merge"])
@@ -120,7 +126,7 @@ def test_expiry_and_integrity_errors_remain_distinct(client, damage, path):
 
 
 @pytest.mark.parametrize("path", ["new_session", "merge"])
-def test_controlled_gc_lock_busy_then_api_recovers(client, path):
+def test_manifest_gc_never_blocks_new_readers_or_merges(client, path):
     original = frozen_feed()
     with session() as s, s.begin():
         save(s, xml=FIXTURE.read_bytes().replace(b"100000", b"125000"), accession="0000000123-26-000002")
@@ -131,17 +137,15 @@ def test_controlled_gc_lock_busy_then_api_recovers(client, path):
         with session() as s, s.begin():
             assert cleanup_feed_manifests(s)["feed_manifests_removed"] == 1
             started = monotonic()
-            busy = pool.submit(client.get, url, params=params).result(timeout=5)
+            # The GC transaction still holds its lock: watermark sessions need none.
+            response = pool.submit(client.get, url, params=params).result(timeout=5)
             elapsed = (monotonic() - started) * 1000
-            assert busy.status_code == 503
-            # The GC transaction is deliberately held until timeout. Existing
-            # readers need no publication lock and still see their frozen data.
             old = pool.submit(client.get, "/api/v1/feed", params={"session_id": original["session_id"]}).result(timeout=5)
             assert old.status_code == 200 and old.json()["groups"] == original["groups"]
-        retried = client.get(url, params=params)
     print(json.dumps({"experiment": "deliberately held GC, not normal load", "path": path,
-                      "busy_http": busy.status_code, "busy_body": busy.json(), "elapsed_ms": elapsed,
-                      "retry_http": retried.status_code}, ensure_ascii=False))
-    assert retried.status_code == 200
+                      "http": response.status_code, "elapsed_ms": elapsed}, ensure_ascii=False))
+    assert response.status_code == 200, response.text
+    with session() as s:
+        assert s.scalar(select(func.count()).select_from(FeedManifest)) == 1
     if path == "merge":
-        assert retried.json()["groups"] and retried.json()["target_session_id"] != original["session_id"]
+        assert response.json()["groups"] and response.json()["target_session_id"] != original["session_id"]

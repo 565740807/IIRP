@@ -5,6 +5,7 @@ from datetime import date, datetime
 from typing import Any
 
 from sqlalchemy import (
+    BigInteger,
     Boolean,
     CheckConstraint,
     Date,
@@ -13,6 +14,7 @@ from sqlalchemy import (
     Index,
     Integer,
     Numeric,
+    Sequence,
     String,
     Text,
     UniqueConstraint,
@@ -20,6 +22,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.types import UserDefinedType
 
 from iirp.models import Base, now
 from iirp.result_storage import CompressedResultJSON
@@ -301,6 +304,24 @@ class AmendmentRelation(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
 
 
+class XID8(UserDefinedType):
+    """PostgreSQL 64-bit transaction id; compared only inside SQL."""
+    cache_ok = True
+
+    def get_col_spec(self, **kw):
+        return "xid8"
+
+
+class PGSnapshot(UserDefinedType):
+    cache_ok = True
+
+    def get_col_spec(self, **kw):
+        return "pg_snapshot"
+
+
+FEED_REVISION_SEQ = Sequence("feed_revision_seq", metadata=Base.metadata)
+
+
 class FeedRevision(Base):
     __tablename__ = "feed_group_revision"
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uid)
@@ -312,6 +333,47 @@ class FeedRevision(Base):
     transaction_sort_dates: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict, server_default="{}")
     row_count: Mapped[int] = mapped_column(Integer, default=0)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+    # Reading watermarks: publication order and the writing transaction. Rows
+    # written before the watermark schema have NULLs and are visible to all.
+    seq: Mapped[int | None] = mapped_column(BigInteger, server_default=FEED_REVISION_SEQ.next_value())
+    xid: Mapped[str | None] = mapped_column(XID8(), server_default=text("pg_current_xact_id()"))
+    __table_args__ = (
+        Index("ix_feed_group_revision_seq", "seq", postgresql_where=text("seq IS NOT NULL")),
+        Index("ix_feed_group_revision_xid", "xid", postgresql_where=text("xid IS NOT NULL")),
+    )
+
+
+class FeedGroupCurrent(Base):
+    """One pointer per company/date group to its newest revision."""
+    __tablename__ = "feed_group_current"
+    group_key: Mapped[str] = mapped_column(String(32), primary_key=True)
+    revision_id: Mapped[str] = mapped_column(ForeignKey("feed_group_revision.id"))
+    issuer_id: Mapped[str] = mapped_column(String(10))
+    accepted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    row_count: Mapped[int] = mapped_column(Integer)
+    seq: Mapped[int | None] = mapped_column(BigInteger)
+    xid: Mapped[str | None] = mapped_column(XID8())
+    __table_args__ = (
+        Index("ix_feed_group_current_seq", "seq", postgresql_where=text("seq IS NOT NULL")),
+        Index("ix_feed_group_current_xid", "xid", postgresql_where=text("xid IS NOT NULL")),
+    )
+
+
+class FeedGroupOrder(Base):
+    """Sort keys of each current non-empty revision, one row per filter and order."""
+    __tablename__ = "feed_group_order"
+    kind: Mapped[str] = mapped_column(String(16), primary_key=True)
+    sort_order: Mapped[str] = mapped_column(String(16), primary_key=True)
+    group_key: Mapped[str] = mapped_column(String(32, collation="C"), primary_key=True)
+    sort_key: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    accepted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    revision_id: Mapped[str] = mapped_column(String(36))
+    seq: Mapped[int | None] = mapped_column(BigInteger)
+    xid: Mapped[str | None] = mapped_column(XID8())
+    __table_args__ = (
+        Index("ix_feed_group_order_page", "kind", "sort_order", sort_key.desc(),
+              accepted_at.desc(), group_key.desc()),
+    )
 
 
 class FeedManifest(Base):

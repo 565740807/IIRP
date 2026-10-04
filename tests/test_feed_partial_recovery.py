@@ -8,6 +8,7 @@ from iirp.api import app
 from iirp.business_models import FeedRevision
 from iirp.config import settings
 from iirp.db import session
+from iirp.feed_index import publish_current
 from iirp.sec_facts import feed
 from sqlalchemy import select, text
 from test_feed_updates import _add_revision
@@ -39,9 +40,12 @@ def test_resume_frozen_delta_then_remove_intermediate_group(tmp_path, monkeypatc
             old = s.get(FeedRevision, victim["revision_id"])
             data = copy.deepcopy(old.data)
             data["transactions"] = []
-            s.add(FeedRevision(group_key=old.group_key, issuer_id=old.issuer_id,
-                               accepted_at=old.accepted_at, data=data, match_kinds=[], row_count=0,
-                               transaction_sort_dates=old.transaction_sort_dates))
+            tombstone = FeedRevision(group_key=old.group_key, issuer_id=old.issuer_id,
+                                     accepted_at=old.accepted_at, data=data, match_kinds=[], row_count=0,
+                                     transaction_sort_dates=old.transaction_sort_dates)
+            s.add(tombstone)
+            s.flush()
+            publish_current(s, [tombstone.id])
 
         # Starting again at B would omit a removal for the intermediate group G.
         restarted = read(params)

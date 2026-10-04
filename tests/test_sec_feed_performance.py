@@ -26,6 +26,7 @@ from iirp.analytics.calendar import sessions
 from iirp.business_models import FeedRevision, FeedSession
 from iirp.config import ROOT, settings
 from iirp.db import engine, session
+from iirp.feed_index import reconcile
 from iirp.sec_facts import feed, feed_group, latest_feed_metadata
 from psycopg import sql
 from sqlalchemy import event as sa_event
@@ -175,6 +176,10 @@ def seed_dataset(groups):
                 text("""INSERT INTO dataset_bar (dataset_id,session_date,bar_id)
                 SELECT md5('dataset'||security_id),session_date,id FROM market_bar_revision""")
             )
+    with session() as s, s.begin():
+        # Synthetic revisions were inserted directly; publish their pointers.
+        s.execute(text("SET LOCAL statement_timeout = '120s'"))
+        reconcile(s)
     with engine().begin() as c:
         # Dataset preparation retains the seed phase's bounded budget. Actual
         # application reads still use their normal 5-second statement deadline.
@@ -202,8 +207,9 @@ def test_feed_only_materializes_current_page_and_preserves_whole_group_totals():
             assert group["summary"][0]["known_amount"] == "100000"
             assert "raw_xml" not in json.dumps(result)
             saved = s.get(FeedSession, result["session_id"])
-            from iirp.feed_snapshots import session_revision_ids
-            assert "rows" not in saved.filters and len(session_revision_ids(s, saved)) == GROUPS
+            # A reading session is a watermark: no revision list, no manifest.
+            assert "rows" not in saved.filters and saved.revision_ids == []
+            assert saved.manifest_hash is None and saved.filters["total_groups"] == GROUPS
             detail = feed_group(s, saved.id, group["id"], cursor="20")
             assert len(detail["items"]) == 20 and detail["total"] == 100
             assert not (
@@ -218,7 +224,7 @@ def test_metadata_filter_does_not_load_revision_payloads():
     with session() as s:
         result = latest_feed_metadata(s, "purchase")
         assert len(result) == GROUPS
-        assert set(result[0]) == {"id", "group_key", "accepted_at", "created_at"}
+        assert set(result[0]) == {"id", "group_key", "accepted_at"}
         assert not list(s.identity_map.values())
         assert latest_feed_metadata(s, "derivative") == []
 
@@ -248,10 +254,14 @@ def test_large_api_latency_with_frozen_session_new_count():
         baseline = client.get("/api/v1/feed?type=buy")
         assert baseline.status_code == 200
         saved_id = baseline.json()["session_id"]
+        cursor = baseline.json()["next_cursor"]
+        for _ in range(13):  # Keyset cursors are opaque: walk to page 15.
+            cursor = client.get("/api/v1/feed", params={"type": "buy", "session_id": saved_id,
+                                                        "cursor": cursor}).json()["next_cursor"]
         endpoints = {
             "fresh_feed": "/api/v1/feed?type=buy",
             "frozen_feed_with_new_count": "/api/v1/feed?type=buy&session_id=" + saved_id,
-            "frozen_page_15": "/api/v1/feed?type=buy&session_id=" + saved_id + "&cursor=280",
+            "frozen_page_15": "/api/v1/feed?type=buy&session_id=" + saved_id + "&cursor=" + cursor,
             "home": "/api/v1/home",
             "company_recent50": "/api/v1/companies/0000000001?recent_count=50",
             "person_recent50": "/api/v1/people/0000000999?recent_count=50",

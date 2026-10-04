@@ -6,6 +6,7 @@ from datetime import date, timedelta
 import pytest
 from iirp.business_models import FeedRevision, FeedSession, Filing, TransactionEvent
 from iirp.db import session
+from iirp.feed_index import publish_current
 from iirp.feed_updates import feed_updates, pending_feed_metadata
 from iirp.models import Job, now
 from iirp.sec_facts import _refresh_groups, feed, feed_group
@@ -58,6 +59,7 @@ def _add_revision(s, template, suffix, *, instant=None):
                        transaction_sort_dates=template.transaction_sort_dates)
     s.add(row)
     s.flush()
+    publish_current(s, [row.id])  # As a real publication does.
     return row
 
 

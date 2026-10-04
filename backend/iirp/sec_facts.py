@@ -24,6 +24,7 @@ from iirp.business_models import (
     AmendmentRelation,
     BatchJob,
     CoverageSegment,
+    FeedGroupOrder,
     FeedRevision,
     FeedSession,
     Filing,
@@ -822,7 +823,19 @@ def _summary(rows: list[dict]) -> list[dict]:
     return [_json(bucket) for bucket in buckets.values()]
 
 
+def _group_sort_dates(rows) -> dict:
+    """Stored per-filter sort dates (newest transaction and disclosure)."""
+    facets = _group_facets(rows)
+    return {
+        **{kind: max((row.get("transaction_date") or "" for row in rows if _matches(row, kind)), default="") for kind in facets},
+        **{"accepted:" + kind: max((row.get("group_accepted_at") or row.get("accepted_at") or "" for row in rows if _matches(row, kind)), default="") for kind in facets},
+    }
+
+
 def _refresh_groups(s: Session, groups: set[tuple[str, date | None]]) -> None:
+    from iirp.feed_index import publish_current
+
+    published = []
     for issuer_id, day in sorted(groups, key=lambda item: (item[0], str(item[1]))):
         if day is None:
             continue  # Never invent an acceptance instant for a feed time group.
@@ -907,27 +920,27 @@ def _refresh_groups(s: Session, groups: set[tuple[str, date | None]]) -> None:
         latest = s.scalar(
             select(FeedRevision)
             .where(FeedRevision.group_key == group_key)
-            .order_by(FeedRevision.created_at.desc(), FeedRevision.id.desc())
+            .order_by(FeedRevision.seq.desc().nulls_last(), FeedRevision.created_at.desc(),
+                      FeedRevision.id.desc())
             .limit(1)
         )
         if latest and latest.data == data:
             continue
         # Empty revisions are tombstones; old sessions still reference old data.
-        s.add(
-            FeedRevision(
-                group_key=group_key,
-                issuer_id=issuer_id,
-                accepted_at=accepted,
-                data=data,
-                match_kinds=_group_facets(rows + update_rows),
-                row_count=len(rows + update_rows),
-                transaction_sort_dates={
-                    **{kind: max((row.get("transaction_date") or "" for row in rows + update_rows if _matches(row, kind)), default="") for kind in _group_facets(rows + update_rows)},
-                    **{"accepted:" + kind: max((row.get("group_accepted_at") or row.get("accepted_at") or "" for row in rows + update_rows if _matches(row, kind)), default="") for kind in _group_facets(rows + update_rows)},
-                },
-            )
+        revision = FeedRevision(
+            group_key=group_key,
+            issuer_id=issuer_id,
+            accepted_at=accepted,
+            data=data,
+            match_kinds=_group_facets(rows + update_rows),
+            row_count=len(rows + update_rows),
+            transaction_sort_dates=_group_sort_dates(rows + update_rows),
         )
+        s.add(revision)
+        published.append(revision)
     s.flush()
+    # Pointer rows are locked per group; take them last so the lock lasts only to commit.
+    publish_current(s, [revision.id for revision in published])
 
 
 def _offset(cursor: str) -> int:
@@ -971,31 +984,36 @@ def _group_facets(rows):
 
 
 def latest_feed_metadata(s: Session, kind="all", order="transaction") -> list[dict]:
-    """Latest visible revisions with scalar metadata only; no row JSON transfer."""
-    kind = _canonical_kind(kind)
-    latest = (
-        select(
-            FeedRevision.id,
-            FeedRevision.group_key,
-            FeedRevision.accepted_at,
-            FeedRevision.created_at,
-            FeedRevision.match_kinds,
-            FeedRevision.row_count,
-            FeedRevision.transaction_sort_dates,
-        )
-        .distinct(FeedRevision.group_key)
-        .order_by(FeedRevision.group_key, FeedRevision.created_at.desc(), FeedRevision.id.desc())
-        .subquery()
-    )
-    sort_date = latest.c.transaction_sort_dates[kind if order == "transaction" else "accepted:" + kind].astext
-    if order == "accepted":
-        sort_date = cast(sort_date, DateTime(timezone=True))
+    """Current non-empty revisions in listing order, scalar metadata only."""
+    order_row = FeedGroupOrder
     statement = (
-        select(latest.c.id, latest.c.group_key, latest.c.accepted_at, latest.c.created_at)
-        .where(latest.c.row_count > 0, latest.c.match_kinds.contains([kind]))
-        .order_by(sort_date.desc().nulls_last(), latest.c.accepted_at.desc(), latest.c.group_key.desc())
+        select(order_row.revision_id.label("id"), order_row.group_key, order_row.accepted_at)
+        .where(order_row.kind == _canonical_kind(kind), order_row.sort_order == order)
+        .order_by(order_row.sort_key.desc(), order_row.accepted_at.desc(), order_row.group_key.desc())
     )
     return [dict(row) for row in s.execute(statement).mappings()]
+
+
+def open_feed_session(s: Session, kind: str, order: str, **extra) -> FeedSession:
+    """A reading session is a watermark plus filters; no revision list is stored."""
+    from iirp.feed_index import count, new_watermark
+
+    watermark = new_watermark(s)
+    saved = FeedSession(
+        revision_ids=[],
+        filters={"purpose": "feed", "kind": kind, "order": order, "as_of": now().isoformat(),
+                 "watermark": watermark, "total_groups": count(s, watermark, _canonical_kind(kind), order),
+                 **extra},
+        expires_at=now() + timedelta(hours=12),
+    )
+    s.add(saved)
+    s.flush()
+    return saved
+
+
+def feed_watermark(saved: FeedSession) -> dict | None:
+    """None for sessions frozen as revision manifests before the watermark schema."""
+    return saved.filters.get("watermark")
 
 
 def feed_groups(s: Session, page_ids: list[str], kind: str, order: str) -> list[dict]:
@@ -1035,11 +1053,12 @@ def feed_groups(s: Session, page_ids: list[str], kind: str, order: str) -> list[
 
 
 def feed(s: Session, session_id: str = "", cursor: str = "", kind: str = "all", order="transaction") -> dict:
-    """Return twenty immutable company/date groups; session creation is local only."""
+    """Return twenty company/date groups of one reading session; session creation is local only."""
+    from iirp.feed_index import PAGE_SIZE, decode_cursor, encode_cursor, listing
+
     _matches({}, kind)
     if order not in {"transaction", "accepted"}:
         raise ValueError("请选择实际交易日期或最近披露排序")
-    offset = _offset(cursor)
     if session_id:
         saved = _session(s, session_id, "feed")
         if "order" not in saved.filters:
@@ -1047,15 +1066,23 @@ def feed(s: Session, session_id: str = "", cursor: str = "", kind: str = "all", 
         if saved.filters.get("kind") != kind or saved.filters.get("order", "accepted") != order:
             raise ValueError("筛选已变化，请创建新的阅读快照。")
     else:
-        revisions = latest_feed_metadata(s, kind, order)
-        from iirp.feed_snapshots import freeze_feed_session
+        saved = open_feed_session(s, kind, order)
+    watermark = feed_watermark(saved)
+    if watermark is None:
+        # Manifest sessions from before the upgrade stay readable until they expire.
+        from iirp.feed_snapshots import session_revision_ids
 
-        saved = freeze_feed_session(s, [revision["id"] for revision in revisions],
-                                    {"purpose": "feed", "kind": kind, "order": order, "as_of": now().isoformat()})
-    from iirp.feed_snapshots import session_revision_ids
-
-    revision_ids = session_revision_ids(s, saved)
-    groups = feed_groups(s, revision_ids[offset : offset + 20], kind, order)
+        offset = _offset(cursor)
+        revision_ids = session_revision_ids(s, saved)
+        page_ids, total = revision_ids[offset : offset + 20], len(revision_ids)
+        next_cursor = str(offset + 20) if offset + 20 < total else None
+    else:
+        entries = listing(s, watermark, _canonical_kind(kind), order,
+                          after=decode_cursor(cursor) if cursor else None)
+        page = entries[:PAGE_SIZE]
+        page_ids, total = [entry[2] for entry in page], saved.filters["total_groups"]
+        next_cursor = encode_cursor(page[-1][0]) if len(entries) > PAGE_SIZE else None
+    groups = feed_groups(s, page_ids, kind, order)
     pending = (
         s.scalar(select(func.count()).select_from(Filing).where(Filing.current_version.is_(None), Filing.visible.is_(True)))
         or 0
@@ -1073,10 +1100,10 @@ def feed(s: Session, session_id: str = "", cursor: str = "", kind: str = "all", 
         "order": order,
         "session_id": saved.id,
         "as_of": saved.filters["as_of"],
-        "next_cursor": str(offset + 20) if offset + 20 < len(revision_ids) else None,
-        "total_groups": len(revision_ids),
+        "next_cursor": next_cursor,
+        "total_groups": total,
         "data_status": "AVAILABLE"
-        if revision_ids
+        if total
         else "NOT_FETCHED"
         if pending == 0
         else "PARTIAL",
@@ -1095,20 +1122,28 @@ def feed_group(
     saved, offset = _session(s, session_id, "feed"), _offset(cursor.removeprefix("g:"))
     if not 1 <= limit <= 20:
         raise ValueError("每页明细最多 20 条。")
-    from iirp.feed_snapshots import session_revision_ids
+    watermark = feed_watermark(saved)
+    if watermark is not None:
+        from iirp.feed_index import group_revision, in_listing
 
-    visible_ids = set(session_revision_ids(s, saved))
-    revision_id = next(
-        (
-            value
-            for value in s.scalars(
-                select(FeedRevision.id).where(FeedRevision.group_key == group_id)
-            )
-            if value in visible_ids
-        ),
-        None,
-    )
-    revision = s.get(FeedRevision, revision_id) if revision_id else None
+        row = group_revision(s, watermark, group_id)
+        kind, order = _canonical_kind(saved.filters["kind"]), saved.filters.get("order", "accepted")
+        revision = s.get(FeedRevision, row.id) if row is not None and in_listing(row, kind, order) else None
+    else:
+        from iirp.feed_snapshots import session_revision_ids
+
+        visible_ids = set(session_revision_ids(s, saved))
+        revision_id = next(
+            (
+                value
+                for value in s.scalars(
+                    select(FeedRevision.id).where(FeedRevision.group_key == group_id)
+                )
+                if value in visible_ids
+            ),
+            None,
+        )
+        revision = s.get(FeedRevision, revision_id) if revision_id else None
     if revision is None:
         raise ValueError("本阅读快照中没有该公司组。")
     rows = _ordered_rows([row for row in revision.data["transactions"] if _matches(row, saved.filters["kind"])], saved.filters.get("order", "accepted"))

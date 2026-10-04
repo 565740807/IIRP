@@ -793,7 +793,7 @@ export function Feed() {
         </select></label>
         <div className="button-row">
           <Button variant="ghost" disabled={busy || !stream || stream.recoveryUnknown} onClick={() => void applyUpdates()}>
-            {busy ? "正在更新…" : stream?.pendingMerge ? "继续合并更新" : Number(updates.data?.new_count) > 0 ? `有 ${updates.data!.new_count} 条更新 · 查看` : "刷新列表"}
+            {busy ? "正在更新…" : stream?.pendingMerge ? "继续合并更新" : Number(updates.data?.new_count) > 0 ? `有 ${updates.data!.new_count} 条新内容 · 查看` : "刷新列表"}
           </Button>
         </div>
       </div>
