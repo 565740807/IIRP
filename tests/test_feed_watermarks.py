@@ -5,7 +5,7 @@ Commits happen between steps where the behaviour depends on other transactions.
 """
 
 import json
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
 
 import pytest
 from alembic import command
@@ -28,11 +28,14 @@ from test_sec_facts import FIXTURE, clean, isolated_database, save  # noqa: F401
 
 FIRST_DAY = date(2026, 6, 1)
 
+CUTOFF = datetime(2026, 8, 21, tzinfo=timezone.utc)
 
-def publish(s, index, *, day, transaction, code=b"P"):
+
+def publish(s, index, *, day, transaction, code=b"P", shares=b"100000"):
     """One synthetic Form 4 accepted on ``day``; one group per issuer and day."""
     xml = (FIXTURE.read_bytes()
            .replace(b"2026-08-31", transaction.isoformat().encode())
+           .replace(b"100000", shares)
            .replace(b"<transactionCode>P</transactionCode>",
                     b"<transactionCode>" + code + b"</transactionCode>"))
     save(s, xml=xml, accession=f"0000000123-26-{index:06}", accepted=f"{day.isoformat()}T18:00:00-04:00")
@@ -67,9 +70,10 @@ def test_keyset_pages_never_shift_while_new_filings_publish():
     with session() as s, s.begin():
         # A newest group (would lead page 1), a page-3 group revised with another
         # trade, and a late disclosure of an old trade landing inside page 2.
-        publish(s, 100, day=date(2026, 9, 20), transaction=date(2026, 9, 19))
-        publish(s, 101, day=third_day, transaction=third_day)
-        publish(s, 102, day=date(2026, 9, 21), transaction=FIRST_DAY + timedelta(days=20))
+        # Distinct share counts: none of these may look like a duplicate filing.
+        publish(s, 100, day=date(2026, 9, 20), transaction=date(2026, 9, 19), shares=b"700")
+        publish(s, 101, day=third_day, transaction=third_day, shares=b"701")
+        publish(s, 102, day=date(2026, 9, 21), transaction=FIRST_DAY + timedelta(days=20), shares=b"702")
     with session() as s, s.begin():
         pages = read_all(s, opened)
         assert ids(pages) == reference
@@ -116,7 +120,7 @@ def test_reading_sessions_store_only_a_watermark_and_never_a_manifest():
         assert s.scalar(select(func.count()).select_from(FeedManifest)) == 0
         for saved in s.scalars(select(FeedSession)):
             assert saved.revision_ids == [] and saved.manifest_hash is None
-            assert set(saved.filters["watermark"]) == {"seq", "snapshot"}
+            assert set(saved.filters["watermark"]) <= {"seq", "snapshot", "own"}
             assert len(json.dumps(saved.filters)) < 1000
 
 
@@ -147,7 +151,7 @@ def test_migration_backfills_pointers_from_each_groups_newest_revision():
     with session() as s, s.begin():
         assert s.scalar(select(func.count()).select_from(FeedGroupCurrent)) == 2
         assert s.scalar(select(func.count()).select_from(FeedRevision).where(FeedRevision.seq.is_not(None))) == 0
-        joint = s.scalar(select(FeedRevision).where(FeedRevision.accepted_at < "2026-08-21")
+        joint = s.scalar(select(FeedRevision).where(FeedRevision.accepted_at < CUTOFF)
                          .order_by(FeedRevision.created_at.desc()).limit(1))
         assert s.get(FeedGroupCurrent, joint.group_key).revision_id == joint.id
         keys = {(row.kind, row.sort_order): row.sort_key for row in s.scalars(

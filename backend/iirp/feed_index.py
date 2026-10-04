@@ -21,7 +21,7 @@ from sqlalchemy import column as sql_column
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.types import DateTime
 
-from iirp.business_models import FeedGroupCurrent, FeedGroupOrder, FeedRevision, PGSnapshot
+from iirp.business_models import XID8, FeedGroupCurrent, FeedGroupOrder, FeedRevision, PGSnapshot
 
 ORDERS = ("transaction", "accepted")
 PAGE_SIZE = 20
@@ -57,33 +57,51 @@ def revision_sort_keys(match_kinds, sort_dates, row_count):
 
 
 def new_watermark(s):
-    snapshot, seq = s.execute(text(
+    """Sequence value, snapshot and (if any) the opening transaction's own id.
+
+    A snapshot never shows its own transaction as committed, yet revisions that
+    transaction wrote before opening the session belong to it; ``own`` covers
+    them, and anything it writes later has a higher sequence value.
+    """
+    snapshot, seq, own = s.execute(text(
         "SELECT pg_current_snapshot()::text, "
-        "(SELECT CASE WHEN is_called THEN last_value ELSE 0 END FROM feed_revision_seq)"
+        "(SELECT CASE WHEN is_called THEN last_value ELSE 0 END FROM feed_revision_seq), "
+        "pg_current_xact_id_if_assigned()::text"
     )).one()
-    return {"seq": int(seq), "snapshot": snapshot}
+    return {"seq": int(seq), "snapshot": snapshot, **({"own": own} if own else {})}
 
 
 def _snapshot(watermark):
     return cast(watermark["snapshot"], PGSnapshot())
 
 
+def _xid_visible(column, watermark):
+    terms = [column.is_(None), func.pg_visible_in_snapshot(column, _snapshot(watermark))]
+    if watermark.get("own"):
+        terms.append(column == cast(watermark["own"], XID8()))
+    return or_(*terms)
+
+
+def _xid_after(column, watermark):
+    """Written by a transaction still running (or not begun) at the snapshot."""
+    snapshot = _snapshot(watermark)
+    terms = [column >= func.pg_snapshot_xmin(snapshot), ~func.pg_visible_in_snapshot(column, snapshot)]
+    if watermark.get("own"):
+        terms.append(column != cast(watermark["own"], XID8()))
+    return and_(*terms)
+
+
 def visible(table, watermark):
     """SQL predicate: this revision (or index row of one) belongs to the watermark."""
-    return and_(
-        or_(table.seq.is_(None), table.seq <= watermark["seq"]),
-        or_(table.xid.is_(None), func.pg_visible_in_snapshot(table.xid, _snapshot(watermark))),
-    )
+    return and_(or_(table.seq.is_(None), table.seq <= watermark["seq"]),
+                _xid_visible(table.xid, watermark))
 
 
 def changed_groups(s, watermark):
     """Groups whose current revision is newer than the watermark (usually a handful)."""
-    current, snapshot = FeedGroupCurrent, _snapshot(watermark)
+    current = FeedGroupCurrent
     return set(s.scalars(select(current.group_key).where(or_(
-        current.seq > watermark["seq"],
-        and_(current.xid >= func.pg_snapshot_xmin(snapshot),
-             ~func.pg_visible_in_snapshot(current.xid, snapshot)),
-    ))))
+        current.seq > watermark["seq"], _xid_after(current.xid, watermark)))))
 
 
 def asof_revisions(s, watermark, group_keys):
@@ -184,11 +202,9 @@ def delta(s, base, target, kind, order):
     Deterministic for a fixed pair, so offset pages over it never shift.
     Returns (changed entries [(key, group_key, revision_id)], removed group keys).
     """
-    revision, snapshot = FeedRevision, _snapshot(base)
+    revision = FeedRevision
     candidates = set(s.scalars(select(revision.group_key).where(
-        or_(revision.seq > base["seq"],
-            and_(revision.xid >= func.pg_snapshot_xmin(snapshot),
-                 ~func.pg_visible_in_snapshot(revision.xid, snapshot))),
+        or_(revision.seq > base["seq"], _xid_after(revision.xid, base)),
         visible(revision, target),
     )))
     return _compare(candidates, asof_revisions(s, base, candidates),
