@@ -100,7 +100,14 @@ export function PolicyControl({ full = false }: { full?: boolean }) {
             {full && (
               <p>
                 {p.enabled ? "自动更新已开启" : "自动更新已关闭"}
-                {p.next_run_at && <> · 下次 <Timestamp value={p.next_run_at} /></>}
+                {p.next_run_at && !p.blocked_reason && (
+                  <> · 下次 <Timestamp value={p.next_run_at} /></>
+                )}
+              </p>
+            )}
+            {p.enabled && p.blocked_reason && (
+              <p className="notice notice-warning" role="status">
+                {p.blocked_reason}
               </p>
             )}
           </div>

@@ -2,6 +2,7 @@
 from datetime import timedelta
 from uuid import uuid4
 
+import pytest
 from iirp import lifecycle
 from iirp.business_models import Batch, CollectionStrategy, RequestScope
 from iirp.contracts import CollectionInput
@@ -11,6 +12,13 @@ from iirp.queue import claim
 from iirp.sec_facts import _quarter_ranges, plan_sec_scope
 from sqlalchemy import select
 from test_lifecycle import clean_lifecycle, lifecycle_client, lifecycle_database  # noqa: F401
+
+
+@pytest.fixture(autouse=True)
+def sec_contact_configured(monkeypatch):
+    """Scheduling needs a real SEC contact; fetch_sec keeps its own check (CI has none)."""
+    monkeypatch.setattr("iirp.freshness.sec_configured", lambda: True)
+    monkeypatch.setattr("iirp.maintenance.sec_configured", lambda: True)
 
 
 def request(kind, **changes):

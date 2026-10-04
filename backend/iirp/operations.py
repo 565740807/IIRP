@@ -27,7 +27,34 @@ class ProviderFailure(Exception):
         self.source_wait = source_wait
 
 
+# Callers claim a slot up to LEAD seconds ahead and never closer than FLOOR, so
+# commit latency does not delay the request; one that still misses its slot by
+# more than GRACE takes a fresh one.
+SEC_SLOT_LEAD = 0.25
+SEC_SLOT_FLOOR = 0.1
+SEC_SLOT_GRACE = 0.025
+SEC_STALE_SLOTS = 20
+
+
+def sec_request_interval():
+    """Seconds between SEC request slots across every worker, lane and process.
+
+    A request starts within SEC_SLOT_GRACE of its slot, so slots are spaced by
+    (1 + 2 * grace) / rate: no one-second window can then hold more than
+    ``sec_requests_per_second`` request starts, even when one start is late.
+    """
+    from iirp.profiles import profiles
+
+    rate = float(profiles()["normal_usage"]["sec_requests_per_second"])
+    if not 0 < rate <= 10:
+        raise ValueError("sec_requests_per_second 必须在 (0, 10] 内（SEC 上限每秒 10 次）")
+    return (1 + 2 * SEC_SLOT_GRACE) / rate
+
+
 def reserve_sec():
+    """Claim the next shared SEC slot (a near-future instant) and return it."""
+    interval = timedelta(seconds=sec_request_interval())
+    floor = timedelta(seconds=SEC_SLOT_FLOOR)
     while True:
         with session() as s, s.begin():
             s.execute(
@@ -36,13 +63,28 @@ def reserve_sec():
                 .on_conflict_do_nothing()
             )
             budget = s.get(SourceBudget, "sec", with_for_update=True)
-            wait = (budget.next_allowed_at - now()).total_seconds()
-            if wait <= 0:
-                budget.next_allowed_at = now() + timedelta(seconds=0.5)
-                return
+            current = now()
+            wait = (budget.next_allowed_at - current).total_seconds()
+            if wait <= SEC_SLOT_LEAD:
+                slot = max(budget.next_allowed_at, current + floor)
+                budget.next_allowed_at = slot + interval
+                return slot
             if wait > 2:
                 raise ProviderFailure("SEC 共享来源冷却中", wait, source_wait=True)
-        time.sleep(max(0.01, wait))
+        time.sleep(max(0.01, wait - SEC_SLOT_LEAD))
+
+
+def wait_for_sec_slot():
+    """Return once a request may start now: at its own slot, never late."""
+    for _ in range(SEC_STALE_SLOTS):
+        slot = reserve_sec()
+        delay = (slot - now()).total_seconds()
+        if delay > 0:
+            time.sleep(delay)
+        # A late start could bunch with the next caller's slot; take a fresh one.
+        if (now() - slot).total_seconds() <= SEC_SLOT_GRACE:
+            return
+    raise ProviderFailure("SEC 请求时隙连续过期，稍后重试", 60, source_wait=True)
 
 
 def fetch_sec(url):
@@ -53,13 +95,16 @@ def fetch_sec(url):
 
     if not sec_configured():
         raise ProviderFailure("SEC 联系信息未配置", 900)
-    reserve_sec()
     with httpx.Client(timeout=httpx.Timeout(15, connect=5), follow_redirects=False) as client:
-        with client.stream(
+        # Build everything first so the request starts right at its reserved slot.
+        request = client.build_request(
             "GET",
             url,
             headers={"User-Agent": settings().sec_user_agent, "Accept-Encoding": "gzip, deflate"},
-        ) as response:
+        )
+        wait_for_sec_slot()
+        response = client.send(request, stream=True)
+        try:
             if response.status_code in (403, 429):
                 value = response.headers.get("Retry-After", "")
                 try:
@@ -88,6 +133,8 @@ def fetch_sec(url):
                 if size > 64 * 1024**2:
                     raise ProviderFailure("SEC 单文件超过 64 MiB 操作预算，需拆分清单", 900)
                 chunks.append(chunk)
+        finally:
+            response.close()
     return b"".join(chunks)
 
 

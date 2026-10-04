@@ -33,6 +33,7 @@ from iirp.config import ROOT, settings
 from iirp.db import session
 from iirp.feed_snapshots import cleanup_feed_manifests
 from iirp.models import ACTIVE, Job, now
+from iirp.providers import sec_configured
 
 LOG_BYTES = 5 * 1024**2
 LOG_COPIES = 5
@@ -547,6 +548,10 @@ def schedule_tick():
         ).all()
         for policy in strategies:
             request_id = f"auto:{policy.key}:{uuid.uuid4()}"
+            if policy.key == "sec" and not sec_configured():
+                # Stay enabled but idle: no SEC history round without a real contact.
+                policy.next_run_at = current + timedelta(minutes=5)
+                continue
             if policy.key == "sec":
                 _sec_schedule(s, policy, current, request_id)
             elif policy.key in ("market", "earnings"):

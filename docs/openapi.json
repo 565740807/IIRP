@@ -8790,6 +8790,33 @@
         ],
         "title": "ScopeView"
       },
+      "SecUserAgentState": {
+        "properties": {
+          "configured": {
+            "type": "boolean",
+            "title": "Configured"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "CONFIGURED",
+              "NEEDS_CONFIG"
+            ],
+            "title": "Status"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          }
+        },
+        "type": "object",
+        "required": [
+          "configured",
+          "status",
+          "message"
+        ],
+        "title": "SecUserAgentState"
+      },
       "StrategyInput": {
         "properties": {
           "key": {
@@ -8874,6 +8901,17 @@
               }
             ],
             "title": "Last Run At"
+          },
+          "blocked_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Blocked Reason"
           }
         },
         "type": "object",
@@ -8908,6 +8946,9 @@
             "type": "string",
             "title": "Automatic Collection Scope"
           },
+          "sec_user_agent": {
+            "$ref": "#/components/schemas/SecUserAgentState"
+          },
           "storage": {
             "additionalProperties": true,
             "type": "object",
@@ -8921,6 +8962,7 @@
           "worker",
           "migration",
           "automatic_collection_scope",
+          "sec_user_agent",
           "storage"
         ],
         "title": "SystemOutput"

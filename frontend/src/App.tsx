@@ -285,6 +285,15 @@ function SystemPanel({ open, close }: { open: boolean; close: () => void }) {
               </dd>
               <dt>最近心跳</dt>
               <dd><Timestamp value={query.data.worker.last_seen} /></dd>
+              <dt>SEC User-Agent</dt>
+              <dd>
+                <i
+                  className={`status-dot ${query.data.sec_user_agent?.configured ? "green" : "amber"}`}
+                />
+                {query.data.sec_user_agent?.configured
+                  ? "已配置"
+                  : (query.data.sec_user_agent?.message ?? "需配置 SEC User-Agent")}
+              </dd>
               <dt>可用磁盘</dt>
               <dd>
                 {typeof query.data.storage.free_bytes === "number"

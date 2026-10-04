@@ -17,7 +17,7 @@ from iirp.config import ROOT, settings
 from iirp.contracts import FeedOutput, GenericOutput, HomeOutput, SystemOutput
 from iirp.db import session
 from iirp.models import Coverage, Job, Policy, SourceObject
-from iirp.providers import sec_configured
+from iirp.providers import sec_configured, sec_user_agent_state
 from iirp.queue import (
     control,
     create_job,
@@ -367,6 +367,7 @@ def system():
         "worker": worker,
         "migration": migration,
         "automatic_collection_scope": "最新数据优先；历史默认 3 个月可修改，各来源可独立暂停",
+        "sec_user_agent": sec_user_agent_state(),
         "storage": __import__("iirp.maintenance", fromlist=["storage_state"]).storage_state(),
     }
 

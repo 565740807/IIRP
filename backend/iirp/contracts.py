@@ -268,6 +268,8 @@ class StrategyView(BaseModel):
     options: dict[str, Any]
     next_run_at: datetime | None = None
     last_run_at: datetime | None = None
+    # Enabled but unable to run, e.g. SEC without a real contact User-Agent.
+    blocked_reason: str | None = None
 
 
 class StrategyInput(Strict):
@@ -383,12 +385,19 @@ class HomeOutput(BaseModel):
     notice: str
 
 
+class SecUserAgentState(BaseModel):
+    configured: bool
+    status: Literal["CONFIGURED", "NEEDS_CONFIG"]
+    message: str
+
+
 class SystemOutput(BaseModel):
     version: str
     mode: str
     worker: dict[str, Any]
     migration: str
     automatic_collection_scope: str
+    sec_user_agent: SecUserAgentState
     storage: dict[str, Any]
 
 
