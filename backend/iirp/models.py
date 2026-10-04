@@ -65,6 +65,7 @@ class Job(Base):
             postgresql_where=text("kind = 'sec_document'"),
         ),
         Index("ix_job_kind_status_finished", "kind", "status", "finished_at"),
+        Index("ix_job_created_id", created_at.desc(), id.desc()),
         Index(
             "ix_job_sec_claim_stamp",
             "kind",

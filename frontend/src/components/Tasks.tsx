@@ -12,10 +12,13 @@ import {
 } from "lucide-react";
 import {
   activeStatuses,
+  JOB_PAGE_SIZE,
   statusLabels,
+  useJob,
   useJobAction,
   useJobs,
   type Job,
+  type JobDetail as JobDetailData,
 } from "../api";
 import {
   Button,
@@ -117,8 +120,8 @@ export function JobDetail({
   open: boolean;
   onClose: () => void;
 }) {
-  const jobs = useJobs();
-  const current = jobs.data?.items.find((item) => item.id === job.id) ?? job;
+  const detail = useJob(job.id);
+  const current: Job & Partial<JobDetailData> = detail.data ?? job;
   return (
     <Modal
       open={open}
@@ -196,22 +199,30 @@ export function JobDetail({
           )}
         </div>
       )}
+      <ErrorNotice error={detail.error} retry={detail.refetch} />
       <details className="diagnostic">
         <summary>任务诊断</summary>
         <p>任务 ID：{current.id}</p>
-        <pre>
-          {JSON.stringify(
-            { checkpoint: current.checkpoint, result: current.result },
-            null,
-            2,
-          )}
-        </pre>
+        {detail.data ? (
+          <pre>
+            {JSON.stringify(
+              { checkpoint: current.checkpoint, result: current.result },
+              null,
+              2,
+            )}
+          </pre>
+        ) : (
+          <Loading label="读取任务详情…" />
+        )}
       </details>
     </Modal>
   );
 }
 export function TaskList({ compact = false }: { compact?: boolean }) {
-  const query = useJobs();
+  // Cursor stack: index 0 is the newest page; older pages follow next_cursor.
+  const [cursors, setCursors] = useState<string[]>([""]);
+  const page = cursors.length - 1;
+  const query = useJobs(cursors[page]);
   const [selected, setSelected] = useState<Job | null>(null);
   return (
     <>
@@ -313,6 +324,30 @@ export function TaskList({ compact = false }: { compact?: boolean }) {
                     ))}
                   </tbody>
                 </table>
+              </div>
+            )}
+            {(page > 0 || query.data.next_cursor) && (
+              <div className="pagination">
+                <span>第 {page + 1} 页 · 每页 {JOB_PAGE_SIZE} 个任务</span>
+                <div className="button-row">
+                  <Button
+                    variant="ghost"
+                    disabled={page === 0}
+                    onClick={() => setCursors(cursors.slice(0, -1))}
+                  >
+                    较新的任务
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    disabled={!query.data.next_cursor}
+                    onClick={() =>
+                      query.data?.next_cursor &&
+                      setCursors([...cursors, query.data.next_cursor])
+                    }
+                  >
+                    更早的任务
+                  </Button>
+                </div>
               </div>
             )}
           </>
