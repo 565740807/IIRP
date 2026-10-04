@@ -39,7 +39,9 @@ install -m 600 deploy/.env.example deploy/.env
 ./iirp stop     # 停止服务，保留数据卷
 ```
 
-`deploy/.env` 含私有配置，已被 `.gitignore` 忽略，不要提交。正常采集策略默认关闭，需要在界面按来源启用；默认的采集与回补范围在 [`config/collection-defaults.toml`](config/collection-defaults.toml)。
+`deploy/.env` 含私有配置，已被 `.gitignore` 忽略，不要提交。
+
+> **首次启动会立即开始自动更新。** 全新数据库中，SEC 申报和行情两项自动更新策略默认开启（财报、备份、维护默认关闭），worker 启动后几秒内就会向 SEC 和行情来源发请求，所以**启动前务必把 `IIRP_SEC_USER_AGENT` 填成含真实联系邮箱的值**。可在首页的“SEC 申报”开关或“数据与任务”页关闭自动更新。默认的采集与回补范围在 [`config/collection-defaults.toml`](config/collection-defaults.toml)。
 
 ## 数据来源与使用条款
 

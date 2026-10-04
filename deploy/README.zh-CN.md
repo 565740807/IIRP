@@ -9,6 +9,8 @@
 ```sh
 install -m 600 deploy/.env.example deploy/.env
 # 在编辑器中填写 URL-safe 随机 IIRP_DB_PASSWORD 及已授权的 SEC 联系信息。
+# 注意：SEC 和行情自动更新在全新数据库中默认开启，启动后立即向外部来源请求，
+# 因此 IIRP_SEC_USER_AGENT 必须填真实联系邮箱。
 # 不把填写后的内容粘贴到日志、Issue 或版本库。
 ./iirp build --pull --no-cache
 ./iirp start
