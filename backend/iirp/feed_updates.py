@@ -9,9 +9,18 @@ from sqlalchemy import case, func, select, true
 
 from iirp.business_models import FeedRevision, Filing, Issuer
 from iirp.db import session
-from iirp.feed_snapshots import freeze_feed_session, session_revision_ids
+from iirp.feed_index import delta, listing, pending
+from iirp.feed_snapshots import session_revision_ids
 from iirp.models import Job, now
-from iirp.sec_facts import _offset, _session, feed_groups, latest_feed_metadata
+from iirp.sec_facts import (
+    _canonical_kind,
+    _offset,
+    _session,
+    feed_groups,
+    feed_watermark,
+    latest_feed_metadata,
+    open_feed_session,
+)
 
 router = APIRouter()
 
@@ -118,43 +127,62 @@ def _metadata_for_session(s, saved):
     return [by_id[key] for key in revision_ids]
 
 
+def _version(changed, removed):
+    identity = [f"{group_key}:{revision_id}" for _, group_key, revision_id in changed]
+    return sha256("\n".join(identity + ["-" + key for key in removed]).encode()).hexdigest()
+
+
+def _legacy_changes(s, saved, kind, order, target):
+    """Pre-watermark sessions: compare their frozen manifest with current/target state."""
+    previous = {row["group_key"]: row["id"] for row in _metadata_for_session(s, saved)}
+    if target is None:
+        latest = [(None, row["group_key"], row["id"]) for row in latest_feed_metadata(s, kind, order)]
+    else:
+        latest = listing(s, feed_watermark(target), _canonical_kind(kind), order, limit=None)
+    current = {group_key for _, group_key, _ in latest}
+    changed = [entry for entry in latest if previous.get(entry[1]) != entry[2]]
+    return changed, [key for key in previous if key not in current]
+
+
 def feed_updates(s, session_id, *, include_groups=False, target_session_id="", cursor=""):
     saved = _session(s, session_id, "feed")
     kind, order = saved.filters["kind"], saved.filters.get("order", "accepted")
-    before = _metadata_for_session(s, saved)
-    previous = {row["group_key"]: row["id"] for row in before}
+    base = feed_watermark(saved)
+
+    def changes(target):
+        if base is None:
+            return _legacy_changes(s, saved, kind, order, target)
+        if target is None:
+            return pending(s, base, _canonical_kind(kind), order)
+        return delta(s, base, feed_watermark(target), _canonical_kind(kind), order)
+
     if target_session_id:
         if not include_groups:
             raise ValueError("增量分页需要读取更新内容。")
         target = _session(s, target_session_id, "feed")
         if target.filters.get("delta_from") != saved.id:
             raise ValueError("更新游标与原阅读快照不匹配。")
-        latest = _metadata_for_session(s, target)
     else:
         if cursor:
             raise ValueError("增量分页缺少目标快照。")
-        latest = latest_feed_metadata(s, kind, order)
         target = None
-    current = {row["group_key"]: row["id"] for row in latest}
-    changed = [row for row in latest if previous.get(row["group_key"]) != row["id"]]
-    removed = [key for key in previous if key not in current]
+    changed, removed = changes(target)
     offset = _offset(cursor)
-    # Freeze all delta pages on the first content read. Facts arriving between
-    # pages belong to a subsequent update, never shift this cursor's boundary.
+    # The first content read opens a target watermark; every delta page is then
+    # computed between the same two watermarks and never shifts its boundary.
     if include_groups and target is None and (changed or removed):
-        target = freeze_feed_session(s, [row["id"] for row in latest],
-                                     {"purpose": "feed", "kind": kind, "order": order,
-                                      "as_of": now().isoformat(), "delta_from": saved.id})
+        target = open_feed_session(s, kind, order, delta_from=saved.id)
+        changed, removed = changes(target)
     summary, preview = pending_feed_metadata(s, preview=include_groups and offset == 0)
     page = changed[offset:offset + 20]
     return {
         "session_id": saved.id,
         "target_session_id": target.id if target else saved.id,
-        "version": sha256("\n".join(row["id"] for row in latest).encode()).hexdigest(),
+        "version": _version(changed, removed),
         "new_count": len(changed) + len(removed),
-        "changed_ids": [row["group_key"] for row in (page if include_groups else changed[:100])],
+        "changed_ids": [group_key for _, group_key, _ in (page if include_groups else changed[:100])],
         "removed_ids": removed if include_groups and offset == 0 else [],
-        "groups": feed_groups(s, [row["id"] for row in page], kind, order) if include_groups else [],
+        "groups": feed_groups(s, [revision_id for _, _, revision_id in page], kind, order) if include_groups else [],
         "next_cursor": str(offset + 20) if include_groups and offset + 20 < len(changed) else None,
         "as_of": target.filters["as_of"] if target else saved.filters["as_of"],
         "pending_summary": summary,
