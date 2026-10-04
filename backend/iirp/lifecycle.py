@@ -1737,12 +1737,18 @@ def update_preferences(values):
 
 
 def get_strategies():
+    from iirp.providers import SEC_USER_AGENT_HINT, sec_configured
+
+    blocked = {} if sec_configured() else {"sec": SEC_USER_AGENT_HINT}
     with session() as s:
         return {
             "items": [
                 {
-                    k: getattr(p, k)
-                    for k in ("key", "enabled", "version", "options", "next_run_at", "last_run_at")
+                    **{
+                        k: getattr(p, k)
+                        for k in ("key", "enabled", "version", "options", "next_run_at", "last_run_at")
+                    },
+                    "blocked_reason": blocked.get(p.key),
                 }
                 for p in s.scalars(select(CollectionStrategy).order_by(CollectionStrategy.key))
             ]

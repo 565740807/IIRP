@@ -3014,6 +3014,18 @@ export interface components {
                 [key: string]: unknown;
             };
         };
+        /** SecUserAgentState */
+        SecUserAgentState: {
+            /** Configured */
+            configured: boolean;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "CONFIGURED" | "NEEDS_CONFIG";
+            /** Message */
+            message: string;
+        };
         /** StrategyInput */
         StrategyInput: {
             /**
@@ -3045,6 +3057,8 @@ export interface components {
             next_run_at?: string | null;
             /** Last Run At */
             last_run_at?: string | null;
+            /** Blocked Reason */
+            blocked_reason?: string | null;
         };
         /** SystemOutput */
         SystemOutput: {
@@ -3060,6 +3074,7 @@ export interface components {
             migration: string;
             /** Automatic Collection Scope */
             automatic_collection_scope: string;
+            sec_user_agent: components["schemas"]["SecUserAgentState"];
             /** Storage */
             storage: {
                 [key: string]: unknown;

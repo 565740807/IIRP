@@ -26,7 +26,7 @@ IIRP 是一个在本机运行的美股投资研究工具，面向电脑浏览器
 ```sh
 git clone <本仓库地址> iirp && cd iirp
 install -m 600 deploy/.env.example deploy/.env
-# 编辑 deploy/.env：填写随机的 IIRP_DB_PASSWORD，以及含联系邮箱的 IIRP_SEC_USER_AGENT
+# 编辑 deploy/.env：填写随机的 IIRP_DB_PASSWORD，以及含真实联系邮箱的 IIRP_SEC_USER_AGENT（未配置时 SEC 不运行）
 ./iirp build
 ./iirp start
 ```
@@ -41,7 +41,7 @@ install -m 600 deploy/.env.example deploy/.env
 
 `deploy/.env` 含私有配置，已被 `.gitignore` 忽略，不要提交。
 
-> **首次启动会立即开始自动更新。** 全新数据库中，SEC 申报和行情两项自动更新策略默认开启（财报、备份、维护默认关闭），worker 启动后几秒内就会向 SEC 和行情来源发请求，所以**启动前务必把 `IIRP_SEC_USER_AGENT` 填成含真实联系邮箱的值**。可在首页的“SEC 申报”开关或“数据与任务”页关闭自动更新。默认的采集与回补范围在 [`config/collection-defaults.toml`](config/collection-defaults.toml)。
+> **首次启动会立即开始自动更新。** 全新数据库中，SEC 申报和行情两项自动更新策略默认开启（财报、备份、维护默认关闭），行情在 worker 启动后几秒内就会开始请求。**SEC 只有在 `IIRP_SEC_USER_AGENT` 含真实联系邮箱时才会自动运行**：留空、保留模板值（`IIRP contact@example.invalid`）或使用 RFC 2606 保留域名（`example.com/.org/.net`、`*.test`、`*.invalid`、`*.localhost`、`*.example`）时，不向 SEC 发任何请求，页面顶部的更新状态、“数据与任务”的自动更新开关和系统状态面板（以及 `/api/v1/system` 的 `sec_user_agent`）会显示“需配置 SEC User-Agent”。填好后执行 `./iirp restart` 生效。所有 SEC 请求共用一个全局限速（`config/collection-defaults.toml` 的 `sec_requests_per_second`，默认任意 1 秒内最多 2 次）。可在“数据与任务”页按来源关闭自动更新。默认的采集与回补范围在 [`config/collection-defaults.toml`](config/collection-defaults.toml)。
 
 ## 数据来源与使用条款
 

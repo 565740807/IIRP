@@ -1,6 +1,7 @@
 # Bounded latest rounds retain durable subscriptions; synthetic isolated DB only.
 from datetime import timedelta
 
+import pytest
 from iirp import lifecycle
 from iirp.business_models import Batch, BatchJob, CollectionStrategy, RequestScope
 from iirp.db import session
@@ -8,6 +9,13 @@ from iirp.freshness import ensure_fresh, source_status
 from iirp.models import Job, now
 from sqlalchemy import func, select
 from test_lifecycle import clean_lifecycle, lifecycle_database  # noqa: F401
+
+
+@pytest.fixture(autouse=True)
+def sec_contact_configured(monkeypatch):
+    """Scheduling needs a real SEC contact; fetch_sec keeps its own check (CI has none)."""
+    monkeypatch.setattr("iirp.freshness.sec_configured", lambda: True)
+    monkeypatch.setattr("iirp.maintenance.sec_configured", lambda: True)
 
 
 def ready_head(batch_id, round_number):

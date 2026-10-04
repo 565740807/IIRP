@@ -16,14 +16,50 @@ from iirp.profiles import development_budget
 
 SEC_URL = f"https://www.sec.gov/cgi-bin/browse-edgar?action=getcurrent&owner=only&count={development_budget().sec_items_per_page}&start=0&output=atom"
 
+# The placeholder shipped in deploy/.env.example; a test keeps the two in sync.
+SEC_TEMPLATE_USER_AGENTS = frozenset({"IIRP contact@example.invalid"})
+SEC_USER_AGENT_HINT = (
+    "需配置 SEC User-Agent：在 deploy/.env 把 IIRP_SEC_USER_AGENT 设为含真实联系邮箱的值，"
+    "然后重启服务。未配置时不向 SEC 发请求。"
+)
+
+# RFC 2606 names (and subdomains) can never reach a real mailbox.
+RESERVED_TLDS = frozenset({"test", "invalid", "localhost", "example"})
+RESERVED_DOMAINS = frozenset({"example.com", "example.org", "example.net"})
+
+
+def _reserved_domain(domain):
+    labels = domain.lower().rstrip(".").split(".")
+    return labels[-1] in RESERVED_TLDS or ".".join(labels[-2:]) in RESERVED_DOMAINS
+
+
+def sec_contact_ok(value):
+    """True when the User-Agent carries a contact address SEC can actually reach."""
+    value = (value or "").strip()
+    if not value or value in SEC_TEMPLATE_USER_AGENTS:
+        return False
+    return any(
+        not _reserved_domain(match.group(1))
+        for match in re.finditer(r"[\w.+-]+@([\w-]+(?:\.[\w-]+)*\.[A-Za-z]{2,})", value)
+    )
+
 
 def sec_configured():
-    return bool(re.search(r"[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}", settings().sec_user_agent))
+    return sec_contact_ok(settings().sec_user_agent)
+
+
+def sec_user_agent_state():
+    configured = sec_configured()
+    return {
+        "configured": configured,
+        "status": "CONFIGURED" if configured else "NEEDS_CONFIG",
+        "message": "SEC User-Agent 已配置，自动更新可访问 SEC。" if configured else SEC_USER_AGENT_HINT,
+    }
 
 
 def sec_probe():
     if not sec_configured():
-        return {"ok": False, "message": "请在本地 .env 配置含真实联系邮箱的 SEC User-Agent。"}
+        return {"ok": False, "message": SEC_USER_AGENT_HINT}
     with httpx.Client(timeout=httpx.Timeout(15, connect=5), follow_redirects=False) as client:
         with client.stream(
             "GET",

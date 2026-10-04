@@ -153,6 +153,9 @@ def isolated(tmp_path, monkeypatch):
     monkeypatch.setenv("IIRP_RUNTIME_DIR", str(tmp_path))
     monkeypatch.setenv("IIRP_MIN_FREE_BYTES", "0")
     settings.cache_clear()
+    # SEC scheduling needs a real contact; fetch_sec keeps its own check (CI has none).
+    monkeypatch.setattr("iirp.freshness.sec_configured", lambda: True)
+    monkeypatch.setattr("iirp.maintenance.sec_configured", lambda: True)
     spec = importlib.util.spec_from_file_location(
         "maintenance_" + uuid.uuid4().hex, ROOT / "scripts/backup.py"
     )

@@ -63,6 +63,10 @@ def invoke(name, *args, **kwargs):
 
 @router.post("/collections", response_model=CollectionOutput, status_code=202)
 def create_collection(body: CollectionInput):
+    from iirp.providers import SEC_USER_AGENT_HINT, sec_configured
+
+    if body.kind.startswith("sec_") and not sec_configured():
+        raise HTTPException(409, SEC_USER_AGENT_HINT)
     return invoke("create_collection", body.model_dump(mode="json"))
 
 

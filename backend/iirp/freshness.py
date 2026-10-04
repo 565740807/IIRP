@@ -8,6 +8,7 @@ from sqlalchemy import case, func, select, text
 from iirp.business_models import Batch, BatchJob, CollectionStrategy, RequestScope
 from iirp.db import session
 from iirp.models import ACTIVE, Job, SourceBudget, now
+from iirp.providers import SEC_USER_AGENT_HINT, sec_configured
 
 SOURCE_KIND = {"sec": "sec_latest", "market": "market_quotes"}
 STAGES = {
@@ -72,8 +73,9 @@ def source_status(s, source, batch_id=None):
             Job.status.in_(("FAILED", "PARTIAL")), Job.error.is_not(None))
             .order_by(Job.finished_at.desc()).limit(1))
     paused = not policy or not policy.enabled or (batch and batch.status in ("PAUSED", "PAUSE_REQUESTED"))
+    needs_config = source == "sec" and not sec_configured()
     status = (
-        "paused" if paused else "checking" if executing else "waiting" if waiting or queued
+        "needs_config" if needs_config else "paused" if paused else "checking" if executing else "waiting" if waiting or queued
         else "error" if batch and batch.status in ("FAILED", "PARTIAL")
         else "checked" if checked else "not_checked"
     )
@@ -82,7 +84,7 @@ def source_status(s, source, batch_id=None):
         "last_checked_at": checked.isoformat() if checked else None,
         "retry_at": budget.next_allowed_at.isoformat() if waiting else None,
         "batch_id": batch.id if batch else None,
-        "stage": "自动更新已暂停" if paused else
+        "stage": "需配置 SEC User-Agent" if needs_config else "自动更新已暂停" if paused else
             STAGES.get(executing.kind, "处理数据") if executing else
             "等待来源恢复" if waiting else
             ("等待 SEC 通道" if source == "sec" else "等待 Yahoo 通道") if pending else
@@ -93,7 +95,7 @@ def source_status(s, source, batch_id=None):
         "pending_count": max(0, discovered - published) if source == "sec" else active_count,
         "data_as_of": data_as_of.isoformat() if hasattr(data_as_of, "isoformat") else data_as_of,
         "source_time": quote_time,
-        "error": error,
+        "error": SEC_USER_AGENT_HINT if needs_config else error,
         "progress": [{
             "job_id": j.id, "stage": STAGES.get(j.kind, "处理数据"),
             "status": j.status, "target": {k: v for k, v in j.target.items() if k in (
@@ -236,6 +238,9 @@ def ensure_fresh_in_session(s, values):
             policy.options = {"default_profile": "latest-first-v1"}
             policy.next_run_at = now()
         if not policy.enabled and not values.get("force", False):
+            continue
+        if source == "sec" and not sec_configured():
+            # The policy stays on; no SEC demand exists until a real contact is set.
             continue
         if source == "market":
             if values.get("market_visible"):
