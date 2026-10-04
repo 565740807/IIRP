@@ -9,7 +9,7 @@
   "socket_timeout_seconds": 5,
   "retries": 0,
   "application_memory_bytes": 805306368,
-  "postgres_memory_bytes": 805306368,
+  "postgres_memory_bytes": 2147483648,
   "sql_statement_timeout_ms": 5000,
   "sql_lock_timeout_ms": 500,
   "operation_input_bytes": 16777216,

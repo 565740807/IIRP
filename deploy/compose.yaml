@@ -16,7 +16,41 @@ services:
       timeout: 5s
       retries: 10
     restart: unless-stopped
-    mem_limit: 768m
+    # PGTune (PostgreSQL 18, web application, 2 GiB, 4 CPUs, 100 connections,
+    # HDD). The page cache counts toward mem_limit, so effective_cache_size
+    # assumes the remaining ~1.5 GiB of the container, not the host's memory.
+    command:
+      - postgres
+      - -c
+      - shared_buffers=512MB
+      - -c
+      - effective_cache_size=1536MB
+      - -c
+      - maintenance_work_mem=128MB
+      - -c
+      - work_mem=4MB
+      - -c
+      - wal_buffers=16MB
+      - -c
+      - min_wal_size=1GB
+      - -c
+      - max_wal_size=4GB
+      - -c
+      - checkpoint_completion_target=0.9
+      - -c
+      - random_page_cost=4
+      - -c
+      - effective_io_concurrency=2
+      - -c
+      - max_worker_processes=4
+      - -c
+      - max_parallel_workers_per_gather=2
+      - -c
+      - max_parallel_workers=4
+      - -c
+      - max_parallel_maintenance_workers=2
+    shm_size: 256m
+    mem_limit: 2g
   web:
     build:
       context: ..
