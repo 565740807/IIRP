@@ -29,6 +29,19 @@ const filters = [
   { id: "other", label: "其他行为" },
   { id: "all", label: "全部申报" },
 ];
+/** Reported transaction date later than its SEC acceptance date: kept, flagged, not sorted. */
+export function DateAnomaly({ row }: { row: Fact }) {
+  const anomaly = facts(row.date_anomaly);
+  if (!anomaly.label) return null;
+  return (
+    <small
+      className="date-anomaly"
+      title={`申报的交易日 ${display(anomaly.transaction_date)} 晚于 SEC 接受日 ${display(anomaly.accepted_date)}；原值保留，不参与按实际交易日排序和日期范围。`}
+    >
+      {String(anomaly.label)}
+    </small>
+  );
+}
 type CardReading = { open: boolean; page: number; cursors: string[] };
 type FeedStream = {
   removedIds?: string[];
@@ -228,6 +241,7 @@ export function TransactionTable({
               </td>
               <td>
                 {display(r.transaction_date)}
+                <DateAnomaly row={r} />
                 {(r.form?.includes("/A") || r.is_amendment_update) && (
                   <small>历史交易修订</small>
                 )}
