@@ -7,5 +7,5 @@
     "install:browser": "PLAYWRIGHT_BROWSERS_PATH=.browsers playwright-core install chromium",
     "test": "node run.cjs"
   },
-  "devDependencies": { "playwright-core": "1.62.1" }
+  "devDependencies": { "playwright-core": "1.63.0" }
 }
