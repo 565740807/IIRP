@@ -73,6 +73,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/jobs/{job_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Job */
+        get: operations["get_job_api_v1_jobs__job_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/diagnostics/collections": {
         parameters: {
             query?: never;
@@ -2509,8 +2526,8 @@ export interface components {
             /** Batch Id */
             batch_id?: string | null;
         };
-        /** JobView */
-        JobView: {
+        /** JobDetailView */
+        JobDetailView: {
             /** Id */
             id: string;
             /** Kind */
@@ -2525,10 +2542,6 @@ export interface components {
             progress_done: number;
             /** Progress Total */
             progress_total: number;
-            /** Checkpoint */
-            checkpoint: {
-                [key: string]: unknown;
-            };
             /** Attempts */
             attempts: number;
             /** Error */
@@ -2551,18 +2564,121 @@ export interface components {
             requested_action: string | null;
             /** Control Version */
             control_version: number;
+            /** Control Notice */
+            control_notice?: string | null;
+            /** Checkpoint */
+            checkpoint: {
+                [key: string]: unknown;
+            };
             /** Result */
             result: {
                 [key: string]: unknown;
             } | null;
+            /** Target */
+            target: {
+                [key: string]: unknown;
+            };
+        };
+        /**
+         * JobSummary
+         * @description List row: scalar fields only; checkpoint/result/target stay in the detail.
+         */
+        JobSummary: {
+            /** Id */
+            id: string;
+            /** Kind */
+            kind: string;
+            /** Title */
+            title: string;
+            /** Status */
+            status: string;
+            /** Trigger */
+            trigger: string;
+            /** Progress Done */
+            progress_done: number;
+            /** Progress Total */
+            progress_total: number;
+            /** Attempts */
+            attempts: number;
+            /** Error */
+            error: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /** Started At */
+            started_at: string | null;
+            /** Finished At */
+            finished_at: string | null;
+            /** Requested Action */
+            requested_action: string | null;
+            /** Control Version */
+            control_version: number;
             /** Control Notice */
             control_notice?: string | null;
+        };
+        /** JobView */
+        JobView: {
+            /** Id */
+            id: string;
+            /** Kind */
+            kind: string;
+            /** Title */
+            title: string;
+            /** Status */
+            status: string;
+            /** Trigger */
+            trigger: string;
+            /** Progress Done */
+            progress_done: number;
+            /** Progress Total */
+            progress_total: number;
+            /** Attempts */
+            attempts: number;
+            /** Error */
+            error: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /** Started At */
+            started_at: string | null;
+            /** Finished At */
+            finished_at: string | null;
+            /** Requested Action */
+            requested_action: string | null;
+            /** Control Version */
+            control_version: number;
+            /** Control Notice */
+            control_notice?: string | null;
+            /** Checkpoint */
+            checkpoint: {
+                [key: string]: unknown;
+            };
+            /** Result */
+            result: {
+                [key: string]: unknown;
+            } | null;
         };
         /** JobsResponse */
         JobsResponse: {
             /** Items */
-            items: components["schemas"]["JobView"][];
+            items: components["schemas"]["JobSummary"][];
             worker: components["schemas"]["WorkerView"];
+            /** Next Cursor */
+            next_cursor?: string | null;
         };
         /** LeaveOneOutPoint */
         LeaveOneOutPoint: {
@@ -3211,7 +3327,10 @@ export interface operations {
     };
     get_jobs_api_v1_jobs_get: {
         parameters: {
-            query?: never;
+            query?: {
+                limit?: number;
+                cursor?: string;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -3225,6 +3344,46 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["JobsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_job_api_v1_jobs__job_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                job_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobDetailView"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

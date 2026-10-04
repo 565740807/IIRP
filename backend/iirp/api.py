@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import Any, Literal
 from urllib.parse import urlsplit
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ConfigDict, Field
@@ -23,9 +23,9 @@ from iirp.queue import (
     create_job,
     ensure_defaults,
     job_view,
+    list_jobs,
     policy_view,
     update_policy,
-    worker_view,
 )
 
 
@@ -46,7 +46,8 @@ class PolicyRequest(StrictModel):
     sec_enabled: bool
 
 
-class JobView(BaseModel):
+class JobSummary(BaseModel):
+    """List row: scalar fields only; checkpoint/result/target stay in the detail."""
     id: str
     kind: str
     title: str
@@ -54,7 +55,6 @@ class JobView(BaseModel):
     trigger: str
     progress_done: int
     progress_total: int
-    checkpoint: dict[str, Any]
     attempts: int
     error: str | None
     created_at: datetime
@@ -63,8 +63,16 @@ class JobView(BaseModel):
     finished_at: datetime | None
     requested_action: str | None
     control_version: int
-    result: dict[str, Any] | None
     control_notice: str | None = None
+
+
+class JobView(JobSummary):
+    checkpoint: dict[str, Any]
+    result: dict[str, Any] | None
+
+
+class JobDetailView(JobView):
+    target: dict[str, Any]
 
 
 class CollectionResponse(BaseModel):
@@ -79,8 +87,9 @@ class WorkerView(BaseModel):
 
 
 class JobsResponse(BaseModel):
-    items: list[JobView]
+    items: list[JobSummary]
     worker: WorkerView
+    next_cursor: str | None = None
 
 
 class PolicyView(BaseModel):
@@ -218,10 +227,20 @@ def patch_policy(body: PolicyRequest):
 
 
 @app.get("/api/v1/jobs", response_model=JobsResponse)
-def get_jobs():
+def get_jobs(limit: int = Query(default=20, ge=1, le=100), cursor: str = Query(default="", max_length=80)):
+    try:
+        return list_jobs(limit, cursor)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+
+
+@app.get("/api/v1/jobs/{job_id}", response_model=JobDetailView)
+def get_job(job_id: str):
     with session() as s:
-        jobs = s.scalars(select(Job).order_by(Job.created_at.desc()).limit(100)).all()
-        return {"items": [job_view(job) for job in jobs], "worker": worker_view(s)}
+        job = s.get(Job, job_id)
+        if job is None:
+            raise HTTPException(404, "任务不存在。")
+        return {**job_view(job), "target": job.target}
 
 
 @app.post("/api/v1/diagnostics/collections", status_code=202, response_model=CollectionResponse)

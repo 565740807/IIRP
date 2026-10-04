@@ -3,7 +3,8 @@ import { isFrozenResearchQuery, mutableResearchForBatch } from "./queryIdentity"
 import { useMutation, useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { useEffect, useRef } from "react";
 import type { components } from "./generated/api";
-export type Job = components["schemas"]["JobView"];
+export type Job = components["schemas"]["JobSummary"];
+export type JobDetail = components["schemas"]["JobDetailView"];
 export type JobsResponse = components["schemas"]["JobsResponse"];
 export type Worker = components["schemas"]["WorkerView"];
 export type Batch = components["schemas"]["BatchView"];
@@ -207,12 +208,29 @@ export function useInvalidate(roots: readonly string[] = operationalRoots) {
         !isFrozenEntityQuery(query.queryKey),
     });
 }
-export function useJobs() {
+export const JOB_PAGE_SIZE = 20;
+/** Twenty compact rows per page; checkpoint/result stay in the detail read. */
+export function useJobs(cursor = "") {
   return useQuery({
-    queryKey: ["jobs"],
-    queryFn: () => api<JobsResponse>("/jobs"),
+    queryKey: ["jobs", cursor],
+    queryFn: () =>
+      api<JobsResponse>(
+        `/jobs?${new URLSearchParams({ limit: String(JOB_PAGE_SIZE), ...(cursor ? { cursor } : {}) })}`,
+      ),
     refetchInterval: (q) =>
       q.state.data?.items.some((x) => activeStatuses.includes(x.status))
+        ? document.hidden
+          ? 10000
+          : 2000
+        : false,
+  });
+}
+export function useJob(id: string) {
+  return useQuery({
+    queryKey: ["jobs", "detail", id],
+    queryFn: () => api<JobDetail>(`/jobs/${encodeURIComponent(id)}`),
+    refetchInterval: (q) =>
+      q.state.data && activeStatuses.includes(q.state.data.status)
         ? document.hidden
           ? 10000
           : 2000
