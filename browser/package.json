@@ -1,0 +1,11 @@
+{
+  "name": "iirp-synthetic-browser-validation",
+  "private": true,
+  "version": "0.1.0",
+  "engines": { "node": ">=22 <25" },
+  "scripts": {
+    "install:browser": "PLAYWRIGHT_BROWSERS_PATH=.browsers playwright-core install chromium",
+    "test": "node run.cjs"
+  },
+  "devDependencies": { "playwright-core": "1.62.1" }
+}

@@ -1,0 +1,144 @@
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  backend:
+    name: 后端（Ruff、pytest、OpenAPI）
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    services:
+      postgres:
+        image: postgres:18.6-bookworm@sha256:1c59e2c3c818eaa0f0628f695b36e7c9e362d6b219b36a54a32df645cbd7e1af
+        env:
+          POSTGRES_USER: iirp
+          POSTGRES_PASSWORD: ci-only-password
+          POSTGRES_DB: iirp_v1_test_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U iirp -d iirp_v1_test_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      PG_PASSWORD: ci-only-password
+      IIRP_PG_BIN: /usr/lib/postgresql/18/bin
+      PYTHONPATH: backend
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: 测试数据库与运行目录环境变量
+        run: |
+          echo "IIRP_DATABASE_URL=postgresql+psycopg://iirp:${PG_PASSWORD}@127.0.0.1:5432/iirp_v1_test_ci" >> "$GITHUB_ENV"
+          echo "IIRP_RUNTIME_DIR=${RUNNER_TEMP}/iirp-runtime" >> "$GITHUB_ENV"
+      - name: 安装与数据库版本匹配的 PostgreSQL 客户端
+        run: |
+          sudo install -d /usr/share/postgresql-common/pgdg
+          sudo curl --fail --silent --show-error -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc https://www.postgresql.org/media/keys/ACCC4CF8.asc
+          echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt noble-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends postgresql-client-18
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        with:
+          version: 0.12.10
+          python-version: "3.13"
+          enable-cache: true
+      - run: uv sync --frozen
+      - name: Ruff
+        run: uv run ruff check backend tests scripts migrations
+      - name: pytest（跳过 slow 标记的大型基准）
+        run: uv run pytest tests -q -m "not slow"
+      - name: OpenAPI 与应用一致
+        run: uv run python scripts/check_openapi.py
+  backend-slow:
+    name: 后端大型容量与基准（slow，仅手动）
+    # 私有仓库阶段为节省 Actions 用量不定时运行；公开后恢复每周定时
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    services:
+      postgres:
+        image: postgres:18.6-bookworm@sha256:1c59e2c3c818eaa0f0628f695b36e7c9e362d6b219b36a54a32df645cbd7e1af
+        env:
+          POSTGRES_USER: iirp
+          POSTGRES_PASSWORD: ci-only-password
+          POSTGRES_DB: iirp_v1_test_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U iirp -d iirp_v1_test_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      PG_PASSWORD: ci-only-password
+      IIRP_PG_BIN: /usr/lib/postgresql/18/bin
+      PYTHONPATH: backend
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: 测试数据库与运行目录环境变量
+        run: |
+          echo "IIRP_DATABASE_URL=postgresql+psycopg://iirp:${PG_PASSWORD}@127.0.0.1:5432/iirp_v1_test_ci" >> "$GITHUB_ENV"
+          echo "IIRP_RUNTIME_DIR=${RUNNER_TEMP}/iirp-runtime" >> "$GITHUB_ENV"
+      - name: 安装与数据库版本匹配的 PostgreSQL 客户端
+        run: |
+          sudo install -d /usr/share/postgresql-common/pgdg
+          sudo curl --fail --silent --show-error -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc https://www.postgresql.org/media/keys/ACCC4CF8.asc
+          echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt noble-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends postgresql-client-18
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        with:
+          version: 0.12.10
+          python-version: "3.13"
+          enable-cache: true
+      - run: uv sync --frozen
+      - name: pytest（仅 slow 标记的大型基准）
+        run: uv run pytest tests -q -m slow
+  frontend:
+    name: 前端（类型、测试、构建）
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24.16.0
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - name: 生成类型与 docs/openapi.json 一致
+        run: npm run check:api
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+  secrets:
+    name: 秘密扫描（gitleaks）
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: gitleaks
+        run: |
+          docker run --rm -v "$PWD:/repo" -w /repo \
+            zricethezav/gitleaks@sha256:c00b6bd0aeb3071cbcb79009cb16a60dd9e0a7c60e2be9ab65d25e6bc8abbb7f \
+            git --redact --no-banner --verbose /repo

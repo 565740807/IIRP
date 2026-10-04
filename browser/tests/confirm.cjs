@@ -1,0 +1,20 @@
+// Ported from sealed G regressions; assertions retained. Synthetic HTTP/PG only.
+const {chromium,loadFixture}=require('../common.cjs');
+const fs=require('node:fs/promises'),path=require('node:path'),assert=require('node:assert/strict');
+(async()=>{const f=await loadFixture();assert(f.synthetic&&f.database.startsWith('iirp_v1_test_'));const b=await chromium.launch({headless:true});const report={cases:[],errors:[]};const out=process.env.IIRP_BROWSER_OUTPUT;await fs.mkdir(out,{recursive:false});
+try{for(const mode of ['new','revision','late-confirm']){const ctx=await b.newContext({viewport:{width:1440,height:900},locale:'zh-CN'});const page=await ctx.newPage();page.setDefaultTimeout(15000);page.on('pageerror',e=>report.errors.push(String(e)));const item={mode};report.cases.push(item);let release=()=>{};try{
+await ctx.route('**/*',r=>new URL(r.request().url()).origin===f.base?r.continue():r.abort());await ctx.route('**/api/v1/analyses/*/refresh*',r=>r.abort());
+const v=f.events[0],set=await(await page.request.get(f.base+'/api/v1/events/sets/'+v.params.event_set_id)).json();const doc=structuredClone(set.document);doc.events[0].notes='G isolated confirmation '+mode+' '+process.argv[2];
+if(mode==='revision'){await page.goto(f.base+'/analysis/events?'+new URLSearchParams({set:set.id,version:String(set.version)}));await page.locator('#event-source-management > summary').click();await page.getByRole('button',{name:'更新事件资料 / 重新导入',exact:true}).click();}else{await page.goto(f.base+'/analysis/events?kind=custom&new=1');}
+await page.getByLabel('AI 返回的 JSON',{exact:true}).fill(JSON.stringify(doc));await page.getByRole('button',{name:'检查资料并继续',exact:true}).click();await page.getByLabel(/^基准对照/).first().waitFor();
+await page.locator('summary').filter({hasText:/^核对日期、财期与来源/}).click();await page.getByRole('checkbox',{name:'已核对事件日期',exact:true}).first().check();
+if(mode==='revision')await page.getByLabel('本次修订说明（必填）',{exact:true}).fill('Synthetic revision and start');
+let arrive;const arrived=new Promise(r=>arrive=r),gate=new Promise(r=>release=r);let startRequests=0;page.on('request',r=>{if(r.method()==='POST'&&/\/events\/sets\/[^/]+\/analyses$/.test(new URL(r.url()).pathname))startRequests++});
+if(mode==='late-confirm')await page.route('**/api/v1/events/confirm',async route=>{const response=await route.fetch();item.receipt=await response.json();arrive();await gate;await route.fulfill({response});});
+const accepted=mode==='late-confirm'?null:page.waitForResponse(r=>r.request().method()==='POST'&&/\/events\/sets\/[^/]+\/analyses$/.test(new URL(r.url()).pathname));
+await page.getByRole('button',{name:'开始获取行情并分析',exact:true}).click();
+if(mode==='late-confirm'){await arrived;await page.getByRole('navigation',{name:'事件资料类型'}).getByRole('link',{name:'财报日期',exact:true}).click();await page.waitForURL(u=>u.searchParams.get('kind')==='earnings');const reading=page.url();release();await page.waitForTimeout(700);assert.equal(page.url(),reading);assert.equal(startRequests,0);item.noAutomaticStart=true;}
+else{const response=await accepted;assert(response.ok());item.created=await response.json();await page.waitForURL(u=>u.searchParams.get('a')===item.created.analysis_id);await page.waitForTimeout(500);assert.equal(startRequests,1);assert.equal(await page.getByRole('button',{name:'继续启动分析',exact:true}).isVisible(),false);item.singleAutomaticStart=true;}
+await page.screenshot({path:path.join(out,mode+'.png')});item.pass=true;
+}catch(e){item.pass=false;item.error=String(e);await page.screenshot({path:path.join(process.env.IIRP_BROWSER_OUTPUT,(item.name||item.mode||'case')+'-failure.png')}).catch(()=>{});item.text=await page.locator('main').innerText();console.log(mode,String(e));}finally{release();await ctx.close();}}
+}finally{await b.close();report.pass=report.cases.every(x=>x.pass)&&!report.errors.length;await fs.writeFile(path.join(out,'report.json'),JSON.stringify(report,null,2));console.log(JSON.stringify(report));if(!report.pass)process.exitCode=1;}})().catch(e=>{console.error(e);process.exitCode=1});

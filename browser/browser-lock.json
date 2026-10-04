@@ -1,0 +1,8 @@
+{
+  "package": "playwright-core",
+  "version": "1.62.1",
+  "browser": "chromium",
+  "revision": "1234",
+  "browserVersion": "151.0.7922.34",
+  "source": "https://github.com/microsoft/playwright/blob/26a9e470a7b3c7822084b09fb7f13902c5f37b51/packages/playwright-core/browsers.json"
+}

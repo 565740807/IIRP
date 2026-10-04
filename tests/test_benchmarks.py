@@ -1,0 +1,185 @@
+"""Disposable DB tests: version fences, shared demands, capacities and exports."""
+
+import csv
+import io
+import json
+import uuid
+from datetime import date
+
+from iirp import event_service, lifecycle
+from iirp.benchmarks import benchmark_snapshot
+from iirp.business_models import (
+    AnalysisRequest,
+    AnalysisResult,
+    BatchJob,
+    DatasetBar,
+    MarketBar,
+    PriceDataset,
+    RequestScope,
+    Security,
+)
+from iirp.business_worker import _persist, prepare_target
+from iirp.contracts import AnalysisInput
+from iirp.db import session
+from iirp.market_data import latest_dataset, resolve_metadata
+from iirp.models import Job, now
+from iirp.operations import operation
+from iirp.queue import claim, fenced
+from iirp.storage import save_object
+from sqlalchemy import select
+from test_event_service import analysis, plan, saved
+from test_lifecycle import (  # noqa: F401
+    clean_lifecycle,
+    lifecycle_database,
+    seed_prices,
+    seed_security,
+)
+
+
+def baseline(symbol="^IXIC", prices=True):
+    identifier = seed_security(symbol)
+    with session() as s, s.begin():
+        security = s.get(Security, identifier)
+        security.instrument = "INDEX" if symbol.startswith("^") else "ETF"
+    if prices:
+        seed_prices(identifier, date(2022, 12, 1), date(2025, 1, 1))
+    return identifier
+
+
+def research(**extra):
+    return lifecycle.create_analysis(AnalysisInput(request_id=str(uuid.uuid4()), tickers=["AAPL"], kind="interval", current_year=2024,
+        historical_years=1, start_mmdd="01-03", end_mmdd="01-10", benchmark="^IXIC", **extra).model_dump(mode="json"))
+
+
+def publish(lease):
+    payload = operation("research_compute", prepare_target(lease))
+    source = save_object(json.dumps(payload).encode())
+    assert fenced(lease, source=source, business_write=lambda s, j: _persist(s, j, payload, {}, source))
+    return payload
+
+
+def next_version(identifier, revise=False):
+    # A newly published manifest can reuse immutable bar revisions.
+    with session() as s, s.begin():
+        prior = latest_dataset(s, identifier)
+        output = PriceDataset(security_id=identifier, basis="SPLIT_ONLY", basis_key="synthetic", status="PUBLISHED", manifest={"synthetic": True}, published_at=now())
+        s.add(output)
+        s.flush()
+        for row in s.scalars(select(DatasetBar).where(DatasetBar.dataset_id == prior.id)):
+            bar = s.get(MarketBar, row.bar_id)
+            if revise and row.session_date == date(2024, 1, 4):
+                bar = MarketBar(security_id=bar.security_id, session_date=bar.session_date,
+                    provider=bar.provider, source_hash=bar.source_hash, record_hash=uuid.uuid4().hex,
+                    open=bar.open, high=bar.high + 1, low=bar.low, close=bar.close + 1,
+                    adj_close=bar.adj_close, volume=bar.volume, status=bar.status, reason=bar.reason)
+                s.add(bar)
+                s.flush()
+            s.add(DatasetBar(dataset_id=output.id, session_date=row.session_date, bar_id=bar.id))
+        return output.id
+
+
+def test_index_identity_contract_is_specific_to_composite_and_sp500():
+    for symbol in ("^IXIC", "^GSPC", "^VIX"):
+        identifier = seed_security(symbol)
+        with session() as s, s.begin():
+            security = s.get(Security, identifier)
+            resolve_metadata(s, security, {"metadata": {"symbol": symbol, "quoteType": "INDEX", "currency": "USD", "exchange": "NIM"}})
+            assert security.calendar == (None if symbol == "^VIX" else "XNYS")
+            assert security.status == ("VERIFIED_MARKET" if symbol == "^VIX" else "VERIFIED")
+
+
+def test_only_benchmark_update_rejects_old_worker_and_preserves_frozen_exports():
+    stock = seed_security()
+    seed_prices(stock, date(2022, 12, 1), date(2024, 1, 31))
+    other = baseline()
+    created = research()
+    lifecycle.plan_tick()
+    first = claim({"research_compute"})
+    publish(first)
+    original = lifecycle.get_analysis(created["id"])["results"][0]
+    # Publishing unchanged revisions is provenance, not a changed input.
+    next_version(other)
+    unchanged = lifecycle.get_analysis(created["id"])["results"][0]
+    assert unchanged["is_current"]
+    assert unchanged["result_id"] == original["result_id"]
+    assert claim({"research_compute"}) is None
+    # A real in-window benchmark close correction changes paired calculations.
+    b2 = next_version(other, revise=True)
+    lifecycle.plan_tick()
+    second = claim({"research_compute"})
+    assert second.target["benchmark"]["dataset_id"] == b2
+    prepared = operation("research_compute", prepare_target(second))
+    b3 = next_version(other)
+    # A corrected adjustment basis is incompatible. Pure additions/reused bar
+    # revisions now safely publish partial output (covered by pipeline tests).
+    with session() as s, s.begin():
+        s.get(PriceDataset, b3).basis_key = "synthetic-corrected-adjustment-basis"
+    source = save_object(json.dumps(prepared).encode())
+    assert fenced(second, source=source, business_write=lambda s, j: _persist(s, j, prepared, {}, source))
+    with session() as s:
+        assert not s.scalar(select(AnalysisResult.id).where(AnalysisResult.input_key == second.target["input_key"]))
+    lifecycle.plan_tick()
+    third = claim({"research_compute"})
+    assert third.target["benchmark"]["dataset_id"] == b3
+    publish(third)
+    current = lifecycle.get_analysis(created["id"])
+    assert current["results"][0]["input_version"] != original["input_version"]
+    frozen = lifecycle.get_analysis(created["id"], original["result_id"])["results"][0]
+    assert frozen["input_version"] == original["input_version"]
+    exported = list(csv.DictReader(io.StringIO(lifecycle.export_analysis(created["id"], original["result_id"]).lstrip("\ufeff"))))
+    assert {r["result_id"] for r in exported} == {original["result_id"]}
+    assert "distribution" in {r["record_type"] for r in exported}
+    assert json.loads(next(r for r in exported if r["record_type"] == "benchmark")["data"])["dataset_id"] == original["data"]["benchmark"]["dataset_id"]
+
+
+def test_event_benchmark_capacity_wait_resumes_and_shared_download_controls():
+    collection = saved()
+    stock = collection["security_id"] if "security_id" in collection else None
+    if not stock:
+        with session() as s:
+            stock = s.scalar(select(Security.id).where(Security.symbol == "AAPL"))
+    seed_prices(stock, date(2022, 1, 1), date(2025, 1, 1))
+    other = baseline(prices=False)
+    first = analysis(collection, benchmark="^IXIC")
+    status, _, _ = plan(first["analysis_id"], 0)
+    assert status == "QUEUED"
+    assert plan(first["analysis_id"], 32)[0] == "RUNNING"
+    second = analysis(collection, benchmark="^IXIC")
+    plan(second["analysis_id"], 32)
+    with session() as s:
+        jobs = s.scalars(select(Job).where(Job.kind == "market_history", Job.target["security_id"].astext == other)).all()
+        assert jobs
+        assert all(len(s.scalars(select(BatchJob).where(BatchJob.job_id == j.id, BatchJob.active.is_(True))).all()) == 2 for j in jobs)
+    lifecycle.control_batch(first["batch_id"], "pause")
+    lease = claim({"market_history"})
+    assert lease is not None
+    lifecycle.control_batch(second["batch_id"], "cancel")
+    assert not fenced(lease, status="SUCCEEDED")
+    lifecycle.control_batch(first["batch_id"], "resume")
+    lifecycle.plan_tick()
+    assert claim({"market_history"}) is not None
+
+
+def test_event_publish_captures_benchmark_once_and_empty_year_selection_stays_empty(monkeypatch):
+    collection = saved()
+    baseline()
+    created = analysis(collection, benchmark="^IXIC")
+    with session() as s:
+        request = s.get(AnalysisRequest, created["analysis_id"])
+        scope = s.scalar(select(RequestScope).where(RequestScope.batch_id == request.batch_id))
+        frozen = benchmark_snapshot(request.params, s.get(Security, scope.security_id), s)
+    calls = []
+    def snapshot(*args, **kwargs):
+        calls.append(1)
+        return frozen
+    monkeypatch.setattr("iirp.event_pipeline.benchmark_snapshot", snapshot)
+    with session() as s, s.begin():
+        request = s.get(AnalysisRequest, created["analysis_id"])
+        scope = s.scalar(select(RequestScope).where(RequestScope.batch_id == request.batch_id))
+        from iirp.event_pipeline import plan_event_compute
+        row = plan_event_compute(s, request, scope, [32])
+        assert row.inputs["benchmark"]["dataset_id"] == frozen["dataset_id"]
+    assert len(calls) == 1
+    empty = analysis(collection, years=[2024], excluded_years=[2024])
+    result = event_service.get_analysis(empty["analysis_id"])
+    assert result["params"]["years"] == [] and result["data"]["rows"] == []

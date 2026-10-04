@@ -1,0 +1,101 @@
+{
+  "required": [
+    "iirp",
+    "pyproject.toml",
+    "uv.lock",
+    "alembic.ini",
+    ".gitignore",
+    ".gitattributes",
+    ".dockerignore",
+    "AGENTS.md",
+    "README.md",
+    "THIRD_PARTY_NOTICES.md",
+    "frontend/package.json",
+    "frontend/package-lock.json",
+    "frontend/index.html",
+    "frontend/tsconfig.json",
+    "frontend/vite.config.ts",
+    "frontend/check-api.mjs",
+    "deploy/Dockerfile",
+    "deploy/compose.yaml",
+    "deploy/image-lock.json",
+    "deploy/.env.example",
+    "config/collection-defaults.toml",
+    "config/provider-contracts.json",
+    "config/public-candidate.json",
+    "config/validation-targets.json",
+    "docs/THIRD_PARTY_INVENTORY.json",
+    ".github/workflows/validation.yml",
+    "docs/openapi.json",
+    "docs/PRODUCT_AND_IMPLEMENTATION_PLAN.zh-CN.md",
+    "docs/DECISIONS.md",
+    "docs/RUNBOOK.zh-CN.md",
+    "deploy/README.zh-CN.md",
+    "browser/package.json",
+    "browser/package-lock.json",
+    "browser/run.cjs",
+    "browser/common.cjs",
+    "browser/browser-lock.json",
+    "deploy/validation.compose.yaml",
+    "deploy/Browser.Dockerfile",
+    "docs/THIRD_PARTY_REVIEW.json",
+    "docs/THIRD_PARTY_LICENSE_TEXTS.txt",
+    "LICENSE",
+    "docs/ARCHITECTURE.zh-CN.md",
+    "docs/IMPROVEMENT_PLAN.zh-CN.md",
+    "docs/API_CONTRACT.md",
+    "docs/images/home.png",
+    ".github/workflows/ci.yml",
+    ".github/dependabot.yml"
+  ],
+  "trees": {
+    "backend": [
+      ".py"
+    ],
+    "migrations": [
+      ".py",
+      ".mako"
+    ],
+    "frontend/src": [
+      ".ts",
+      ".tsx",
+      ".css",
+      ".svg",
+      ".json"
+    ],
+    "frontend/tests": [
+      ".mjs"
+    ],
+    "tests": [
+      ".py",
+      ".xml",
+      ".json",
+      ".csv",
+      ".md",
+      ".txt"
+    ],
+    "scripts/validation": [
+      ".py",
+      ".cjs",
+      ".json",
+      ".md"
+    ],
+    "browser/tests": [
+      ".cjs"
+    ]
+  },
+  "globs": [
+    "scripts/*.py",
+    "scripts/*.sh",
+    "scripts/test-*.cjs",
+    ".github/workflows/*.yml"
+  ],
+  "exclude": [],
+  "excluded_surfaces": {
+    ".env and deploy/.env* except deploy/.env.example": "private credentials; never read",
+    "runtime, .tools, .venv, caches, node_modules, dist": "data, machine dependencies and generated builds",
+    "work, frontend/design, docs/screenshots, test-results, playwright-report": "private evidence, historical screenshots and backups (kept outside the repository)",
+    "other historical docs and root planning copies": "process reports were archived outside the repository; current operational documents are explicitly included",
+    ".git": "candidate comes from actual files, not Git HEAD"
+  }
+}

@@ -1,0 +1,65 @@
+{
+  "schema_version": "iirp.custom-events.v1",
+  "research_as_of": "2026-09-08",
+  "company": {"name": "Apple Inc.", "ticker": "AAPL", "exchange_mic": "XNAS"},
+  "scope": {
+    "year_start": 2024,
+    "year_end": 2024,
+    "event_types": ["developer_keynote"],
+    "include_keywords": ["WWDC 开幕主题演讲"],
+    "exclude_keywords": ["Platforms State of the Union", "分会场"],
+    "anchor_basis": "event_start",
+    "include_scheduled": false
+  },
+  "events": [
+    {
+      "client_event_id": "apple-wwdc-keynote-2024",
+      "event_name": "Apple WWDC 2024 开幕主题演讲",
+      "event_type": "developer_keynote",
+      "event_year": 2024,
+      "event_date": "2024-06-10",
+      "event_time": "10:00",
+      "timezone": "America/Los_Angeles",
+      "time_precision": "minute",
+      "time_basis": "official_schedule",
+      "event_status": "occurred",
+      "date_status": "supported",
+      "sources": [
+        {
+          "url": "https://www.apple.com/newsroom/2024/05/apples-worldwide-developers-conference-to-kick-off-june-10-with-keynote-address/",
+          "title": "Apple WWDC24 Keynote schedule",
+          "publisher": "Apple",
+          "published_date": "2024-05-28",
+          "source_kind": "primary",
+          "supports": ["event_date", "event_time", "timezone", "event_type"],
+          "evidence_note": "官方日程列明开幕 Keynote 为 6 月 10 日上午 10 点 PDT。"
+        },
+        {
+          "url": "https://www.apple.com/newsroom/2024/06/wwdc24-highlights/",
+          "title": "WWDC24 Highlights",
+          "publisher": "Apple",
+          "published_date": "2024-06-10",
+          "source_kind": "primary",
+          "supports": ["event_date", "event_status", "event_type"],
+          "evidence_note": "当天的官方回顾确认 WWDC 已开幕并举行主题演讲。"
+        }
+      ],
+      "notes": "研究主题演讲开始日；不将大会整周或同日另一场报告重复计为事件。"
+    }
+  ],
+  "coverage": [
+    {
+      "year": 2024,
+      "event_type": "developer_keynote",
+      "search_status": "searched",
+      "result_status": "events_found",
+      "event_ids": ["apple-wwdc-keynote-2024"],
+      "source_urls": [
+        "https://www.apple.com/newsroom/2024/05/apples-worldwide-developers-conference-to-kick-off-june-10-with-keynote-address/",
+        "https://www.apple.com/newsroom/2024/06/wwdc24-highlights/"
+      ],
+      "notes": "本示例仅覆盖 2024 年 WWDC 开幕主题演讲，不含其他 Apple 活动。"
+    }
+  ],
+  "warnings": ["开始时刻来自官方日程，并非现场实际开始分钟的独立核验。"]
+}

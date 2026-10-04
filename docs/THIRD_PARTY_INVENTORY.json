@@ -1,0 +1,3898 @@
+{
+  "project_license": "Owner decision pending; no project license granted",
+  "scope": "Locked Python and npm packages; verified artifact/notice material in docs/THIRD_PARTY_REVIEW.json is not publication or licensing approval",
+  "packages": [
+    {
+      "ecosystem": "python",
+      "name": "alembic",
+      "version": "1.19.2",
+      "license": "MIT",
+      "lock": "uv.lock",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://files.pythonhosted.org/packages/9c/cb/9014784dcb0585977ae23b6f43331d0a33c51ac0d692506d12b4f5ee9f3b/alembic-1.19.2-py3-none-any.whl",
+        "sha256": "32d553dcd577e6fe5c3c63e91468526d35e4dcecafe865d7db4e9b328fa93cb2",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "python",
+      "name": "annotated-doc",
+      "version": "0.0.5",
+      "license": "MIT",
+      "lock": "uv.lock",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://files.pythonhosted.org/packages/3e/30/e900b21425a860e195f32e37657aa1f7c7f2b1bfb26f03ca209b90933c06/annotated_doc-0.0.5-py3-none-any.whl",
+        "sha256": "117bac03a25ede5df5440e855b32d556049ca169ead221505badf432fed4b101",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "python",
+      "name": "annotated-types",
+      "version": "0.8.0",
+      "license": "MIT",
+      "lock": "uv.lock",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://files.pythonhosted.org/packages/99/91/8acff4f5e50511b911bbccb72b8628a49c68ce14148cd9f6431094859a90/annotated_types-0.8.0-py3-none-any.whl",
+        "sha256": "f072f4d804ea359e4eaf198b1af7a8b0943881a87f31bb764f8bf219bb9419e0",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "python",
+      "name": "anyio",
+      "version": "4.15.1",
+      "license": "MIT",
+      "lock": "uv.lock",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://files.pythonhosted.org/packages/12/b8/4bd346e22b28902df4d651910f5242c28d84e4a5c2435ca5c3f797ed7e2e/anyio-4.15.1-py3-none-any.whl",
+        "sha256": "6152fdbbf9a77fdec97731721bebf7c4c44f7c29b424b0065826173efc7ed101",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "python",
+      "name": "beautifulsoup4",
+      "version": "4.15.0",
+      "license": "MIT License",
+      "lock": "uv.lock",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://files.pythonhosted.org/packages/88/c6/92fcd42f1ba33e1184263f25bfabf3d27c383410470f169e4b8163bf9c17/beautifulsoup4-4.15.0-py3-none-any.whl",
+        "sha256": "d6f88de62e1d4e38ecb1077eb9724cd0eff29d2a08ca16a401e9b9e93f117cf9",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "python",
+      "name": "certifi",
+      "version": "2026.7.22",
+      "license": "MPL-2.0",
+      "lock": "uv.lock",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://files.pythonhosted.org/packages/0b/a7/71ac2cff56fec219ed242bb11b8efb69fcc4bec75db06fb7bfe35de520e6/certifi-2026.7.22-py3-none-any.whl",
+        "sha256": "62f22742b58a1a33014a2b6b706588a8d7e2a88ae7bd1a6ebe8c992928483775",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "python",
+      "name": "cffi",
+      "version": "2.1.1",
+      "license": "MIT-0",
+      "lock": "uv.lock",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://files.pythonhosted.org/packages/95/95/86342356ff5953b3fb06f7ef7c5bee212d45e770abc7218d451b9148313c/cffi-2.1.1-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.whl",
+        "sha256": "a931079504ecc49efed7744c476a5c343a92fabf66dec2db95edb1b2fdc770e2",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "python",
+      "name": "charset-normalizer",
+      "version": "3.5.1",
+      "license": "MIT",
+      "lock": "uv.lock",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://files.pythonhosted.org/packages/cc/61/d01fc49b8dea277640b55a9e15960dbca9fdc8c9fde18e572d39c59f4019/charset_normalizer-3.5.1-py3-none-any.whl",
+        "sha256": "6df0ec430f9a831772c23ca5a224cba36517a58a84bb32c32bb59a9fa67c47f6",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "python",
+      "name": "click",
+      "version": "8.5.0",
+      "license": "BSD-3-Clause",
+      "lock": "uv.lock",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://files.pythonhosted.org/packages/58/50/6c0d534c5f134586a8e1ba4e330569e32f057e33372ae556463212fb4cd3/click-8.5.0-py3-none-any.whl",
+        "sha256": "255bc9599cf7748b4b1a446ccc735421bd08a2ae529a8b88597d3de5664ee360",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "python",
+      "name": "colorama",
+      "version": "0.4.6",
+      "license": "License :: OSI Approved :: BSD License",
+      "lock": "uv.lock",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://files.pythonhosted.org/packages/d1/d6/3965ed04c63042e047cb6a3e6ed1a63a35087b6a609aa3a15ed8ac56c221/colorama-0.4.6-py2.py3-none-any.whl",
+        "sha256": "4f1d9991f5acc0ca119f9d443620b77f9d6b33703e51011c16baf57afb285fc6",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "python",
+      "name": "curl-cffi",
+      "version": "0.16.3",
+      "license": "MIT",
+      "lock": "uv.lock",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://files.pythonhosted.org/packages/72/01/2bbf141baa0fc3921d31a90de5465b7a94188845a8fe84dee86bf7bd90f1/curl_cffi-0.16.3-cp310-abi3-manylinux2014_x86_64.manylinux_2_17_x86_64.whl",
+        "sha256": "a875a661e2f9a949be29454880bbb9553307a487c4c08819738298cf5c1622e2",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "python",
+      "name": "defusedxml",
+      "version": "0.7.1",
+      "license": "PSFL",
+      "lock": "uv.lock",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://files.pythonhosted.org/packages/07/6c/aa3f2f849e01cb6a001cd8554a88d4c77c5c1a31c95bdf1cf9301e6d9ef4/defusedxml-0.7.1-py2.py3-none-any.whl",
+        "sha256": "a352e7e428770286cc899e2542b6cdaedb2b4953ff269a210103ec58f6198a61",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "python",
+      "name": "exchange-calendars",
+      "version": "4.13.2",
+      "license": "Apache-2.0",
+      "lock": "uv.lock",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://files.pythonhosted.org/packages/c8/4c/0469b40057bc9f8d9594dcc6024202626b981ae4b52dfcd304552e8e1c3a/exchange_calendars-4.13.2-py3-none-any.whl",
+        "sha256": "fc5a2ad0d61b5c3a6539a3061cd4cbb55c59f4a903455cec7926e4b798919996",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "python",
+      "name": "fastapi",
+      "version": "0.141.1",
+      "license": "MIT",
+      "lock": "uv.lock",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://files.pythonhosted.org/packages/cb/03/10388a42375ee7e4ac9b94eb2c5c569c8b5795e377e701c9ac3ad63de890/fastapi-0.141.1-py3-none-any.whl",
+        "sha256": "bfb91aa2d334c61cb35ba9a116fc123b3d3df31640b801cf57a7a78ec3f603b3",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "python",
+      "name": "greenlet",
+      "version": "3.5.5",
+      "license": "MIT AND PSF-2.0",
+      "lock": "uv.lock",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://files.pythonhosted.org/packages/89/5d/398a1c71fa7a277deeb376c999979de6786f08fc2d5747a0b9d6e11738dd/greenlet-3.5.5-cp313-cp313-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl",
+        "sha256": "2eabb980975cba5b93a95f6f69287d05fc05ac955bfd6a320a7c083eeb52c0b0",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "python",
+      "name": "h11",
+      "version": "0.16.0",
+      "license": "MIT",
+      "lock": "uv.lock",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://files.pythonhosted.org/packages/04/4b/29cac41a4d98d144bf5f6d33995617b185d14b22401f75ca86f384e87ff1/h11-0.16.0-py3-none-any.whl",
+        "sha256": "63cf8bbe7522de3bf65932fda1d9c2772064ffb3dae62d55932da54b31cb6c86",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "python",
+      "name": "httpcore",
+      "version": "1.0.9",
+      "license": "BSD-3-Clause",
+      "lock": "uv.lock",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://files.pythonhosted.org/packages/7e/f5/f66802a942d491edb555dd61e3a9961140fd64c90bce1eafd741609d334d/httpcore-1.0.9-py3-none-any.whl",
+        "sha256": "2d400746a40668fc9dec9810239072b40b4484b640a8c38fd654a024c7a1bf55",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "python",
+      "name": "httpx",
+      "version": "0.28.1",
+      "license": "BSD-3-Clause",
+      "lock": "uv.lock",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://files.pythonhosted.org/packages/2a/39/e50c7c3a983047577ee07d2a9e53faf5a69493943ec3f6a384bdc792deb2/httpx-0.28.1-py3-none-any.whl",
+        "sha256": "d909fcccc110f8c7faf814ca82a9a4d816bc5a6dbfea25d6591d6985b8ba59ad",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "python",
+      "name": "idna",
+      "version": "3.19",
+      "license": "BSD-3-Clause",
+      "lock": "uv.lock",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://files.pythonhosted.org/packages/57/b0/0e52c878c53f245edd3a11020f20979b3f490f245af532c7cae3027754b5/idna-3.19-py3-none-any.whl",
+        "sha256": "815e7be7a7806d54abb586dc943addc79e8b2ee16915059658cbeff4b1b43bf4",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "python",
+      "name": "iniconfig",
+      "version": "2.3.0",
+      "license": "MIT",
+      "lock": "uv.lock",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://files.pythonhosted.org/packages/cb/b1/3846dd7f199d53cb17f49cba7e651e9ce294d8497c8c150530ed11865bb8/iniconfig-2.3.0-py3-none-any.whl",
+        "sha256": "f631c04d2c48c52b84d0d0549c99ff3859c98df65b3101406327ecc7d53fbf12",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "python",
+      "name": "korean-lunar-calendar",
+      "version": "0.4.0",
+      "license": "MIT",
+      "lock": "uv.lock",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://files.pythonhosted.org/packages/c1/88/f56033b09fdca5c8c5e5fc2f3513950a05cd62caa9bd8e6d2750a887c86e/korean_lunar_calendar-0.4.0-py3-none-any.whl",
+        "sha256": "c042e20de0bb702add6bec8d0f6da1ea8d3b170838e63846f70420cf341fe4e7",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "python",
+      "name": "lxml",
+      "version": "6.1.3",
+      "license": "BSD-3-Clause",
+      "lock": "uv.lock",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://files.pythonhosted.org/packages/ab/8d/8a7b91df0b54d09d25f5f44885d6b3e0a6d6643a8c070191580318d20c42/lxml-6.1.3-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.whl",
+        "sha256": "b477912f42c5c33405a10c759d22f80cf5af043ae02d95b9d8e5e5bc555739ed",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "python",
+      "name": "mako",
+      "version": "1.4.1",
+      "license": "MIT",
+      "lock": "uv.lock",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://files.pythonhosted.org/packages/a5/54/12ed58d458474aaab5c3d180173e745a4fe131bb330370596876d19ff60f/mako-1.4.1-py3-none-any.whl",
+        "sha256": "a359d9a94a541213958742b2698d0a7757bb83551767bc468a74b9905aba9617",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "python",
+      "name": "markupsafe",
+      "version": "3.0.3",
+      "license": "BSD-3-Clause",
+      "lock": "uv.lock",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://files.pythonhosted.org/packages/a9/21/9b05698b46f218fc0e118e1f8168395c65c8a2c750ae2bab54fc4bd4e0e8/markupsafe-3.0.3-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl",
+        "sha256": "ccfcd093f13f0f0b7fdd0f198b90053bf7b2f02a3927a30e63f3ccc9df56b676",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "python",
+      "name": "multitasking",
+      "version": "0.0.13",
+      "license": "Apache",
+      "lock": "uv.lock",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://files.pythonhosted.org/packages/d3/1c/24dbf69b247f287401c904a396233a43c89fd4fb9b7cd2e50e430e9cd57c/multitasking-0.0.13-py3-none-any.whl",
+        "sha256": "ec9243af140c67bfe52dc98d7173c294512735a88e8425c458b250db99dc2b48",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "python",
+      "name": "numpy",
+      "version": "2.5.2",
+      "license": "BSD-3-Clause AND 0BSD AND MIT AND Zlib AND CC0-1.0",
+      "lock": "uv.lock",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://files.pythonhosted.org/packages/7b/44/59a1eb68e773c4098d107ef34a0dbdeca501d72ffcfbff9a7707343921ce/numpy-2.5.2-cp313-cp313-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl",
+        "sha256": "29b86ff8a6cc556b47ec6b64b194815cc80e6bf5eedcc6cddfd65318cb0b4eee",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "python",
+      "name": "packaging",
+      "version": "26.3",
+      "license": "Apache-2.0 OR BSD-2-Clause",
+      "lock": "uv.lock",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://files.pythonhosted.org/packages/63/34/ba1c580383c9eada3711951fef0795c80b829a078d72188184bcab9dd527/packaging-26.3-py3-none-any.whl",
+        "sha256": "d7193f7c8e4e93f444fde0262bf90af30e16fa0ad0ad44cb553c87339b23cd1c",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "python",
+      "name": "pandas",
+      "version": "3.0.5",
+      "license": "BSD 3-Clause License",
+      "lock": "uv.lock",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://files.pythonhosted.org/packages/e3/70/4363150359f95b4cb4bcbb34ca23572bb5495749a621a8f3d5a1ddfd293c/pandas-3.0.5-cp313-cp313-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl",
+        "sha256": "4b11c36e218331d0387cbe3a0a5f75162357a1d92d57b2b08a336ff94b19b2be",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "python",
+      "name": "peewee",
+      "version": "4.5.0",
+      "license": "Pending upstream distribution/license review",
+      "lock": "uv.lock",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://files.pythonhosted.org/packages/63/c8/6e24d15eec77a83ee1b86c3e5db8f2ddd6b3fe52bbd6ad5379c24c66d815/peewee-4.5.0-py3-none-any.whl",
+        "sha256": "b210911b0535be1b7c0d1e1a276770575150c8dc981bff92eef494595a51696c",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "python",
+      "name": "platformdirs",
+      "version": "4.11.7",
+      "license": "MIT",
+      "lock": "uv.lock",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://files.pythonhosted.org/packages/27/6e/80993e10a0482f630cef528635789233224f36b1ffd11592aa15d13ff9ce/platformdirs-4.11.7-py3-none-any.whl",
+        "sha256": "8a02cb259042c79d1cd0450facc2fe6dc9d303ae7901afbe33bf8ea0b188cef6",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "python",
+      "name": "pluggy",
+      "version": "1.6.0",
+      "license": "MIT",
+      "lock": "uv.lock",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://files.pythonhosted.org/packages/54/20/4d324d65cc6d9205fabedc306948156824eb9f0ee1633355a8f7ec5c66bf/pluggy-1.6.0-py3-none-any.whl",
+        "sha256": "e920276dd6813095e9377c0bc5566d94c932c33b27a3e3945d8389c374dd4746",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "python",
+      "name": "protobuf",
+      "version": "7.36.1",
+      "license": "3-Clause BSD License",
+      "lock": "uv.lock",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://files.pythonhosted.org/packages/39/ca/c47f91d3cab175b01fd8c4f0d80fdf8613be876cc616e66ad281a59c5ddf/protobuf-7.36.1-py3-none-any.whl",
+        "sha256": "7d951e46b3f963d6c264c367c437921de9d5aedd9c3f9612b9077736b4e3ad5c",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "python",
+      "name": "psycopg",
+      "version": "3.3.5",
+      "license": "LGPL-3.0-only",
+      "lock": "uv.lock",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://files.pythonhosted.org/packages/3d/2e/d0a645bcaadde68bd6d93c43f02f14b0191bdda367ce3f7722abe3da744a/psycopg-3.3.5-py3-none-any.whl",
+        "sha256": "ce5aa5cdb4f9379f00f487590e5890bfa7df9a164648c969ffa628505e21af4e",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "python",
+      "name": "psycopg-binary",
+      "version": "3.3.5",
+      "license": "LGPL-3.0-only",
+      "lock": "uv.lock",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://files.pythonhosted.org/packages/fb/3a/73c6f8871f38fc07a9c0b4cbc9467beb116a2783cecf87dfa53900a396dc/psycopg_binary-3.3.5-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.whl",
+        "sha256": "cb3b3bffebfe07110730626e76238161124f35ac87b748d663316a28d22f58b0",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "python",
+      "name": "pycparser",
+      "version": "3.0",
+      "license": "BSD-3-Clause",
+      "lock": "uv.lock",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://files.pythonhosted.org/packages/0c/c3/44f3fbbfa403ea2a7c779186dc20772604442dde72947e7d01069cbe98e3/pycparser-3.0-py3-none-any.whl",
+        "sha256": "b727414169a36b7d524c1c3e31839a521725078d7b2ff038656844266160a992",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "python",
+      "name": "pydantic",
+      "version": "2.13.5",
+      "license": "MIT",
+      "lock": "uv.lock",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://files.pythonhosted.org/packages/eb/47/c95ffc2009878c7aac0c5e08528022dcb885933252a88b5f170058014464/pydantic-2.13.5-py3-none-any.whl",
+        "sha256": "346a034f080da3755d8e9cb5e00e8b07de1d39e4f6e2c87d8ab7cafa0b269a73",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "python",
+      "name": "pydantic-core",
+      "version": "2.46.5",
+      "license": "MIT",
+      "lock": "uv.lock",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://files.pythonhosted.org/packages/d3/f2/9e4de77a6271e07a76d2d58b11c091a979c191ed2939bf80067568b369d2/pydantic_core-2.46.5-cp313-cp313-manylinux_2_17_x86_64.manylinux2014_x86_64.whl",
+        "sha256": "6f7b393a8b3da82f5c1fc0751e6d01ac6c55b93c18226a60bdfba4a724efafd1",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "python",
+      "name": "pydantic-settings",
+      "version": "2.15.0",
+      "license": "MIT",
+      "lock": "uv.lock",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://files.pythonhosted.org/packages/30/a4/2bffa9f8e804325a09867f0e9d30795c80ea9f8d62560bd1b6ad6220eb2f/pydantic_settings-2.15.0-py3-none-any.whl",
+        "sha256": "0ba092c291c94baceb5eff768aa0d56400a457585bc0175925a5a5510303da42",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "python",
+      "name": "pygments",
+      "version": "2.21.0",
+      "license": "BSD-2-Clause",
+      "lock": "uv.lock",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://files.pythonhosted.org/packages/71/46/17f022dd3e953bf20a04a028a21ec746d942f8d2af30fa0f124fa0e6a684/pygments-2.21.0-py3-none-any.whl",
+        "sha256": "2363c69b61c4a97c838da3b130dcd6468f4848992b21a82f2a63ec34377137d9",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "python",
+      "name": "pyluach",
+      "version": "2.3.0",
+      "license": "License :: OSI Approved :: MIT License",
+      "lock": "uv.lock",
+      "distribution_review": {
+        "status": "integrity_and_supplemental_notice_checked",
+        "url": "https://files.pythonhosted.org/packages/8a/c8/f96208ade3ca4c23b372497d0788bcf0f2e0ff4310e5ee693366bc33fdf0/pyluach-2.3.0-py3-none-any.whl",
+        "sha256": "4497b731aef59508b079dbf5f00bc5bf4329ac45090a6cd37b5a83756f0e69ab",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "python",
+      "name": "pytest",
+      "version": "9.1.1",
+      "license": "MIT",
+      "lock": "uv.lock",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://files.pythonhosted.org/packages/24/25/1de2678b631f5a49215c6c96fff41ba892b0a34df68d6d80292b1b48aa7f/pytest-9.1.1-py3-none-any.whl",
+        "sha256": "37a86b45efb9a47a61a36449063e8e18d0cab3161329fc099eb21783169c4f0c",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "python",
+      "name": "python-dateutil",
+      "version": "2.9.0.post0",
+      "license": "Dual License",
+      "lock": "uv.lock",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://files.pythonhosted.org/packages/ec/57/56b9bcc3c9c6a792fcbaf139543cee77261f3651ca9da0c93f5c1221264b/python_dateutil-2.9.0.post0-py2.py3-none-any.whl",
+        "sha256": "a8b2bc7bffae282281c8140a97d3aa9c14da0b136dfe83f850eea9a5f7470427",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "python",
+      "name": "python-dotenv",
+      "version": "1.2.3",
+      "license": "BSD-3-Clause",
+      "lock": "uv.lock",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://files.pythonhosted.org/packages/0d/17/c5c6b53ddc18f297992099b3d9ec16c855c0ccc83263a21fe4d1c625ec6c/python_dotenv-1.2.3-py3-none-any.whl",
+        "sha256": "904552145e8bfed22162c09dab1c2b9b54fefa7b23ba780f4f26ca0316b0f0d9",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "python",
+      "name": "pytz",
+      "version": "2026.3.post1",
+      "license": "MIT",
+      "lock": "uv.lock",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://files.pythonhosted.org/packages/0f/7b/39c34ca613b0b198cb866466651b26b045e2009864c5183c979a3b83f383/pytz-2026.3.post1-py2.py3-none-any.whl",
+        "sha256": "dd95840dd199baea12d9cc096a1d452caa6596a1c1e4b5f3dbd1541855d5e815",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "python",
+      "name": "requests",
+      "version": "2.34.2",
+      "license": "Apache-2.0",
+      "lock": "uv.lock",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://files.pythonhosted.org/packages/a0/f4/c67b0b3f1b9245e8d266f0f112c500d50e5b4e83cb6f3b71b6528104182a/requests-2.34.2-py3-none-any.whl",
+        "sha256": "2a0d60c172f83ac6ab31e4554906c0f3b3588d37b5cb939b1c061f4907e278e0",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "python",
+      "name": "ruff",
+      "version": "0.16.6",
+      "license": "Pending upstream distribution/license review",
+      "lock": "uv.lock",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://files.pythonhosted.org/packages/a4/7c/6adb35d70e7c027e308274557901c7e00fb3407750faf3620c184ae058cb/ruff-0.16.6.tar.gz",
+        "sha256": "dcf8a73d2ff77e99dde91244b4da16feba7f14e6beeb4015dee7c5a909e99050",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "python",
+      "name": "six",
+      "version": "1.17.0",
+      "license": "MIT",
+      "lock": "uv.lock",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://files.pythonhosted.org/packages/b7/ce/149a00dd41f10bc29e5921b496af8b574d8413afcd5e30dfa0ed46c2cc5e/six-1.17.0-py2.py3-none-any.whl",
+        "sha256": "4721f391ed90541fddacab5acf947aa0d3dc7d27b2e1e8eda2be8970586c3274",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "python",
+      "name": "soupsieve",
+      "version": "2.9.2",
+      "license": "MIT",
+      "lock": "uv.lock",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://files.pythonhosted.org/packages/eb/dc/ad025c1ee131eba60c69f4dd5779b18fcf1e6b21a343e2162a84d5d133c7/soupsieve-2.9.2-py3-none-any.whl",
+        "sha256": "8089a26fd974ca7a1f30276d3d8492ab266ab15af581642dfe8aa162e0c1c823",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "python",
+      "name": "sqlalchemy",
+      "version": "2.0.52",
+      "license": "MIT",
+      "lock": "uv.lock",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://files.pythonhosted.org/packages/b3/3f/3582293d1e185e71d19d7c731c3e2ee20ba21981c4a1115c0806c1f62120/sqlalchemy-2.0.52-py3-none-any.whl",
+        "sha256": "3b81b8363a919ce53453591cdb93702e6bd54ade6c4fa2f468fc053baee5ed89",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "python",
+      "name": "starlette",
+      "version": "1.6.0",
+      "license": "BSD-3-Clause",
+      "lock": "uv.lock",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://files.pythonhosted.org/packages/c8/cb/6a6a47d5b464bd08695d254f3da6e7986cc70c9fa5d778eda57538edfe56/starlette-1.6.0-py3-none-any.whl",
+        "sha256": "a86dd39d14bb45f85a3d18525215a9ef0cfd1f192ac793220e72598c90335f0c",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "python",
+      "name": "toolz",
+      "version": "1.1.0",
+      "license": "BSD-3-Clause",
+      "lock": "uv.lock",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://files.pythonhosted.org/packages/fb/12/5911ae3eeec47800503a238d971e51722ccea5feb8569b735184d5fcdbc0/toolz-1.1.0-py3-none-any.whl",
+        "sha256": "15ccc861ac51c53696de0a5d6d4607f99c210739caf987b5d2054f3efed429d8",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "python",
+      "name": "typing-extensions",
+      "version": "4.16.0",
+      "license": "PSF-2.0",
+      "lock": "uv.lock",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://files.pythonhosted.org/packages/49/d3/b8441a820a491ddfc024b0b0cf0393375b75ea13866d9c66727e54c2fc80/typing_extensions-4.16.0-py3-none-any.whl",
+        "sha256": "481caa481374e813c1b176ada14e97f1f67a4539ce9cfeb3f350d78d6370c2e8",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "python",
+      "name": "typing-inspection",
+      "version": "0.4.4",
+      "license": "MIT",
+      "lock": "uv.lock",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://files.pythonhosted.org/packages/67/81/4add07e5172b7ac40d8ed5ff580409a7801a4fe26d529bdd915401dabfbe/typing_inspection-0.4.4-py3-none-any.whl",
+        "sha256": "65b8397ba37ccbce054456aaccddfc91e6e3083c92824df348d96ca832f3f147",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "python",
+      "name": "tzdata",
+      "version": "2026.3",
+      "license": "Apache-2.0",
+      "lock": "uv.lock",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://files.pythonhosted.org/packages/e5/6d/b53b99a9f2766d095985947a5782f1702cabb129a34f7a802d7197af832f/tzdata-2026.3-py2.py3-none-any.whl",
+        "sha256": "dc096730c87af6cab1b171c9d532be840741ff5d459015e7f6947bd7d7e54931",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "python",
+      "name": "urllib3",
+      "version": "2.7.0",
+      "license": "MIT",
+      "lock": "uv.lock",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://files.pythonhosted.org/packages/7f/3e/5db95bcf282c52709639744ca2a8b149baccf648e39c8cc87553df9eae0c/urllib3-2.7.0-py3-none-any.whl",
+        "sha256": "9fb4c81ebbb1ce9531cce37674bbc6f1360472bc18ca9a553ede278ef7276897",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "python",
+      "name": "uvicorn",
+      "version": "0.52.4",
+      "license": "BSD-3-Clause",
+      "lock": "uv.lock",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://files.pythonhosted.org/packages/f1/79/4a20b54ab0491485ccd8c077db2d39187c7f12b3e15485d38a7be37c81b4/uvicorn-0.52.4-py3-none-any.whl",
+        "sha256": "f86e41a149d7d05a9969337e3946a9c171c06a5d42680896daaba624aeac8da1",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "python",
+      "name": "websockets",
+      "version": "17.1",
+      "license": "BSD-3-Clause",
+      "lock": "uv.lock",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://files.pythonhosted.org/packages/41/63/23572870e01836a98346075b9e17a8bc24a6ddd9800a3204ceee58677f3c/websockets-17.1-py3-none-any.whl",
+        "sha256": "f221081107b8c48184d99f7019604486376e7ef826037e70aad6b02540732c23",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "python",
+      "name": "yfinance",
+      "version": "1.7.0",
+      "license": "Apache-2.0",
+      "lock": "uv.lock",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://files.pythonhosted.org/packages/5f/12/7efaf78fcf63711ad7271704dd22963b4cbe05d95d89b9865a1c5c0bad6f/yfinance-1.7.0-py3-none-any.whl",
+        "sha256": "91281ecd1f71069a37155ff8653aff2d3085f3492bd8721f18b70955da62911a",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "@babel/code-frame",
+      "version": "7.29.7",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/@babel/code-frame/-/code-frame-7.29.7.tgz",
+        "sha256": "fa8b176fa0b5d1d72b41ad33443f1f4f75933157a45010dffb51719f40c19c67",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "@babel/compat-data",
+      "version": "7.29.7",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/@babel/compat-data/-/compat-data-7.29.7.tgz",
+        "sha256": "0cf63b5ed704654bdc7574be035883b2eb3f8872c795a6b8dbb690cb7a3d54b9",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "@babel/core",
+      "version": "7.29.7",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/@babel/core/-/core-7.29.7.tgz",
+        "sha256": "46dd458b3d2bc29daa0e9e01f13b399ab544a8013f27ac6c51b56b831c8a0ed3",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "@babel/generator",
+      "version": "7.29.8",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/@babel/generator/-/generator-7.29.8.tgz",
+        "sha256": "b5ced4fd7c23a580549182676c43c03a8731b9625e66270f443ab27cd21b502d",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "@babel/helper-compilation-targets",
+      "version": "7.29.7",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/@babel/helper-compilation-targets/-/helper-compilation-targets-7.29.7.tgz",
+        "sha256": "5b5446f3d32b10ba38cb308af5f65e76afcddaacd7b817e71055a6de6ab934e0",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "@babel/helper-globals",
+      "version": "7.29.7",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/@babel/helper-globals/-/helper-globals-7.29.7.tgz",
+        "sha256": "94fb962c489aae2c4e5581f1494721083dc76dddd7c703314dd4d7ff965d2a3f",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "@babel/helper-module-imports",
+      "version": "7.29.7",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/@babel/helper-module-imports/-/helper-module-imports-7.29.7.tgz",
+        "sha256": "4bdf46cf597b875ce16770f151159ca34f96c20ba3c112dc8d7f6c6d6cce770c",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "@babel/helper-module-transforms",
+      "version": "7.29.7",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/@babel/helper-module-transforms/-/helper-module-transforms-7.29.7.tgz",
+        "sha256": "dbb3b9b10b0a2828f5af58a6317685b1a150464c6bd54995069c526aba45e6e4",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "@babel/helper-plugin-utils",
+      "version": "7.29.7",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/@babel/helper-plugin-utils/-/helper-plugin-utils-7.29.7.tgz",
+        "sha256": "00824ca9e3a146e73a071849b085668ae2012b7fff58056442ab9d33d1e357e8",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "@babel/helper-string-parser",
+      "version": "7.29.7",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/@babel/helper-string-parser/-/helper-string-parser-7.29.7.tgz",
+        "sha256": "124565ecd300d7187973060ba6b1d1c4f296e55f0489ddfd6af794f516fed127",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "@babel/helper-validator-identifier",
+      "version": "7.29.7",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/@babel/helper-validator-identifier/-/helper-validator-identifier-7.29.7.tgz",
+        "sha256": "7a31904bc45f1bb232d5e5dd797d12296f4a27fb4bf0f6d517827700f997dc1f",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "@babel/helper-validator-option",
+      "version": "7.29.7",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/@babel/helper-validator-option/-/helper-validator-option-7.29.7.tgz",
+        "sha256": "e32d8ff2cc0455c5210f92f0844d2cb6e1d61b83ee17d7b328fe410f9021e4cd",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "@babel/helpers",
+      "version": "7.29.7",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/@babel/helpers/-/helpers-7.29.7.tgz",
+        "sha256": "87dcd8372e8f2d0225de852c9f810c23712616cc2681556f8f4292535b7e42c6",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "@babel/parser",
+      "version": "7.29.8",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/@babel/parser/-/parser-7.29.8.tgz",
+        "sha256": "20f1459b23066ba65d0dec68ee59ff5e2284c72fe22f98a7153a6cccef903c80",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "@babel/plugin-transform-react-jsx-self",
+      "version": "7.29.7",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/@babel/plugin-transform-react-jsx-self/-/plugin-transform-react-jsx-self-7.29.7.tgz",
+        "sha256": "fdbe8ac6d7d22e28bd2f013496c233de0906a261cc7e1a7b3eee9bb5fcc70bf0",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "@babel/plugin-transform-react-jsx-source",
+      "version": "7.29.7",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/@babel/plugin-transform-react-jsx-source/-/plugin-transform-react-jsx-source-7.29.7.tgz",
+        "sha256": "8afa100bf1bafc073813b589980414576b20c66bf3598af229d30b92183fa1a9",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "@babel/template",
+      "version": "7.29.7",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/@babel/template/-/template-7.29.7.tgz",
+        "sha256": "5e0ee28d5536e986cf5ff2da0f096fb84810d9136c2a64c6c78a6b495a0e7764",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "@babel/traverse",
+      "version": "7.29.8",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/@babel/traverse/-/traverse-7.29.8.tgz",
+        "sha256": "cf16861f356fd766361ba4d85d5462b6320e0e59f05cb55c762d8f5dff83e234",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "@babel/types",
+      "version": "7.29.8",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/@babel/types/-/types-7.29.8.tgz",
+        "sha256": "514a4ed09355fe1417f03e89c5a5f518745e2eb75a4069d25b55a3e7298069de",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "@esbuild/aix-ppc64",
+      "version": "0.28.2",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_checked_platform_archive_omits_notice_see_parent",
+        "url": "https://registry.npmjs.org/@esbuild/aix-ppc64/-/aix-ppc64-0.28.2.tgz",
+        "sha256": "df7900ab960d4eb54ac3d9a1fa21a604416985017cf0398132def352014225eb",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "@esbuild/android-arm",
+      "version": "0.28.2",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_checked_platform_archive_omits_notice_see_parent",
+        "url": "https://registry.npmjs.org/@esbuild/android-arm/-/android-arm-0.28.2.tgz",
+        "sha256": "1723a8da8ceec6f6900616d00ac068e705c0348587400d0ca80ea4daa87a4183",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "@esbuild/android-arm64",
+      "version": "0.28.2",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_checked_platform_archive_omits_notice_see_parent",
+        "url": "https://registry.npmjs.org/@esbuild/android-arm64/-/android-arm64-0.28.2.tgz",
+        "sha256": "faf07e1f4ffd327051edaa982cceacff8a15138d4b7cdaa91064a1f0fe6f0943",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "@esbuild/android-x64",
+      "version": "0.28.2",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_checked_platform_archive_omits_notice_see_parent",
+        "url": "https://registry.npmjs.org/@esbuild/android-x64/-/android-x64-0.28.2.tgz",
+        "sha256": "2f5c6be83dea93c0fa8a7b46590c9c8db229b2463ea35aa4626ef2658b7e657b",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "@esbuild/darwin-arm64",
+      "version": "0.28.2",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_checked_platform_archive_omits_notice_see_parent",
+        "url": "https://registry.npmjs.org/@esbuild/darwin-arm64/-/darwin-arm64-0.28.2.tgz",
+        "sha256": "1980cde09749094452b20d36ff267585ccb3f72749c7bc97291cd9996ccf5a2a",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "@esbuild/darwin-x64",
+      "version": "0.28.2",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_checked_platform_archive_omits_notice_see_parent",
+        "url": "https://registry.npmjs.org/@esbuild/darwin-x64/-/darwin-x64-0.28.2.tgz",
+        "sha256": "abb6a7a895aaf2cc0df36fecc3bf0042479ffec51a643a056d54e9109f27db55",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "@esbuild/freebsd-arm64",
+      "version": "0.28.2",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_checked_platform_archive_omits_notice_see_parent",
+        "url": "https://registry.npmjs.org/@esbuild/freebsd-arm64/-/freebsd-arm64-0.28.2.tgz",
+        "sha256": "a3269361bfc571ebf6b8361b7a0cac290b23aed8332be81c322d52289ce2cdce",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "@esbuild/freebsd-x64",
+      "version": "0.28.2",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_checked_platform_archive_omits_notice_see_parent",
+        "url": "https://registry.npmjs.org/@esbuild/freebsd-x64/-/freebsd-x64-0.28.2.tgz",
+        "sha256": "53e57271b5fc7ab39312b906d3ff84d0633cfd067332f740e4b6f1f46803fb8a",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "@esbuild/linux-arm",
+      "version": "0.28.2",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_checked_platform_archive_omits_notice_see_parent",
+        "url": "https://registry.npmjs.org/@esbuild/linux-arm/-/linux-arm-0.28.2.tgz",
+        "sha256": "bdf99344430174119a1403803b4400d1cb93340b6f8fad2433c7cd55841ad327",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "@esbuild/linux-arm64",
+      "version": "0.28.2",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_checked_platform_archive_omits_notice_see_parent",
+        "url": "https://registry.npmjs.org/@esbuild/linux-arm64/-/linux-arm64-0.28.2.tgz",
+        "sha256": "a96dbfa41d3ef5dbd1ef22b1c10d5187be9267e86093a870f06402a7ec931596",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "@esbuild/linux-ia32",
+      "version": "0.28.2",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_checked_platform_archive_omits_notice_see_parent",
+        "url": "https://registry.npmjs.org/@esbuild/linux-ia32/-/linux-ia32-0.28.2.tgz",
+        "sha256": "47540b6a8fce26aac6559630dc232f83fe20642e87f1f1fab47512f0ea425084",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "@esbuild/linux-loong64",
+      "version": "0.28.2",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_checked_platform_archive_omits_notice_see_parent",
+        "url": "https://registry.npmjs.org/@esbuild/linux-loong64/-/linux-loong64-0.28.2.tgz",
+        "sha256": "5f043a3f0e6180956d8cf4731b90858fec365c42fab4c1fada75085c4a94fdb9",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "@esbuild/linux-mips64el",
+      "version": "0.28.2",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_checked_platform_archive_omits_notice_see_parent",
+        "url": "https://registry.npmjs.org/@esbuild/linux-mips64el/-/linux-mips64el-0.28.2.tgz",
+        "sha256": "c2a97154b4b7fb29567d56b3f26b10097c0582bf7fc224dd361eac8095327696",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "@esbuild/linux-ppc64",
+      "version": "0.28.2",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_checked_platform_archive_omits_notice_see_parent",
+        "url": "https://registry.npmjs.org/@esbuild/linux-ppc64/-/linux-ppc64-0.28.2.tgz",
+        "sha256": "41f0068aaaf6d444bdb5238430ccbaa7912ae769127576f90cd4c2adb2f1ca07",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "@esbuild/linux-riscv64",
+      "version": "0.28.2",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_checked_platform_archive_omits_notice_see_parent",
+        "url": "https://registry.npmjs.org/@esbuild/linux-riscv64/-/linux-riscv64-0.28.2.tgz",
+        "sha256": "1b3108c646b20581440993de33d2cfd8939aafc1933d62db211ed609da5066c6",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "@esbuild/linux-s390x",
+      "version": "0.28.2",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_checked_platform_archive_omits_notice_see_parent",
+        "url": "https://registry.npmjs.org/@esbuild/linux-s390x/-/linux-s390x-0.28.2.tgz",
+        "sha256": "fb2faced3739cf64c755d64aee53cbe15f50aedaeb7a625ee63d29a8f58d187d",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "@esbuild/linux-x64",
+      "version": "0.28.2",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_checked_platform_archive_omits_notice_see_parent",
+        "url": "https://registry.npmjs.org/@esbuild/linux-x64/-/linux-x64-0.28.2.tgz",
+        "sha256": "9573bb2233aab0f9ea7647d5cca9726113cc1768de61d66b17267f4db84488f6",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "@esbuild/netbsd-arm64",
+      "version": "0.28.2",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_checked_platform_archive_omits_notice_see_parent",
+        "url": "https://registry.npmjs.org/@esbuild/netbsd-arm64/-/netbsd-arm64-0.28.2.tgz",
+        "sha256": "8b0a5553e22db99b73f9620038f5e7bf06ba4b2509e1bb540d822f64a35d1f4c",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "@esbuild/netbsd-x64",
+      "version": "0.28.2",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_checked_platform_archive_omits_notice_see_parent",
+        "url": "https://registry.npmjs.org/@esbuild/netbsd-x64/-/netbsd-x64-0.28.2.tgz",
+        "sha256": "caf02fee8a2332d26af62d0a0c53abc35a42de5bcb968d9b94986b2c00c94f95",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "@esbuild/openbsd-arm64",
+      "version": "0.28.2",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_checked_platform_archive_omits_notice_see_parent",
+        "url": "https://registry.npmjs.org/@esbuild/openbsd-arm64/-/openbsd-arm64-0.28.2.tgz",
+        "sha256": "7c03d85f4f182de6e38cd6335263e89230f7fb72e4a23cd9d73da4357d18c1a0",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "@esbuild/openbsd-x64",
+      "version": "0.28.2",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_checked_platform_archive_omits_notice_see_parent",
+        "url": "https://registry.npmjs.org/@esbuild/openbsd-x64/-/openbsd-x64-0.28.2.tgz",
+        "sha256": "0dd9cf7fdb29b09cad6d2b191244adcd165444ec25d12ccbe098067d5a6d2ebf",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "@esbuild/openharmony-arm64",
+      "version": "0.28.2",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_checked_platform_archive_omits_notice_see_parent",
+        "url": "https://registry.npmjs.org/@esbuild/openharmony-arm64/-/openharmony-arm64-0.28.2.tgz",
+        "sha256": "0f1cb63fd9beb4d6cda70c0976e168cdd4f1ceb056b918a83607bb41516ab397",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "@esbuild/sunos-x64",
+      "version": "0.28.2",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_checked_platform_archive_omits_notice_see_parent",
+        "url": "https://registry.npmjs.org/@esbuild/sunos-x64/-/sunos-x64-0.28.2.tgz",
+        "sha256": "86353429e0f040280094dae3073ac1ee9310545b532e1c34a1a3617e4608b9e4",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "@esbuild/win32-arm64",
+      "version": "0.28.2",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_checked_platform_archive_omits_notice_see_parent",
+        "url": "https://registry.npmjs.org/@esbuild/win32-arm64/-/win32-arm64-0.28.2.tgz",
+        "sha256": "b3cffeaa165134f7da679c8619266953afd5f41641a254615a57e757f67c7336",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "@esbuild/win32-ia32",
+      "version": "0.28.2",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_checked_platform_archive_omits_notice_see_parent",
+        "url": "https://registry.npmjs.org/@esbuild/win32-ia32/-/win32-ia32-0.28.2.tgz",
+        "sha256": "e05a9b0cb0c9c6facfb02222d00064dd37baf5c1163f6c0eea936cb93f87a011",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "@esbuild/win32-x64",
+      "version": "0.28.2",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_checked_platform_archive_omits_notice_see_parent",
+        "url": "https://registry.npmjs.org/@esbuild/win32-x64/-/win32-x64-0.28.2.tgz",
+        "sha256": "7286c3611b6f1f4c4d9ec90adcbc478407ff0d28ead96567f361d53e67613e19",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "@jridgewell/gen-mapping",
+      "version": "0.3.13",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/@jridgewell/gen-mapping/-/gen-mapping-0.3.13.tgz",
+        "sha256": "bc16f658c1f6d63e0c8738ab881d03f49f1955d8f853cdcb8f7d315cf62f0082",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "@jridgewell/remapping",
+      "version": "2.3.5",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/@jridgewell/remapping/-/remapping-2.3.5.tgz",
+        "sha256": "70b16782a39ad16672e47c33473559a25bff9640214df91cb9dd153005d71a02",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "@jridgewell/resolve-uri",
+      "version": "3.1.2",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/@jridgewell/resolve-uri/-/resolve-uri-3.1.2.tgz",
+        "sha256": "db52f9f62558baab13353dd39e3200750fc33e6a129a575b46226f493776e230",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "@jridgewell/sourcemap-codec",
+      "version": "1.6.0",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/@jridgewell/sourcemap-codec/-/sourcemap-codec-1.6.0.tgz",
+        "sha256": "f30a35f6af8c347d01b8ff2f8662272f7d986cf21b916704d86c249a90b97e25",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "@jridgewell/trace-mapping",
+      "version": "0.3.31",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/@jridgewell/trace-mapping/-/trace-mapping-0.3.31.tgz",
+        "sha256": "c64c71a119630d5abe8246889edf334b2ca9ddad094e20d623332956b1453ccf",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "@napi-rs/lzma-linux-x64-gnu",
+      "version": "1.5.1",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_checked_notice_missing",
+        "url": "https://registry.npmjs.org/@napi-rs/lzma-linux-x64-gnu/-/lzma-linux-x64-gnu-1.5.1.tgz",
+        "sha256": "e69ca2a96510be330953f5b04b1d74617e7ce5d4487db4876c4b02b8364ef7e7",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "@radix-ui/primitive",
+      "version": "1.1.7",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/@radix-ui/primitive/-/primitive-1.1.7.tgz",
+        "sha256": "aeb0887b22ceb9445f736d02848b2ae56de9a38e0621e8db2ec5c5ee4baf7930",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "@radix-ui/react-collapsible",
+      "version": "1.1.20",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/@radix-ui/react-collapsible/-/react-collapsible-1.1.20.tgz",
+        "sha256": "596b57f4fae1a9372c50c84c1a93df14668a6d268a462b2047d34af61cbbeccf",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "@radix-ui/react-compose-refs",
+      "version": "1.1.5",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/@radix-ui/react-compose-refs/-/react-compose-refs-1.1.5.tgz",
+        "sha256": "a355b15dc60311aaf0d21e3f503a75b7799950f7ff03dcdc3265ec31d6bb4797",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "@radix-ui/react-context",
+      "version": "1.2.2",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/@radix-ui/react-context/-/react-context-1.2.2.tgz",
+        "sha256": "756bd1183c8e459586b8c03b9ebae5f04b3572436fb3edc370cdec7713cc97b4",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "@radix-ui/react-dialog",
+      "version": "1.1.23",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/@radix-ui/react-dialog/-/react-dialog-1.1.23.tgz",
+        "sha256": "fa3f7e8612eecfc7b889266c0a5f640463de7d534cd54c3aac6c644b6a8294d2",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "@radix-ui/react-dismissable-layer",
+      "version": "1.1.19",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/@radix-ui/react-dismissable-layer/-/react-dismissable-layer-1.1.19.tgz",
+        "sha256": "87b2b03c48fdf2770660031d97540d637288552612698d1f7ce3440e7958a0cc",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "@radix-ui/react-focus-guards",
+      "version": "1.1.6",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/@radix-ui/react-focus-guards/-/react-focus-guards-1.1.6.tgz",
+        "sha256": "5ab483e86bfce17782977b6b7990b8435991dd320ae0afda09c6f2529ee2d341",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "@radix-ui/react-focus-scope",
+      "version": "1.1.16",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/@radix-ui/react-focus-scope/-/react-focus-scope-1.1.16.tgz",
+        "sha256": "7e661ca20062722ee1899d243a1ec2b40e453da0977f141f11518dcbfce11c95",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "@radix-ui/react-id",
+      "version": "1.1.4",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/@radix-ui/react-id/-/react-id-1.1.4.tgz",
+        "sha256": "d4a52062e411906b99b152eff6320ae0da6327789a62dccefb0ae58220916570",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "@radix-ui/react-portal",
+      "version": "1.1.17",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/@radix-ui/react-portal/-/react-portal-1.1.17.tgz",
+        "sha256": "5a770d26c759ae06eccf2e908fc9582bf1c6b45dc1c7a992f0497da7a06f226d",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "@radix-ui/react-presence",
+      "version": "1.1.10",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/@radix-ui/react-presence/-/react-presence-1.1.10.tgz",
+        "sha256": "53a71dbc834bf932d44b49c9fb0c730f68e1aee195646c815d2832d6aa09e01d",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "@radix-ui/react-primitive",
+      "version": "2.1.10",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/@radix-ui/react-primitive/-/react-primitive-2.1.10.tgz",
+        "sha256": "0304bedc337d07ae1a630758319104ade8ae00668ca6a8851f37192e7b443c56",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "@radix-ui/react-slot",
+      "version": "1.3.3",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/@radix-ui/react-slot/-/react-slot-1.3.3.tgz",
+        "sha256": "43c36a34fb20ae97acbbf332d053b4cebbf34a2bb69e0af929514afd2dbad46f",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "@radix-ui/react-switch",
+      "version": "1.3.7",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/@radix-ui/react-switch/-/react-switch-1.3.7.tgz",
+        "sha256": "692fce9082de6fcc9268927d681d49e1fcedcaa7da63374a2a4b9dd7fc95d263",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "@radix-ui/react-use-callback-ref",
+      "version": "1.1.4",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/@radix-ui/react-use-callback-ref/-/react-use-callback-ref-1.1.4.tgz",
+        "sha256": "2b8287f7ca3f54df491a63a9e9a2e7070f289c4979056f1dab96a30188eadb35",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "@radix-ui/react-use-controllable-state",
+      "version": "1.2.6",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/@radix-ui/react-use-controllable-state/-/react-use-controllable-state-1.2.6.tgz",
+        "sha256": "75c4ccec673739cb505d8791516d4343c0fb5690500c7774c74029276c05528d",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "@radix-ui/react-use-effect-event",
+      "version": "0.0.5",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/@radix-ui/react-use-effect-event/-/react-use-effect-event-0.0.5.tgz",
+        "sha256": "0add7f5ca8c7127902b93cfc2277e3c27d9f33bb9cf9a381741fdde361415eb2",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "@radix-ui/react-use-layout-effect",
+      "version": "1.1.4",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/@radix-ui/react-use-layout-effect/-/react-use-layout-effect-1.1.4.tgz",
+        "sha256": "7bc22fe5fb82a07133c61b640d50a9a3553b0da16ae8e6458c19053206563ed9",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "@radix-ui/react-use-size",
+      "version": "1.1.4",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/@radix-ui/react-use-size/-/react-use-size-1.1.4.tgz",
+        "sha256": "51cdbce85969ecd9ba13c9c6df83affb8bcb181db2b8f57f5b0ebff4c7fb0631",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "@redocly/ajv",
+      "version": "8.11.2",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/@redocly/ajv/-/ajv-8.11.2.tgz",
+        "sha256": "6a7695279f8fd8f4330fe52fc566096393bbcfe4a1a12b71b81952db2c9e6d2b",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "@redocly/config",
+      "version": "0.22.0",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/@redocly/config/-/config-0.22.0.tgz",
+        "sha256": "d6bc45387bfc4a1a679014db2d26f2ba2236ffcfcce43bbc92f9a2fb59b6fb4c",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "@redocly/openapi-core",
+      "version": "1.34.20",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_supplemental_notice_checked",
+        "url": "https://registry.npmjs.org/@redocly/openapi-core/-/openapi-core-1.34.20.tgz",
+        "sha256": "f45c144d47aa782496db99a5ff33b4cae3c2080d85ea3cbacb8dc4bd6f539529",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "@rolldown/pluginutils",
+      "version": "1.0.0-rc.3",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/@rolldown/pluginutils/-/pluginutils-1.0.0-rc.3.tgz",
+        "sha256": "72deb152390207199b77318960e6042e49c873c1b81eceeb0d1d9fe78ac0d216",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "@rollup/rollup-android-arm-eabi",
+      "version": "4.63.1",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_checked_platform_archive_omits_notice_see_parent",
+        "url": "https://registry.npmjs.org/@rollup/rollup-android-arm-eabi/-/rollup-android-arm-eabi-4.63.1.tgz",
+        "sha256": "f6730f1a17898821dde053bd388c11be9c2f3a68bf6596825dd89993efd803a9",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "@rollup/rollup-android-arm64",
+      "version": "4.63.1",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_checked_platform_archive_omits_notice_see_parent",
+        "url": "https://registry.npmjs.org/@rollup/rollup-android-arm64/-/rollup-android-arm64-4.63.1.tgz",
+        "sha256": "10d153b0d95f0306f59bf9b9b5c39a43aca1aa0dd3fdb62274c65b6261d31a93",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "@rollup/rollup-darwin-arm64",
+      "version": "4.63.1",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_checked_platform_archive_omits_notice_see_parent",
+        "url": "https://registry.npmjs.org/@rollup/rollup-darwin-arm64/-/rollup-darwin-arm64-4.63.1.tgz",
+        "sha256": "e77e9727cd510da5656401849661712bf2fb03e3ff78705c694ac291921e07b6",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "@rollup/rollup-darwin-x64",
+      "version": "4.63.1",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_checked_platform_archive_omits_notice_see_parent",
+        "url": "https://registry.npmjs.org/@rollup/rollup-darwin-x64/-/rollup-darwin-x64-4.63.1.tgz",
+        "sha256": "c23702606083f5782d443cd7bcb8b0b4ceaff3ae32536b445f4a3ba3e0189d59",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "@rollup/rollup-freebsd-arm64",
+      "version": "4.63.1",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_checked_platform_archive_omits_notice_see_parent",
+        "url": "https://registry.npmjs.org/@rollup/rollup-freebsd-arm64/-/rollup-freebsd-arm64-4.63.1.tgz",
+        "sha256": "63dc6bfd5e0f6e9d8ca44163c44e6c3bf00f9aced86093a354e11e96962a80a3",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "@rollup/rollup-freebsd-x64",
+      "version": "4.63.1",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_checked_platform_archive_omits_notice_see_parent",
+        "url": "https://registry.npmjs.org/@rollup/rollup-freebsd-x64/-/rollup-freebsd-x64-4.63.1.tgz",
+        "sha256": "7d34494d3f085f47f1201f42409b41e028075ca2cb6f99de165527ab78add3c0",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "@rollup/rollup-linux-arm-gnueabihf",
+      "version": "4.63.1",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_checked_platform_archive_omits_notice_see_parent",
+        "url": "https://registry.npmjs.org/@rollup/rollup-linux-arm-gnueabihf/-/rollup-linux-arm-gnueabihf-4.63.1.tgz",
+        "sha256": "2691e02beb5024b69361a740c6c5c99ef9930d546591491006cb09801e551b3a",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "@rollup/rollup-linux-arm-musleabihf",
+      "version": "4.63.1",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_checked_platform_archive_omits_notice_see_parent",
+        "url": "https://registry.npmjs.org/@rollup/rollup-linux-arm-musleabihf/-/rollup-linux-arm-musleabihf-4.63.1.tgz",
+        "sha256": "9796db1ee6ddd64b24ba5b39ebed4d89333d4ae88415077f9ba0e5df8637b5cc",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "@rollup/rollup-linux-arm64-gnu",
+      "version": "4.63.1",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_checked_platform_archive_omits_notice_see_parent",
+        "url": "https://registry.npmjs.org/@rollup/rollup-linux-arm64-gnu/-/rollup-linux-arm64-gnu-4.63.1.tgz",
+        "sha256": "a777c17e4a24610d45cd67cefadfb1196e966212b7014cef58cf5684f3a0c7b5",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "@rollup/rollup-linux-arm64-musl",
+      "version": "4.63.1",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_checked_platform_archive_omits_notice_see_parent",
+        "url": "https://registry.npmjs.org/@rollup/rollup-linux-arm64-musl/-/rollup-linux-arm64-musl-4.63.1.tgz",
+        "sha256": "9b50bee7736d02634651f30cbbe9788e01e6ae080c8037788a1b99401bc99bec",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "@rollup/rollup-linux-loong64-gnu",
+      "version": "4.63.1",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_checked_platform_archive_omits_notice_see_parent",
+        "url": "https://registry.npmjs.org/@rollup/rollup-linux-loong64-gnu/-/rollup-linux-loong64-gnu-4.63.1.tgz",
+        "sha256": "21ec19f564b2edc2774826781dc392d1480b702b142885eecf96f85cc610df06",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "@rollup/rollup-linux-loong64-musl",
+      "version": "4.63.1",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_checked_platform_archive_omits_notice_see_parent",
+        "url": "https://registry.npmjs.org/@rollup/rollup-linux-loong64-musl/-/rollup-linux-loong64-musl-4.63.1.tgz",
+        "sha256": "072d4c38757183c328867428939bc3519029bfc6fe2ad3bab6bdf1f290b8646a",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "@rollup/rollup-linux-ppc64-gnu",
+      "version": "4.63.1",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_checked_platform_archive_omits_notice_see_parent",
+        "url": "https://registry.npmjs.org/@rollup/rollup-linux-ppc64-gnu/-/rollup-linux-ppc64-gnu-4.63.1.tgz",
+        "sha256": "f787d6d9f3269b668f17a4194efe3001fec50b17447e09c942e0d2c47b26ccfa",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "@rollup/rollup-linux-ppc64-musl",
+      "version": "4.63.1",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_checked_platform_archive_omits_notice_see_parent",
+        "url": "https://registry.npmjs.org/@rollup/rollup-linux-ppc64-musl/-/rollup-linux-ppc64-musl-4.63.1.tgz",
+        "sha256": "ff6585d77d9179d202e1b47e40f67c9534351e74d81a8d8c1b53c9bb7446cea9",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "@rollup/rollup-linux-riscv64-gnu",
+      "version": "4.63.1",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_checked_platform_archive_omits_notice_see_parent",
+        "url": "https://registry.npmjs.org/@rollup/rollup-linux-riscv64-gnu/-/rollup-linux-riscv64-gnu-4.63.1.tgz",
+        "sha256": "1f476a74a267a2047a360ed047fa63db6e98862d19ec4e73801280663a939b21",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "@rollup/rollup-linux-riscv64-musl",
+      "version": "4.63.1",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_checked_platform_archive_omits_notice_see_parent",
+        "url": "https://registry.npmjs.org/@rollup/rollup-linux-riscv64-musl/-/rollup-linux-riscv64-musl-4.63.1.tgz",
+        "sha256": "a7e4a65b51f672fd7b2007ca008c1915520a29f6c68087cd1d4b450fa4f1be1d",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "@rollup/rollup-linux-s390x-gnu",
+      "version": "4.63.1",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_checked_platform_archive_omits_notice_see_parent",
+        "url": "https://registry.npmjs.org/@rollup/rollup-linux-s390x-gnu/-/rollup-linux-s390x-gnu-4.63.1.tgz",
+        "sha256": "093422bf27774e58cd34a2796da2b2579db107d9cc1c84829ace2d7f3c30fe03",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "@rollup/rollup-linux-x64-gnu",
+      "version": "4.63.1",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_checked_platform_archive_omits_notice_see_parent",
+        "url": "https://registry.npmjs.org/@rollup/rollup-linux-x64-gnu/-/rollup-linux-x64-gnu-4.63.1.tgz",
+        "sha256": "283f7ac6dc628d2c8693cd78ad438c21a4230f8f39c37df85ddceb704fea28eb",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "@rollup/rollup-linux-x64-musl",
+      "version": "4.63.1",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_checked_platform_archive_omits_notice_see_parent",
+        "url": "https://registry.npmjs.org/@rollup/rollup-linux-x64-musl/-/rollup-linux-x64-musl-4.63.1.tgz",
+        "sha256": "22b35af63ff1b414c42836064eb74c06e5c18f82821399de00117fd1c076a2d2",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "@rollup/rollup-openbsd-x64",
+      "version": "4.63.1",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_checked_platform_archive_omits_notice_see_parent",
+        "url": "https://registry.npmjs.org/@rollup/rollup-openbsd-x64/-/rollup-openbsd-x64-4.63.1.tgz",
+        "sha256": "76a0757f065ee179f76267c2eef25f3d3d39204af49b02ed7b907bc99bfc6a7b",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "@rollup/rollup-openharmony-arm64",
+      "version": "4.63.1",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_checked_platform_archive_omits_notice_see_parent",
+        "url": "https://registry.npmjs.org/@rollup/rollup-openharmony-arm64/-/rollup-openharmony-arm64-4.63.1.tgz",
+        "sha256": "c3e890e02d191a67bae3746424fa04fca3bc27868706e853a7ee4d93d7b40fb3",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "@rollup/rollup-win32-arm64-msvc",
+      "version": "4.63.1",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_checked_platform_archive_omits_notice_see_parent",
+        "url": "https://registry.npmjs.org/@rollup/rollup-win32-arm64-msvc/-/rollup-win32-arm64-msvc-4.63.1.tgz",
+        "sha256": "a39eeb0af798c6d62112f1c3e64947b8ff17e106a0d494d7a3223adddab5215a",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "@rollup/rollup-win32-ia32-msvc",
+      "version": "4.63.1",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_checked_platform_archive_omits_notice_see_parent",
+        "url": "https://registry.npmjs.org/@rollup/rollup-win32-ia32-msvc/-/rollup-win32-ia32-msvc-4.63.1.tgz",
+        "sha256": "a04c1a3e0a784b0165ee675f61d030ad6af3174a760de185cc1154938224943c",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "@rollup/rollup-win32-x64-gnu",
+      "version": "4.63.1",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_checked_platform_archive_omits_notice_see_parent",
+        "url": "https://registry.npmjs.org/@rollup/rollup-win32-x64-gnu/-/rollup-win32-x64-gnu-4.63.1.tgz",
+        "sha256": "b1f34a880f78ac7d777dbb5f5dc505a6f9a87b67e1de4c6770382c618078cee6",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "@rollup/rollup-win32-x64-msvc",
+      "version": "4.63.1",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_checked_platform_archive_omits_notice_see_parent",
+        "url": "https://registry.npmjs.org/@rollup/rollup-win32-x64-msvc/-/rollup-win32-x64-msvc-4.63.1.tgz",
+        "sha256": "e2d8ac0f4f9e51ad0b647332ddd3da836a54c27250600c121002e342419a228a",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "@tailwindcss/node",
+      "version": "4.3.3",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/@tailwindcss/node/-/node-4.3.3.tgz",
+        "sha256": "227be0dd213e8c3147218754df359966bf926c64adcaa7467b7415d54921d4e6",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "@tailwindcss/oxide",
+      "version": "4.3.3",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/@tailwindcss/oxide/-/oxide-4.3.3.tgz",
+        "sha256": "2a6e1012e10913fe60f8548c77a20b9c9e128653a9d4ac82ea7de1326e1f8228",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "@tailwindcss/oxide-android-arm64",
+      "version": "4.3.3",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/@tailwindcss/oxide-android-arm64/-/oxide-android-arm64-4.3.3.tgz",
+        "sha256": "7aa09fbcb3ff60bac3cd5c5f2c1df8bfa676228fd5368d972aa26d1b005f657b",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "@tailwindcss/oxide-darwin-arm64",
+      "version": "4.3.3",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/@tailwindcss/oxide-darwin-arm64/-/oxide-darwin-arm64-4.3.3.tgz",
+        "sha256": "1f8efb8cf9d88529731c0351774329d83a046904feb4db0397edd431476ab867",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "@tailwindcss/oxide-darwin-x64",
+      "version": "4.3.3",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/@tailwindcss/oxide-darwin-x64/-/oxide-darwin-x64-4.3.3.tgz",
+        "sha256": "fc92d9058b5eed782b31ce20feb1b1dbff2264798058cf7e7338cf9423cf0a0d",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "@tailwindcss/oxide-freebsd-x64",
+      "version": "4.3.3",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/@tailwindcss/oxide-freebsd-x64/-/oxide-freebsd-x64-4.3.3.tgz",
+        "sha256": "d8d49fb13e3c44c9e46ee80280ecc93720a7096840e58930f677288b28d72d84",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "@tailwindcss/oxide-linux-arm-gnueabihf",
+      "version": "4.3.3",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/@tailwindcss/oxide-linux-arm-gnueabihf/-/oxide-linux-arm-gnueabihf-4.3.3.tgz",
+        "sha256": "7c688533069a8291f9b41aba4ae4c43d8e5156ea983856fec67f1c66fa891082",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "@tailwindcss/oxide-linux-arm64-gnu",
+      "version": "4.3.3",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/@tailwindcss/oxide-linux-arm64-gnu/-/oxide-linux-arm64-gnu-4.3.3.tgz",
+        "sha256": "a5e2a0e1f93586662f459a374fd9edc06713bbd6bf2b9a2cd1caf2856cdd8126",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "@tailwindcss/oxide-linux-arm64-musl",
+      "version": "4.3.3",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/@tailwindcss/oxide-linux-arm64-musl/-/oxide-linux-arm64-musl-4.3.3.tgz",
+        "sha256": "230db777c8cd2db37ce7d37e653b615fcca97619cbd5dd83c4031a56f3bbc91a",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "@tailwindcss/oxide-linux-x64-gnu",
+      "version": "4.3.3",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/@tailwindcss/oxide-linux-x64-gnu/-/oxide-linux-x64-gnu-4.3.3.tgz",
+        "sha256": "a8289f8c8c1ccf7ce49932927fd97bae9fa289cc46b0585c629fa2c3dfe22bf1",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "@tailwindcss/oxide-linux-x64-musl",
+      "version": "4.3.3",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/@tailwindcss/oxide-linux-x64-musl/-/oxide-linux-x64-musl-4.3.3.tgz",
+        "sha256": "f0fcecfabbb554dd7d39443473ad67912f45cd2612002930ae54e9084974b7b7",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "@tailwindcss/oxide-wasm32-wasi",
+      "version": "4.3.3",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/@tailwindcss/oxide-wasm32-wasi/-/oxide-wasm32-wasi-4.3.3.tgz",
+        "sha256": "d5b61fbe10d237f7565032a74b03b5be6c83b309037ee407e2b5b46f24738823",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "@tailwindcss/oxide-win32-arm64-msvc",
+      "version": "4.3.3",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/@tailwindcss/oxide-win32-arm64-msvc/-/oxide-win32-arm64-msvc-4.3.3.tgz",
+        "sha256": "936979fcbeeac142db46a967ca9487fd59c6fcf9792d233792638208a2cc5b13",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "@tailwindcss/oxide-win32-x64-msvc",
+      "version": "4.3.3",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/@tailwindcss/oxide-win32-x64-msvc/-/oxide-win32-x64-msvc-4.3.3.tgz",
+        "sha256": "91307ceed612c9c43368e5dd58c4bfa760888e14a18087438b4468c9faac5ce4",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "@tailwindcss/vite",
+      "version": "4.3.3",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/@tailwindcss/vite/-/vite-4.3.3.tgz",
+        "sha256": "a513c6b7e919897ed6bb7b0332adadd880153451f5f47c1932cb29f28ef6318a",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "@tanstack/query-core",
+      "version": "5.102.8",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/@tanstack/query-core/-/query-core-5.102.8.tgz",
+        "sha256": "bed96a959b15a8a105648d55a9f04aac27b82007e26e04d02ff6650b5b6ead80",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "@tanstack/react-query",
+      "version": "5.102.8",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/@tanstack/react-query/-/react-query-5.102.8.tgz",
+        "sha256": "885a94ab724af465ce463c2100669d5229b0a4227c306fe2a9e9e7314fc9a587",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "@types/babel__core",
+      "version": "7.20.5",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/@types/babel__core/-/babel__core-7.20.5.tgz",
+        "sha256": "1865223be6b834c44abf5ebedafb1707019b4941be8021469980c7ef4c2e1155",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "@types/babel__generator",
+      "version": "7.27.0",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/@types/babel__generator/-/babel__generator-7.27.0.tgz",
+        "sha256": "755508f0bb974706739e5cf3a94f546c5c8c149dbcd407c599f36cdd89056f9d",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "@types/babel__template",
+      "version": "7.4.4",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/@types/babel__template/-/babel__template-7.4.4.tgz",
+        "sha256": "a67c2c19e0281996d2f7ddcc41f561abff796ed1cb07276ebad6982dbb67a7c1",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "@types/babel__traverse",
+      "version": "7.28.0",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/@types/babel__traverse/-/babel__traverse-7.28.0.tgz",
+        "sha256": "2cc7973029fb3b69f77cf55b42be307ff34f63a68e55a173872a9712253fbc90",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "@types/estree",
+      "version": "1.0.9",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/@types/estree/-/estree-1.0.9.tgz",
+        "sha256": "ec8f3c0dfb21497db5a3480c45a6cf6f9b18d3b337b2ea4d03e3ef2a9c2bb358",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "@types/react",
+      "version": "19.2.18",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/@types/react/-/react-19.2.18.tgz",
+        "sha256": "bd54a5fe6a083d480a3ab03972cbba7742da4da5035bb5bd5b53b374cc97c374",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "@types/react-dom",
+      "version": "19.2.7",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/@types/react-dom/-/react-dom-19.2.7.tgz",
+        "sha256": "a74b43ef63f4b3f3fbf83f4d09a970fa6631b84c6c41fd8274427b5006fefc7e",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "@vitejs/plugin-react",
+      "version": "5.2.0",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/@vitejs/plugin-react/-/plugin-react-5.2.0.tgz",
+        "sha256": "4c3e61fbb4f8648a1ad363fb6e8d1c8407443b7088d2e869217cdc0c2b268011",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "agent-base",
+      "version": "7.1.4",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/agent-base/-/agent-base-7.1.4.tgz",
+        "sha256": "7dd4a61668a9a4e8d4e903f1a254f94d53dafd3f316f2b9b597c5ad8c79cb57e",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "ansi-colors",
+      "version": "4.1.3",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/ansi-colors/-/ansi-colors-4.1.3.tgz",
+        "sha256": "8e8874d92e1805e62ae3e17846521c70c68eaf16d2c977ba9c8d3e2cebbd8931",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "argparse",
+      "version": "2.0.1",
+      "license": "Python-2.0",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/argparse/-/argparse-2.0.1.tgz",
+        "sha256": "27903847fc8215e6fc5a33e81490f7baba66403f8aade33771b988cca097728c",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "aria-hidden",
+      "version": "1.2.6",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/aria-hidden/-/aria-hidden-1.2.6.tgz",
+        "sha256": "bb3ff0d0a5b0c4a5ab5e579d79e91fbd41cd1700028ddf91ebd3154b3c13749e",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "balanced-match",
+      "version": "1.0.2",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/balanced-match/-/balanced-match-1.0.2.tgz",
+        "sha256": "d854f7abdd0c7a8120cf381e0ad5f972cbd0255f5d987424bd672c8c4fcebcc1",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "baseline-browser-mapping",
+      "version": "2.11.21",
+      "license": "Apache-2.0",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/baseline-browser-mapping/-/baseline-browser-mapping-2.11.21.tgz",
+        "sha256": "91c356ccdbe4c9d11246c7f9098d1ab098703d4291743f828dfb882f8f6f7a61",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "brace-expansion",
+      "version": "2.1.7",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/brace-expansion/-/brace-expansion-2.1.7.tgz",
+        "sha256": "6f4d64fdab4cdc5096d48537f35a6bbb2b8b918abaa4bdb0833e92486f66befc",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "browserslist",
+      "version": "4.28.9",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/browserslist/-/browserslist-4.28.9.tgz",
+        "sha256": "b0887912c69103cc2e16a142ee38c51b9b3fb329c37c1e014671dff2eb238e34",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "caniuse-lite",
+      "version": "1.0.30001810",
+      "license": "CC-BY-4.0",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/caniuse-lite/-/caniuse-lite-1.0.30001810.tgz",
+        "sha256": "90358545393506a7f65ea1b2778ce68638114c327e441a463a705e26b58a85df",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "change-case",
+      "version": "5.4.4",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_supplemental_notice_checked",
+        "url": "https://registry.npmjs.org/change-case/-/change-case-5.4.4.tgz",
+        "sha256": "8fd13538849edf6d6756d65690913ba7ae03ecab99bbf2d3e2a95b95957975ab",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "colorette",
+      "version": "1.4.0",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/colorette/-/colorette-1.4.0.tgz",
+        "sha256": "e6f3e47e264cbf911efa07154de8a401ae6b01ce8d7ba3a064a35baa161b926f",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "convert-source-map",
+      "version": "2.0.0",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/convert-source-map/-/convert-source-map-2.0.0.tgz",
+        "sha256": "17f7253ec7e4e09f68371192fded2b5241a5cf85e610e5059b1d49e878fe1898",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "cookie",
+      "version": "1.1.1",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/cookie/-/cookie-1.1.1.tgz",
+        "sha256": "0e9342b066986722098d9b108b238033862eae90b3d53ff90581538264d91b60",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "csstype",
+      "version": "3.2.3",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/csstype/-/csstype-3.2.3.tgz",
+        "sha256": "f3501f8ee1c73f7568fecb22c11231162c0467e59262461da5579519307427a3",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "debug",
+      "version": "4.4.3",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/debug/-/debug-4.4.3.tgz",
+        "sha256": "89c1ac9c946ee8905a875837114528e97eeae35e03be3190584b2216af43e4a7",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "detect-libc",
+      "version": "2.1.2",
+      "license": "Apache-2.0",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/detect-libc/-/detect-libc-2.1.2.tgz",
+        "sha256": "270dec0fc06cff86481da8af2dd8f18dee6b602790b14ef0e1c2c18d7da39427",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "detect-node-es",
+      "version": "1.1.0",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/detect-node-es/-/detect-node-es-1.1.0.tgz",
+        "sha256": "bc0bc6ee6c25bfd3db4e44dbaa210011dc5a1937a381bbbd92ad857bf5183678",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "echarts",
+      "version": "6.1.0",
+      "license": "Apache-2.0",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/echarts/-/echarts-6.1.0.tgz",
+        "sha256": "681aff88cc1038c3fa941a3a53d1b177a52250b05335efc607d6105ae13be481",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "tslib",
+      "version": "2.3.0",
+      "license": "0BSD",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/tslib/-/tslib-2.3.0.tgz",
+        "sha256": "ae285639feff7e3c39de4626352181a5d73b815725e42639b411c43848abffdb",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "electron-to-chromium",
+      "version": "1.5.422",
+      "license": "ISC",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/electron-to-chromium/-/electron-to-chromium-1.5.422.tgz",
+        "sha256": "3dc6828b097c35bc7dca2d347689ae68b3605c1e0e7f924ccf72c9b627a98774",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "enhanced-resolve",
+      "version": "5.24.5",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/enhanced-resolve/-/enhanced-resolve-5.24.5.tgz",
+        "sha256": "ddcda3d6585a806614e581ea4ce1cf33a10d9f4b1cdfb6c808dfcda9b5641471",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "esbuild",
+      "version": "0.28.2",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/esbuild/-/esbuild-0.28.2.tgz",
+        "sha256": "e045f94c235c7adc50e77ba2a579c7bec41b496b6b47c3a7845f7c1e19959a88",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "escalade",
+      "version": "3.2.0",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/escalade/-/escalade-3.2.0.tgz",
+        "sha256": "ba2755afc0e6c6705326711fd218ebe107a527eccbd6485155fde98ed000bee7",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "fast-deep-equal",
+      "version": "3.1.3",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/fast-deep-equal/-/fast-deep-equal-3.1.3.tgz",
+        "sha256": "b019a0980f27638dc3f85836b0e478f188e00d7a6e5852c0819fa86f56e47b8f",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "fdir",
+      "version": "6.5.0",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/fdir/-/fdir-6.5.0.tgz",
+        "sha256": "241ddcd9f31e2a1fca405326017dbb8333ce174198e887f0f96387c29f0d365e",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "fsevents",
+      "version": "2.3.3",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/fsevents/-/fsevents-2.3.3.tgz",
+        "sha256": "c77e7a5d5ff31dd7acea7c44d4a0455e0528cdacbd24a8cb6c82b66d239b587e",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "gensync",
+      "version": "1.0.0-beta.2",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/gensync/-/gensync-1.0.0-beta.2.tgz",
+        "sha256": "df9f92ef26a35d4f92cb8a73415dfea8dadaf294a03e60e4d176df82f38d17c9",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "get-nonce",
+      "version": "1.0.1",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/get-nonce/-/get-nonce-1.0.1.tgz",
+        "sha256": "943112eb62102f2ef56bad6eb50a3fe12bc0b386da0893614d81c735baa05897",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "graceful-fs",
+      "version": "4.2.11",
+      "license": "ISC",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/graceful-fs/-/graceful-fs-4.2.11.tgz",
+        "sha256": "3961374aa161e6fed80d6f4b6aaf2fb7eafd2c9e5be34e865b375f0114dd099c",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "https-proxy-agent",
+      "version": "7.0.6",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/https-proxy-agent/-/https-proxy-agent-7.0.6.tgz",
+        "sha256": "960f89e8e5240882f64249d04a538421dd39d62ffacc138544647cc3251bc0e0",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "index-to-position",
+      "version": "1.2.0",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/index-to-position/-/index-to-position-1.2.0.tgz",
+        "sha256": "c901418ea21085a92727630720b986cbfc05cb05134eebdc1bea31ca13ad0b2c",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "jiti",
+      "version": "2.7.0",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/jiti/-/jiti-2.7.0.tgz",
+        "sha256": "8dd0d365fb49c0e7cc42d6a00df6fb2da9056fc24492094346fc34ecdbcf28ca",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "js-levenshtein",
+      "version": "1.1.6",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/js-levenshtein/-/js-levenshtein-1.1.6.tgz",
+        "sha256": "71870db27c270863cec3cd851212021c9c83ab7d4988db582b60e2bb35d603b5",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "js-tokens",
+      "version": "4.0.0",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/js-tokens/-/js-tokens-4.0.0.tgz",
+        "sha256": "d884c7a2d8adb5568c1272d92b4f9c62707f4226cf9e7b22e7b957c7361e3c53",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "js-yaml",
+      "version": "4.3.2",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/js-yaml/-/js-yaml-4.3.2.tgz",
+        "sha256": "c7b241d2224cf9253ff53854aa4cee87da91bd889c4d0fa3a3ffd1041ecee5b1",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "jsesc",
+      "version": "3.1.0",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/jsesc/-/jsesc-3.1.0.tgz",
+        "sha256": "0c712225ccca9a70bf83f2ac2f52a268c858c7df3b3df196f1623239d80d3c09",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "json-schema-traverse",
+      "version": "1.0.0",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/json-schema-traverse/-/json-schema-traverse-1.0.0.tgz",
+        "sha256": "023222622df29fc274bde5d3590e47aa1d4a8e3c1d6e2aba029948ed79799b21",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "json5",
+      "version": "2.2.3",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/json5/-/json5-2.2.3.tgz",
+        "sha256": "08afb33db600d11fc89b98fac4054f19d5d3e0fe527063116150e1ecc2d2377b",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "lightningcss",
+      "version": "1.32.0",
+      "license": "MPL-2.0",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/lightningcss/-/lightningcss-1.32.0.tgz",
+        "sha256": "c83e81ea213c9e419c5877460a6788f0d0931d58a4aa9fea92fac1a99a1550e8",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "lightningcss-android-arm64",
+      "version": "1.32.0",
+      "license": "MPL-2.0",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/lightningcss-android-arm64/-/lightningcss-android-arm64-1.32.0.tgz",
+        "sha256": "b4abb8ae8b4d09400ae0a0bf271485782e5afef941de569406ae6657a9462412",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "lightningcss-darwin-arm64",
+      "version": "1.32.0",
+      "license": "MPL-2.0",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/lightningcss-darwin-arm64/-/lightningcss-darwin-arm64-1.32.0.tgz",
+        "sha256": "7b516b43a62f70fc041310b54ad004e916fe73190662ca56a683afbfb8f99ee7",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "lightningcss-darwin-x64",
+      "version": "1.32.0",
+      "license": "MPL-2.0",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/lightningcss-darwin-x64/-/lightningcss-darwin-x64-1.32.0.tgz",
+        "sha256": "5f1782a48958e03a0962b1712958df45b1a3e8129639db7231b79628163da11d",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "lightningcss-freebsd-x64",
+      "version": "1.32.0",
+      "license": "MPL-2.0",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/lightningcss-freebsd-x64/-/lightningcss-freebsd-x64-1.32.0.tgz",
+        "sha256": "cbf0219a3344a75f24949fd4626a1cd93ca0c53f695915e25ff1320953af16af",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "lightningcss-linux-arm-gnueabihf",
+      "version": "1.32.0",
+      "license": "MPL-2.0",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/lightningcss-linux-arm-gnueabihf/-/lightningcss-linux-arm-gnueabihf-1.32.0.tgz",
+        "sha256": "972ed95a46430bf5fdc926d9bf7c6c6dd90b1ee787c097d820e5cfb4e13e2c8a",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "lightningcss-linux-arm64-gnu",
+      "version": "1.32.0",
+      "license": "MPL-2.0",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/lightningcss-linux-arm64-gnu/-/lightningcss-linux-arm64-gnu-1.32.0.tgz",
+        "sha256": "06d493826b5f26c3cdfd6c08ef6414cec5d4650a7a7933ef67e78b3f738648f5",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "lightningcss-linux-arm64-musl",
+      "version": "1.32.0",
+      "license": "MPL-2.0",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/lightningcss-linux-arm64-musl/-/lightningcss-linux-arm64-musl-1.32.0.tgz",
+        "sha256": "6d7d1155d4283b7720e9e843aff80706a8d283ff66bb970f24b2f413cd7accc9",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "lightningcss-linux-x64-gnu",
+      "version": "1.32.0",
+      "license": "MPL-2.0",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/lightningcss-linux-x64-gnu/-/lightningcss-linux-x64-gnu-1.32.0.tgz",
+        "sha256": "9e6f466230dadda414b50614590dd158e26bf65d3a6db8dd1d321066203c310b",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "lightningcss-linux-x64-musl",
+      "version": "1.32.0",
+      "license": "MPL-2.0",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/lightningcss-linux-x64-musl/-/lightningcss-linux-x64-musl-1.32.0.tgz",
+        "sha256": "5217af406c6609b4ffbfdb937cff07473b84f5a8eb2cf0e87950240d230a5285",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "lightningcss-win32-arm64-msvc",
+      "version": "1.32.0",
+      "license": "MPL-2.0",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/lightningcss-win32-arm64-msvc/-/lightningcss-win32-arm64-msvc-1.32.0.tgz",
+        "sha256": "ddae97f2574dd44b5eac42f7bdf435d4ea9b8268a3b9d92611aabb9aa80a836f",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "lightningcss-win32-x64-msvc",
+      "version": "1.32.0",
+      "license": "MPL-2.0",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/lightningcss-win32-x64-msvc/-/lightningcss-win32-x64-msvc-1.32.0.tgz",
+        "sha256": "15cba5880dba8647b7ec8c56532d8f32024b75f8cbf3236deab20a9c402862b7",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "lru-cache",
+      "version": "5.1.1",
+      "license": "ISC",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/lru-cache/-/lru-cache-5.1.1.tgz",
+        "sha256": "b11e78819544a6606e3317647a5593c102ea38d3c5afae62cd63f9c2c369485a",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "lucide-react",
+      "version": "0.577.0",
+      "license": "ISC",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/lucide-react/-/lucide-react-0.577.0.tgz",
+        "sha256": "272da56bc93890182e33b78647ef87cff10ad8f2369bc1387c4aa44d66beded5",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "magic-string",
+      "version": "0.30.21",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/magic-string/-/magic-string-0.30.21.tgz",
+        "sha256": "fa49762567dca44e8ccf327f365d250e04c482bf7a4ed0ae7d03659b09ac656f",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "minimatch",
+      "version": "5.1.9",
+      "license": "ISC",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/minimatch/-/minimatch-5.1.9.tgz",
+        "sha256": "67e7dacfba9fcabb6ac661620b67e6c22600b4aa56ffa14431cbdfdeebbd4cfe",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "ms",
+      "version": "2.1.3",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/ms/-/ms-2.1.3.tgz",
+        "sha256": "f6616e15e530ed552f9daa2d3ce71963947c6bc7c98c9b64fd3e673fd02622c6",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "nanoid",
+      "version": "3.3.18",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/nanoid/-/nanoid-3.3.18.tgz",
+        "sha256": "b9dc81cb403ea2510314dd2d1ad8d71934f325db90c1b43805e781b87e3fb009",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "node-releases",
+      "version": "2.0.54",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/node-releases/-/node-releases-2.0.54.tgz",
+        "sha256": "2ab505317470c272e6afc63f23dd071e40d73ca963c3c6e950a6d8436e45b0a9",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "openapi-typescript",
+      "version": "7.13.0",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/openapi-typescript/-/openapi-typescript-7.13.0.tgz",
+        "sha256": "127c3c93b02c3deacc93091a215235f697e6db9fe350bc50740cdaefb865d580",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "parse-json",
+      "version": "8.3.0",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/parse-json/-/parse-json-8.3.0.tgz",
+        "sha256": "417c68fbbfb5a7ebb279f1972de2c1253e7de2979b1a7ded32e1063d3b47d148",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "picocolors",
+      "version": "1.1.1",
+      "license": "ISC",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/picocolors/-/picocolors-1.1.1.tgz",
+        "sha256": "d3aedb2807967b7eb37fd11b03b7e3701e725af79c650d0812ff7213f8f882d9",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "picomatch",
+      "version": "4.0.7",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/picomatch/-/picomatch-4.0.7.tgz",
+        "sha256": "697b463be3cdbd9ffc8f4194fd5019a69ddf95875fb703d78b2b115cc9e740a8",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "pluralize",
+      "version": "8.0.0",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/pluralize/-/pluralize-8.0.0.tgz",
+        "sha256": "984464a74e8a33c18d2760e162533a68eb772574b0816918f738e2b27ef5b695",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "postcss",
+      "version": "8.5.28",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/postcss/-/postcss-8.5.28.tgz",
+        "sha256": "f63d6d9bce28989cd083add85af717c0264e44323d35c909ae99ac934e9641a6",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "prettier",
+      "version": "3.9.6",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/prettier/-/prettier-3.9.6.tgz",
+        "sha256": "997da95cf2ae81053cafc79ef122a6e8dc12e3f2c619d57eb1f2e19525fb212f",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "react",
+      "version": "19.2.8",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/react/-/react-19.2.8.tgz",
+        "sha256": "94c6b9e0785854d2e5d9628cec05c33ed017b6a9002af5e8778d4134e9ada611",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "react-dom",
+      "version": "19.2.8",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/react-dom/-/react-dom-19.2.8.tgz",
+        "sha256": "1ffc99af594271b41835004a9b6789a832eacc5d153169f3bfbd1f76f9547dbb",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "react-refresh",
+      "version": "0.18.0",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/react-refresh/-/react-refresh-0.18.0.tgz",
+        "sha256": "f125774c8b20c38101415cb80e02f879baf4503e2571af52c52ad6a0b963e207",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "react-remove-scroll",
+      "version": "2.7.2",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/react-remove-scroll/-/react-remove-scroll-2.7.2.tgz",
+        "sha256": "b9c7cc76fbd5cfb209e03b668228d56e14a76afc922434e5964f2d2f36ccf1cc",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "react-remove-scroll-bar",
+      "version": "2.3.8",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_checked_notice_missing",
+        "url": "https://registry.npmjs.org/react-remove-scroll-bar/-/react-remove-scroll-bar-2.3.8.tgz",
+        "sha256": "ccc872d7a2dc007cbf9d755f30d56b8d80eabdbe22c44c95a709129bfdc46f01",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "react-router",
+      "version": "7.18.3",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/react-router/-/react-router-7.18.3.tgz",
+        "sha256": "f72798049c0971d5d98d98ffd81fe70dac205d2eb0f5f715493cfc35f90589cc",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "react-router-dom",
+      "version": "7.18.3",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/react-router-dom/-/react-router-dom-7.18.3.tgz",
+        "sha256": "33ee739662da761b8845fb71497744d8d68b19438366cc60b4a467ce817e0942",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "react-style-singleton",
+      "version": "2.2.3",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/react-style-singleton/-/react-style-singleton-2.2.3.tgz",
+        "sha256": "8cd3380ee25e0ac80060dcee138c61433862a992fc21d665da823efbfe43ff0f",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "require-from-string",
+      "version": "2.0.2",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/require-from-string/-/require-from-string-2.0.2.tgz",
+        "sha256": "cb694a4965908f7775a0c757f00cf4e624d193cd71d77988fbcca0f597b88d82",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "rollup",
+      "version": "4.63.1",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/rollup/-/rollup-4.63.1.tgz",
+        "sha256": "88b9180834f6d0472f49d379e13cb8d5d909eab28a34a4c766ec1676502e8f78",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "scheduler",
+      "version": "0.27.0",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/scheduler/-/scheduler-0.27.0.tgz",
+        "sha256": "ab26ce35ce4032f04b78cfc5bbb4cfe13358e9fe7a5433a8aa6315c3debc5095",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "semver",
+      "version": "6.3.1",
+      "license": "ISC",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/semver/-/semver-6.3.1.tgz",
+        "sha256": "3c9b042a38e099cbd00a9bd792042aefb62a70b3f0f1ba1a3cbddf07e5eb1230",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "set-cookie-parser",
+      "version": "2.7.2",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/set-cookie-parser/-/set-cookie-parser-2.7.2.tgz",
+        "sha256": "1fdf9181ca54f9cdbd4d6bcfc59d28d9f0495fc2743029169d8213987210596c",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "source-map-js",
+      "version": "1.2.1",
+      "license": "BSD-3-Clause",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/source-map-js/-/source-map-js-1.2.1.tgz",
+        "sha256": "f126a6f9fca487a43219d8cb8c3a955279187a966119d548eb5cd47e999d4853",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "supports-color",
+      "version": "10.2.2",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/supports-color/-/supports-color-10.2.2.tgz",
+        "sha256": "adf493660d1efc7c69540b579f6c317070ba8e9f5d73d2b9067127ad3fe346b7",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "tailwindcss",
+      "version": "4.3.3",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/tailwindcss/-/tailwindcss-4.3.3.tgz",
+        "sha256": "f1493c5bcb29a80310da63d19282d233ba259479f36561a27146cd4747d1faef",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "tapable",
+      "version": "2.3.3",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/tapable/-/tapable-2.3.3.tgz",
+        "sha256": "5a57c48d8299820ecd88ce628535d2230cd3862e78234dd029dee1debd1792cd",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "tinyglobby",
+      "version": "0.2.17",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/tinyglobby/-/tinyglobby-0.2.17.tgz",
+        "sha256": "afb4afae9175f8b873ac13e1d21cea0997a0bcb40c3598613a834490058cb562",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "tslib",
+      "version": "2.8.1",
+      "license": "0BSD",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/tslib/-/tslib-2.8.1.tgz",
+        "sha256": "66f635d5eeabae44807534976913a102cf615b9a045368359c9f79ae6ee2119e",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "type-fest",
+      "version": "4.41.0",
+      "license": "(MIT OR CC0-1.0)",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/type-fest/-/type-fest-4.41.0.tgz",
+        "sha256": "7de169e0a6ddc9193052f165cc7e75848eb739c97e358578e93bf7f7fc478932",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "typescript",
+      "version": "5.9.3",
+      "license": "Apache-2.0",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/typescript/-/typescript-5.9.3.tgz",
+        "sha256": "10e108c9cf7d5f2879053dff18515fb405abf2ccef63eaaf017d9c571687a1d3",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "update-browserslist-db",
+      "version": "1.3.2",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/update-browserslist-db/-/update-browserslist-db-1.3.2.tgz",
+        "sha256": "8e0c63ecbde7003aac9c3361ad79a19a5129aa39ffc9d29b633b3c3cad877098",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "uri-js-replace",
+      "version": "1.0.1",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_checked_notice_missing",
+        "url": "https://registry.npmjs.org/uri-js-replace/-/uri-js-replace-1.0.1.tgz",
+        "sha256": "597215d1fde33bae554a0716a335538a587f35d10f62e7fc47730948ff5f059f",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "use-callback-ref",
+      "version": "1.3.3",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/use-callback-ref/-/use-callback-ref-1.3.3.tgz",
+        "sha256": "f1c0efff7a48011a8ad317c555fd043ef6e427c78b00ca2d438682958d880600",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "use-sidecar",
+      "version": "1.1.3",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/use-sidecar/-/use-sidecar-1.1.3.tgz",
+        "sha256": "06e3040fe38ac958402bbda2cd640b556786048b6bd3d97900eec1d80702c0f8",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "vite",
+      "version": "7.3.6",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/vite/-/vite-7.3.6.tgz",
+        "sha256": "c90bd3ea5e6a301d6aac20d22b314fad893a7ac7b010b91a4ac65bb68dd947a6",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "yallist",
+      "version": "3.1.1",
+      "license": "ISC",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/yallist/-/yallist-3.1.1.tgz",
+        "sha256": "50f14ae6cfe8360cb2259ba3e93305e069036f13251d69d3cbee9e1d4775ca04",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "yaml-ast-parser",
+      "version": "0.0.43",
+      "license": "Apache-2.0",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/yaml-ast-parser/-/yaml-ast-parser-0.0.43.tgz",
+        "sha256": "8020fec3360cdb78524a090c7668877ce5f52c28210b71b2b5bb95a5aaa57582",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "yargs-parser",
+      "version": "21.1.1",
+      "license": "ISC",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/yargs-parser/-/yargs-parser-21.1.1.tgz",
+        "sha256": "342b7d527d4a72265b64f27711517349c3c05ee302ab3b8c7452f0bfbe709151",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "zrender",
+      "version": "6.1.0",
+      "license": "BSD-3-Clause",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/zrender/-/zrender-6.1.0.tgz",
+        "sha256": "38f2fb722a638be016ca0175b139c40c886ef47fc2afdb741b2e7e7ae9683f9c",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "tslib",
+      "version": "2.3.0",
+      "license": "0BSD",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/tslib/-/tslib-2.3.0.tgz",
+        "sha256": "ae285639feff7e3c39de4626352181a5d73b815725e42639b411c43848abffdb",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "playwright-core",
+      "version": "1.62.1",
+      "license": "Apache-2.0",
+      "lock": "browser/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/playwright-core/-/playwright-core-1.62.1.tgz",
+        "sha256": "954be1e183d0ddb9748fe0d2d08b0b66a9210c74dd75c397aeb70303b9f08a00",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    }
+  ]
+}

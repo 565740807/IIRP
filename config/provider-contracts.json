@@ -1,0 +1,68 @@
+{
+  "yfinance": {
+    "verified": true,
+    "library_version": "1.7.0",
+    "basis": "SPLIT_ONLY",
+    "contract_revision": "2026-09-06-yahoo-close-v1",
+    "parameters": {
+      "interval": "1d",
+      "auto_adjust": false,
+      "back_adjust": false,
+      "repair": false,
+      "actions": true,
+      "rounding": false,
+      "prepost": false
+    },
+    "fields": {
+      "open": "split adjusted",
+      "high": "split adjusted",
+      "low": "split adjusted",
+      "close": "split adjusted, cash dividends excluded",
+      "adj_close": "dividend and split adjusted; observation only"
+    },
+    "date_boundary": "start inclusive; adapter converts requested inclusive end to next calendar date exclusive",
+    "documentation": [
+      "https://ca.finance.yahoo.com/quote/AAPL/history/",
+      "https://help.yahoo.com/kb/SLN28256.html"
+    ],
+    "validation_samples": [
+      {
+        "symbol": "AAPL",
+        "fixture": "tests/fixtures/price-contract/AAPL.json",
+        "fixture_sha256": "e4e1177d634fdd7e9172b614f03a35f5647813c402c35335c93f92764cced81e",
+        "raw_sha256": "fc96cedb2dd97db316e42ef3786c22be677182bae21847130bfe824d3102aab5",
+        "kind": "splits",
+        "before": "2020-08-28",
+        "after": "2020-08-31",
+        "close_ratio": 1.033912148279617,
+        "adjusted_close_factor_change": 5.359811816596505e-09,
+        "official_source": "https://www.apple.com/newsroom/2020/07/apple-reports-third-quarter-results/"
+      },
+      {
+        "symbol": "C",
+        "fixture": "tests/fixtures/price-contract/C.json",
+        "fixture_sha256": "e31a270816069a02abfe94d118f3d8331adf1202f56baf87d9383a16c8648fac",
+        "raw_sha256": "82a196b287a1be59a22a644e1fb86d43cb2452ed67758ae8a7bdf55ae8f078ac",
+        "kind": "splits",
+        "before": "2011-05-06",
+        "after": "2011-05-09",
+        "close_ratio": 0.9769911305758192,
+        "adjusted_close_factor_change": 5.2016371543395223e-08,
+        "official_source": "https://www.citigroup.com/global/investors/stockholder-services/stock-split-history"
+      },
+      {
+        "symbol": "KO",
+        "fixture": "tests/fixtures/price-contract/KO.json",
+        "fixture_sha256": "9896cdbc9a86bc009b246c51d4974622d6dd0428de10cb960c7eff13bc860503",
+        "raw_sha256": "3e1bd4d89f2883bb4ab5954f9a99c6029018f350b4f457f6c41add339e91c048",
+        "kind": "dividends",
+        "before": "2024-06-13",
+        "after": "2024-06-14",
+        "close_ratio": 0.9930147256757946,
+        "adjusted_close_factor_change": 0.007274886081043208,
+        "official_source": "https://www.coca-colacompany.com/media-center/board-of-directors-of-the-coca-cola-company-approves-62nd-consecutive-annual-dividend-increase"
+      }
+    ],
+    "limitations": "These dated contract samples establish adapter semantics, not completeness or point-in-time availability. Every ingestion separately checks identity, fields, sessions and version continuity."
+  }
+}

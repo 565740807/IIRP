@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- SYNTHETIC DEVELOPMENT FIXTURE. Not SEC evidence or real trades. -->
+<ownershipDocument>
+  <schemaVersion>X0306</schemaVersion>
+  <documentType>4</documentType>
+  <periodOfReport>2026-08-31</periodOfReport>
+  <aff10b5One>0</aff10b5One>
+  <issuer><issuerCik>123</issuerCik><issuerName>SYNTHETIC Example Issuer</issuerName><issuerTradingSymbol>DEMO</issuerTradingSymbol></issuer>
+  <reportingOwner>
+    <reportingOwnerId><rptOwnerCik>456</rptOwnerCik><rptOwnerName>SYNTHETIC Owner A</rptOwnerName></reportingOwnerId>
+    <reportingOwnerRelationship><isDirector>1</isDirector><isOfficer>0</isOfficer><isTenPercentOwner>0</isTenPercentOwner><isOther>0</isOther></reportingOwnerRelationship>
+  </reportingOwner>
+  <reportingOwner>
+    <reportingOwnerId><rptOwnerCik>789</rptOwnerCik><rptOwnerName>SYNTHETIC Owner B</rptOwnerName></reportingOwnerId>
+    <reportingOwnerRelationship><isDirector>0</isDirector><isOfficer>0</isOfficer><isTenPercentOwner>1</isTenPercentOwner><isOther>0</isOther></reportingOwnerRelationship>
+  </reportingOwner>
+  <nonDerivativeTable>
+    <nonDerivativeTransaction>
+      <securityTitle><value>Common Stock</value></securityTitle>
+      <transactionDate><value>2026-08-31</value></transactionDate>
+      <transactionCoding><transactionFormType>4</transactionFormType><transactionCode>P</transactionCode><equitySwapInvolved>0</equitySwapInvolved></transactionCoding>
+      <transactionAmounts>
+        <transactionShares><value>100000</value><footnoteId id="F1"/></transactionShares>
+        <transactionPricePerShare><value>25.25</value></transactionPricePerShare>
+        <transactionAcquiredDisposedCode><value>A</value></transactionAcquiredDisposedCode>
+      </transactionAmounts>
+      <postTransactionAmounts><sharesOwnedFollowingTransaction><value>200000</value></sharesOwnedFollowingTransaction></postTransactionAmounts>
+      <ownershipNature><directOrIndirectOwnership><value>I</value></directOrIndirectOwnership><natureOfOwnership><value>Through synthetic trust</value></natureOfOwnership></ownershipNature>
+    </nonDerivativeTransaction>
+    <nonDerivativeHolding>
+      <securityTitle><value>Class B Common Stock</value></securityTitle>
+      <postTransactionAmounts><sharesOwnedFollowingTransaction><value>500</value></sharesOwnedFollowingTransaction></postTransactionAmounts>
+      <ownershipNature><directOrIndirectOwnership><value>D</value></directOrIndirectOwnership></ownershipNature>
+    </nonDerivativeHolding>
+  </nonDerivativeTable>
+  <derivativeTable>
+    <derivativeTransaction>
+      <securityTitle><value>Convertible instrument (synthetic)</value></securityTitle>
+      <conversionOrExercisePrice><value>10.50</value></conversionOrExercisePrice>
+      <transactionDate><value>2026-08-31</value></transactionDate>
+      <transactionCoding><transactionFormType>4</transactionFormType><transactionCode>M</transactionCode></transactionCoding>
+      <transactionAmounts><transactionShares><value>1000</value></transactionShares><transactionPricePerShare><footnoteId id="F2"/></transactionPricePerShare><transactionAcquiredDisposedCode><value>D</value></transactionAcquiredDisposedCode></transactionAmounts>
+      <exerciseDate><value>2026-01-01</value></exerciseDate><expirationDate><value>2030-01-01</value></expirationDate>
+      <underlyingSecurity><underlyingSecurityTitle><value>Common Stock</value></underlyingSecurityTitle><underlyingSecurityShares><value>1000</value></underlyingSecurityShares></underlyingSecurity>
+      <postTransactionAmounts><sharesOwnedFollowingTransaction><value>0</value></sharesOwnedFollowingTransaction></postTransactionAmounts>
+      <ownershipNature><directOrIndirectOwnership><value>D</value></directOrIndirectOwnership></ownershipNature>
+    </derivativeTransaction>
+  </derivativeTable>
+  <footnotes>
+    <footnote id="F1">SYNTHETIC joint filing: both reporting owners refer to this one row of 100,000 shares. Economic matching requires review.</footnote>
+    <footnote id="F2">SYNTHETIC note containing 10.50; no transaction price value was supplied. Do not infer a price from this text.</footnote>
+  </footnotes>
+  <remarks>SYNTHETIC data for parser tests only. No market or filing coverage claim.</remarks>
+</ownershipDocument>
