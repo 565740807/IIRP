@@ -21,7 +21,7 @@ import {
   type GenericOutput,
   type Fact,
 } from "../api";
-import { TradeSummary, TransactionTable } from "../components/Feed";
+import { DateAnomaly, TradeSummary, TransactionTable } from "../components/Feed";
 import { ResearchChart } from "../components/ResearchChart";
 import { BatchPanel } from "../components/Batches";
 import {
@@ -723,6 +723,7 @@ export function TransactionPage() {
           <div>
             <span>实际交易日期</span>
             <strong>{display(t.transaction_date)}</strong>
+            <DateAnomaly row={t} />
           </div>
           <span>
             →{" "}

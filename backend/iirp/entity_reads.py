@@ -10,6 +10,7 @@ from datetime import datetime, time, timedelta
 from types import SimpleNamespace
 
 from sqlalchemy import (
+    Date,
     Numeric,
     String,
     case,
@@ -348,8 +349,14 @@ def read_entity_history(
             if kind in {"company", "issuer"}
             else None
         )
+        # A transaction dated after its own SEC acceptance date is kept and
+        # flagged, but never orders the history or widens its date range.
+        anomaly = TransactionEvent.transaction_date > cast(
+            func.timezone("America/New_York", TransactionEvent.accepted_at), Date
+        )
+        transaction_date = case((anomaly, None), else_=TransactionEvent.transaction_date)
         sort_date = (
-            TransactionEvent.transaction_date
+            transaction_date
             if date_basis == "transaction_date"
             else TransactionEvent.accepted_at
         )
@@ -364,7 +371,7 @@ def read_entity_history(
                 TransactionEvent.data,
                 TransactionEvent.owner_ids,
                 TransactionEvent.accession,
-                TransactionEvent.transaction_date,
+                transaction_date.label("transaction_date"),
             )
             .select_from(TransactionEvent)
             .join(Filing, Filing.accession == TransactionEvent.accession)

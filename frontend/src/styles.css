@@ -556,6 +556,17 @@ nav {
   border-color: #eadba9;
   color: #806013;
 }
+.date-anomaly {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 0 6px;
+  border: 1px solid #eadba9;
+  border-radius: 4px;
+  background: #fffbeb;
+  color: #806013;
+  font-size: 12px;
+  white-space: nowrap;
+}
 .notice-error {
   background: #fef2f2;
   border-color: #f1c9c9;

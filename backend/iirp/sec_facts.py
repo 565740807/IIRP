@@ -80,6 +80,30 @@ def _date(value) -> date | None:
     return date.fromisoformat(value) if isinstance(value, str) else value
 
 
+DATE_ANOMALY_LABEL = "日期异常、待核对"
+
+
+def _accepted_day(value) -> str | None:
+    instant = _instant(value)
+    return instant.astimezone(ET).date().isoformat() if instant else None
+
+
+def _date_anomaly(row) -> dict | None:
+    """A transaction dated after its own SEC acceptance date, e.g. a mistyped year.
+
+    The reported value is kept and shown; it never drives date sorting or ranges.
+    """
+    transaction, accepted = row.get("transaction_date"), _accepted_day(row.get("accepted_at"))
+    if transaction and accepted and str(transaction) > accepted:
+        return {"code": "TRANSACTION_AFTER_ACCEPTANCE", "label": DATE_ANOMALY_LABEL,
+                "transaction_date": str(transaction), "accepted_date": accepted}
+    return None
+
+
+def _sort_transaction_date(row) -> str:
+    return "" if _date_anomaly(row) else (row.get("transaction_date") or "")
+
+
 def _cik(value: str) -> str:
     if (
         not isinstance(value, str)
@@ -616,6 +640,9 @@ def _compact_row(row):
     }
     if "ticker" in row and "issuer_ticker_raw" in row:
         compact["issuer_ticker_raw"] = row["issuer_ticker_raw"]
+    anomaly = row.get("date_anomaly") or _date_anomaly(row)
+    if anomaly:
+        compact["date_anomaly"] = anomaly
     return _ticker_read_view(compact)
 
 
@@ -677,11 +704,11 @@ def _with_filing_owners(s, rows):
 
 
 def _ordered_rows(rows, order="transaction"):
-    return sorted(rows, key=lambda row: ((row.get("transaction_date") if order == "transaction" else row.get("group_accepted_at", row.get("accepted_at"))) or "", row.get("accepted_at") or "", row.get("id") or ""), reverse=True)
+    return sorted(rows, key=lambda row: ((_sort_transaction_date(row) if order == "transaction" else row.get("group_accepted_at", row.get("accepted_at"))) or "", row.get("accepted_at") or "", row.get("id") or ""), reverse=True)
 
 
 def _range_summary(rows):
-    dates = sorted({row["transaction_date"] for row in rows if row.get("transaction_date")})
+    dates = sorted({date for row in rows if (date := _sort_transaction_date(row))})
     return {"transaction_dates": [dates[0], dates[-1]] if len(dates) > 1 else dates,
             "owners": len({owner for row in rows for owner in row.get("owner_ids", [])}),
             "filings": len({row.get("group_accession", row.get("accession")) for row in rows if row.get("accession")}),
@@ -747,6 +774,10 @@ def _event_view(
         "eligible_for_totals": status == "CURRENT",
         "summary_exclusion_reason": _summary_exclusion_reason(status),
         "replaces_id": event.replaces_id,
+        "date_anomaly": _date_anomaly({
+            "transaction_date": event.transaction_date.isoformat() if event.transaction_date else None,
+            "accepted_at": event.accepted_at,
+        }),
     }
 
 
@@ -824,10 +855,10 @@ def _summary(rows: list[dict]) -> list[dict]:
 
 
 def _group_sort_dates(rows) -> dict:
-    """Stored per-filter sort dates (newest transaction and disclosure)."""
+    """Stored per-filter sort dates; anomalous transaction dates never count."""
     facets = _group_facets(rows)
     return {
-        **{kind: max((row.get("transaction_date") or "" for row in rows if _matches(row, kind)), default="") for kind in facets},
+        **{kind: max((_sort_transaction_date(row) for row in rows if _matches(row, kind)), default="") for kind in facets},
         **{"accepted:" + kind: max((row.get("group_accepted_at") or row.get("accepted_at") or "" for row in rows if _matches(row, kind)), default="") for kind in facets},
     }
 
@@ -886,7 +917,7 @@ def _refresh_groups(s: Session, groups: set[tuple[str, date | None]]) -> None:
             for event in updates
         ]
         issuer = s.get(Issuer, issuer_id)
-        dates = sorted({row["transaction_date"] for row in rows if row["transaction_date"]})
+        dates = sorted({date for row in rows if (date := _sort_transaction_date(row))})
         group_key = sha256(f"{issuer_id}:{day.isoformat()}".encode()).hexdigest()[:32]
         accepted = max(
             [
