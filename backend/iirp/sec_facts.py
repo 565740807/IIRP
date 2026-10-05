@@ -37,7 +37,7 @@ from iirp.business_models import (
     TransactionEvent,
 )
 from iirp.domain.ownership import parse_ownership_xml
-from iirp.models import ACTIVE, Job, now
+from iirp.models import ACTIVE, Job, latest_complete_sec_scan, now
 from iirp.sec_sources import OWNERSHIP_FORMS, validate_sec_url
 from iirp.ticker_identity import normalized_ticker
 
@@ -1498,18 +1498,7 @@ def plan_sec_scope(
         }
         # A previously complete *scan*, not the newest filing timestamp, can
         # establish a continuity watermark for the next overlapping feed scan.
-        previous = s.scalar(
-            select(Job)
-            .where(
-                Job.kind == "sec_discover",
-                Job.status == "SUCCEEDED",
-                Job.target["mode"].astext == "latest",
-                Job.checkpoint["sec_scan"]["complete"].astext == "true",
-                Job.created_at < batch.created_at,
-            )
-            .order_by(Job.created_at.desc())
-            .limit(1)
-        )
+        previous = s.scalar(latest_complete_sec_scan(before=batch.created_at))
         if previous and not saved_target and shared_head is None:
             watermark = previous.checkpoint.get("sec_scan", {}).get("newest_accepted_at")
             if watermark:
