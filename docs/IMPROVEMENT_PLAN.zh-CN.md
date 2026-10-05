@@ -112,9 +112,21 @@ P5 与 P3/P4 写入面基本独立，可在 P2 之后并行推进。
 | 测试 | 现象 | 判断 |
 |---|---|---|
 | `test_event_compute_capacity::test_accepted_notes_survive_real_pool_frozen_reads_and_exports[ascii_17mib]` | 本机两次都返回 503 `database_timeout` | 与 PG 768MiB 上限有关；2026-10-05 在 2GiB（D13）的演练 PG 上两次完整检查均通过，正式实例待部署后复测 |
-| `test_maintenance_lifecycle::test_real_long_backup_control_and_group_reaping[renew/pause/cancel/expired/token/parent_stop/child_sigkill]`、`test_sigkill_parent_is_detected_by_child_during_blocking_dump` | 首轮在高负载下 8 秒有界等待超时；单独重跑 7/8 通过，`[renew]` 另在线程未退出处失败 | 偶发，对机器负载敏感；考虑让等待按进程状态而不是固定 8 秒 |
+| `test_maintenance_lifecycle::test_real_long_backup_control_and_group_reaping[renew/pause/cancel/expired/token/parent_stop/child_sigkill]`、`test_sigkill_parent_is_detected_by_child_during_blocking_dump` | 首轮在高负载下 8 秒有界等待超时；单独重跑 7/8 通过，`[renew]` 另在线程未退出处失败 | 偶发，对机器负载敏感；考虑让等待按进程状态而不是固定 8 秒；10-05 合并前在演练 PG 上（正式 worker 同时占用磁盘）再次出现 `[pause]`/`[cancel]` 失败，单独重跑时改为 `[token]` 失败，GitHub CI 通过 |
 | `test_event_overlap_reads::test_frozen_interval_endpoint_and_missing_window_pages` | 夹具 `TRUNCATE` 锁超时（setup 阶段） | 偶发，疑为上一个用例的连接尚未释放；重跑通过（10-05 两次完整检查均通过） |
 | `test_maintenance_lifecycle::test_retention_daily_weekly_pin_and_corruption` | 10-05 UTC 01:00 左右运行失败，01:20 后通过 | 测试按“当前时间 − 1 小时”造备份、再减 20 分钟造“同一天”的重复备份，恰在午夜后 1 小时内运行时两者跨日；应把时间锚定到当天中午，与产品逻辑无关 |
+
+**2026-10-05 部署正式实例时的发现**（过程记录在仓库外 `IIRP2-archive/deploy-2026-10-05/`）
+
+| 问题 | 现象 | 判断 / 后续 |
+|---|---|---|
+| 单条慢查询拖垮整个 worker | 旧 worker 每轮先做 SEC 规划，“上一次完整 latest 扫描”的查询全表扫描 1.1GB 的 job 表、超过 5 秒语句超时，整轮主循环失败（约每 6.5 秒一次），所有通道都领不到任务，报价因此自 9/24 停更 | 已修：新代码把规划失败隔离到单个批次；PR #7（迁移 0023）给该查询加部分索引。后续可考虑让 `plan_tick`/`schedule_tick` 的异常不影响本轮领取任务（P6） |
+| latest 扫描从不“完整” | 每轮受 1 页预算限制，没有上一次完整扫描就没有水位线，于是永远不完整，连续性水位线从未建立；工作时段每小时生成 1000–1900 条 `sec_discover`（job 表一天约 +1.2 万行、+80MB），SEC 请求平均约 0.5 次/秒（仍受 2 次/秒限制）。当天的 latest 批次不断累积任务链接（10-05 13:30 开盘创建，21:00 已有 11,725 个），每次规划都加载全部链接：07:30–21:00 规划语句超时 5 次、规划锁超时（55P03）149 次、任务提交锁超时 239 次，均由重试消化，没有任务因此失败 | 采集逻辑，较复杂，本次不改、不放宽超时；与 P2-B“轮询不再生成永久任务”一起处理，并确定水位线的建立规则（优先级高：交易日内会越来越慢） |
+| 恢复验证副本累积 | CLI `restore-verify` 保留完整副本（全部原文约 31GB + 恢复库），9/09–9/24 的 4 份占约 56GB + 4.4GB，磁盘一度 93%；本次验证需约 53GB 空闲 | 经用户同意删除 9/23、9/24 两份；需要为验证副本定保留规则（如默认验证后丢弃，或只留最近一份） |
+| 构建依赖下载 | 本机到 PyPI 约 10KB/s，`./iirp build` 的 `uv sync` 超时失败 | 本次用本机 `.tools/linux-uv-cache` 离线构建（内容按 `uv.lock` 不变）；可考虑在 Dockerfile 中给 `uv sync` 加 BuildKit 缓存挂载 |
+| 外部来源网络 | 同期 1 个 SEC 扫描 `ConnectError` 3 次失败、1 个财报候选 yfinance 超时 3 次失败 | 按现有重试规则处理，未放宽 |
+| 报价只在有人查看时刷新 | 行情卡片可见时每次请求刷新（90 秒有效）；无人打开页面时盘中报价不更新 | 现有设计（节省 Yahoo 请求）；过期提示属 P3“行情可靠性” |
+| 镜像回退 | Docker 使用 containerd 镜像存储，标签移到新镜像后旧镜像即被删除 | 运行手册已写明构建前先打回退标签 |
 
 **完成标准**（在当前真实数据量上）
 
@@ -296,7 +308,7 @@ P5 与 P3/P4 写入面基本独立，可在 P2 之后并行推进。
 |---|---|---|---|
 | P0 收口保全 | 完成 | 2026-10-04 | `codex/data-lifecycle` 本地提交检查点（gitleaks 无发现）；`work/` 已 `mv` 到仓库外 `IIRP2-archive/work-2026-10-04`（4.6GB，同一文件系统），`.gitignore` 加 `work/` 并移出已跟踪的 `work/planning/*.json`。归档前后各跑 `./iirp check`：首次 1060 通过 / 2 跳过 / 9 失败 / 1 错误（锁超时与 8 秒等待超时，单独重跑后多数通过，属偶发与容量问题，与归档无关；17MiB 备注用例两次复现失败），第二次 1070 通过 / 2 跳过 / 0 失败。未推送。 |
 | P1 发布准备 | 完成 | 2026-10-04 | 私有仓库 <https://github.com/565740807/iirp2>，`main` 为单一初始提交 `IIRP 初始版本`（干净历史，提交身份为 GitHub noreply；本地旧分支和 `refs/codex/*` 未推送、未删除）。CI（push 到 main）：后端 4 分 45 秒、前端 53 秒、gitleaks 11 秒，全部通过；手动触发的 slow 作业 2 分 49 秒通过。首次推送的 CI 因测试用 `pytest` 而非 `python -m pytest` 导致 `scripts` 无法导入而失败，已修。CI 上无偶发失败；本机观察到的偶发/稳定失败见 P2“待修稳定性问题”。克隆安装验证：克隆 6.4MB（`.git` 1.4MB），gitleaks 无发现；以独立项目 `iirpclone`（端口 18091）按 README 启动，`/health/ready` 与 `/api/v1/home` 均 200，随后已 `down -v`、删除镜像和克隆目录，iirp2 三个容器未重建。**发现**：全新数据库中 SEC 与行情自动更新默认开启，启动后数秒内即对外请求（本次约 1.5 分钟内取回约 2400 份申报后被手动停掉 worker），README/RUNBOOK 原写“默认关闭”与代码不符，已更正；是否改为默认关闭待决定。其余：4 个 Dependabot 分组 PR（#1–#4）因基于修复前的 ci.yml 而 CI 失败，未合并；Actions 用量控制见第三节 CI 与安全。 |
-| P2 性能与存储 | 进行中（P2-A 完成） | 2026-10-05 | **P2-A（读取性能）**，分支 `p2a-read-performance`，未合并、未部署到正式实例。基准脚本 `scripts/bench_reads.py`；任务列表精简字段 + 键集分页 + 详情接口（迁移 0020）；信息流改为阅读水位线 + 键集分页，维护每组当前修订和排序键，不再写 `feed_manifest`/大体积 `feed_session`（0021）；交易日期晚于 SEC 接受日的行标“日期异常、待核对”（0022，按此规则当前 14 行：5 行明显年份错误，9 行晚 1–4 天）；PostgreSQL 2GiB + PGTune。演练副本（恢复自正式库，约 2.1 万分组、32.5 万任务，无 worker）改造后：信息流首屏 p50/p95 112/265ms，翻页 p95 ≤ 28ms，任务列表 20 条 8.6KB、p95 4.7ms，首页 p95 5.5ms，公司/人员历史 p95 232/174ms；正式实例改造前：首屏 12.9/29.7 秒（约三成 503），任务列表 357KB、4.7 秒。迁移实测 0020 约 32 秒、0021 约 41 秒、0022 约 39 秒（含容器启动）。`./iirp check`：见下方稳定性表。发现 `./iirp backup` 在正式实例上 5 分钟语句超时失败（自 9/28 起无新备份）。**未做（P2-B 及以后）**：存储瘦身（`sec_discover` 轮询、`source_observation` 去重、去掉 `raw_xml`、VACUUM/pg_repack）、交易类型化列与 `transaction_owner`、实体历史仍写大体积会话、正式实例迁移与重启（待确认）。 |
+| P2 性能与存储 | 进行中（P2-A 已部署到正式实例） | 2026-10-05 | **P2-A（读取性能）** 已合并（PR #5 SEC User-Agent 门控、PR #6 P2-A，均 rebase 合并）并于 10-05 部署到正式实例 `iirp2`。内容：基准脚本 `scripts/bench_reads.py`；任务列表精简字段 + 键集分页 + 详情接口（迁移 0020）；信息流改为阅读水位线 + 键集分页，维护每组当前修订和排序键，不再写 `feed_manifest`/大体积 `feed_session`（0021）；交易日期晚于 SEC 接受日的行标“日期异常、待核对”（0022）；PostgreSQL 2GiB + PGTune。**部署**：先只读 `pg_dump` 正式库（140 秒、1.09GB）并保留旧镜像标签 `pre-p2a`；0014→0022 一次性容器迁移 35 秒，重建 PG（数据卷不变）后启动，web 停机约 2.5 分钟、worker 约 7.5 分钟。部署后发现 SEC 最新申报批次仍规划失败：查找“上一次完整 latest 扫描”时没有任何行满足条件（扫描受 1 页预算限制从未完成），每次都全表扫描 1.1GB 的 job 表、超过 5 秒语句超时；旧 worker 因此整轮主循环失败，这正是行情自 9/24 停更的原因（新代码已把规划失败隔离到单个批次，报价随即恢复）。PR #7 用与查询条件完全一致的部分索引修复（迁移 0023，正式实例 7 秒，web 停机约 16 秒），SEC 30 秒内恢复采集，实测时隙最小间隔 0.525 秒、任意 1 秒内最多 2 次请求。**正式实例前后对比**（只发 GET，5 轮；前为 10-04 基线 10 轮）：信息流首屏 p50 12.9 秒 → 46ms（热缓存 p95 80ms，改造前约三成 503，现 0 错误），翻页 p50 10–11 秒 → 15–21ms，任务列表 357KB/4.7 秒 → 9.1KB/5ms，首页 922ms → 5ms，公司/人员历史 p50 2.4/1.5 秒 → 41/91ms（热缓存 p95 81/97ms），交易详情 p95 7.1 秒 → 10ms；冷缓存首个请求最慢 3.4 秒（公司历史）。1440×900 无头截图：首页与 Insider 信息流 151/220ms 显示。**维护**：手动清理回收 1753 个过期阅读会话和 25 个未引用清单（研究结果全部保留）；维护策略只删可重建数据，已开启。**备份**：在 2GiB PG 上 `./iirp backup` 成功（58 分钟，dump 630MB，654,842 个对象，自 9/28 以来首个成功备份；`source_object` 查询不再超时，未改备份代码）；`./iirp restore-verify` 通过（3 小时 15 分：654,842 个原文、49 张表内容指纹、迁移与任务数一致）。为腾出验证所需约 53GB，经用户同意删除了 9/23、9/24 两份旧恢复副本。**未做（P2-B 及以后）**：存储瘦身（`sec_discover` 轮询——上线后工作时段每小时新增 1000–1900 条，job 表一天约 +1.2 万行/+80MB；`source_observation` 去重；去掉 `raw_xml`；VACUUM/pg_repack）、交易类型化列与 `transaction_owner`、实体历史仍写大体积会话。 |
 | P3 行情与界面基础 | 未开始 | — | — |
 | P4 板块研究 | 未开始 | — | — |
 | P5 SEC 历史回补改造 | 未开始 | — | — |
