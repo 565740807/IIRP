@@ -7,7 +7,7 @@ from sqlalchemy import case, func, select, text
 
 from iirp.business_models import Batch, BatchJob, CollectionStrategy, RequestScope
 from iirp.db import session
-from iirp.models import ACTIVE, Job, SourceBudget, now
+from iirp.models import ACTIVE, Job, SourceBudget, latest_complete_sec_scan, now
 from iirp.providers import SEC_USER_AGENT_HINT, sec_configured
 
 SOURCE_KIND = {"sec": "sec_latest", "market": "market_quotes"}
@@ -140,11 +140,7 @@ def _advance_latest_round(s, batch):
         "end_date": str(day), "max_pages": 1, "round": now().isoformat(),
     }
     if not head:
-        complete = s.scalar(select(Job).where(
-            Job.kind == "sec_discover", Job.status == "SUCCEEDED",
-            Job.target["mode"].astext == "latest",
-            Job.checkpoint["sec_scan"]["complete"].astext == "true",
-        ).order_by(Job.created_at.desc()).limit(1))
+        complete = s.scalar(latest_complete_sec_scan())
         watermark = (complete.checkpoint or {}).get("sec_scan", {}).get("newest_accepted_at") if complete else None
         if watermark:
             target["watermark"] = watermark
