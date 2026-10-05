@@ -21,7 +21,7 @@ CONCURRENT = {
 }
 
 
-def _concurrent_indexes(*, remove=False):
+def _concurrent_indexes():
     with op.get_context().autocommit_block():
         connection = op.get_bind()
         previous = {key: connection.scalar(text(f"SHOW {key}"))
@@ -33,9 +33,9 @@ def _concurrent_indexes(*, remove=False):
                 valid = connection.scalar(text(
                     "SELECT i.indisvalid FROM pg_index i WHERE i.indexrelid = to_regclass(:name)"),
                     {"name": name})
-                if remove or valid is False:
+                if valid is False:
                     op.execute(f"DROP INDEX CONCURRENTLY IF EXISTS {name}")
-                if not remove and valid is not True:
+                if valid is not True:
                     op.execute(f"CREATE INDEX CONCURRENTLY {name} {definition}")
         finally:
             for key, value in previous.items():
@@ -126,7 +126,9 @@ def upgrade():
 
 
 def downgrade():
-    _concurrent_indexes(remove=True)
+    # Inside the migration transaction: a failed multi-step downgrade rolls back whole.
+    for name in CONCURRENT:
+        op.execute(f"DROP INDEX IF EXISTS {name}")
     op.drop_table("feed_watermark_cluster")
     op.drop_table("feed_group_order")
     op.drop_table("feed_group_current")
