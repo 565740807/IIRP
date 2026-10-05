@@ -88,7 +88,7 @@ P5 与 P3/P4 写入面基本独立，可在 P2 之后并行推进。
 - 用 keyset 分页加阅读水位线代替“每次打开冻结全量分组 ID 清单”：游标为 `(排序时间, id)`，会话只记 `as_of` 水位线和筛选条件；水位线之后的新内容只计数，提示“有 N 条新内容”。参考 [Use The Index, Luke: no-offset](https://use-the-index-luke.com/no-offset)。
 - 维护每个分组的“当前修订”指针和排序键，列表查询不再现场计算全部修订。
 - 停止写入 `feed_manifest`/大体积 `feed_session`，旧数据按宽限期清理。
-- **日期异常**：交易日期晚于 SEC 接受日期的明显异常（当前有 5 行，如 Apnimed 2036 年、NightFood 2031 年，疑为申报人填错年份）标为“日期异常、待核对”，不参与“最新实际交易”排序和日期范围摘要；原始值保留，并在详情中显示。
+- **日期异常**：交易日期晚于 SEC 接受日期的明显异常（2026-10-04 评审时有 5 行，如 Apnimed 2036 年、NightFood 2031 年，疑为申报人填错年份；按“晚于接受日”规则，10-05 恢复副本中共 14 行，另 9 行只晚 1–4 天）标为“日期异常、待核对”，不参与“最新实际交易”排序和日期范围摘要；原始值保留，并在详情中显示。
 
 **任务接口**
 - 列表只返回精简字段（不带 `checkpoint`/`result`/`target` 大 JSON），详情接口再取完整内容；分页加对应索引。
@@ -107,13 +107,14 @@ P5 与 P3/P4 写入面基本独立，可在 P2 之后并行推进。
 **数据库资源**
 - PostgreSQL 内存上限 768MiB → 2GiB，按 [PGTune](https://github.com/le0pard/pgtune) 设定 `shared_buffers`、`work_mem`、`effective_cache_size`，写进 `deploy/compose.yaml`。
 
-**待修稳定性问题**（2026-10-04 本机 `./iirp check` 观察，GitHub CI 上均未复现；修复时不得放宽租约、锁或超时预算）
+**待修稳定性问题**（2026-10-04 本机 `./iirp check` 观察，GitHub CI 上均未复现；修复时不得放宽租约、锁或超时预算。2026-10-05 在 2GiB 演练 PG 上的两次完整检查：第一次除本次改动引起、已修复的用例外仅保留期测试失败，第二次 1081 通过、0 失败）
 
 | 测试 | 现象 | 判断 |
 |---|---|---|
-| `test_event_compute_capacity::test_accepted_notes_survive_real_pool_frozen_reads_and_exports[ascii_17mib]` | 本机两次都返回 503 `database_timeout` | 稳定失败，与 PG 768MiB 上限有关；CI 的 PG 无内存上限时通过。D13 提高到 2GiB 后复测 |
+| `test_event_compute_capacity::test_accepted_notes_survive_real_pool_frozen_reads_and_exports[ascii_17mib]` | 本机两次都返回 503 `database_timeout` | 与 PG 768MiB 上限有关；2026-10-05 在 2GiB（D13）的演练 PG 上两次完整检查均通过，正式实例待部署后复测 |
 | `test_maintenance_lifecycle::test_real_long_backup_control_and_group_reaping[renew/pause/cancel/expired/token/parent_stop/child_sigkill]`、`test_sigkill_parent_is_detected_by_child_during_blocking_dump` | 首轮在高负载下 8 秒有界等待超时；单独重跑 7/8 通过，`[renew]` 另在线程未退出处失败 | 偶发，对机器负载敏感；考虑让等待按进程状态而不是固定 8 秒 |
-| `test_event_overlap_reads::test_frozen_interval_endpoint_and_missing_window_pages` | 夹具 `TRUNCATE` 锁超时（setup 阶段） | 偶发，疑为上一个用例的连接尚未释放；重跑通过 |
+| `test_event_overlap_reads::test_frozen_interval_endpoint_and_missing_window_pages` | 夹具 `TRUNCATE` 锁超时（setup 阶段） | 偶发，疑为上一个用例的连接尚未释放；重跑通过（10-05 两次完整检查均通过） |
+| `test_maintenance_lifecycle::test_retention_daily_weekly_pin_and_corruption` | 10-05 UTC 01:00 左右运行失败，01:20 后通过 | 测试按“当前时间 − 1 小时”造备份、再减 20 分钟造“同一天”的重复备份，恰在午夜后 1 小时内运行时两者跨日；应把时间锚定到当天中午，与产品逻辑无关 |
 
 **完成标准**（在当前真实数据量上）
 
@@ -295,7 +296,7 @@ P5 与 P3/P4 写入面基本独立，可在 P2 之后并行推进。
 |---|---|---|---|
 | P0 收口保全 | 完成 | 2026-10-04 | `codex/data-lifecycle` 本地提交检查点（gitleaks 无发现）；`work/` 已 `mv` 到仓库外 `IIRP2-archive/work-2026-10-04`（4.6GB，同一文件系统），`.gitignore` 加 `work/` 并移出已跟踪的 `work/planning/*.json`。归档前后各跑 `./iirp check`：首次 1060 通过 / 2 跳过 / 9 失败 / 1 错误（锁超时与 8 秒等待超时，单独重跑后多数通过，属偶发与容量问题，与归档无关；17MiB 备注用例两次复现失败），第二次 1070 通过 / 2 跳过 / 0 失败。未推送。 |
 | P1 发布准备 | 完成 | 2026-10-04 | 私有仓库 <https://github.com/565740807/iirp2>，`main` 为单一初始提交 `IIRP 初始版本`（干净历史，提交身份为 GitHub noreply；本地旧分支和 `refs/codex/*` 未推送、未删除）。CI（push 到 main）：后端 4 分 45 秒、前端 53 秒、gitleaks 11 秒，全部通过；手动触发的 slow 作业 2 分 49 秒通过。首次推送的 CI 因测试用 `pytest` 而非 `python -m pytest` 导致 `scripts` 无法导入而失败，已修。CI 上无偶发失败；本机观察到的偶发/稳定失败见 P2“待修稳定性问题”。克隆安装验证：克隆 6.4MB（`.git` 1.4MB），gitleaks 无发现；以独立项目 `iirpclone`（端口 18091）按 README 启动，`/health/ready` 与 `/api/v1/home` 均 200，随后已 `down -v`、删除镜像和克隆目录，iirp2 三个容器未重建。**发现**：全新数据库中 SEC 与行情自动更新默认开启，启动后数秒内即对外请求（本次约 1.5 分钟内取回约 2400 份申报后被手动停掉 worker），README/RUNBOOK 原写“默认关闭”与代码不符，已更正；是否改为默认关闭待决定。其余：4 个 Dependabot 分组 PR（#1–#4）因基于修复前的 ci.yml 而 CI 失败，未合并；Actions 用量控制见第三节 CI 与安全。 |
-| P2 性能与存储 | 未开始 | — | — |
+| P2 性能与存储 | 进行中（P2-A 完成） | 2026-10-05 | **P2-A（读取性能）**，分支 `p2a-read-performance`，未合并、未部署到正式实例。基准脚本 `scripts/bench_reads.py`；任务列表精简字段 + 键集分页 + 详情接口（迁移 0020）；信息流改为阅读水位线 + 键集分页，维护每组当前修订和排序键，不再写 `feed_manifest`/大体积 `feed_session`（0021）；交易日期晚于 SEC 接受日的行标“日期异常、待核对”（0022，按此规则当前 14 行：5 行明显年份错误，9 行晚 1–4 天）；PostgreSQL 2GiB + PGTune。演练副本（恢复自正式库，约 2.1 万分组、32.5 万任务，无 worker）改造后：信息流首屏 p50/p95 112/265ms，翻页 p95 ≤ 28ms，任务列表 20 条 8.6KB、p95 4.7ms，首页 p95 5.5ms，公司/人员历史 p95 232/174ms；正式实例改造前：首屏 12.9/29.7 秒（约三成 503），任务列表 357KB、4.7 秒。迁移实测 0020 约 32 秒、0021 约 41 秒、0022 约 39 秒（含容器启动）。`./iirp check`：见下方稳定性表。发现 `./iirp backup` 在正式实例上 5 分钟语句超时失败（自 9/28 起无新备份）。**未做（P2-B 及以后）**：存储瘦身（`sec_discover` 轮询、`source_observation` 去重、去掉 `raw_xml`、VACUUM/pg_repack）、交易类型化列与 `transaction_owner`、实体历史仍写大体积会话、正式实例迁移与重启（待确认）。 |
 | P3 行情与界面基础 | 未开始 | — | — |
 | P4 板块研究 | 未开始 | — | — |
 | P5 SEC 历史回补改造 | 未开始 | — | — |

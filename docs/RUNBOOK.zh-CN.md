@@ -65,6 +65,29 @@ python3 scripts/validate.py --suite recovery --output test-results/recovery
 4. 在隔离的恢复副本上执行同版本升级和完整检查。全部成功后再在维护窗口切换，先只读复核，再按原意图逐项恢复调度。
 5. 失败时停止新副本写入，保留失败证据和新增事实；恢复旧库快照与匹配旧应用到另一目标，核对一致性后再决定回切。新写入如何回收须明确，不静默丢失。
 
+### 读取性能基准与演练副本
+
+`scripts/bench_reads.py` 只发 GET、串行、每个接口最多 20 次，测首页、信息流首屏与第 2/3 页（全部、买入、卖出）、任务列表、公司/人员历史和交易详情的 p50、p95（nearest-rank）与字节，结果写成 JSON（放在仓库外）：
+
+```sh
+python3 scripts/bench_reads.py --base-url http://127.0.0.1:18081 --runs 10 --output ../bench/live.json
+python3 scripts/bench_reads.py --base-url http://127.0.0.1:18092 --ids-from ../bench/live.json --output ../bench/drill.json
+```
+
+在恢复副本上演练（项目名、端口、库名必须与 `iirp2` 不同）：
+
+1. `./iirp backup` 备份，或在其失败时（见下）用只读 `pg_dump -Fc` 导出数据库；恢复到独立项目（例如 `IIRP_COMPOSE_PROJECT=iirpbench`、`IIRP_HTTP_PORT=18092`、`IIRP_DB_NAME=iirp_v1_test_bench`，独立的 `IIRP_COMPOSE_ENV_FILE`，其中 `IIRP_SEC_USER_AGENT` 留空）。
+2. **启动前**在副本库中关闭全部采集策略、暂停未完成任务和批次（与 `restore-verify` 相同的处理），并且只启动 `postgres` 与 `web`（`docker compose … up -d web`），**不启动 worker**，副本不得访问 SEC 或行情来源。
+3. 在副本上跑 `./iirp check` 时把 `IIRP_DB_NAME` 设成一个不存在的 `iirp_v1_test_*` 名字：测试只在自建库中运行，误用配置库也只会连接失败，不会清空副本。
+
+已知问题（2026-10-04 实测）：`./iirp backup` 在机械硬盘和 768MiB 的 PostgreSQL 上，`SELECT … FROM source_object ORDER BY sha256`（约 65 万行）超过 5 分钟语句超时而失败（QueryCanceled），最近一次成功的备份停在 2026-09-28。此时可用只读 `pg_dump` 导出数据库（约 1GB、5 分钟）做演练，但它不含来源原文，不能替代完整备份。
+
+### 升级到迁移 0020–0022（P2-A）
+
+- 按上文顺序先停止来源调度和 worker。0020 并发创建任务列表索引，不阻塞读写；0021 先提交结构变更（修订表的排他锁只持续毫秒级），再回填每组当前修订和排序键，最后并发建索引；0022 重算被异常日期带偏的排序日期。在恢复副本（约 2.1 万个分组、4.7 万条修订、32.5 万个任务）上实测：0020 约 32 秒、0021 约 41 秒、0022 约 39 秒（均含一次性容器启动，数据库部分约 10 秒）；迁移期间旧 web 继续读信息流，只有 0021 结构变更排队等待旧读请求时出现一次 500 毫秒锁超时。
+- `deploy/compose.yaml` 中 PostgreSQL 内存上限已改为 2GiB（PGTune 参数），已有实例在下一次 `./iirp start` 时重建 PostgreSQL 容器才会生效；请在维护窗口执行。
+- 升级后新的信息流会话不再写 `feed_manifest`；旧会话在 12 小时内过期，旧清单和过期会话由“维护”策略或“清理未引用缓存”按 24 小时宽限期回收（维护策略默认关闭）。
+
 ## 验证
 
 `./iirp check` 是日常入口。独立、可重复的合成验证用：
