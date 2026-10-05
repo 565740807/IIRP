@@ -33,7 +33,7 @@ from iirp.business_models import (
 
 ORDERS = ("transaction", "accepted")
 PAGE_SIZE = 20
-# Sorts below every real date; the same sentinel is written by migration 0020.
+# Sorts below every real date; the same sentinel is written by migrations 0021 and 0022.
 SORT_MISSING = datetime(1, 1, 1, tzinfo=timezone.utc)
 CURSOR_PREFIX = "k1."
 
@@ -50,7 +50,7 @@ def sort_value(value, order):
 
 
 def revision_sort_keys(match_kinds, sort_dates, row_count):
-    """{(kind, order): sort key} of a non-empty revision; mirrors migration 0020."""
+    """{(kind, order): sort key} of a non-empty revision; mirrors migrations 0021 and 0022."""
     if not row_count:
         return {}
     sort_dates = sort_dates or {}
