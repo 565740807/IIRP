@@ -16,12 +16,20 @@ import base64
 import json
 from datetime import date, datetime, timezone
 
-from sqlalchemy import String, and_, cast, delete, func, or_, select, text, tuple_, values
+from sqlalchemy import String, and_, cast, delete, func, or_, select, text, tuple_, update, values
 from sqlalchemy import column as sql_column
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.types import DateTime
 
-from iirp.business_models import XID8, FeedGroupCurrent, FeedGroupOrder, FeedRevision, PGSnapshot
+from iirp.business_models import (
+    XID8,
+    FeedGroupCurrent,
+    FeedGroupOrder,
+    FeedRevision,
+    FeedSession,
+    FeedWatermarkCluster,
+    PGSnapshot,
+)
 
 ORDERS = ("transaction", "accepted")
 PAGE_SIZE = 20
@@ -295,6 +303,29 @@ def _write_order_rows(s, row):
                revision.accepted_at, revision.id, revision.seq, revision.xid)
         .select_from(table).join(revision, revision.id == row.id),
     ))
+
+
+def ensure_cluster(s):
+    """Forget transaction ids written by another cluster (restore elsewhere, upgrade).
+
+    Stored xids only exclude publications still running when a session opened.
+    In a different cluster they would compare as future transactions and hide
+    published revisions, so they are cleared (the sequence alone then decides)
+    and sessions whose snapshots came from the old cluster are dropped.
+    """
+    identifier = s.scalar(text("SELECT system_identifier::text FROM pg_control_system()"))
+    stored = s.scalar(select(FeedWatermarkCluster).where(FeedWatermarkCluster.id == 1).with_for_update())
+    if stored is None:
+        s.add(FeedWatermarkCluster(id=1, system_identifier=identifier))
+        return False
+    if stored.system_identifier == identifier:
+        return False
+    s.execute(text("SET LOCAL statement_timeout = '300s'"))
+    for table in (FeedRevision, FeedGroupCurrent, FeedGroupOrder):
+        s.execute(update(table).where(table.xid.is_not(None)).values(xid=None))
+    s.execute(delete(FeedSession).where(FeedSession.filters.has_key("watermark")))
+    stored.system_identifier = identifier
+    return True
 
 
 def reconcile(s):

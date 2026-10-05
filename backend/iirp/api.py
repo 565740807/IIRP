@@ -109,6 +109,10 @@ async def lifespan(_app):
 
         with session() as s, s.begin():
             defaults(s)
+        from iirp.feed_index import ensure_cluster
+
+        with session() as s, s.begin():
+            ensure_cluster(s)
     except SQLAlchemyError:
         pass
     yield
