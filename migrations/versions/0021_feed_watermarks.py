@@ -44,18 +44,18 @@ def _concurrent_indexes(*, remove=False):
 
 
 def upgrade():
-    # Backfill reads every group once; app connections default to 5 s / 500 ms.
-    op.execute("SET LOCAL statement_timeout = '900s'")
+    # 1. Schema only, committed at once: the exclusive lock on the revision
+    #    table lasts milliseconds instead of the whole backfill.
     op.execute("SET LOCAL lock_timeout = '3s'")
     op.execute("CREATE SEQUENCE IF NOT EXISTS feed_revision_seq")
     # Metadata-only: existing rows stay NULL, no table rewrite.
-    op.execute("ALTER TABLE feed_group_revision ADD COLUMN seq bigint, ADD COLUMN xid xid8")
+    op.execute("ALTER TABLE feed_group_revision ADD COLUMN IF NOT EXISTS seq bigint, ADD COLUMN IF NOT EXISTS xid xid8")
     op.execute("""ALTER TABLE feed_group_revision
         ALTER COLUMN seq SET DEFAULT nextval('feed_revision_seq'),
         ALTER COLUMN xid SET DEFAULT pg_current_xact_id()""")
     op.execute("ALTER SEQUENCE feed_revision_seq OWNED BY feed_group_revision.seq")
 
-    op.execute("""CREATE TABLE feed_group_current (
+    op.execute("""CREATE TABLE IF NOT EXISTS feed_group_current (
         group_key varchar(32) PRIMARY KEY,
         revision_id varchar(36) NOT NULL REFERENCES feed_group_revision (id),
         issuer_id varchar(10) NOT NULL,
@@ -63,7 +63,7 @@ def upgrade():
         row_count integer NOT NULL,
         seq bigint,
         xid xid8)""")
-    op.execute("""CREATE TABLE feed_group_order (
+    op.execute("""CREATE TABLE IF NOT EXISTS feed_group_order (
         kind varchar(16) NOT NULL,
         sort_order varchar(16) NOT NULL,
         group_key varchar(32) COLLATE "C" NOT NULL,
@@ -73,11 +73,26 @@ def upgrade():
         seq bigint,
         xid xid8,
         PRIMARY KEY (kind, sort_order, group_key))""")
+    # Transaction ids are meaningful only inside one cluster; see iirp.feed_index.
+    op.execute("""CREATE TABLE IF NOT EXISTS feed_watermark_cluster (
+        id integer PRIMARY KEY DEFAULT 1 CHECK (id = 1),
+        system_identifier text NOT NULL)""")
+    op.execute("""INSERT INTO feed_watermark_cluster (system_identifier)
+        SELECT system_identifier::text FROM pg_control_system() ON CONFLICT DO NOTHING""")
+    # Every step below is idempotent: a failed backfill leaves this schema
+    # committed and a rerun continues from it.
+    with op.get_context().autocommit_block():
+        pass
+    # 2. Backfill reads every group once; app connections default to 5 s / 500 ms.
+    #    Pointers already written by new code are newer and are kept.
+    op.execute("SET LOCAL statement_timeout = '900s'")
+    op.execute("SET LOCAL lock_timeout = '3s'")
     op.execute("""
         INSERT INTO feed_group_current (group_key, revision_id, issuer_id, accepted_at, row_count, seq, xid)
         SELECT DISTINCT ON (group_key) group_key, id, issuer_id, accepted_at, row_count, seq, xid
         FROM feed_group_revision
         ORDER BY group_key, seq DESC NULLS LAST, created_at DESC, id DESC
+        ON CONFLICT (group_key) DO NOTHING
     """)
     op.execute(f"""
         INSERT INTO feed_group_order
@@ -96,19 +111,14 @@ def upgrade():
         JOIN feed_group_revision r ON r.id = c.revision_id
         CROSS JOIN LATERAL jsonb_array_elements_text(r.match_kinds) AS k(kind)
         CROSS JOIN (VALUES ('transaction'), ('accepted')) AS o(sort_order)
-        WHERE c.row_count > 0
+        WHERE c.row_count > 0 AND c.seq IS NULL
+        ON CONFLICT DO NOTHING
     """)
-    # Transaction ids are meaningful only inside one cluster; see iirp.feed_index.
-    op.execute("""CREATE TABLE feed_watermark_cluster (
-        id integer PRIMARY KEY DEFAULT 1 CHECK (id = 1),
-        system_identifier text NOT NULL)""")
-    op.execute("""INSERT INTO feed_watermark_cluster (system_identifier)
-        SELECT system_identifier::text FROM pg_control_system()""")
-    op.create_index("ix_feed_group_current_seq", "feed_group_current", ["seq"],
-                    postgresql_where=text("seq IS NOT NULL"))
-    op.create_index("ix_feed_group_current_xid", "feed_group_current", ["xid"],
-                    postgresql_where=text("xid IS NOT NULL"))
-    op.execute("""CREATE INDEX ix_feed_group_order_page ON feed_group_order
+    op.execute("""CREATE INDEX IF NOT EXISTS ix_feed_group_current_seq
+        ON feed_group_current (seq) WHERE seq IS NOT NULL""")
+    op.execute("""CREATE INDEX IF NOT EXISTS ix_feed_group_current_xid
+        ON feed_group_current (xid) WHERE xid IS NOT NULL""")
+    op.execute("""CREATE INDEX IF NOT EXISTS ix_feed_group_order_page ON feed_group_order
         (kind, sort_order, sort_key DESC, accepted_at DESC, group_key DESC)""")
     op.execute("ANALYZE feed_group_current")
     op.execute("ANALYZE feed_group_order")
