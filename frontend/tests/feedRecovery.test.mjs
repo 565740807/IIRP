@@ -241,7 +241,7 @@ function harness({ engaged = false, restoredReading = null } = {}) {
       this.find(
         (node) =>
           node.type === "Button" &&
-          (String(node.props.children).includes("条更新") ||
+          (String(node.props.children).includes("条新内容") ||
             node.props.children === "继续合并更新"),
       ).props.onClick();
     },
