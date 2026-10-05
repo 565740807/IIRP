@@ -61,7 +61,10 @@ def feed(session_id="", cursor="", kind="all", order="transaction"):
         # Polling has its own scalar endpoint; ordinary page reads do not repeat
         # the full latest-revision scan just to report an update count.
         result["new_count"] = 0
-        result["pending_summary"], result["pending_filings"] = pending_feed_metadata(s, preview=True)
+        if not cursor:
+            # Later pages only append groups; the summary comes with the first
+            # page and with every update check.
+            result["pending_summary"], result["pending_filings"] = pending_feed_metadata(s, preview=True)
         return result
 
 
