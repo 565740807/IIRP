@@ -16,11 +16,12 @@ from iirp.business_models import (
     FeedManifest,
     FeedRevision,
     FeedSession,
+    FeedWatermarkCluster,
     TransactionEvent,
 )
 from iirp.config import ROOT
 from iirp.db import engine, session
-from iirp.feed_index import decode_cursor, encode_cursor
+from iirp.feed_index import decode_cursor, encode_cursor, ensure_cluster
 from iirp.feed_updates import feed_updates
 from iirp.sec_facts import feed, feed_group
 from sqlalchemy import func, select, text
@@ -187,3 +188,24 @@ def test_tombstone_leaves_listing_but_keeps_history_for_open_sessions():
         assert victim["id"] not in ids([feed(s, kind="buy")])
         removed = feed_updates(s, opened["session_id"], include_groups=True)
         assert removed["removed_ids"] == [victim["id"]] and removed["groups"] == []
+
+
+def test_restore_into_another_cluster_forgets_foreign_transaction_ids():
+    seed(3)
+    with session() as s, s.begin():
+        opened = feed(s, kind="buy")
+        assert ensure_cluster(s) is False  # Same cluster: nothing changes.
+        assert s.scalar(select(func.count()).select_from(FeedRevision).where(FeedRevision.xid.is_not(None))) == 3
+        # Simulate a dump restored on another machine: foreign ids look "future".
+        s.get(FeedWatermarkCluster, 1).system_identifier = "another-cluster"
+        s.execute(text("UPDATE feed_group_revision SET xid = '999999999'::xid8"))
+        s.execute(text("UPDATE feed_group_current SET xid = '999999999'::xid8"))
+        s.execute(text("UPDATE feed_group_order SET xid = '999999999'::xid8"))
+    with session() as s, s.begin():
+        assert feed(s, kind="buy")["total_groups"] == 0  # What the bug would look like.
+        assert ensure_cluster(s) is True
+        assert s.get(FeedSession, opened["session_id"]) is None
+        for table in (FeedRevision, FeedGroupCurrent, FeedGroupOrder):
+            assert s.scalar(select(func.count()).select_from(table).where(table.xid.is_not(None))) == 0
+    with session() as s, s.begin():
+        assert feed(s, kind="buy")["total_groups"] == 3

@@ -359,6 +359,13 @@ class FeedGroupCurrent(Base):
     )
 
 
+class FeedWatermarkCluster(Base):
+    """The cluster whose transaction ids are stored in revision watermarks."""
+    __tablename__ = "feed_watermark_cluster"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, default=1)
+    system_identifier: Mapped[str] = mapped_column(Text)
+
+
 class FeedGroupOrder(Base):
     """Sort keys of each current non-empty revision, one row per filter and order."""
     __tablename__ = "feed_group_order"

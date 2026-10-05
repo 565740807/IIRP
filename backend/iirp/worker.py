@@ -181,9 +181,10 @@ def main():
     handler = RotatingFileHandler(logdir / "worker-events.log", maxBytes=5 * 1024**2, backupCount=4)
     logging.basicConfig(level=logging.INFO, handlers=[handler])
     ensure_defaults()
-    from iirp.feed_index import reconcile
+    from iirp.feed_index import ensure_cluster, reconcile
 
     with session() as s, s.begin():
+        ensure_cluster(s)
         # Revisions published by an older worker during an upgrade get pointers.
         reconcile(s)
     from iirp.freshness import ensure_fresh

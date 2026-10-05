@@ -98,6 +98,12 @@ def upgrade():
         CROSS JOIN (VALUES ('transaction'), ('accepted')) AS o(sort_order)
         WHERE c.row_count > 0
     """)
+    # Transaction ids are meaningful only inside one cluster; see iirp.feed_index.
+    op.execute("""CREATE TABLE feed_watermark_cluster (
+        id integer PRIMARY KEY DEFAULT 1 CHECK (id = 1),
+        system_identifier text NOT NULL)""")
+    op.execute("""INSERT INTO feed_watermark_cluster (system_identifier)
+        SELECT system_identifier::text FROM pg_control_system()""")
     op.create_index("ix_feed_group_current_seq", "feed_group_current", ["seq"],
                     postgresql_where=text("seq IS NOT NULL"))
     op.create_index("ix_feed_group_current_xid", "feed_group_current", ["xid"],
@@ -111,6 +117,7 @@ def upgrade():
 
 def downgrade():
     _concurrent_indexes(remove=True)
+    op.drop_table("feed_watermark_cluster")
     op.drop_table("feed_group_order")
     op.drop_table("feed_group_current")
     op.drop_column("feed_group_revision", "xid")
