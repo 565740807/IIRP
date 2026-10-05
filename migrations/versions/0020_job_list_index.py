@@ -10,7 +10,7 @@ depends_on = None
 NAME = "ix_job_created_id"
 
 
-def _index(*, remove=False):
+def _index():
     # The job table is large and written continuously: build without blocking.
     with op.get_context().autocommit_block():
         connection = op.get_bind()
@@ -22,9 +22,9 @@ def _index(*, remove=False):
             valid = connection.scalar(text(
                 "SELECT i.indisvalid FROM pg_index i WHERE i.indexrelid = to_regclass(:name)"),
                 {"name": NAME})
-            if remove or valid is False:
+            if valid is False:
                 op.execute(f"DROP INDEX CONCURRENTLY IF EXISTS {NAME}")
-            if not remove and valid is not True:
+            if valid is not True:
                 op.execute(f"CREATE INDEX CONCURRENTLY {NAME} ON job (created_at DESC, id DESC)")
         finally:
             for key, value in previous.items():
@@ -37,4 +37,5 @@ def upgrade():
 
 
 def downgrade():
-    _index(remove=True)
+    # Inside the migration transaction: a failed multi-step downgrade rolls back whole.
+    op.execute(f"DROP INDEX IF EXISTS {NAME}")

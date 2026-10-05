@@ -46,6 +46,7 @@ def test_failed_downgrade_rolls_back_prior_conversion_and_schema():
         s.execute(text("UPDATE analysis_result SET payload=:payload WHERE id='zz-synthetic-corrupt'"),
                   {'payload':b'unknown-format'})
     with session() as s:
+        head = s.scalar(text('SELECT version_num FROM alembic_version'))
         before = s.execute(text('SELECT id,data,payload,overlap_projection,ctid::text,xmin::text '
                                 'FROM analysis_result ORDER BY id')).all()
     from iirp.db import engine
@@ -64,7 +65,7 @@ def test_failed_downgrade_rolls_back_prior_conversion_and_schema():
         event.remove(engine(), 'after_cursor_execute', capture)
     assert len(converted) == 1
     with session() as s:
-        assert s.scalar(text('SELECT version_num FROM alembic_version')) == '0019'
+        assert s.scalar(text('SELECT version_num FROM alembic_version')) == head
         assert s.execute(text('SELECT id,data,payload,overlap_projection,ctid::text,xmin::text '
                               'FROM analysis_result ORDER BY id')).all() == before
         with pytest.raises(ValueError, match='Unknown analysis payload format'):
@@ -84,6 +85,7 @@ def test_failed_partial_jsonb_reconstruction_is_fully_rolled_back():
     query = text('SELECT data,payload,overlap_projection,ctid::text,xmin::text '
                  'FROM analysis_result WHERE id=:id')
     with session() as s:
+        head = s.scalar(text('SELECT version_num FROM alembic_version'))
         before = s.execute(query, {'id': view['result_id']}).one()
     converted = []
 
@@ -101,7 +103,7 @@ def test_failed_partial_jsonb_reconstruction_is_fully_rolled_back():
         event.remove(engine(), 'after_cursor_execute', fail_partway)
     assert len(converted) == 3
     with session() as s:
-        assert s.scalar(text('SELECT version_num FROM alembic_version')) == '0019'
+        assert s.scalar(text('SELECT version_num FROM alembic_version')) == head
         assert s.execute(query, {'id': view['result_id']}).one() == before
         assert s.get(AnalysisResult, view['result_id']).data == view['data']
     with pytest.raises(IntegrityError):
