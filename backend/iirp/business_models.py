@@ -21,6 +21,7 @@ from sqlalchemy import (
     text,
 )
 from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.dialects.postgresql.base import ischema_names
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.types import UserDefinedType
 
@@ -318,6 +319,10 @@ class PGSnapshot(UserDefinedType):
     def get_col_spec(self, **kw):
         return "pg_snapshot"
 
+
+# Let schema reflection (migration checks) recognise these PostgreSQL types.
+ischema_names.setdefault("xid8", XID8)
+ischema_names.setdefault("pg_snapshot", PGSnapshot)
 
 FEED_REVISION_SEQ = Sequence("feed_revision_seq", metadata=Base.metadata)
 

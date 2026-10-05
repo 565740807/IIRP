@@ -92,8 +92,9 @@ def test_filtered_snapshot_freezes_rows_names_and_companies_and_rejects_changed_
 
 def test_recent_count_is_limited_to_date_range_before_paging():
     with session() as s, s.begin():
+        # Disclosed after the latest trade: a trade dated after its acceptance is a date anomaly.
         for suffix, day in enumerate(["2026-08-01", "2026-09-02", "2026-09-04", "2026-09-07"], 1):
-            save_company(s, 123, day=day, suffix=suffix)
+            save_company(s, 123, day=day, suffix=suffix, accepted="2026-09-10T18:00:00-04:00")
         args = {
             "start": "2026-09-01",
             "end": "2026-09-05",

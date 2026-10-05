@@ -32,11 +32,12 @@ FIRST_DAY = date(2026, 6, 1)
 CUTOFF = datetime(2026, 8, 21, tzinfo=timezone.utc)
 
 
-def publish(s, index, *, day, transaction, code=b"P", shares=b"100000"):
-    """One synthetic Form 4 accepted on ``day``; one group per issuer and day."""
+def publish(s, index, *, day, transaction, code=b"P", owners=(b"456", b"789")):
+    """One synthetic joint Form 4 accepted on ``day``; one group per issuer and day."""
     xml = (FIXTURE.read_bytes()
            .replace(b"2026-08-31", transaction.isoformat().encode())
-           .replace(b"100000", shares)
+           .replace(b"<rptOwnerCik>456</rptOwnerCik>", b"<rptOwnerCik>" + owners[0] + b"</rptOwnerCik>")
+           .replace(b"<rptOwnerCik>789</rptOwnerCik>", b"<rptOwnerCik>" + owners[1] + b"</rptOwnerCik>")
            .replace(b"<transactionCode>P</transactionCode>",
                     b"<transactionCode>" + code + b"</transactionCode>"))
     save(s, xml=xml, accession=f"0000000123-26-{index:06}", accepted=f"{day.isoformat()}T18:00:00-04:00")
@@ -71,10 +72,10 @@ def test_keyset_pages_never_shift_while_new_filings_publish():
     with session() as s, s.begin():
         # A newest group (would lead page 1), a page-3 group revised with another
         # trade, and a late disclosure of an old trade landing inside page 2.
-        # Distinct share counts: none of these may look like a duplicate filing.
-        publish(s, 100, day=date(2026, 9, 20), transaction=date(2026, 9, 19), shares=b"700")
-        publish(s, 101, day=third_day, transaction=third_day, shares=b"701")
-        publish(s, 102, day=date(2026, 9, 21), transaction=FIRST_DAY + timedelta(days=20), shares=b"702")
+        # Other reporting persons: none of these may look like a duplicate filing.
+        publish(s, 100, day=date(2026, 9, 20), transaction=date(2026, 9, 19), owners=(b"901", b"902"))
+        publish(s, 101, day=third_day, transaction=third_day, owners=(b"901", b"902"))
+        publish(s, 102, day=date(2026, 9, 21), transaction=FIRST_DAY + timedelta(days=20), owners=(b"901", b"902"))
     with session() as s, s.begin():
         pages = read_all(s, opened)
         assert ids(pages) == reference
@@ -157,7 +158,7 @@ def test_migration_backfills_pointers_from_each_groups_newest_revision():
         assert s.get(FeedGroupCurrent, joint.group_key).revision_id == joint.id
         keys = {(row.kind, row.sort_order): row.sort_key for row in s.scalars(
             select(FeedGroupOrder).where(FeedGroupOrder.group_key == joint.group_key))}
-        assert {kind for kind, _ in keys} == {"all", "focus", "buy", "sell"}
+        assert {kind for kind, _ in keys} == set(joint.match_kinds)
         assert keys[("buy", "transaction")].date() == date(2026, 8, 19)
         assert keys[("sell", "transaction")].date() == date(2026, 8, 18)
         assert keys[("sell", "accepted")] == joint.accepted_at
