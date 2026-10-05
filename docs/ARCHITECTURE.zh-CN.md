@@ -27,7 +27,7 @@ Compose 启动三个服务：`postgres`、`web`（启动时先执行 `alembic up
 |---|---|---|
 | 接口 | `api.py`、`research_api.py`、`event_api.py`、`contracts.py`、`event_contracts.py` | 路由与请求/响应模型；`docs/openapi.json` 由应用导出 |
 | 任务与调度 | `queue.py`、`worker.py`、`business_worker.py`、`worker_ownership.py`、`operations.py`、`operation_pool.py`、`shared_compute.py`、`lifecycle.py` | 持久任务、租约与围栏、批次与订阅、共享计算 |
-| SEC 内部人交易 | `sec_sources.py`、`sec_facts.py`、`feed_snapshots.py`、`feed_updates.py`、`entity_reads.py` | 发现与下载申报、解析为按行事实、信息流与公司/人员详情 |
+| SEC 内部人交易 | `sec_sources.py`、`sec_facts.py`、`feed_index.py`、`feed_updates.py`、`feed_snapshots.py`、`entity_reads.py` | 发现与下载申报、解析为按行事实、信息流（水位线、当前修订与排序键）与公司/人员详情；`feed_snapshots.py` 只为升级前的旧阅读会话保留 |
 | 行情 | `market_data.py`、`market_quotes.py`、`market_http.py`、`market_ranges.py`、`ticker_identity.py`、`freshness.py` | yfinance 适配器、版本化日线、报价、证券身份 |
 | 财报与事件 | `earnings_data.py`、`earnings_planner.py`、`event_service.py`、`event_pipeline.py`、`event_views.py`、`imports.py` | 财报候选与核对、自定义事件集、CSV 预览与导入 |
 | 研究计算 | `analytics/`（`research.py`、`prices.py`、`calendar.py`、`distributions.py`、`event_dates.py`、`event_overlaps.py`、`fiscal_calendar.py`）、`research_pipeline.py`、`result_storage.py`、`result_reuse.py` | 月度、跨年区间、财报与事件分析；所有金融计算都在这里，前端不重复实现 |
@@ -48,6 +48,14 @@ Compose 启动三个服务：`postgres`、`web`（启动时先执行 `alembic up
 4. **分析**：用户显式应用条件 → `research_compute`/`event_compute` 读取本地事实与日线，计算并写入冻结结果（带数据版本与来源标识）。图表、表格、摘要和 JSON/CSV/PNG 导出都读同一个冻结结果；重开旧结果不会自动换成最新条件。
 5. **读取**：所有 GET 只读本地数据库；信息流和详情在阅读会话中保持稳定，新内容以提示形式出现。
 
+### 信息流的阅读会话
+
+- 每个公司/日期分组的每次变化都追加一条不可变修订（`feed_group_revision`），带发布序号 `seq` 和写入事务号 `xid`。`feed_group_current` 指向每组最新修订；`feed_group_order` 为最新的非空修订保存排序键，每个“筛选 × 排序”一行。两张表在发布修订的同一事务最后一步更新。
+- 打开信息流时只保存**水位线**（序号、`pg_current_snapshot()` 快照、打开事务自身的事务号）和筛选条件，不保存分组清单。修订属于该会话，当且仅当序号不超过水位线且写入事务在快照中已提交；这个集合以后不会再变，所以翻页（游标为排序键、接受时间、分组键）不重复、不遗漏，已加载的页面也不跳动。
+- 水位线之后才变化的少数分组，按水位线读取当时的修订并合并到页面中；新内容只计数（“有 N 条新内容”），合并时在两条水位线之间算出确定的增量。
+- 事务号只在同一 PostgreSQL 集群内有意义：web/worker 启动时若发现集群标识变化（换机恢复、升级），会清除已保存的事务号并丢弃旧快照的会话。
+- 交易日期晚于该申报 SEC 接受日的行标为“日期异常、待核对”：保留原值并在详情中显示，不参与按实际交易日的排序和日期范围。
+
 ## 任务模型
 
 - **持久任务**（`job`）：状态为 `QUEUED`、`RUNNING`、`PAUSE_REQUESTED`、`PAUSED`、`CANCEL_REQUESTED`、`CANCELLED`、`FAILED`、`RETRY_WAIT`、`PARTIAL`、`SUCCEEDED` 等；用户的暂停、恢复、取消、重试写为持久意图，由 worker 在安全点执行。
@@ -55,11 +63,12 @@ Compose 启动三个服务：`postgres`、`web`（启动时先执行 `alembic up
 - **批次与订阅**：一个用户需求对应一个批次（`batch`）；批次通过 `batch_job` 订阅任务。多个批次可以共享同一个计算任务（`shared_compute`），暂停或取消某个批次只影响它自己的订阅，仍有其他活跃订阅时共享任务继续运行。
 - **依赖**：`job_dependency` 表达先后关系，前置任务未成功前后续任务不会被领取。
 - **来源预算与限流**：`source_budget` 记录各来源的请求预算；所有外部请求走同一个传输入口，由调用方统一限速。
+- **任务列表**：`GET /api/v1/jobs` 按 (创建时间, id) 键集分页、每页默认 20 条，只返回标量字段；`checkpoint`、`result`、`target` 只在 `GET /api/v1/jobs/{id}` 中返回。
 - **主要任务类型**：`sec_probe`、`sec_discover`、`sec_identity`、`sec_document`、`market_identity`、`market_history`、`market_quote`、`earnings_candidates`、`earnings_evidence`、`local_import`、`research_compute`、`event_compute`、`maintenance_backup`、`maintenance_clean`。
 
 ## 存储
 
-- **PostgreSQL**：业务事实（`issuer`、`reporting_owner`、`security`、`filing`、`filing_version`、`transaction_event`、`price_dataset_version`、`market_bar_revision`、`dataset_bar`、`earnings_event` 等）、任务与批次（`job`、`batch`、`batch_job`）、冻结结果（`analysis_request`、`analysis_result`、`export_manifest`）、事件集（`event_set`、`event_set_version`）、维护记录。
+- **PostgreSQL**：业务事实（`issuer`、`reporting_owner`、`security`、`filing`、`filing_version`、`transaction_event`、`price_dataset_version`、`market_bar_revision`、`dataset_bar`、`earnings_event` 等）、信息流修订与索引（`feed_group_revision`、`feed_group_current`、`feed_group_order`；`feed_manifest` 只剩升级前的旧数据，由维护清理回收）、任务与批次（`job`、`batch`、`batch_job`）、冻结结果（`analysis_request`、`analysis_result`、`export_manifest`）、事件集（`event_set`、`event_set_version`）、维护记录。
 - **来源对象**：原始 XML/JSON/CSV 以内容哈希为文件名存放在 `runtime/objects/<前两位>/<哈希>`，数据库的 `source_object` 与 `source_observation` 记录来源、哈希和观察时间。
 - **卷**：Compose 的 `postgres-data`（数据库）与 `app-runtime`（来源对象、备份、维护日志、恢复副本）。`./iirp stop` 保留卷；备份由 `./iirp backup` 生成一致快照（`pg_dump` + 来源对象哈希清单），`./iirp restore-verify` 在随机新库上验证恢复。
 - **测试**：后端测试在隔离的 `iirp_v1_test_*` 数据库中运行，不访问运行库。
