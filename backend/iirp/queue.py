@@ -20,7 +20,6 @@ from iirp.models import (
     Job,
     Policy,
     SourceBudget,
-    SourceObject,
     Subscription,
     WorkerHeartbeat,
     now,
@@ -626,7 +625,9 @@ def fenced(
         current.heartbeat_at = current.updated_at = now()
         current.lease_until = now() + timedelta(seconds=30)
         if source:
-            s.execute(insert(SourceObject).values(**source).on_conflict_do_nothing())
+            from iirp.storage import register_object
+
+            register_object(s, source)
         if business_write is not None:
             business_write(s, current)
         if coverage:

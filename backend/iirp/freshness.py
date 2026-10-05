@@ -7,7 +7,7 @@ from sqlalchemy import case, func, select, text
 
 from iirp.business_models import Batch, BatchJob, CollectionStrategy, RequestScope
 from iirp.db import session
-from iirp.models import ACTIVE, Job, SourceBudget, latest_complete_sec_scan, now
+from iirp.models import ACTIVE, Job, SourceBudget, SourcePoll, now
 from iirp.providers import SEC_USER_AGENT_HINT, sec_configured
 
 SOURCE_KIND = {"sec": "sec_latest", "market": "market_quotes"}
@@ -28,11 +28,10 @@ def source_status(s, source, batch_id=None):
         batch = s.scalar(select(Batch).where(Batch.kind == kind).order_by(Batch.created_at.desc()).limit(1))
     budget = s.get(SourceBudget, "sec" if source == "sec" else "yfinance")
     waiting = budget is not None and budget.next_allowed_at > now() + timedelta(seconds=2)
-    checked = s.scalar(select(func.max(Job.finished_at)).where(
-        Job.status == "SUCCEEDED",
-        Job.kind == ("sec_discover" if source == "sec" else "market_quote"),
-        *((Job.target["mode"].astext == "latest",) if source == "sec" else ()),
-    ))
+    poll = s.get(SourcePoll, "sec_latest") if source == "sec" else None
+    polling = bool(poll and poll.lease_token and poll.lease_until and poll.lease_until > now())
+    checked = poll.last_success_at if poll else None if source == "sec" else s.scalar(
+        select(func.max(Job.finished_at)).where(Job.status == "SUCCEEDED", Job.kind == "market_quote"))
     scope_ids = s.scalars(select(RequestScope.id).where(
         RequestScope.batch_id == (batch.id if batch else ""))).all()
     # Materialize the small scope list. The database can then estimate a scope
@@ -67,7 +66,7 @@ def source_status(s, source, batch_id=None):
         data_as_of = s.scalar(select(func.max(MarketQuote.data["as_of"].astext)))
         quote_time = s.scalar(select(func.max(MarketQuote.data["source_time"].astext)).where(
             MarketQuote.data["quote_kind"].astext == "provider_snapshot"))
-    error = next((job.error for job in pending if job.error), None)
+    error = (poll.last_error if poll else None) or next((job.error for job in pending if job.error), None)
     if not error and batch and batch.status in ("FAILED", "PARTIAL"):
         error = s.scalar(select(Job.error).where(Job.id.in_(active_links),
             Job.status.in_(("FAILED", "PARTIAL")), Job.error.is_not(None))
@@ -75,7 +74,8 @@ def source_status(s, source, batch_id=None):
     paused = not policy or not policy.enabled or (batch and batch.status in ("PAUSED", "PAUSE_REQUESTED"))
     needs_config = source == "sec" and not sec_configured()
     status = (
-        "needs_config" if needs_config else "paused" if paused else "checking" if executing else "waiting" if waiting or queued
+        "needs_config" if needs_config else "paused" if paused else "checking" if executing or polling
+        else "waiting" if waiting or queued
         else "error" if batch and batch.status in ("FAILED", "PARTIAL")
         else "checked" if checked else "not_checked"
     )
@@ -86,6 +86,7 @@ def source_status(s, source, batch_id=None):
         "batch_id": batch.id if batch else None,
         "stage": "需配置 SEC User-Agent" if needs_config else "自动更新已暂停" if paused else
             STAGES.get(executing.kind, "处理数据") if executing else
+            "检查最新申报" if polling else
             "等待来源恢复" if waiting else
             ("等待 SEC 通道" if source == "sec" else "等待 Yahoo 通道") if pending else
             "正在安排最新数据检查" if queued else
@@ -114,44 +115,35 @@ def get_freshness():
 
 
 
-def _advance_latest_round(s, batch):
-    from iirp.lifecycle import add_job, digest
-    from iirp.sec_facts import _sec_recent_days
+def _ensure_sec(s, policy, force, identifiers, selected_batches):
+    """One automatic latest demand per New York day; polling is the source row."""
+    from iirp.lifecycle import _create
+    from iirp.planning_signals import signal_batch
+    from iirp.sec_poll import PAUSED, request_poll
 
-    batch = s.scalar(select(Batch).where(
-        Batch.id == batch.id, Batch.trigger == "automatic", Batch.requested_action.is_(None),
-        Batch.status.in_(("QUEUED", "RUNNING", "RETRY_WAIT")),
-    ).with_for_update(skip_locked=True, key_share=True).execution_options(populate_existing=True))
-    if batch is None:
-        return False
-    scopes = list(s.scalars(select(RequestScope).where(RequestScope.batch_id == batch.id)
-                           .with_for_update(skip_locked=True)))
     day = now().astimezone(ZoneInfo("America/New_York")).date()
-    if not s.scalar(text("SELECT pg_try_advisory_xact_lock(:key)"),
-                    {"key": int(digest(["sec_latest_head", str(day)])[:15], 16)}):
-        return False
-    head = s.scalar(select(Job).where(
-        Job.kind == "sec_discover", Job.status.in_(ACTIVE),
-        Job.target["mode"].astext == "latest", Job.target["cursor"].astext.is_(None),
-        Job.target["end_date"].astext == str(day),
-    ).order_by(Job.created_at.desc()).limit(1))
-    target = dict(head.target) if head else {
-        "mode": "latest", "start_date": str(_sec_recent_days(day, 2)[-1]),
-        "end_date": str(day), "max_pages": 1, "round": now().isoformat(),
-    }
-    if not head:
-        complete = s.scalar(latest_complete_sec_scan())
-        watermark = (complete.checkpoint or {}).get("sec_scan", {}).get("newest_accepted_at") if complete else None
-        if watermark:
-            target["watermark"] = watermark
-    for scope in scopes:
-        scope.checkpoint = {**(scope.checkpoint or {}), "latest_target": target}
-        add_job(s, scope, "sec_discover", target, 0)
-        scope.status = "RUNNING"
-    if scopes:
-        batch.status = "RUNNING"
-        batch.updated_at = now()
-    return bool(scopes)
+    if force:
+        batch, _ = _create(s, {"kind": "sec_latest", "request_id": "fresh:sec:" + str(uuid4()),
+                              "purpose": "最新数据检查", "intent": "fetch"},
+                           trigger="manual", policy_key="sec")
+    else:
+        batch = s.scalar(select(Batch).where(Batch.kind == "sec_latest", Batch.trigger == "automatic")
+                         .order_by(Batch.created_at.desc()).limit(1))
+        if batch is not None and batch.status in PAUSED:
+            selected_batches["sec"] = batch.id
+            return
+        if (batch is None or batch.status == "CANCELLED"
+                or batch.created_at.astimezone(ZoneInfo("America/New_York")).date() < day):
+            batch, _ = _create(s, {"kind": "sec_latest", "request_id": "fresh:sec:" + str(uuid4()),
+                                  "purpose": "最新数据检查", "intent": "fetch"},
+                               trigger="automatic", policy_key="sec")
+        elif batch.status not in ("QUEUED", "RUNNING", "RETRY_WAIT"):
+            batch.status, batch.updated_at = "RUNNING", now()
+            signal_batch(s, batch.id)
+    request_poll(s, policy, force=bool(force))
+    identifiers.append(batch.id)
+    selected_batches["sec"] = batch.id
+    policy.options = {**policy.options, "latest_requested_at": now().isoformat(), "latest_batch_id": batch.id}
 
 
 def _reconcile_market(s, batch):
@@ -238,6 +230,9 @@ def ensure_fresh_in_session(s, values):
         if source == "sec" and not sec_configured():
             # The policy stays on; no SEC demand exists until a real contact is set.
             continue
+        if source == "sec":
+            _ensure_sec(s, policy, values.get("force"), identifiers, selected_batches)
+            continue
         if source == "market":
             if values.get("market_visible"):
                 policy.options = {**policy.options, "quote_visible_until": (now() + timedelta(seconds=90)).isoformat()}
@@ -250,67 +245,29 @@ def ensure_fresh_in_session(s, values):
             *((Batch.trigger == "manual",) if values.get("force") else ()),
             Batch.status.in_(("QUEUED", "RUNNING", "RETRY_WAIT", "PAUSED", "PAUSE_REQUESTED", "CANCEL_REQUESTED")),
         ).order_by(Batch.created_at.desc()).limit(1))
-        current_day = now().astimezone(ZoneInfo("America/New_York")).date()
-        older_sec_scope = bool(active and source == "sec" and
-                               active.created_at.astimezone(ZoneInfo("America/New_York")).date() < current_day)
         if active:
             selected_batches[source] = active.id
             if active.status in ("PAUSED", "PAUSE_REQUESTED", "CANCEL_REQUESTED"):
                 continue
-            discovery_pending = s.scalar(select(Job.id).join(BatchJob).join(RequestScope).where(
-                RequestScope.batch_id == active.id, Job.status.in_(ACTIVE),
-                Job.kind == ("sec_discover" if source == "sec" else "market_quote"),
-                *((Job.target["cursor"].astext.is_(None),) if source == "sec" else ()),
-            ).limit(1))
-            head_planned = s.scalar(select(Job.id).join(BatchJob).join(RequestScope).where(
-                RequestScope.batch_id == active.id, Job.kind == "sec_discover",
-                Job.target["cursor"].astext.is_(None),
-            ).limit(1)) if source == "sec" else True
-            if source == "market" and _reconcile_market(s, active):
+            if _reconcile_market(s, active):
                 active = None
-            if active and (source == "market" or (not older_sec_scope and (
-                not head_planned or discovery_pending or (now() - active.created_at).total_seconds() < 30
-            ))):
+            if active:
                 identifiers.append(active.id)
                 selected_batches[source] = active.id
                 policy.options = {**policy.options, "latest_batch_id": active.id}
                 continue
-        minimum = 30 if source == "sec" else 60
         stamp = policy.options.get("latest_requested_at")
-        if (stamp and not older_sec_scope and not values.get("force")
-                and (now() - datetime.fromisoformat(stamp)).total_seconds() < minimum):
+        if (stamp and not values.get("force")
+                and (now() - datetime.fromisoformat(stamp)).total_seconds() < 60):
             if policy.options.get("latest_batch_id"):
                 identifiers.append(policy.options["latest_batch_id"])
                 selected_batches[source] = policy.options["latest_batch_id"]
             continue
-        if active and source == "sec" and active.trigger == "automatic" and not values.get("force"):
-            # Keep same-day discovery and document subscriptions in one durable
-            # demand. A new head is independent of old pagination, and all old
-            # links remain available to the planner until they finish.
-            if not older_sec_scope:
-                advanced = _advance_latest_round(s, active)
-                identifiers.append(active.id)
-                if advanced:
-                    policy.options = {**policy.options, "latest_requested_at": now().isoformat(), "latest_batch_id": active.id}
-                continue
         batch, _ = _create(s, {
             **({"tickers": market_symbols} if market_symbols else {}),
             "kind": SOURCE_KIND[source], "request_id": "fresh:" + source + ":" + str(uuid4()),
-            "purpose": "最新数据检查", "intent": "refresh" if source == "market" else "fetch",
+            "purpose": "最新数据检查", "intent": "refresh",
         }, trigger="manual" if values.get("force") else "automatic", policy_key=source)
-        if values.get("force") and source == "sec":
-            # The manual request is its own visible demand, but subscribing to
-            # an in-flight same-day head must not launch another network read.
-            from iirp.lifecycle import add_job
-            shared = s.scalar(select(Job).where(
-                Job.kind == "sec_discover", Job.status.in_(ACTIVE),
-                Job.target["mode"].astext == "latest", Job.target["cursor"].astext.is_(None),
-                Job.target["end_date"].astext == str(now().astimezone(ZoneInfo("America/New_York")).date()),
-            ).order_by(Job.created_at.desc()).limit(1))
-            if shared:
-                for scope in s.scalars(select(RequestScope).where(RequestScope.batch_id == batch.id)):
-                    scope.checkpoint = {**(scope.checkpoint or {}), "latest_target": dict(shared.target)}
-                    add_job(s, scope, shared.kind, shared.target, 0)
         identifiers.append(batch.id)
         selected_batches[source] = batch.id
         policy.options = {**policy.options, "latest_requested_at": now().isoformat(), "latest_batch_id": batch.id}

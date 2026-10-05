@@ -28,10 +28,10 @@ from iirp.config import ROOT
 from iirp.db import session
 from iirp.lifecycle import add_job
 from iirp.market_data import persist_prices, price_bars, quote_from_history, resolve_metadata
-from iirp.models import SourceBudget, SourceObject, now
+from iirp.models import SourceBudget, now
 from iirp.operation_pool import OperationInterrupted
 from iirp.queue import ManualPriorityYield, fenced, should_yield_to_manual
-from iirp.storage import save_object
+from iirp.storage import discovery_expiry, register_object, save_object
 
 
 def scope_links(s, job_id):
@@ -94,7 +94,7 @@ def _persist(s, current, response, sources, source, observation_metadata=None):
     status = "SUCCEEDED"
     error = None
     for item in sources.values():
-        s.execute(insert(SourceObject).values(**item).on_conflict_do_nothing())
+        register_object(s, item)
     s.add(
         SourceObservation(
             job_id=current.id,
@@ -389,6 +389,9 @@ def execute_business(job, stopping=lambda: False, runner=None):
             return
         data = response["data"]
         storage_started = time.perf_counter()
+        # Discovery list pages, index files and their response JSON can be
+        # fetched again; only filing documents and parsed facts are permanent.
+        expiry = {"expires_at": discovery_expiry()} if job.kind == "sec_discover" else {}
         sources = {}
         for document in data.get("source_documents", []):
             content = (
@@ -396,9 +399,9 @@ def execute_business(job, stopping=lambda: False, runner=None):
                 if document.get("encoding") == "base64"
                 else document["payload"].encode()
             )
-            sources[document["url"]] = save_object(
+            sources[document["url"]] = {**save_object(
                 content, document.get("media_type", "application/octet-stream")
-            )
+            ), **expiry}
         filing = data.get("filing") or {}
         if filing.get("xml_payload"):
             content = (
@@ -409,7 +412,7 @@ def execute_business(job, stopping=lambda: False, runner=None):
             sources[filing["document_url"]] = save_object(content, "application/xml")
         from iirp.storage import response_evidence
         payload, observation_metadata = response_evidence(data, sources)
-        source = save_object(payload, "application/json")
+        source = {**save_object(payload, "application/json"), **expiry}
         del payload
         timing = {
             "queue_seconds": max(0, (job.started_at - job.available_at).total_seconds()),

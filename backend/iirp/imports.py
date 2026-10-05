@@ -9,7 +9,6 @@ from urllib.parse import urlsplit
 from zoneinfo import ZoneInfo
 
 from sqlalchemy import select, text
-from sqlalchemy.dialects.postgresql import insert
 
 from iirp.analytics.calendar import last_completed_session, sessions
 from iirp.business_models import (
@@ -23,7 +22,7 @@ from iirp.business_models import (
 )
 from iirp.db import session
 from iirp.market_data import digest, latest_dataset, number, price_bars, validate_bar
-from iirp.models import SourceObject, now
+from iirp.models import now
 from iirp.storage import save_object
 
 
@@ -158,7 +157,9 @@ def preview(values):
     symbol, records, errors = parse(values)
     source = save_object(values["csv"].encode(), "text/csv")
     with session() as s, s.begin():
-        s.execute(insert(SourceObject).values(**source).on_conflict_do_nothing())
+        from iirp.storage import register_object
+
+        register_object(s, source)
         security = s.scalar(select(Security).where(Security.symbol == symbol))
         bars, dataset = (
             price_bars(s, security.id)

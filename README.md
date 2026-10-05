@@ -35,7 +35,7 @@ install -m 600 deploy/.env.example deploy/.env
 
 ```sh
 ./iirp status   # 查看服务状态
-./iirp check    # Ruff、后端测试、OpenAPI 一致性、前端测试与构建
+./iirp check    # Ruff、后端测试（临时 PostgreSQL 容器）、OpenAPI 一致性、前端测试与构建
 ./iirp stop     # 停止服务，保留数据卷
 ```
 

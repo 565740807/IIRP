@@ -51,17 +51,18 @@ def test_saved_defaults_reach_collection_and_remain_frozen():
     assert replay["batch"]["params"]["history_months"] == 6
 
 
-def test_latest_scope_has_no_quarterly_or_daily_history_work():
+def test_latest_scope_has_no_discovery_jobs_and_finishes_after_a_complete_poll():
+    from iirp.models import SourcePoll
+
     result = lifecycle.create_collection(request("sec_latest"))
     with session() as s, s.begin():
         batch = s.get(Batch, result["batch_id"])
         scope = s.scalar(select(RequestScope).where(RequestScope.batch_id == batch.id))
         plan_sec_scope(s, scope, batch, [32], latest_capacity=[8])
-        jobs = lifecycle.linked_jobs(s, scope.id)
-        assert jobs and all(j.kind == "sec_discover" and j.target["mode"] == "latest" for j in jobs)
-        for job in jobs:
-            job.status = "SUCCEEDED"
-            job.checkpoint = {"sec_scan": {"complete": True}, "discovered_accessions": []}
+        assert lifecycle.linked_jobs(s, scope.id) == []
+        assert scope.status != "READY"
+        # A poll that closed continuity after this request was made settles it.
+        s.add(SourcePoll(source="sec_latest", next_poll_at=now(), last_complete_at=now(), updated_at=now()))
         s.flush()
         plan_sec_scope(s, scope, batch, [32], latest_capacity=[8])
         assert scope.status == "READY"
@@ -107,26 +108,6 @@ def test_frontend_freshness_is_coalesced_and_respects_explicit_pause():
     assert third["sources"]["sec"]["status"] == "paused"
     with session() as s:
         assert not s.get(CollectionStrategy, "sec").enabled
-
-
-def test_latest_pagination_finishes_only_after_the_final_page():
-    result = lifecycle.create_collection(request("sec_latest"))
-    with session() as s, s.begin():
-        batch = s.get(Batch, result["batch_id"])
-        scope = s.scalar(select(RequestScope).where(RequestScope.batch_id == batch.id))
-        plan_sec_scope(s, scope, batch, [32], latest_capacity=[8])
-        first = lifecycle.linked_jobs(s, scope.id)[0]
-        first.status = "SUCCEEDED"
-        first.checkpoint = {"sec_scan": {"complete": False}}
-        tail = lifecycle.add_job(s, scope, "sec_discover", {**first.target, "cursor": "next"})
-        s.flush()
-        plan_sec_scope(s, scope, batch, [32], latest_capacity=[8])
-        assert scope.status != "READY"
-        tail.status = "SUCCEEDED"
-        tail.checkpoint = {"sec_scan": {"complete": True}}
-        s.flush()
-        plan_sec_scope(s, scope, batch, [32], latest_capacity=[8])
-        assert scope.status == "READY"
 
 
 def test_history_frontier_waits_for_commit_and_honors_pause():
@@ -180,32 +161,6 @@ def test_freshness_http_open_and_read_are_distinct(lifecycle_client):  # noqa: F
     assert "pending_filings" in feed.json()
 
 
-def test_old_latest_pagination_does_not_block_a_new_head_check():
-    from iirp.freshness import ensure_fresh
-    first = ensure_fresh({"reason": "open", "sources": ["sec"]})
-    identifier = first["batch_ids"][0]
-    with session() as s, s.begin():
-        batch = s.get(Batch, identifier)
-        batch.created_at = now() - timedelta(minutes=2)
-        policy = s.get(CollectionStrategy, "sec")
-        policy.options = {**policy.options, "latest_requested_at": batch.created_at.isoformat()}
-        scope = s.scalar(select(RequestScope).where(RequestScope.batch_id == batch.id))
-        head = lifecycle.add_job(s, scope, "sec_discover", {"mode": "latest", "round": "completed-head"})
-        head.status = "SUCCEEDED"
-        tail = lifecycle.add_job(s, scope, "sec_discover", {"mode": "latest", "cursor": "older-page"})
-        tail.created_at = batch.created_at
-    second = ensure_fresh({"reason": "resume", "sources": ["sec"]})
-    assert second["batch_ids"][0] == identifier
-    with session() as s:
-        scope = s.scalar(select(RequestScope).where(RequestScope.batch_id == identifier))
-        jobs = lifecycle.linked_jobs(s, scope.id)
-        assert any(job.target.get("cursor") == "older-page" for job in jobs)
-        heads = [job for job in jobs if job.kind == "sec_discover" and not job.target.get("cursor") and job.status == "QUEUED"]
-        assert len(heads) == 1
-        head_id = heads[0].id
-    assert claim({"sec_discover"}).id == head_id
-
-
 def test_shared_document_links_have_a_global_per_tick_budget_without_losing_remainder():
     from iirp.business_models import Filing
     old = lifecycle.create_collection(request("sec_history"))
@@ -232,22 +187,6 @@ def test_shared_document_links_have_a_global_per_tick_budget_without_losing_rema
             scope = s.scalar(select(RequestScope).where(RequestScope.batch_id == batch.id))
             plan_sec_scope(s, scope, batch, [32], latest_capacity=[8], document_link_capacity=[100])
             assert sum(j.kind == "sec_document" for j in lifecycle.linked_jobs(s, scope.id)) == 12
-
-
-def test_promoted_document_backlog_cannot_block_newest_head_planning():
-    latest = lifecycle.create_collection(request("sec_latest"))
-    with session() as s, s.begin():
-        batch = s.get(Batch, latest["batch_id"])
-        scope = s.scalar(select(RequestScope).where(RequestScope.batch_id == batch.id))
-        for i in range(40):
-            lifecycle.add_job(s, scope, "sec_document", {"accession": f"old-{i}"})
-    # Exercise the actual planner with its latest capacity exhausted, not a manually queued head.
-    lifecycle.plan_tick()
-    with session() as s:
-        head = s.scalar(select(Job).where(Job.kind == "sec_discover", Job.target["mode"].astext == "latest"))
-        assert head is not None
-        identifier = head.id
-    assert claim({"sec_document", "sec_discover"}, prefer_latest=True).id == identifier
 
 
 def test_unplanned_latest_request_is_reused_after_throttle_period():

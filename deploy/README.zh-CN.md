@@ -19,7 +19,7 @@ install -m 600 deploy/.env.example deploy/.env
 ./iirp check
 ```
 
-`deploy/.env.example` 是唯一无秘密 Compose 模板。根目录 `.env.example` 的原有删除不恢复；旧 Mac `.env` 是历史入口的私有配置，不是 Linux 模板。不要在已有文件上执行上述 install 命令。依赖和浏览器首次安装需访问官方镜像、PyPI、npm、PGDG 和 Playwright 下载服务；保留构建日志，以区分下载、层缓存与失败重试。基础镜像按摘要固定，apt 索引及 PGDG 客户端小版本尚未做快照锁定，不宣称字节级可重建。
+`deploy/.env.example` 是唯一无秘密 Compose 模板。根目录 `.env.example` 的原有删除不恢复；旧 Mac `.env` 是历史入口的私有配置，不是 Linux 模板。不要在已有文件上执行上述 install 命令。依赖和浏览器首次安装需访问官方镜像、PyPI、npm、PGDG 和 Playwright 下载服务；保留构建日志，以区分下载、层缓存与失败重试。Python 依赖层在复制后端代码之前安装，只改代码时直接复用；`uv sync` 与 `npm ci` 使用 BuildKit 缓存挂载，`uv.lock` 变化时也只下载新增的包（缓存不进入镜像，安装仍按锁文件哈希校验）。基础镜像按摘要固定，apt 索引及 PGDG 客户端小版本尚未做快照锁定，不宣称字节级可重建。
 
 数据卷由项目名前缀隔离：`iirp2_postgres-data` 是 PG18 数据；`iirp2_app-runtime` 包含来源对象、备份、维护日志和独立恢复副本。容器内 `/app/runtime` 不等于宿主项目的 `runtime/`。`./iirp stop` 停服务并保留卷；切勿用 `down --volumes` 停日常实例。数据库、来源原文与备份必须一起规划空间和保留。
 

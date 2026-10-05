@@ -77,3 +77,31 @@ def test_validation_cannot_select_original_project(isolated_profile, monkeypatch
     monkeypatch.setenv("IIRP_VALIDATION_ID", "a" * 32)
     with pytest.raises(SystemExit):
         linux.compose()
+
+
+def test_backend_tests_use_a_throwaway_tmpfs_postgres_and_remove_it(isolated_profile, monkeypatch):
+    (isolated_profile / "deploy/compose.yaml").write_text(
+        "services:\n  postgres:\n    image: postgres:18.6-bookworm@sha256:" + "0" * 64 + "\n")
+    monkeypatch.setattr(linux, "_app_image", lambda: "iirp-v1-app:synthetic")
+    commands, cleanup = [], []
+    monkeypatch.setattr(linux, "run", lambda args: commands.append([str(a) for a in args]))
+
+    def fake_subprocess(args, **_kwargs):
+        cleanup.append(args)
+        return type("Done", (), {"returncode": 0})()
+
+    monkeypatch.setattr(linux.subprocess, "run", fake_subprocess)
+    linux.isolated_tests(["python", "-m", "pytest"])
+    network = commands[0][-1]
+    assert commands[0][:3] == ["docker", "network", "create"]
+    server = commands[1]
+    assert "--tmpfs" in server and server[server.index("--tmpfs") + 1].startswith("/var/lib/postgresql")
+    assert server[server.index("--network") + 1] == network
+    tests = commands[2]
+    assert tests[tests.index("--network") + 1] == network
+    url = next(value for value in tests if value.startswith("IIRP_DATABASE_URL="))
+    assert f"@{network}-pg:5432/iirp_v1_test_check" in url
+    # Never the Compose project's database service or network.
+    assert not any("compose" in part for command in commands for part in command)
+    assert ["docker", "rm", "-f", network + "-pg"] in cleanup
+    assert ["docker", "network", "rm", network] in cleanup

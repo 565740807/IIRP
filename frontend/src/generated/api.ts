@@ -226,6 +226,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/system/storage/exact": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Storage Exact
+         * @description Start the exact directory walk (about 1.3 million files); requests coalesce.
+         */
+        post: operations["storage_exact_api_v1_system_storage_exact_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/search": {
         parameters: {
             query?: never;
@@ -3586,6 +3606,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SystemOutput"];
+                };
+            };
+        };
+    };
+    storage_exact_api_v1_system_storage_exact_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GenericOutput"];
                 };
             };
         };

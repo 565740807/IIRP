@@ -116,3 +116,109 @@ def hydrate_response_evidence(payload, observation_metadata=None):
     if observation_metadata:
         content.update({key: observation_metadata[key] for key in ("fetched_at", "timing") if key in observation_metadata})
     return content
+
+
+DISCOVERY_RETENTION_DAYS = 7
+
+
+def discovery_expiry():
+    """Refetchable SEC list pages, index files and discovery response JSON."""
+    from datetime import timedelta
+
+    from iirp.models import now
+
+    return now() + timedelta(days=DISCOVERY_RETENTION_DAYS)
+
+
+def register_object(s, source):
+    """Insert a saved object row; a permanent use of the same content wins.
+
+    ``source`` may carry ``expires_at``. An existing expiring row becomes
+    permanent when registered without expiry and otherwise keeps the later
+    expiry; a permanent row never gains one.
+    """
+    from sqlalchemy import func
+    from sqlalchemy.dialects.postgresql import insert
+
+    from iirp.models import SourceObject
+
+    expires_at = source.get("expires_at")
+    statement = insert(SourceObject).values(**{**source, "expires_at": expires_at})
+    s.execute(statement.on_conflict_do_update(
+        index_elements=[SourceObject.sha256],
+        set_={"expires_at": None if expires_at is None else
+              func.greatest(SourceObject.expires_at, statement.excluded.expires_at)},
+        where=SourceObject.expires_at.is_not(None),
+    ))
+
+
+EXPIRY_BATCH = 500
+EXPIRY_MAX_PER_TICK = 5000
+
+
+def expire_sources(limit=EXPIRY_MAX_PER_TICK):
+    """Delete expired objects, their observations and files in bounded batches.
+
+    Holds the maintenance lock so a running backup never loses a file it has
+    listed. Content also referenced by a permanent fact is made permanent
+    instead. Files are unlinked only after commit and only when no row has
+    re-registered the same content meanwhile.
+    """
+    from sqlalchemy import delete, select, update
+
+    from iirp.business_models import (
+        CorporateAction,
+        CoverageSegment,
+        FilingVersion,
+        ImportPreview,
+        MarketBar,
+        SourceObservation,
+    )
+    from iirp.db import session
+    from iirp.maintenance import maintenance_lock
+    from iirp.models import Coverage, SourceObject, now
+
+    removed = {"objects": 0, "bytes": 0}
+    try:
+        lock = maintenance_lock()
+        lock.__enter__()
+    except ValueError:
+        return {**removed, "skipped": "maintenance_busy"}
+    try:
+        while removed["objects"] < limit:
+            with session() as s, s.begin():
+                rows = s.execute(
+                    select(SourceObject.sha256, SourceObject.relative_path, SourceObject.byte_size)
+                    .where(SourceObject.expires_at < now())
+                    .order_by(SourceObject.expires_at)
+                    .limit(EXPIRY_BATCH)
+                    .with_for_update(skip_locked=True)
+                ).all()
+                if not rows:
+                    break
+                hashes = [row.sha256 for row in rows]
+                permanent = set()
+                for model in (FilingVersion, MarketBar, CorporateAction, ImportPreview, Coverage):
+                    permanent.update(s.scalars(select(model.source_hash).where(model.source_hash.in_(hashes))))
+                if permanent:
+                    s.execute(update(SourceObject).where(SourceObject.sha256.in_(permanent))
+                              .values(expires_at=None))
+                doomed = [row for row in rows if row.sha256 not in permanent]
+                gone = [row.sha256 for row in doomed]
+                s.execute(delete(SourceObservation).where(SourceObservation.source_hash.in_(gone)))
+                s.execute(update(CoverageSegment).where(CoverageSegment.source_hash.in_(gone))
+                          .values(source_hash=None))
+                s.execute(delete(SourceObject).where(SourceObject.sha256.in_(gone)))
+            root = settings().runtime_dir
+            with session() as s:
+                again = set(s.scalars(select(SourceObject.sha256).where(SourceObject.sha256.in_(gone))))
+            for row in doomed:
+                if row.sha256 not in again:
+                    (root / row.relative_path).unlink(missing_ok=True)
+                    removed["objects"] += 1
+                    removed["bytes"] += row.byte_size
+            if len(rows) < EXPIRY_BATCH:
+                break
+    finally:
+        lock.__exit__(None, None, None)
+    return removed

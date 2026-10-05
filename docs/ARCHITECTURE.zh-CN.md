@@ -43,7 +43,7 @@ Compose 启动三个服务：`postgres`、`web`（启动时先执行 `alembic up
 ## 数据流
 
 1. **采集**：用户在界面提交需求（或启用自动策略）→ API 写入批次与任务 → worker 领取任务 → 访问外部来源（网络调用不在数据库事务内）→ 原文按内容哈希存入 `runtime/objects`，解析结果在一次带围栏的事务中提交为事实。
-2. **SEC 内部人交易**：`sec_discover` 发现最新申报和日索引 → `sec_document` 下载并解析 Form 3/4/5 → 写入申报、版本、申报人和按行的交易事实；修订按行记录，不覆盖旧版本。交易日、接受时间和发现时间分开保存；缺失、未知和已知零分别表示。
+2. **SEC 内部人交易**：最新申报由 worker 按来源轮询（`iirp/sec_poll.py`，状态是 `source_poll` 中每个来源一行：水位线、未读完的补扫游标、下次时间、租约），不为每次轮询建任务；历史回补用 `sec_discover` 扫日/季索引 → `sec_document` 下载并解析 Form 3/4/5 → 写入申报、版本、申报人和按行的交易事实；修订按行记录，不覆盖旧版本。交易日、接受时间和发现时间分开保存；缺失、未知和已知零分别表示。
 3. **行情**：`market_identity` 确认证券身份 → `market_history` 一次取完整起止区间，保存仅拆股调整的 OHLC、分红与拆股，并记录覆盖与版本 → `market_quote` 更新报价。
 4. **分析**：用户显式应用条件 → `research_compute`/`event_compute` 读取本地事实与日线，计算并写入冻结结果（带数据版本与来源标识）。图表、表格、摘要和 JSON/CSV/PNG 导出都读同一个冻结结果；重开旧结果不会自动换成最新条件。
 5. **读取**：所有 GET 只读本地数据库；信息流和详情在阅读会话中保持稳定，新内容以提示形式出现。
@@ -69,9 +69,10 @@ Compose 启动三个服务：`postgres`、`web`（启动时先执行 `alembic up
 ## 存储
 
 - **PostgreSQL**：业务事实（`issuer`、`reporting_owner`、`security`、`filing`、`filing_version`、`transaction_event`、`price_dataset_version`、`market_bar_revision`、`dataset_bar`、`earnings_event` 等）、信息流修订与索引（`feed_group_revision`、`feed_group_current`、`feed_group_order`；`feed_manifest` 只剩升级前的旧数据，由维护清理回收）、任务与批次（`job`、`batch`、`batch_job`）、冻结结果（`analysis_request`、`analysis_result`、`export_manifest`）、事件集（`event_set`、`event_set_version`）、维护记录。
-- **来源对象**：原始 XML/JSON/CSV 以内容哈希为文件名存放在 `runtime/objects/<前两位>/<哈希>`，数据库的 `source_object` 与 `source_observation` 记录来源、哈希和观察时间。
-- **卷**：Compose 的 `postgres-data`（数据库）与 `app-runtime`（来源对象、备份、维护日志、恢复副本）。`./iirp stop` 保留卷；备份由 `./iirp backup` 生成一致快照（`pg_dump` + 来源对象哈希清单），`./iirp restore-verify` 在随机新库上验证恢复。
-- **测试**：后端测试在隔离的 `iirp_v1_test_*` 数据库中运行，不访问运行库。
+- **来源对象**：原始 XML/JSON/CSV 以内容哈希为文件名存放在 `runtime/objects/<前两位>/<哈希>`，数据库的 `source_object` 与 `source_observation` 记录来源、哈希和观察时间。可随时重新获取的 SEC 列表页、索引文件和发现任务的响应 JSON 带 `expires_at`（7 天），worker 每 10 分钟分批删除过期对象、其观察记录和文件；申报原文（XML、文本、申报索引页）和解析出的事实永久保留。
+- **存储盘点**：系统状态只读记录——原文大小取自 `source_object`，备份取自各自清单（按文件身份缓存，只解析一次），恢复副本取自其报告，数据库取自 PostgreSQL；不遍历目录。目录实际占用的精确核对（约 130 万个文件）在数据页手动触发，或由 worker 每天最多一次在美东 0–5 点运行。
+- **卷**：Compose 的 `postgres-data`（数据库）与 `app-runtime`（来源对象、备份、维护日志）。`./iirp stop` 保留卷；备份由 `./iirp backup` 生成一致快照（`pg_dump` + 来源对象哈希清单），`./iirp restore-verify` 在随机新库上验证恢复，通过后删除副本原文和恢复库，只留验证报告（写入备份清单，并在 `runtime/restores/<名称>-report.json`）。
+- **测试**：`./iirp check` 和 `./iirp test` 为后端测试启动一个临时 PostgreSQL 容器（数据在 tmpfs、独立网络），跑完删除；测试只在其中的 `iirp_v1_test_*` 库运行，不在正式实例的数据库服务器上建库。
 
 ## 已知的结构问题
 

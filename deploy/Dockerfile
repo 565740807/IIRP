@@ -1,7 +1,7 @@
 FROM node:24.16.0-bookworm-slim@sha256:2c87ef9bd3c6a3bd4b472b4bec2ce9d16354b0c574f736c476489d09f560a203 AS frontend
 WORKDIR /build
 COPY frontend/package*.json ./
-RUN npm ci
+RUN --mount=type=cache,target=/root/.npm npm ci
 COPY frontend/ ./
 RUN npm run build
 
@@ -17,8 +17,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates
 WORKDIR /app
 RUN pip install --no-cache-dir uv==0.12.10 && groupadd -g 10001 iirp && useradd -u 10001 -g iirp -m iirp
 COPY pyproject.toml uv.lock ./
+# Dependencies before code, so code-only changes reuse this layer. The BuildKit
+# cache keeps downloaded wheels across lockfile changes (PyPI can be slow);
+# installs remain pinned by uv.lock hashes and the cache never enters the image.
+ENV UV_LINK_MODE=copy
+RUN --mount=type=cache,target=/root/.cache/uv uv sync --frozen --no-dev --no-editable --no-install-project
 COPY backend/ backend/
-RUN uv sync --frozen --no-dev --no-editable
+RUN --mount=type=cache,target=/root/.cache/uv uv sync --frozen --no-dev --no-editable
 COPY migrations/ migrations/
 COPY alembic.ini ./
 COPY scripts/ scripts/
