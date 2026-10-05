@@ -252,7 +252,9 @@ def test_manual_verify_uses_shared_lock_and_managed_does_not_relock(isolated):
     assert result["verified"] is True
     manifest = json.loads((Path(result["backup_path"]) / "manifest.json").read_text())
     assert manifest["restore_verification"]["verification_copy_discarded"] is True
-    assert not list((isolated.runtime / "restores").iterdir())
+    # Only the verification report remains where the copy was.
+    assert [path.name for path in (isolated.runtime / "restores").iterdir()] == [
+        manifest["restore_verification"]["database"] + "-report.json"]
     assert backup.completed_backups()
 
 
@@ -331,7 +333,9 @@ def test_restore_database_creation_allows_renewal_and_control(isolated, monkeypa
         with session() as s:
             assert s.get(Job, job.id).status == {"pause": "PAUSED", "cancel": "CANCELLED"}[action]
     assert len(created) == 1
-    assert not list((isolated.runtime / "restores").iterdir())
+    # No restored copy is left; a passing run keeps only its report file.
+    assert all(path.is_file() and path.name.endswith("-report.json")
+               for path in (isolated.runtime / "restores").iterdir())
     assert (directory / "database.dump").is_file()
 
 
@@ -835,26 +839,17 @@ def test_sec_sleep_coalesces_slots_and_completed_latest_is_not_starved(isolated,
             == 1
         )
 
-        new_heads = s.scalars(select(Job).join(BatchJob).where(
-            BatchJob.scope_id == scope_id, BatchJob.active.is_(True),
-            Job.kind == "sec_discover", Job.status == "QUEUED",
-        )).all()
-        assert len(new_heads) == 1
-        head = new_heads[0]
-        head_id = head.id
-        assert head.id != old_head_id
-        assert head.target["mode"] == "latest"
-        assert head.target["end_date"] == "2026-09-12"
-        assert head.target["max_pages"] == 1
-        assert not head.target.get("cursor")
-        assert s.get(RequestScope, scope_id).checkpoint["latest_target"] == head.target
+        # The latest feed is polled from one source row, not a new head job.
+        assert s.scalar(select(func.count()).select_from(Job).where(Job.kind == "sec_discover")) == 1
         assert s.get(Batch, latest_id).created_at == instant - timedelta(seconds=3600)
         assert s.get(BatchJob, (scope_id, old_head_id)).active
         assert s.get(BatchJob, (scope_id, document_id)).active
         assert s.get(Job, old_head_id).status == "SUCCEEDED"
         assert s.get(Job, document_id).status == "RUNNING"
-    # Claiming is a persisted queue operation only; it does not contact SEC.
-    assert claim({"sec_discover"}, prefer_latest=True).id == head_id
+    from iirp import sec_poll
+
+    monkeypatch.setattr(sec_poll, "now", lambda: instant)
+    assert sec_poll.poll_due()
 
 
 def test_log_rotation_keeps_open_inode_and_bounds_tail(isolated, monkeypatch):

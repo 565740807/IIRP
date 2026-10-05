@@ -141,37 +141,6 @@ def test_paused_latest_scope_does_not_schedule_or_link_documents():
         assert s.get(Batch, batch.id).requested_action == "pause"
 
 
-def test_new_day_head_is_not_blocked_by_an_unfinished_previous_day_head():
-    with session() as s, s.begin():
-        old_batch, old_scope = batch_scope(s)
-        old_batch.created_at = now() - timedelta(days=1)
-        plan(s, old_batch, old_scope)
-        old_head = next(job for job in lifecycle.linked_jobs(s, old_scope.id) if job.kind == "sec_discover")
-        old_target = dict(old_head.target)
-        today, today_scope = batch_scope(s)
-        plan(s, today, today_scope)
-        heads = [job for job in lifecycle.linked_jobs(s, today_scope.id) if job.kind == "sec_discover"]
-        assert len(heads) == 1
-        assert heads[0].id != old_head.id
-        assert heads[0].target["end_date"] == str(now().astimezone(lifecycle.ET).date())
-        assert old_head.status == "QUEUED" and old_head.target == old_target
-
-
-def test_same_day_batches_share_one_unfinished_head_even_when_capacity_is_available():
-    with session() as s, s.begin():
-        first, first_scope = batch_scope(s)
-        first.created_at = now() - timedelta(minutes=3)
-        plan(s, first, first_scope, latest=8)
-        saved = dict(first_scope.checkpoint["latest_target"])
-        second, second_scope = batch_scope(s)
-        plan(s, second, second_scope, latest=8)
-        heads = list(s.scalars(select(Job).where(Job.kind == "sec_discover")))
-        assert len(heads) == 1
-        assert second_scope.checkpoint["latest_target"] == saved
-        assert first_scope.checkpoint["latest_target"] == saved
-        assert {job.id for job in lifecycle.linked_jobs(s, first_scope.id)} == {job.id for job in lifecycle.linked_jobs(s, second_scope.id)}
-
-
 def test_a_finished_old_document_gives_its_free_slot_to_the_newest_batch():
     from iirp.business_models import BatchPlanSignal
     from iirp.queue import claim, fenced
@@ -202,47 +171,3 @@ def test_a_finished_old_document_gives_its_free_slot_to_the_newest_batch():
         assert [job.target["accession"] for job in today_documents] == [newest_accession]
         assert sum(job.status in PENDING for job in docs(s)) == 8
         assert len(docs(s)) == 9
-
-
-def test_busy_same_day_head_reservation_preserves_planners_durable_signal():
-    from iirp.business_models import BatchPlanSignal
-    from sqlalchemy import text
-
-    with session() as s, s.begin():
-        batch, target_scope = batch_scope(s)
-        identifier = batch.id
-        day = str(batch.created_at.astimezone(lifecycle.ET).date())
-        token = s.get(BatchPlanSignal, identifier).token
-    with session() as owner, owner.begin():
-        owner.execute(text("SELECT pg_advisory_xact_lock(:key)"), {
-            "key": int(lifecycle.digest(["sec_latest_head", day])[:15], 16),
-        })
-        assert lifecycle._plan_one(identifier, ("QUEUED", "RUNNING"), [100]) is None
-        with session() as s:
-            assert s.get(BatchPlanSignal, identifier).token == token
-            assert not lifecycle.linked_jobs(s, target_scope.id)
-    assert lifecycle._plan_one(identifier, ("QUEUED", "RUNNING"), [100]) is True
-    with session() as s:
-        assert len(lifecycle.linked_jobs(s, target_scope.id)) == 1
-
-
-def test_periodic_head_advance_shares_the_planners_same_day_reservation():
-    from iirp.freshness import _advance_latest_round
-    from sqlalchemy import text
-
-    with session() as s, s.begin():
-        batch, target_scope = batch_scope(s)
-        identifier, scope_id = batch.id, target_scope.id
-        day = str(batch.created_at.astimezone(lifecycle.ET).date())
-    with session() as owner, owner.begin():
-        owner.execute(text("SELECT pg_advisory_xact_lock(:key)"), {
-            "key": int(lifecycle.digest(["sec_latest_head", day])[:15], 16),
-        })
-        with session() as s, s.begin():
-            assert _advance_latest_round(s, s.get(Batch, identifier)) is False
-            assert not lifecycle.linked_jobs(s, scope_id)
-    with session() as s, s.begin():
-        assert _advance_latest_round(s, s.get(Batch, identifier)) is True
-    assert lifecycle._plan_one(identifier, ("QUEUED", "RUNNING"), [100]) is True
-    with session() as s:
-        assert len(lifecycle.linked_jobs(s, scope_id)) == 1

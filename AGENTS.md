@@ -14,7 +14,7 @@
 
 - 使用 `./iirp start|stop|status|check`（Linux 封装使用 Compose 项目 `iirp2`）；`./iirp python`、`./iirp lint`、`./iirp frontend` 在锁定镜像中运行开发工具。
 - 后端代码在 `backend/iirp`。单独运行 Python 命令时设置 `PYTHONPATH=backend`。
-- 测试使用隔离的 `iirp_v1_test_*` 数据库，不访问运行库。共享路径改动后重新跑集成测试。
+- 测试使用隔离的 `iirp_v1_test_*` 数据库，不访问运行库：`./iirp check` 和 `./iirp test [pytest 参数]` 启动临时 PostgreSQL 容器（tmpfs），不在正式实例的数据库服务器上建库。共享路径改动后重新跑集成测试。
 - 运行配置和密钥（`deploy/.env` 等）被 `.gitignore` 忽略，不要打印或提交。
 - 前端类型从 `docs/openapi.json` 生成；不要在 TypeScript 中重复实现金融计算。
 

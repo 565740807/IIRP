@@ -37,7 +37,7 @@ from iirp.business_models import (
     TransactionEvent,
 )
 from iirp.domain.ownership import parse_ownership_xml
-from iirp.models import ACTIVE, Job, latest_complete_sec_scan, now
+from iirp.models import ACTIVE, Job, SourcePoll, now
 from iirp.sec_sources import OWNERSHIP_FORMS, validate_sec_url
 from iirp.ticker_identity import normalized_ticker
 
@@ -1434,7 +1434,6 @@ def plan_sec_scope(
     reconcile_documents = bool(
         batch.params.get("reconcile_documents") or batch.params.get("intent") == "refresh"
     )
-    round_key = batch.created_at.replace(second=0, microsecond=0).isoformat()
     # Discovery and publication need separate bounded queue places. Thousands
     # of saved pagination jobs must not prevent an already discovered filing
     # from receiving its first document job. Count jobs, not subscriptions, so
@@ -1458,20 +1457,10 @@ def plan_sec_scope(
         )
         if initial_latest and kind == "sec_document":
             budget = document_capacity
-        elif initial_latest and latest_capacity is not None and kind == "sec_discover":
-            budget = latest_capacity
         else:
             budget = capacity
         if existing is None and budget[0] <= 0:
-            head_check = initial_latest and kind == "sec_discover" and not target.get("cursor")
-            active_head = s.scalar(select(Job.id).where(
-                Job.kind == "sec_discover", Job.target["mode"].astext == "latest",
-                Job.target["cursor"].astext.is_(None), Job.status.in_(ACTIVE),
-                Job.target["end_date"].astext == target.get("end_date"),
-            ).limit(1)) if head_check else None
-            # A promoted document backlog must never consume the one head-check slot.
-            if not head_check or active_head:
-                return None
+            return None
         job = add_job(s, scope, kind, target, priority)
         if existing is None:
             budget[0] -= 1
@@ -1479,34 +1468,11 @@ def plan_sec_scope(
         jobs.append(job)
         return job
 
+    # Latest discovery is the source poll (iirp.sec_poll), not a job chain;
+    # this demand only schedules documents for the filings it discovered.
     scan_targets = []
-    if initial_latest:
-        saved_target = (scope.checkpoint or {}).get("latest_target")
-        shared_head = s.scalar(select(Job).where(
-            Job.kind == "sec_discover", Job.status.in_(ACTIVE),
-            Job.target["mode"].astext == "latest", Job.target["cursor"].astext.is_(None),
-            Job.target["end_date"].astext == str(endpoint),
-        ).order_by(Job.created_at.desc()).limit(1)) if not saved_target else None
-        # A new reader can share an unfinished same-day check. Saved rounds
-        # retain their exact request parameters and continuation chain.
-        target = dict(saved_target or (shared_head.target if shared_head else {})) or {
-            "mode": "latest",
-            "start_date": str(started),
-            "end_date": str(endpoint),
-            "max_pages": 1,
-            "round": round_key,
-        }
-        # A previously complete *scan*, not the newest filing timestamp, can
-        # establish a continuity watermark for the next overlapping feed scan.
-        previous = s.scalar(latest_complete_sec_scan(before=batch.created_at))
-        if previous and not saved_target and shared_head is None:
-            watermark = previous.checkpoint.get("sec_scan", {}).get("newest_accepted_at")
-            if watermark:
-                target["watermark"] = watermark
-        scope.checkpoint = {**(scope.checkpoint or {}), "latest_target": target}
-        scan_targets.append((target, 0, True))
     # Quarterly manifests are filtered to the frozen range and newest quarter first.
-    # The independent latest chain handles today's feed; don't enqueue redundant daily
+    # The latest poll handles today's feed; don't enqueue redundant daily
     # scans before publishing the newest historical documents.
     for begin, end in ([] if initial_latest else _quarter_ranges(scan_start, endpoint)):
         scan_targets.append(
@@ -1627,26 +1593,22 @@ def plan_sec_scope(
         else:
             scheduled_accessions.add(filing.accession)
     s.flush()
-    active = [job for job in jobs if job.status in ACTIVE]
-    failures = [job for job in jobs if job.status in {"FAILED", "PARTIAL", "CANCELLED"}]
     # An index scope consists of a single quarter per task, so there is no
     # ambiguous “last page succeeded” shortcut across several partial indexes.
-    scans_done = (
-        not unscheduled_scans
-        and bool(required_scans)
-        and all(
-            job.status == "SUCCEEDED" and (
-                job.checkpoint.get("sec_scan", {}).get("complete")
-                or (initial_latest and any(
-                    tail.kind == "sec_discover" and tail.status == "SUCCEEDED"
-                    and tail.target.get("round") == job.target.get("round")
-                    and tail.checkpoint.get("sec_scan", {}).get("complete")
-                    for tail in jobs
-                ))
-            )
-            for job in required_scans
+    if initial_latest:
+        poll = s.get(SourcePoll, "sec_latest")
+        scans_done = bool(poll and poll.last_complete_at and poll.last_complete_at >= batch.created_at)
+        # Cancelled jobs of the former per-poll discovery chain are not gaps.
+        jobs = [job for job in jobs if job.kind != "sec_discover"]
+    else:
+        scans_done = (
+            not unscheduled_scans
+            and bool(required_scans)
+            and all(job.status == "SUCCEEDED" and job.checkpoint.get("sec_scan", {}).get("complete")
+                    for job in required_scans)
         )
-    )
+    active = [job for job in jobs if job.status in ACTIVE]
+    failures = [job for job in jobs if job.status in {"FAILED", "PARTIAL", "CANCELLED"}]
     # Partial Latest/daily discovery can be superseded by a complete quarterly
     # manifest, while genuine document errors always keep the scope incomplete.
     relevant_failures = [
@@ -1733,6 +1695,10 @@ def plan_sec_scope(
             "QUEUED",
             "继续处理剩余清单与原文；队列容量仅控制执行节奏。",
         )
+    elif initial_latest and batch.trigger == "automatic" and endpoint == now().astimezone(ET).date():
+        # Today's demand stays open for the next poll; tomorrow it settles.
+        scope.status = "RUNNING"
+        scope.wait_reason = next((job.error for job in relevant_failures if job.error), None)
     elif relevant_failures or missing or not scans_done:
         scope.status = "PARTIAL"
         scope.wait_reason = next(

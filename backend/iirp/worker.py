@@ -5,6 +5,7 @@ import signal
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor
@@ -164,6 +165,23 @@ def collect_finished(futures):
 
 
 
+def housekeeping():
+    """Expired discovery sources and the daily exact storage check, off the main loop."""
+    from iirp.storage import expire_sources
+    from iirp.storage_inventory import exact_tick
+
+    try:
+        removed = expire_sources()
+        if removed.get("objects"):
+            logging.info("expired sources removed objects=%s bytes=%s", removed["objects"], removed["bytes"])
+    except Exception as exc:
+        logging.exception("source expiry failed type=%s", type(exc).__name__)
+    try:
+        exact_tick()
+    except Exception as exc:
+        logging.exception("exact storage check failed type=%s", type(exc).__name__)
+
+
 def claim_lane(lane, kinds):
     """A failed source lane must not prevent independent market/compute work."""
     try:
@@ -206,8 +224,13 @@ def main():
             "diagnostic": (1, {"fixture_check", "sec_probe", "market_probe"}),
             "maintenance": (1, {"maintenance_backup", "maintenance_clean"}),
         }
+        from iirp.sec_poll import poll_due, poll_once, release_stale_lease
+
+        release_stale_lease()
         futures = {}
         last_plan = 0.0
+        poll_future = None
+        chores, last_chores = None, 0.0
         from iirp.operation_pool import OperationPool
         operations = OperationPool()
         def stopping():
@@ -233,6 +256,17 @@ def main():
                             plan_tick(time_budget_seconds=1.0)
                             schedule_tick()
                             operational_log_tick()
+                            if (drained and (poll_future is None or poll_future.done())
+                                    and len(futures) < 5
+                                    and sum(value == "sec" for value in futures.values()) < lanes["sec"][0]
+                                    and poll_due()):
+                                # The SEC latest poll uses an SEC lane slot, not a job.
+                                poll_future = pool.submit(poll_once, stopping)
+                                futures[poll_future] = "sec"
+                            if (chores is None or not chores.is_alive()) and time.monotonic() - last_chores >= 600:
+                                last_chores = time.monotonic()
+                                chores = threading.Thread(target=housekeeping, name="housekeeping", daemon=True)
+                                chores.start()
                         if not drained:
                             drained = previous_leases_drained()
                             if not drained:

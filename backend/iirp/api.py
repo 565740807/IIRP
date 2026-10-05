@@ -395,6 +395,14 @@ def system():
     }
 
 
+@app.post("/api/v1/system/storage/exact", response_model=GenericOutput, status_code=202)
+def storage_exact():
+    """Start the exact directory walk (about 1.3 million files); requests coalesce."""
+    from iirp.storage_inventory import request_exact
+
+    return {"data": request_exact()}
+
+
 @app.get("/api/v1/search", response_model=GenericOutput)
 def search(q: str = ""):
     from iirp.local_reads import search

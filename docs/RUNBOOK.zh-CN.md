@@ -9,13 +9,13 @@
 ./iirp status
 ./iirp stop
 ./iirp check
-./iirp python -m pytest tests/test_shared_compute.py
+./iirp test tests/test_shared_compute.py
 ./iirp lint
 ./iirp frontend npm test
 ./iirp frontend npm run build
 ```
 
-浏览器关闭后 worker 继续处理；停止 worker 会停止领取并排空/停止自己的任务，未完成工作依持久状态恢复。不要杀数据库连接冒充正常停止。`stop` 保留所有命名卷；服务启动会执行迁移，升级前先按下文“升级与恢复”演练。
+`./iirp check` 与 `./iirp test` 的后端测试连接一个临时 PostgreSQL 容器（tmpfs、独立网络，结束后连同网络删除），不在正式实例的数据库服务器上建 `iirp_v1_test_*` 库；`./iirp python` 仍在正式项目的网络中运行，不要用它跑测试。浏览器关闭后 worker 继续处理；停止 worker 会停止领取并排空/停止自己的任务，未完成工作依持久状态恢复。不要杀数据库连接冒充正常停止。`stop` 保留所有命名卷；服务启动会执行迁移，升级前先按下文“升级与恢复”演练。
 
 ## 数据、分析与控制
 
@@ -37,7 +37,7 @@
 ./iirp restore-verify /app/runtime/backups/REPLACE_WITH_BACKUP_NAME
 ```
 
-恢复验证创建随机新库和新目录，核对完整快照后关闭副本采集、暂停未完成任务、清除旧租约。它不是直接覆盖主库或切换运行库。副本需要独立空间；无成功恢复证明不删除旧备份。备份不完整、目标冲突、锁超时或权限失败时保留日志，按下文“升级与恢复”处理，不能修改版本标记强行通过。
+恢复验证创建随机新库和新目录，核对完整快照后关闭副本采集、暂停未完成任务、清除旧租约。它不是直接覆盖主库或切换运行库。副本需要独立空间（验证期间）；验证通过后自动删除副本原文和恢复库，只留验证报告（备份清单的 `restore_verification`，以及 `runtime/restores/<名称>-report.json`），失败时按操作记录回滚。无成功恢复证明不删除旧备份。备份不完整、目标冲突、锁超时或权限失败时保留日志，按下文“升级与恢复”处理，不能修改版本标记强行通过。
 
 API 前端类型从 `docs/openapi.json` 生成；`./iirp check` 包含 Python 检查/真实 PG 测试、OpenAPI一致性、前端行为/类型/构建。离线缓存补充测试不等于此完整入口通过。慢容量和浏览器命令见下文“验证”。
 
@@ -80,13 +80,18 @@ python3 scripts/bench_reads.py --base-url http://127.0.0.1:18092 --ids-from ../b
 2. **启动前**在副本库中关闭全部采集策略、暂停未完成任务和批次（与 `restore-verify` 相同的处理），并且只启动 `postgres` 与 `web`（`docker compose … up -d web`），**不启动 worker**，副本不得访问 SEC 或行情来源。
 3. 在副本上跑 `./iirp check` 时把 `IIRP_DB_NAME` 设成一个不存在的 `iirp_v1_test_*` 名字：测试只在自建库中运行，误用配置库也只会连接失败，不会清空副本。
 
-已知问题（2026-10-04 实测）：`./iirp backup` 在机械硬盘和 768MiB 的 PostgreSQL 上，`SELECT … FROM source_object ORDER BY sha256`（约 65 万行）超过 5 分钟语句超时而失败（QueryCanceled），最近一次成功的备份停在 2026-09-28。此时可用只读 `pg_dump` 导出数据库（约 1GB、5 分钟）做演练，但它不含来源原文，不能替代完整备份。2026-10-05 升级到 PG 2GiB 并消除 worker 对 job 表的反复全表扫描（迁移 0023）后，正式实例 `./iirp backup` 58 分钟成功，该查询不到 1 分钟。`restore-verify` 需要的空闲空间约为 2×数据库 + 全部原文 + 每个文件 4KB + 10GB 保留（当时约 53GB），在机械硬盘上约 3 小时；命令行验证会保留恢复副本（目录与 `iirp_v1_test_restore_*` 库），旧副本需在确认后人工清理。验证耗时可能超过终端会话，可在 web 容器内分离运行：`docker exec -d iirp2-web-1 sh -c 'python scripts/backup.py verify 备份目录 > /app/runtime/logs/restore-verify.log 2>&1'`。
+已知问题（2026-10-04 实测）：`./iirp backup` 在机械硬盘和 768MiB 的 PostgreSQL 上，`SELECT … FROM source_object ORDER BY sha256`（约 65 万行）超过 5 分钟语句超时而失败（QueryCanceled），最近一次成功的备份停在 2026-09-28。此时可用只读 `pg_dump` 导出数据库（约 1GB、5 分钟）做演练，但它不含来源原文，不能替代完整备份。2026-10-05 升级到 PG 2GiB 并消除 worker 对 job 表的反复全表扫描（迁移 0023）后，正式实例 `./iirp backup` 58 分钟成功，该查询不到 1 分钟。`restore-verify` 需要的空闲空间约为 2×数据库 + 全部原文 + 每个文件 4KB + 10GB 保留（当时约 53GB），在机械硬盘上约 3 小时；自 S1 起验证通过后副本自动删除。验证耗时可能超过终端会话，可在 web 容器内分离运行：`docker exec -d iirp2-web-1 sh -c 'python scripts/backup.py verify 备份目录 > /app/runtime/logs/restore-verify.log 2>&1'`。
 
 ### 升级到迁移 0020–0023（P2-A）
 
 - 按上文顺序先停止来源调度和 worker。0020 并发创建任务列表索引，不阻塞读写；0021 先提交结构变更（修订表的排他锁只持续毫秒级），再回填每组当前修订和排序键，最后并发建索引；0022 重算被异常日期带偏的排序日期。在恢复副本（约 2.1 万个分组、4.7 万条修订、32.5 万个任务）上实测：0020 约 32 秒、0021 约 41 秒、0022 约 39 秒（均含一次性容器启动，数据库部分约 10 秒）；迁移期间旧 web 继续读信息流，只有 0021 结构变更排队等待旧读请求时出现一次 500 毫秒锁超时。0023 并发创建“上一次完整 SEC 扫描”查找用的部分索引，不阻塞读写。2026-10-05 正式实例实测：停 web 与 worker 后 0014→0022 一次完成约 35 秒，0023 在 web 在线时约 7 秒（均含容器启动）。
 - `deploy/compose.yaml` 中 PostgreSQL 内存上限已改为 2GiB（PGTune 参数），已有实例在下一次 `./iirp start` 时重建 PostgreSQL 容器才会生效；请在维护窗口执行。
 - 升级后新的信息流会话不再写 `feed_manifest`；旧会话在 12 小时内过期，旧清单和过期会话由“维护”策略或“清理未引用缓存”按 24 小时宽限期回收（维护策略默认关闭）。维护只删除过期阅读会话和未引用清单（每次最多 25 个），研究结果一律保留；web/PG 日志轮转由 worker 每分钟独立执行，与该开关无关。
+
+### 升级到迁移 0024（S1）
+
+- 0024 新建 `source_poll`（SEC 最新申报的轮询状态，水位线初始化为已保存申报中最新的接受时间）、给 `source_object` 加可空的 `expires_at`（只改目录，不重写表）并并发建部分索引；把旧方案遗留的未完成 latest `sec_discover` 任务标为已取消（不删除），并让未结束的 latest 批次不再订阅它们。迁移前停 worker（停止旧的逐次轮询）；10-05 恢复副本上演练约 7 秒。
+- 升级后 worker 按 D22 节奏轮询（开盘 60 秒、盘前 2 分钟、其他 30–60 分钟；开页最多 30 秒提前一次），不再生成 latest `sec_discover` 任务。历史任务和旧来源文件的清理属于 S2。
 
 ## 验证
 

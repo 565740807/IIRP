@@ -4,8 +4,10 @@ import argparse
 import hashlib
 import os
 import re
+import secrets
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -71,8 +73,8 @@ def validation_labels():
 
 def backend(command):
     (ROOT / ".tools").mkdir(exist_ok=True)
-    # Credentials stay in Compose. Tests create iirp_v1_test_* databases and
-    # disposable runtime files, without sharing the live app-runtime volume.
+    # Credentials stay in Compose; this joins the selected project's network.
+    # Tests use isolated_tests() instead, never this database server.
     port = os.environ.get("IIRP_DEV_HTTP_PORT")
     if port and (not port.isdigit() or not 1024 <= int(port) <= 65535):
         raise SystemExit("IIRP_DEV_HTTP_PORT 必须是1024—65535的本地端口")
@@ -110,6 +112,75 @@ def backend(command):
             *command,
         ]
     )
+
+
+def _postgres_image():
+    for line in (ROOT / "deploy/compose.yaml").read_text().splitlines():
+        if line.strip().startswith("image: postgres:"):
+            return line.split("image:", 1)[1].strip()
+    raise SystemExit("PostgreSQL image not found in deploy/compose.yaml")
+
+
+def _app_image():
+    # Compose resolves IIRP_APP_IMAGE from the shell or the private env file.
+    images = subprocess.run(
+        compose() + ["config", "--images"], cwd=ROOT, check=True, capture_output=True, text=True
+    ).stdout.split()
+    app = [image for image in images if not image.startswith("postgres:")]
+    if not app:
+        raise SystemExit("Application image not found; run ./iirp build first")
+    return app[0]
+
+
+def isolated_tests(command):
+    """Run backend tests against a throwaway PostgreSQL whose data lives in tmpfs.
+
+    Nothing is created on the running instance's database server: the test
+    container joins a private network with only this temporary server, and
+    both, plus the network, are removed afterwards (also on failure).
+    """
+    (ROOT / ".tools").mkdir(exist_ok=True)
+    name = "iirp-check-" + secrets.token_hex(6)
+    password = secrets.token_hex(16)
+    database = "iirp_v1_test_check"
+    labels = validation_labels()
+    run(["docker", "network", "create", *labels, name])
+    try:
+        run([
+            "docker", "run", "-d", "--rm", "--name", name + "-pg", "--network", name, *labels,
+            "--tmpfs", "/var/lib/postgresql:rw,size=4g", "--shm-size", "256m", "--memory", "6g",
+            "-e", "POSTGRES_USER=iirp", "-e", "POSTGRES_PASSWORD=" + password,
+            "-e", "POSTGRES_DB=" + database,
+            _postgres_image(), "postgres", "-c", "fsync=off", "-c", "synchronous_commit=off",
+            "-c", "full_page_writes=off", "-c", "shared_buffers=256MB",
+        ])
+        for _ in range(120):
+            ready = subprocess.run(
+                ["docker", "exec", name + "-pg", "pg_isready", "-U", "iirp", "-d", database, "-h", "127.0.0.1"],
+                capture_output=True,
+            )
+            if ready.returncode == 0:
+                break
+            time.sleep(0.5)
+        else:
+            raise SystemExit("Temporary test PostgreSQL did not become ready")
+        return run([
+            "docker", "run", "--rm", "--network", name, *labels,
+            "--user", f"{os.getuid()}:{os.getgid()}", "--entrypoint", "sh",
+            "-v", f"{ROOT}:/workspace", "-w", "/workspace",
+            "-e", "PYTHONPATH=/workspace/backend",
+            "-e", "IIRP_RUNTIME_DIR=/tmp/iirp-check-runtime",
+            "-e", "IIRP_MODE=development",
+            "-e", "IIRP_PG_BIN=/usr/lib/postgresql/18/bin",
+            "-e", f"IIRP_DATABASE_URL=postgresql+psycopg://iirp:{password}@{name}-pg:5432/{database}",
+            "-e", "UV_PROJECT_ENVIRONMENT=/workspace/.tools/linux-python",
+            "-e", "UV_CACHE_DIR=/workspace/.tools/linux-uv-cache",
+            _app_image(),
+            "-c", 'uv sync --frozen --no-editable >&2 && exec "$@"', "sh", *command,
+        ])
+    finally:
+        subprocess.run(["docker", "rm", "-f", name + "-pg"], capture_output=True)
+        subprocess.run(["docker", "network", "rm", name], capture_output=True)
 
 
 def frontend(args):
@@ -209,6 +280,7 @@ def main():
             "restart",
             "build",
             "check",
+            "test",
             "python",
             "lint",
             "frontend",
@@ -244,6 +316,9 @@ def main():
         frontend(args.args or ["npm", "run", "build"])
     elif args.action == "browser":
         browser(args.args)
+    elif args.action == "test":
+        isolated_tests(["/workspace/.tools/linux-python/bin/python", "-m", "pytest",
+                        *(args.args or ["tests", "-q"])])
     else:
         backend(
             [
@@ -255,7 +330,7 @@ def main():
                 "migrations",
             ]
         )
-        backend(
+        isolated_tests(
             [
                 "/workspace/.tools/linux-python/bin/python",
                 "-m",

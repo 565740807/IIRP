@@ -730,6 +730,8 @@ def _restore_verify(directory, *, discard=False):
         "job_count": job_count,
         "source_objects_verified": len(rows),
         "fact_hashes_verified": len(manifest.get("table_fingerprints", {})),
+        "backup": directory.name,
+        "object_bytes": sum(entry["byte_size"] for entry in manifest["objects"]),
         "verified_at": datetime.now(timezone.utc).isoformat(),
         "safe_restore": "已核对原始策略，再关闭副本调度并暂停未完成工作；主库不变。",
     }
@@ -743,6 +745,8 @@ def _restore_verify(directory, *, discard=False):
                 entry["released"] = True
                 _journal_write(_OPERATION)
         report["verification_copy_discarded"] = True
+        # Only the report remains next to where the copy was.
+        atomic_json(dest.with_name(dest.name + "-report.json"), report)
     manifest["restore_verified_at"] = report["verified_at"]
     manifest["restore_verification"] = report
     atomic_json(directory / "manifest.json", manifest)
@@ -977,6 +981,8 @@ if __name__ == "__main__":
     elif args.command == "managed":
         print(json.dumps(managed_backup(prune_verified_backups=args.prune_verified_backups), ensure_ascii=False))
     elif args.directory:
-        restore_verify(args.directory)
+        # The restored copy (all sources + database) is discarded after a passing
+        # verification; a failure rolls it back. The report is kept in the manifest.
+        restore_verify(args.directory, discard=True)
     else:
         parser.error("verify 需要指定本项目备份目录。")

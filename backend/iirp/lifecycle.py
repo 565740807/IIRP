@@ -1297,11 +1297,6 @@ def _plan_one(identifier, statuses, document_link_capacity):
         )
         if batch is None:
             return
-        if batch.kind == "sec_latest" and not s.scalar(
-            text("SELECT pg_try_advisory_xact_lock(:key)"),
-            {"key": int(digest(["sec_latest_head", str(batch.created_at.astimezone(ET).date())])[:15], 16)},
-        ):
-            return
         signal = s.get(BatchPlanSignal, identifier)
         observed_token = signal.token if signal else None
         latest_pending = s.scalar(

@@ -929,6 +929,13 @@ function StoragePanel() {
       void invalidate();
     },
   });
+  const exact = useMutation({
+    mutationFn: () => api<GenericOutput>("/system/storage/exact", "POST"),
+    onSuccess: () => {
+      notice({ text: "已开始精确核对目录占用，机械硬盘上约需 10 分钟。" });
+      void q.refetch();
+    },
+  });
   const storage = facts(q.data?.storage);
   return (
     <section className="panel">
@@ -938,10 +945,17 @@ function StoragePanel() {
           <Button busy={cleanup.isPending} onClick={() => cleanup.mutate()}>
             清理未引用缓存
           </Button>
+          <Button
+            busy={exact.isPending || storage.exact_status === "refreshing"}
+            onClick={() => exact.mutate()}
+          >
+            精确核对目录占用
+          </Button>
         </div>
       </div>
       <ErrorNotice error={q.error} />
       <ErrorNotice error={cleanup.error} />
+      <ErrorNotice error={exact.error} />
       <div className="storage-grid">
         <div>
           <span>可用磁盘</span>
@@ -965,7 +979,7 @@ function StoragePanel() {
         </div>
         <div>
           <span>来源目录实际分配</span>
-          <strong>{storage.inventory_status === "fresh" && typeof storage.paths?.evidence?.allocated_bytes === "number" ? `${formatNumber(storage.paths.evidence.allocated_bytes / 1024 ** 2)} MiB` : "未知"}</strong>
+          <strong>{typeof storage.paths?.evidence?.allocated_bytes === "number" ? `${formatNumber(storage.paths.evidence.allocated_bytes / 1024 ** 2)} MiB` : "未核对"}</strong>
         </div>
       </div>
       <div className="panel-body">
@@ -977,6 +991,9 @@ function StoragePanel() {
           {storage.inventory_error && ` 错误：${display(storage.inventory_error)}`}
         </p>
         {storage.inventory_status === "fresh" && <p className="muted">{display(storage.estimate_scope)}；执行前会重新测量，不使用此盘点作安全放行。</p>}
+        <p className="muted">
+          目录精确核对：{storage.exact_status === "fresh" ? `${display(storage.exact_measured_at)} 完成` : storage.exact_status === "refreshing" ? "进行中" : storage.exact_status === "failed" ? `失败${storage.exact_error ? `：${display(storage.exact_error)}` : ""}` : "尚未运行"}（手动触发；后台最多每天一次，在美东 0–5 点）。
+        </p>
         <p>{display(storage.retention ?? q.data?.retention)}</p>
         {q.data?.backup && <p>备份：{display(q.data.backup)}</p>}
         {report && (

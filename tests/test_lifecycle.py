@@ -1126,28 +1126,6 @@ def test_feed_metadata_migration_preserves_payload_and_filter_semantics():
         command.upgrade(config, "head")
 
 
-def test_latest_discovery_is_schedulable_and_claimable_behind_full_aged_history():
-    with session() as s, s.begin():
-        s.add_all(
-            [
-                Job(
-                    kind="sec_document",
-                    title="Synthetic queued history",
-                    target={},
-                    idempotency_key=f"old-{i}",
-                    created_at=now() - timedelta(days=2),
-                )
-                for i in range(32)
-            ]
-        )
-    lifecycle.create_collection(collection(kind="sec_latest", tickers=[]))
-    lifecycle.plan_tick()
-    lease = claim({"sec_document", "sec_discover"}, prefer_latest=True)
-    assert lease.kind == "sec_discover" and lease.target["mode"] == "latest"
-    with session() as s:
-        assert s.scalar(select(func.count()).select_from(Job)) == 33
-
-
 def test_twenty_symbols_keep_eighteen_results_when_one_fails_and_one_needs_review():
     import json
 

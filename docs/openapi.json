@@ -426,6 +426,25 @@
         }
       }
     },
+    "/api/v1/system/storage/exact": {
+      "post": {
+        "summary": "Storage Exact",
+        "description": "Start the exact directory walk (about 1.3 million files); requests coalesce.",
+        "operationId": "storage_exact_api_v1_system_storage_exact_post",
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GenericOutput"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/search": {
       "get": {
         "summary": "Search",

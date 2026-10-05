@@ -303,7 +303,7 @@ function SystemPanel({ open, close }: { open: boolean; close: () => void }) {
               <dt>登记来源对象</dt>
               <dd>
                 {query.data.storage.inventory_status === "fresh"
-                  ? `${query.data.storage.objects} 个 · 内容长度 ${formatNumber(query.data.storage.bytes / 1024 ** 2)} MiB；目录分配 ${formatNumber(query.data.storage.paths?.evidence?.allocated_bytes / 1024 ** 2)} MiB`
+                  ? `${query.data.storage.objects} 个 · 内容长度 ${formatNumber(query.data.storage.bytes / 1024 ** 2)} MiB${typeof query.data.storage.paths?.evidence?.allocated_bytes === "number" ? `；目录分配 ${formatNumber(query.data.storage.paths.evidence.allocated_bytes / 1024 ** 2)} MiB` : ""}`
                   : "盘点未完成或已过期"}
               </dd>
               <dt>容量盘点</dt>

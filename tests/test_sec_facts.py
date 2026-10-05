@@ -481,7 +481,7 @@ def test_scope_ready_requires_the_manifest_and_all_documents_parsed():
         assert scope.checkpoint["scan_done"]
 
 
-def test_paused_scope_creates_no_work_and_latest_starts_with_current_feed():
+def test_paused_scope_creates_no_work_and_latest_discovery_is_not_a_job():
     with session() as s, s.begin():
         batch, scope = scope_fixture(s, kind="sec_latest")
         batch.status = "PAUSED"
@@ -489,9 +489,8 @@ def test_paused_scope_creates_no_work_and_latest_starts_with_current_feed():
         assert s.scalar(select(func.count()).select_from(Job)) == 0
         batch.status = "QUEUED"
         plan_sec_scope(s, scope, batch, [1])
-        job = s.scalar(select(Job))
-        assert job.target["mode"] == "latest"
-        assert job.priority == 0
+        # The latest feed is polled from the source_poll row (iirp.sec_poll).
+        assert s.scalar(select(func.count()).select_from(Job)) == 0
 
 
 def test_quarterly_retraction_preserves_old_source_and_frozen_feed():
@@ -510,20 +509,6 @@ def test_quarterly_retraction_preserves_old_source_and_frozen_feed():
         persist_discovery(s, JOB, {"entries": [discovery_entry(ACCESSION)], "scan": {}}, {})
         assert feed(s)["groups"]
         assert s.get(Filing, ACCESSION).visible
-
-
-def test_latest_discovery_uses_reserved_capacity_when_history_queue_is_full():
-    with session() as s, s.begin():
-        batch, scope = scope_fixture(s, kind="sec_latest")
-        history, latest = [0], [1]
-        plan_sec_scope(s, scope, batch, history, latest_capacity=latest)
-        jobs = list(s.scalars(select(Job)))
-        assert len(jobs) == 1 and jobs[0].target["mode"] == "latest"
-        assert latest == [0] and history == [0]
-        # Re-subscribing to the existing latest task spends no additional slot.
-        latest = [1]
-        plan_sec_scope(s, scope, batch, history, latest_capacity=latest)
-        assert latest == [1]
 
 
 def test_weekly_refresh_rechecks_same_accession_once_per_week_without_retry_loop():

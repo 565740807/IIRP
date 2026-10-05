@@ -150,6 +150,32 @@ class SourceObject(Base):
     byte_size: Mapped[int] = mapped_column(Integer)
     media_type: Mapped[str] = mapped_column(String(100))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+    # Refetchable discovery sources (list pages, index files, response JSON)
+    # expire; NULL is permanent. A permanent reference to the same content wins.
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    __table_args__ = (
+        Index("ix_source_object_expires_at", "expires_at",
+              postgresql_where=text("expires_at IS NOT NULL")),
+    )
+
+
+class SourcePoll(Base):
+    """One row per polled source: position, cadence and lease, no job per poll."""
+
+    __tablename__ = "source_poll"
+    source: Mapped[str] = mapped_column(String(32), primary_key=True)
+    watermark_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    catchup: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
+    next_poll_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+    last_polled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    last_success_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    last_complete_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    failures: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    last_error: Mapped[str | None] = mapped_column(Text)
+    last_result: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
+    lease_token: Mapped[str | None] = mapped_column(String(36))
+    lease_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
 
 
 class Coverage(Base):
