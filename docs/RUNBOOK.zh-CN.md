@@ -82,7 +82,7 @@ python3 scripts/bench_reads.py --base-url http://127.0.0.1:18092 --ids-from ../b
 2. **启动前**在副本库中关闭全部采集策略、暂停未完成任务和批次（与 `restore-verify` 相同的处理），并且只启动 `postgres` 与 `web`（`docker compose … up -d web`），**不启动 worker**，副本不得访问 SEC 或行情来源。
 3. 在副本上跑 `./iirp check` 时把 `IIRP_DB_NAME` 设成一个不存在的 `iirp_v1_test_*` 名字：测试只在自建库中运行，误用配置库也只会连接失败，不会清空副本。
 
-已知问题（2026-10-04 实测）：`./iirp backup` 在机械硬盘和 768MiB 的 PostgreSQL 上，`SELECT … FROM source_object ORDER BY sha256`（约 65 万行）超过 5 分钟语句超时而失败（QueryCanceled），最近一次成功的备份停在 2026-09-28。此时可用只读 `pg_dump` 导出数据库（约 1GB、5 分钟）做演练，但它不含来源原文，不能替代完整备份。2026-10-05 升级到 PG 2GiB 并消除 worker 对 job 表的反复全表扫描（迁移 0023）后，正式实例 `./iirp backup` 58 分钟成功，该查询不到 1 分钟。`restore-verify` 需要的空闲空间约为 2×数据库 + 全部原文 + 每个文件 4KB + 10GB 保留（当时约 53GB），在机械硬盘上约 3 小时；自 S1 起验证通过后副本自动删除。验证耗时可能超过终端会话，可在 web 容器内分离运行：`docker exec -d iirp2-web-1 sh -c 'python scripts/backup.py verify 备份目录 > /app/runtime/logs/restore-verify.log 2>&1'`。
+已知问题（2026-10-04 实测）：`./iirp backup` 在机械硬盘和 768MiB 的 PostgreSQL 上，`SELECT … FROM source_object ORDER BY sha256`（约 65 万行）超过 5 分钟语句超时而失败（QueryCanceled），最近一次成功的备份停在 2026-09-28。此时可用只读 `pg_dump` 导出数据库（约 1GB、5 分钟）做演练，但它不含来源原文，不能替代完整备份。2026-10-05 升级到 PG 2GiB 并消除 worker 对 job 表的反复全表扫描（迁移 0023）后，正式实例 `./iirp backup` 58 分钟成功，该查询不到 1 分钟。`restore-verify` 需要的空闲空间约为 2×数据库 + 全部原文 + 每个文件 4KB + 10GB 保留（当时约 53GB），在机械硬盘上约 3 小时；自 S1 起验证通过后副本自动删除。2026-10-06 S2 清理后（数据库约 1.1GB、原文约 10.9 万个/1.4GB）备份约 5 分钟、恢复验证约 8 分钟。已知问题：备份后的保留步骤会同时载入全部备份清单，旧备份较多且清单很大时会超出 web 容器内存（10-06 实测 11 份、约 700MB JSON 时被 OOM 终止，备份本身已完整）；现在只保留少量小清单，不再触发，改为逐份读取的修复归 S4。验证耗时可能超过终端会话，可在 web 容器内分离运行：`docker exec -d iirp2-web-1 sh -c 'python scripts/backup.py verify 备份目录 > /app/runtime/logs/restore-verify.log 2>&1'`。
 
 ### 升级到迁移 0020–0023（P2-A）
 
@@ -97,7 +97,7 @@ python3 scripts/bench_reads.py --base-url http://127.0.0.1:18092 --ids-from ../b
 
 ### 升级到迁移 0025（S2）
 
-- 0025 新建 `price_cache`、`price_cache_bar`，给 `analysis_result` 加 `expires_at`（用目录内默认值，不重写已有行；旧结果随即视为过期，由 worker 删除），删除 `security.maintain`、`active_until`，清掉行情/财报策略的定时字段。旧的版本化价格表（`price_dataset_version`、`market_bar_revision`、`dataset_bar`、`corporate_action`）不再读写，`migrations/env.py` 暂不比对它们；它们的数据在确认后的清理步骤中删除。迁移只改结构和小表，先停 worker，用一次性容器执行。
+- 0025 新建 `price_cache`、`price_cache_bar`，给 `analysis_result` 加 `expires_at`（用目录内默认值，不重写已有行；旧结果随即视为过期，由 worker 删除），删除 `security.maintain`、`active_until`，清掉行情/财报策略的定时字段。旧的版本化价格表（`price_dataset_version`、`market_bar_revision`、`dataset_bar`、`corporate_action`）不再读写，`migrations/env.py` 暂不比对它们；它们的数据已在 2026-10-06 的清理中清空，表本身在 S4 删除。迁移只改结构和小表，先停 worker，用一次性容器执行。
 - 升级后打开旧研究会自动重新获取行情（结果已过期）。
 
 ## 验证
