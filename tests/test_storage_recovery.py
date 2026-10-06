@@ -45,3 +45,17 @@ def test_each_backup_keeps_only_the_two_newest(isolated):
     assert not first.exists()
     assert second.is_dir() and third.is_dir()
     assert [entry[1] for entry in backup.completed_backups()] == [third, second]
+
+
+def test_retention_reads_one_manifest_at_a_time(isolated):
+    backup = isolated.backup
+    source = save_object(b"object kept by the newest backups", "text/plain")
+    with session() as s, s.begin():
+        s.add(SourceObject(**source))
+    backup.backup()
+    backup.backup()
+    third = backup.backup()
+    # Listing keeps no object lists; the kept backups' pool objects survive pruning.
+    assert all("objects" not in manifest for _created, _directory, manifest in backup.completed_backups())
+    assert len(backup.completed_backups()) == 2 and third.is_dir()
+    assert (isolated.runtime / "backups" / "object-pool" / source["relative_path"]).is_file()
