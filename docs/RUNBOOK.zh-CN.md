@@ -9,7 +9,7 @@
 ./iirp status
 ./iirp stop
 ./iirp check
-./iirp test tests/test_sec_poll.py
+./iirp test tests/sec/test_sec_poll.py
 ./iirp lint
 ./iirp frontend npm test
 ./iirp frontend npm run build
