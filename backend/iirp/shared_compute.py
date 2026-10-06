@@ -100,13 +100,13 @@ def pending_subscribers(s, job):
     from iirp.business_models import EarningsEvent, Security
     from iirp.event_pipeline import compatible_input
     from iirp.lifecycle import research_input_key
-    from iirp.market_data import latest_dataset
+    from iirp.price_cache import current_cache
     security = s.get(Security, job.target['security_id'])
     for request, scope in subscribers(s, job):
         if job.kind == 'event_compute':
             compatible = compatible_input(s, request, scope, job.target)
         else:
-            dataset = latest_dataset(s, security.id)
+            dataset = current_cache(s, security.id)
             events = s.scalars(select(EarningsEvent).where(EarningsEvent.security_id == security.id)).all() if request.params['kind'] == 'earnings' else []
             compatible = bool(dataset and research_input_key(request, dataset, events, security) == job.target['input_key'])
         cached = s.scalar(select(AnalysisResult.id).where(AnalysisResult.analysis_id == request.id,
@@ -143,22 +143,34 @@ def publish(s, job, response):
             'subscribers': published}
 
 
+def result_expiry(s, target):
+    """A result lives as long as the earliest of its price caches (D14)."""
+    from datetime import timedelta
+
+    from iirp.business_models import PriceCache
+    from iirp.price_cache import CACHE_HOURS
+    ids = [target.get('dataset_id'), (target.get('benchmark') or {}).get('dataset_id')]
+    stamps = [cache.expires_at if (cache := s.get(PriceCache, i)) else now() for i in ids if i]
+    return min(stamps, default=now() + timedelta(hours=CACHE_HOURS))
+
+
 def publish_native(s, request, scope, target, response):
     from iirp.analytics.research import CALCULATION_VERSION
-    from iirp.business_models import EarningsEvent, PriceDataset, Security
-    from iirp.market_data import latest_dataset
+    from iirp.business_models import EarningsEvent, PriceCache, Security
+    from iirp.price_cache import current_cache
     from iirp.research_pipeline import frozen_coverage, owned_result_data, safe_publication
     from iirp.result_reuse import result_identity
     security = s.get(Security, scope.security_id)
     events = s.scalars(select(EarningsEvent).where(EarningsEvent.security_id == security.id)).all() if request.params['kind'] == 'earnings' else []
-    if not safe_publication(s, request, security, target, latest_dataset(s, security.id), events):
+    if not safe_publication(s, request, security, target, current_cache(s, security.id), events):
         return None
     existing = result_identity(s, request.id, security.id, target['input_key'])
     if existing:
         return existing
-    original = s.get(PriceDataset, target['dataset_id'])
-    metadata = {'source': original.manifest.get('provider', 'yfinance'),
-        'dataset_id': original.id, 'data_version': original.id, 'price_basis': original.basis}
+    original = s.get(PriceCache, target['dataset_id'])
+    metadata = {'source': original.provider, 'dataset_id': original.id,
+        'price_fetched_at': original.fetched_at.isoformat(),
+        'price_expires_at': original.expires_at.isoformat(), 'price_basis': 'SPLIT_ONLY'}
     data = {**response, 'metadata': {**response.get('metadata', {}), **metadata,
         'params': {**response.get('metadata', {}).get('params', {}), **request.params},
         'calculation_version': CALCULATION_VERSION}}
@@ -167,10 +179,11 @@ def publish_native(s, request, scope, target, response):
         data['date_observation'] = {**observer, 'metadata': {**observer['metadata'], **metadata}}
     row = AnalysisResult(analysis_id=request.id, security_id=security.id, input_key=target['input_key'],
         inputs={'dataset_id': original.id, 'calculation_version': CALCULATION_VERSION,
-            'params': request.params, 'source': '本地已发布价格版本',
+            'params': request.params, 'source': '24 小时行情缓存',
+            'price_fetched_at': original.fetched_at.isoformat(),
             'benchmark': target.get('benchmark'), 'coverage': frozen_coverage(s, request, security, original),
             'dependencies': response.get('metadata', {}).get('dependencies')},
-        data=owned_result_data(data, request.params))
+        data=owned_result_data(data, request.params), expires_at=result_expiry(s, target))
     s.add(row)
     s.flush()
     return row
@@ -185,12 +198,13 @@ def reuse_pending(s, job):
     """
     source_id = s.scalar(select(AnalysisResult.id).where(
         AnalysisResult.security_id == job.target['security_id'],
-        AnalysisResult.input_key == job.target['input_key']).limit(1))
+        AnalysisResult.input_key == job.target['input_key'],
+        AnalysisResult.expires_at > now()).limit(1))
     if source_id is None:
         return
     from iirp.business_models import EarningsEvent, Security
     from iirp.maintenance import lock_analysis_references
-    from iirp.market_data import latest_dataset
+    from iirp.price_cache import current_cache
     from iirp.research_pipeline import reuse_result
     from iirp.result_reuse import clone_frozen
     lock_analysis_references(s)
@@ -200,7 +214,7 @@ def reuse_pending(s, job):
         else:
             security = s.get(Security, scope.security_id)
             events = s.scalars(select(EarningsEvent).where(EarningsEvent.security_id == security.id)).all() if request.params['kind'] == 'earnings' else []
-            row = reuse_result(s, request, security, latest_dataset(s, security.id), events,
+            row = reuse_result(s, request, security, current_cache(s, security.id), events,
                                job.target.get('benchmark'), job.target['input_key'])
         if row:
             s.flush()

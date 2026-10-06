@@ -19,6 +19,7 @@ from test_event_contracts import document
 from test_lifecycle import (  # noqa: F401
     clean_lifecycle,
     lifecycle_database,
+    refetch_prices,
     seed_prices,
     seed_security,
 )
@@ -422,7 +423,7 @@ def test_unverified_default_does_not_request_prices_but_opt_in_separate_observat
     assert not row["eligible"] and not row["date_verified"]
 
 
-def test_missing_window_only_requested_and_newest_events_first():
+def test_windows_outside_the_cache_are_fetched_as_one_range():
     payload = document()
     earlier = copy.deepcopy(payload["events"][0])
     earlier.update(client_event_id="earlier", event_date="2023-06-12", event_year=2023)
@@ -443,10 +444,10 @@ def test_missing_window_only_requested_and_newest_events_first():
     plan(created["analysis_id"])
     with session() as s:
         jobs = s.scalars(select(Job).where(Job.kind != "event_compute").order_by(Job.created_at)).all()
-        assert len(jobs) == 2
-        assert jobs[0].target["start_date"] == str(days[6])
-        assert jobs[0].target["end_date"] == str(days[-1])
-        assert jobs[1].target["start_date"].startswith("2023-")
+        # One request for every selected event window plus a month of buffer.
+        assert len(jobs) == 1
+        assert jobs[0].target["start_date"] < "2023-06-01"
+        assert jobs[0].target["end_date"] >= str(days[-1])
         assert jobs[0].priority == 10
 
 
@@ -465,16 +466,13 @@ def test_future_cutoff_never_requests_future_prices():
         )
 
 
-def test_historical_price_gaps_distinguish_capacity_wait_from_unformed_windows():
+def test_missing_prices_are_fetched_without_waiting_for_window_completion():
     seed_security()
     created = analysis(saved())
     status, reason, _ = plan(created["analysis_id"], capacity=0)
-    assert status == "QUEUED" and "等待调度容量" in reason
-    assert count_acquisition_jobs() == 0
-    status, reason, _ = plan(created["analysis_id"], capacity=32)
-    assert status == "RUNNING" and "补齐缺失历史行情" in reason
+    assert status == "RUNNING" and "正在获取行情" in reason
     assert "窗口结束交易日" not in reason
-    assert count_acquisition_jobs() > 0
+    assert count_acquisition_jobs() == 1
 
 
 def test_both_prompts_ask_before_browsing_and_use_contract_schema():
@@ -535,62 +533,21 @@ def test_http_preview_confirm_analysis_and_frozen_export():
         assert "2024-06-10" in exported.text
 
 
-def test_partial_result_published_then_new_dataset_keeps_old_result_immutable():
-    from iirp.business_models import DatasetBar, PriceDataset
-    from iirp.models import now
-
+def test_refetch_publishes_a_new_result_and_keeps_the_old_one_readable():
     collection = saved()
     security_id = service.get_set(collection["set_id"])["security"]["id"]
     days = session_window(date(2024, 6, 10), 6, 5)
-    complete_id = seed_prices(security_id, days[0], days[-1])
-    with session() as s, s.begin():
-        partial = PriceDataset(
-            security_id=security_id,
-            basis="SPLIT_ONLY",
-            basis_key="synthetic",
-            status="PUBLISHED",
-            manifest={"synthetic": True},
-            published_at=now(),
-        )
-        s.add(partial)
-        s.flush()
-        for link in s.scalars(
-            select(DatasetBar).where(
-                DatasetBar.dataset_id == complete_id,
-                DatasetBar.session_date <= days[6],
-            )
-        ):
-            s.add(
-                DatasetBar(
-                    dataset_id=partial.id, session_date=link.session_date, bar_id=link.bar_id
-                )
-            )
-        partial_id = partial.id
+    partial_id = seed_prices(security_id, days[0], days[6], wide=True)
     created = analysis(collection)
     first = service.get_analysis(created["analysis_id"])
     assert first["data"]["metadata"]["dataset_id"] == partial_id
+    assert first["expires_at"]
     row = first["data"]["rows"][0]
     assert row["windows"]["before5"]["complete"]
     assert row["windows"]["day0"]["complete"]
     assert not row["windows"]["after5"]["complete"]
     frozen = copy.deepcopy(first["data"])
-    with session() as s, s.begin():
-        replacement = PriceDataset(
-            security_id=security_id,
-            basis="SPLIT_ONLY",
-            basis_key="synthetic",
-            status="PUBLISHED",
-            manifest={"synthetic": True},
-            published_at=now(),
-        )
-        s.add(replacement)
-        s.flush()
-        for link in s.scalars(select(DatasetBar).where(DatasetBar.dataset_id == complete_id)):
-            s.add(
-                DatasetBar(
-                    dataset_id=replacement.id, session_date=link.session_date, bar_id=link.bar_id
-                )
-            )
+    refetch_prices(security_id, days[7], days[-1])
     plan(created["analysis_id"])
     newest = service.get_analysis(created["analysis_id"])
     assert newest["result_id"] != first["result_id"]

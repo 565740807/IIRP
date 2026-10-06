@@ -65,7 +65,7 @@ def test_create_clone_and_planner_never_compute_and_capacity_waits(monkeypatch):
     with session() as s:
         job = s.scalar(select(Job).where(Job.kind == 'event_compute'))
         assert job and job.target['inputs']['event_version_id']
-        assert job.target['dependencies']['prices']['fingerprint']
+        assert job.target['dependencies']['prices']['cache_id']
     lifecycle.control_batch(created['batch_id'], 'cancel')
     child = lifecycle.control_batch(created['batch_id'], 'continue_remaining')
     lifecycle.plan_tick()
@@ -77,7 +77,6 @@ def test_repeated_planning_keeps_leased_input_even_while_row_locked():
     enqueue(created['analysis_id'])
     job = claim({'event_compute'})
     target = copy.deepcopy(job.target)
-    revise_dataset(dataset, date(2024, 7, 1))  # outside dependencies
     with session() as holder, holder.begin():
         holder.get(Job, job.id, with_for_update=True)
         for _ in range(5):

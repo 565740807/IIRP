@@ -103,6 +103,7 @@ class EventResultReference(EventReadView):
     id: str
     created_at: str
     dataset_id: str | None
+    expires_at: str | None = None
 
 
 class EventAnalysisOutput(EventReadView):
@@ -115,7 +116,7 @@ class EventAnalysisOutput(EventReadView):
     progress: list[EventProgressView]
     result_id: str | None
     result_cutoff: str | None
-    carried_from: str | None
+    expires_at: str | None = None
     data: dict[str, Any] | None
     results: list[EventResultReference]
     freshness: ResearchFreshness | None = None

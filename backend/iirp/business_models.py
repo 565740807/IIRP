@@ -139,8 +139,6 @@ class Security(Base):
     calendar: Mapped[str | None] = mapped_column(String(32))
     status: Mapped[str] = mapped_column(String(32), default="PENDING")
     metadata_json: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
-    active_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    maintain: Mapped[bool] = mapped_column(Boolean, default=False)
 
 
 class SecurityIdentifier(Base):
@@ -154,56 +152,43 @@ class SecurityIdentifier(Base):
     __table_args__ = (UniqueConstraint("provider", "symbol", "valid_from"),)
 
 
-class PriceDataset(Base):
-    __tablename__ = "price_dataset_version"
-    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uid)
-    security_id: Mapped[str] = mapped_column(ForeignKey("security.id"), index=True)
-    basis: Mapped[str] = mapped_column(String(48), default="UNVERIFIED_PROVIDER_RECORDS")
-    basis_key: Mapped[str] = mapped_column(String(64))
-    status: Mapped[str] = mapped_column(String(24), default="BUILDING")
-    manifest: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
-    published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+class PriceCache(Base):
+    """One provider response per security, valid for 24 hours (D14).
 
-
-class MarketBar(Base):
-    __tablename__ = "market_bar_revision"
+    A single request covers the whole needed range, so all bars share one
+    adjustment basis; nothing is versioned or stitched. When a new need falls
+    outside the cached range, the security is fetched again as one wider range
+    and this row is replaced. Expired rows are deleted with their results.
+    """
+    __tablename__ = "price_cache"
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uid)
-    security_id: Mapped[str] = mapped_column(ForeignKey("security.id"), index=True)
-    session_date: Mapped[date] = mapped_column(Date)
+    security_id: Mapped[str] = mapped_column(ForeignKey("security.id"), unique=True)
+    start_date: Mapped[date] = mapped_column(Date)
+    end_date: Mapped[date] = mapped_column(Date)
+    # Last completed exchange session when fetched; later sessions are unknown.
+    complete_through: Mapped[date] = mapped_column(Date)
     provider: Mapped[str] = mapped_column(String(32), default="yfinance")
-    source_hash: Mapped[str] = mapped_column(ForeignKey("source_object.sha256"))
-    record_hash: Mapped[str] = mapped_column(String(64))
+    details: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
+    fetched_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+
+
+class PriceCacheBar(Base):
+    __tablename__ = "price_cache_bar"
+    cache_id: Mapped[str] = mapped_column(
+        ForeignKey("price_cache.id", ondelete="CASCADE"), primary_key=True
+    )
+    session_date: Mapped[date] = mapped_column(Date, primary_key=True)
     open: Mapped[Any | None] = mapped_column(Numeric(30, 12))
     high: Mapped[Any | None] = mapped_column(Numeric(30, 12))
     low: Mapped[Any | None] = mapped_column(Numeric(30, 12))
     close: Mapped[Any | None] = mapped_column(Numeric(30, 12))
     adj_close: Mapped[Any | None] = mapped_column(Numeric(30, 12))
     volume: Mapped[Any | None] = mapped_column(Numeric(32, 4))
+    dividends: Mapped[Any | None] = mapped_column(Numeric(30, 12))
+    splits: Mapped[Any | None] = mapped_column(Numeric(30, 12))
     status: Mapped[str] = mapped_column(String(32))
     reason: Mapped[str | None] = mapped_column(Text)
-    observed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
-    __table_args__ = (UniqueConstraint("security_id", "session_date", "provider", "record_hash"),)
-
-
-class DatasetBar(Base):
-    __tablename__ = "dataset_bar"
-    dataset_id: Mapped[str] = mapped_column(
-        ForeignKey("price_dataset_version.id"), primary_key=True
-    )
-    session_date: Mapped[date] = mapped_column(Date, primary_key=True)
-    bar_id: Mapped[str] = mapped_column(ForeignKey("market_bar_revision.id"))
-
-
-class CorporateAction(Base):
-    __tablename__ = "corporate_action"
-    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uid)
-    security_id: Mapped[str] = mapped_column(ForeignKey("security.id"), index=True)
-    session_date: Mapped[date] = mapped_column(Date)
-    kind: Mapped[str] = mapped_column(String(16))
-    value: Mapped[Any] = mapped_column(Numeric(30, 12))
-    source_hash: Mapped[str] = mapped_column(ForeignKey("source_object.sha256"))
-    __table_args__ = (UniqueConstraint("security_id", "session_date", "kind", "value"),)
 
 
 class CoverageSegment(Base):
@@ -443,6 +428,8 @@ class AnalysisResult(Base):
     overlap_projection: Mapped[dict[str, Any] | None] = mapped_column(JSONB(none_as_null=True))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
     accessed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+    # The earliest expiry of the price caches it was computed from (D14).
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), index=True)
     __table_args__ = (
         UniqueConstraint("analysis_id", "security_id", "input_key"),
         Index("ix_analysis_result_shared_input", "security_id", "input_key", "created_at"),

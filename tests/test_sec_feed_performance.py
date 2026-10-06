@@ -96,9 +96,9 @@ def seed_dataset(groups):
             text("INSERT INTO reporting_owner (id,name) VALUES ('0000000999','SYNTHETIC owner')")
         )
         c.execute(
-            text("""INSERT INTO security (id,symbol,name,issuer_id,instrument,currency,exchange,calendar,status,metadata_json,maintain)
+            text("""INSERT INTO security (id,symbol,name,issuer_id,instrument,currency,exchange,calendar,status,metadata_json)
             SELECT md5('security'||i),'SYN'||i,'SYNTHETIC security '||i,lpad(i::text,10,'0'),
-            'EQUITY','USD','NMS','XNYS','VERIFIED','{"synthetic": true}',false FROM generate_series(1,100) i""")
+            'EQUITY','USD','NMS','XNYS','VERIFIED','{"synthetic": true}' FROM generate_series(1,100) i""")
         )
         c.execute(
             text("""INSERT INTO filing (accession,form,filing_date,accepted_at,first_seen_at,issuer_id,index_url,status,current_version,visible)
@@ -163,18 +163,13 @@ def seed_dataset(groups):
                 text("INSERT INTO synthetic_days VALUES (:day)"), [{"day": day} for day in days]
             )
             c.execute(
-                text("""INSERT INTO price_dataset_version (id,security_id,basis,basis_key,status,manifest,created_at,published_at)
-                SELECT md5('dataset'||id),id,'SPLIT_ONLY','synthetic-performance','PUBLISHED','{"synthetic": true}',now(),now() FROM security""")
+                text("""INSERT INTO price_cache (id,security_id,start_date,end_date,complete_through,provider,details,fetched_at,expires_at)
+                SELECT md5('dataset'||id),id,DATE '2017-01-01',DATE '2025-12-31',DATE '2025-12-31','synthetic-performance','{"synthetic": true}',now(),now()+interval '1 day' FROM security""")
             )
             c.execute(
-                text("""INSERT INTO market_bar_revision (id,security_id,session_date,provider,source_hash,record_hash,open,high,low,close,adj_close,volume,status,reason,observed_at)
-                SELECT md5(s.id||d.day),s.id,d.day,'synthetic-performance',:hash,md5(s.id||d.day),100,110,90,101,101,1000,'VALID','synthetic benchmark only',now()
-                FROM security s CROSS JOIN synthetic_days d"""),
-                {"hash": "a" * 64},
-            )
-            c.execute(
-                text("""INSERT INTO dataset_bar (dataset_id,session_date,bar_id)
-                SELECT md5('dataset'||security_id),session_date,id FROM market_bar_revision""")
+                text("""INSERT INTO price_cache_bar (cache_id,session_date,open,high,low,close,adj_close,volume,status,reason)
+                SELECT md5('dataset'||s.id),d.day,100,110,90,101,101,1000,'VALID','synthetic benchmark only'
+                FROM security s CROSS JOIN synthetic_days d""")
             )
     with session() as s, s.begin():
         # Synthetic revisions were inserted directly; publish their pointers.
@@ -247,7 +242,7 @@ def test_large_api_latency_with_frozen_session_new_count():
     from iirp.analytics.research import compute_research
     from iirp.api import app
     from iirp.business_models import Security
-    from iirp.market_data import price_bars
+    from iirp.price_cache import price_bars
 
     timings, sizes, first_requests, entity_sessions = {}, {}, {}, {}
     with TestClient(app, headers={"X-IIRP-Client": "web"}) as client:
@@ -345,7 +340,7 @@ def test_large_api_latency_with_frozen_session_new_count():
                 "filing",
                 "transaction_event",
                 "security",
-                "market_bar_revision",
+                "price_cache_bar",
                 "feed_group_revision",
                 "job",
             )

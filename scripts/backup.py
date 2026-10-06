@@ -27,6 +27,8 @@ MANAGED_JOB = None
 OPERATION_ID = None
 _OPERATION = None
 _LAST_PROGRESS = 0.0
+# Only the newest backups are kept; older ones are deleted after each backup.
+KEEP_BACKUPS = 2
 
 
 @contextmanager
@@ -454,7 +456,9 @@ def object_path(root, entry):
 
 def backup():
     with maintenance_lock(), operation():
-        return _backup()
+        directory = _backup()
+        _prune_backups()
+        return directory
 
 
 def _backup():
@@ -481,8 +485,6 @@ def _backup():
             for table in (
                 "batch",
                 "request_scope",
-                "market_bar_revision",
-                "price_dataset_version",
                 "transaction_event",
                 "earnings_event",
                 "analysis_request",
@@ -797,27 +799,14 @@ def prune_backups():
 
 
 def _prune_backups():
-    """Keep seven recent daily slots and four weekly slots after restore proof.
+    """Keep the newest KEEP_BACKUPS complete backups; delete the older ones.
 
-    The latest verified backup is pinned even when older than those slots.
-    Unknown/partial directories and original evidence are never deletion targets.
-    Caller holds the maintenance lock throughout create/verify/retention.
+    Backups hard-link one shared object pool, so a pool object is deleted only
+    when no kept backup references it. Directories without a complete manifest
+    and dump are never deletion targets. Caller holds the maintenance lock.
     """
-    all_entries = completed_backups()
-    entries = [entry for entry in all_entries if backup_integrity(entry)]
-    verified = [entry for entry in entries if verified_timestamp(entry)]
-    if not verified:
-        return {"removed": [], "reason": "尚无已验证备份，保留全部备份"}
-    keep = {verified[0][1]}
-    daily, weekly = set(), set()
-    for created, directory, _manifest in entries:
-        day, week = created.date(), created.isocalendar()[:2]
-        if day not in daily and len(daily) < 7:
-            daily.add(day)
-            keep.add(directory)
-        if week not in weekly and len(weekly) < 4:
-            weekly.add(week)
-            keep.add(directory)
+    entries = completed_backups()
+    keep = {directory for _created, directory, _manifest in entries[:KEEP_BACKUPS]}
     removed = []
     for _created, directory, _manifest in entries:
         if directory in keep:
@@ -865,7 +854,7 @@ def _prune_backups():
         if len(obj.name) == 64 and all(char in "0123456789abcdef" for char in obj.name):
             with publication_guard():
                 obj.unlink()
-    return {"removed": removed, "kept": len(keep), "verified_backup": verified[0][1].name}
+    return {"removed": removed, "kept": sorted(directory.name for directory in keep)}
 
 
 def verified_timestamp(entry):
@@ -906,7 +895,7 @@ def backup_integrity(entry):
         return False
 
 
-def managed_backup(*, prune_verified_backups=False):
+def managed_backup():
     with maintenance_lock(), operation():
         entries = completed_backups()
         candidates = sorted(
@@ -922,8 +911,7 @@ def managed_backup(*, prune_verified_backups=False):
         verified = not stamps or max(stamps) <= datetime.now(timezone.utc) - timedelta(days=7)
         if verified:
             _restore_verify(directory, discard=True)
-        retention = (_prune_backups() if prune_verified_backups else
-                     {"removed": [], "reason": "保留全部既有备份；尚未明确启用已验证备份轮转删除"})
+        retention = _prune_backups()
         manifest = json.loads((directory / "manifest.json").read_text())
         return {
             "backup_path": str(directory),
@@ -956,7 +944,6 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("command", choices=["create", "verify", "managed", "recover"])
     parser.add_argument("directory", nargs="?", type=Path)
-    parser.add_argument("--prune-verified-backups", action="store_true", help="Explicitly apply verified daily/weekly retention")
     parser.add_argument("--job", help=argparse.SUPPRESS)
     parser.add_argument("--operation", help=argparse.SUPPRESS)
     args = parser.parse_args()
@@ -979,7 +966,7 @@ if __name__ == "__main__":
     if args.command == "create":
         backup()
     elif args.command == "managed":
-        print(json.dumps(managed_backup(prune_verified_backups=args.prune_verified_backups), ensure_ascii=False))
+        print(json.dumps(managed_backup(), ensure_ascii=False))
     elif args.directory:
         # The restored copy (all sources + database) is discarded after a passing
         # verification; a failure rolls it back. The report is kept in the manifest.

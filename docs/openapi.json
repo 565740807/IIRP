@@ -1689,22 +1689,6 @@
             }
           },
           {
-            "name": "dataset_id",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Dataset Id"
-            }
-          },
-          {
             "name": "cutoff_date",
             "in": "query",
             "required": false,
@@ -1784,22 +1768,6 @@
                 }
               ],
               "title": "Mapping Version"
-            }
-          },
-          {
-            "name": "dataset_id",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Dataset Id"
             }
           },
           {
@@ -2058,54 +2026,6 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/GenericOutput"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/securities/{security_id}/maintenance": {
-      "patch": {
-        "summary": "Maintain",
-        "operationId": "maintain_api_v1_securities__security_id__maintenance_patch",
-        "parameters": [
-          {
-            "name": "security_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Security Id"
-            }
-          },
-          {
-            "name": "enabled",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "type": "boolean",
-              "title": "Enabled"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/GenericOutput"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
                 }
               }
             }
@@ -3317,6 +3237,18 @@
             ],
             "title": "Data Published At"
           },
+          "expires_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires At"
+          },
           "is_current": {
             "type": "boolean",
             "title": "Is Current",
@@ -3337,17 +3269,6 @@
               }
             ],
             "title": "Result Cutoff"
-          },
-          "carried_from": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Carried From"
           },
           "coverage": {
             "anyOf": [
@@ -3955,7 +3876,7 @@
             "title": "Basis",
             "default": "UNVERIFIED_PROVIDER_RECORDS"
           },
-          "dataset_id": {
+          "cache_id": {
             "anyOf": [
               {
                 "type": "string"
@@ -3964,7 +3885,7 @@
                 "type": "null"
               }
             ],
-            "title": "Dataset Id"
+            "title": "Cache Id"
           },
           "as_of": {
             "anyOf": [
@@ -3976,6 +3897,17 @@
               }
             ],
             "title": "As Of"
+          },
+          "expires_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires At"
           },
           "first_valid_date": {
             "anyOf": [
@@ -5323,7 +5255,7 @@
             ],
             "title": "Result Cutoff"
           },
-          "carried_from": {
+          "expires_at": {
             "anyOf": [
               {
                 "type": "string"
@@ -5332,7 +5264,7 @@
                 "type": "null"
               }
             ],
-            "title": "Carried From"
+            "title": "Expires At"
           },
           "data": {
             "anyOf": [
@@ -5376,7 +5308,6 @@
           "progress",
           "result_id",
           "result_cutoff",
-          "carried_from",
           "data",
           "results"
         ],
@@ -6164,6 +6095,17 @@
               }
             ],
             "title": "Dataset Id"
+          },
+          "expires_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires At"
           }
         },
         "additionalProperties": true,
@@ -7346,10 +7288,7 @@
         "properties": {
           "kind": {
             "type": "string",
-            "enum": [
-              "market",
-              "earnings"
-            ],
+            "const": "earnings",
             "title": "Kind"
           },
           "ticker": {
@@ -7369,15 +7308,6 @@
             "maxLength": 2000,
             "minLength": 1,
             "title": "Source Url"
-          },
-          "price_basis": {
-            "type": "string",
-            "enum": [
-              "SPLIT_ONLY",
-              "UNVERIFIED"
-            ],
-            "title": "Price Basis",
-            "default": "UNVERIFIED"
           }
         },
         "additionalProperties": false,
@@ -8653,7 +8583,7 @@
             ],
             "title": "Research Cutoff"
           },
-          "data_verified_at": {
+          "price_fetched_at": {
             "anyOf": [
               {
                 "type": "string",
@@ -8663,7 +8593,24 @@
                 "type": "null"
               }
             ],
-            "title": "Data Verified At"
+            "title": "Price Fetched At"
+          },
+          "price_expires_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Price Expires At"
+          },
+          "expired": {
+            "type": "boolean",
+            "title": "Expired",
+            "default": false
           },
           "refresh_checked_at": {
             "anyOf": [

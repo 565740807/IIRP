@@ -61,7 +61,7 @@ def test_mapping_requires_a_valid_identifier_and_exact_common_stock():
         map_transaction_security(event_id, {"security_id": security_id, "evidence": "synthetic evidence"})
 
 
-def test_export_freezes_mapping_version_and_rejects_unrelated_price_version():
+def test_export_freezes_mapping_version():
     import json
 
     from iirp.research_api import transaction_export
@@ -79,5 +79,3 @@ def test_export_freezes_mapping_version_and_rejects_unrelated_price_version():
     pinned = json.loads(transaction_export(event_id, format="json", cutoff_date=date(2026, 9, 2)).body)
     assert pinned["price_context"]["cutoff_date"] == "2026-09-02"
     assert pinned["price_context"]["transaction"]["day_5_status"] == "not_yet_formed"
-    with pytest.raises(ValueError, match="行情版本不属于"):
-        transaction_detail(event_id, dataset_id="absent-dataset")

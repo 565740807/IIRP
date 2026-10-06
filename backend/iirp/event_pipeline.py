@@ -9,10 +9,12 @@ from iirp.analytics.calendar import calendar_version
 from iirp.analytics.event_dates import CALCULATION_VERSION, event_price_scope
 from iirp.analytics.event_overlaps import REPRESENTATION_VERSION
 from iirp.benchmarks import benchmark_data, benchmark_snapshot
-from iirp.business_models import AnalysisResult, PriceDataset, Security
+from iirp.business_models import AnalysisResult, PriceCache, Security
 from iirp.event_models import EventSetVersion
 from iirp.event_service import _candidate, _required, _selected_events, event_input_key
-from iirp.market_data import digest, latest_dataset, price_bars
+from iirp.market_data import digest
+from iirp.models import now
+from iirp.price_cache import current_cache, price_bars
 
 
 def freeze_input(s, request, scope):
@@ -20,9 +22,7 @@ def freeze_input(s, request, scope):
     if security.status != "VERIFIED" or not security.calendar:
         return None
     revision = _required(s, EventSetVersion, request.params["event_version_id"])
-    dataset = latest_dataset(s, security.id)
-    if dataset and dataset.basis != "SPLIT_ONLY":
-        dataset = None
+    dataset = current_cache(s, security.id)
     benchmark = benchmark_snapshot(request.params, security, s)
     from iirp.research_dependencies import benchmark_dependency, dataset_dependency
     ranges = event_price_scope(_selected_events(revision, request.params),
@@ -34,6 +34,7 @@ def freeze_input(s, request, scope):
         "event_snapshot_hash": digest([revision.document, revision.events]),
         "inputs": {
             "dataset_id": dataset.id if dataset else None,
+            "price_fetched_at": dataset.fetched_at.isoformat() if dataset else None,
             "event_version_id": revision.id, "event_content_hash": revision.content_hash,
             "params": deepcopy(request.params), "calendar_version": calendar_version(),
             "calculation_version": CALCULATION_VERSION, "benchmark": benchmark,
@@ -66,7 +67,8 @@ def plan_event_compute(s, request, scope, capacity=None, *, cache_only=False):
         return old
     def reuse():
         cached = s.scalar(select(AnalysisResult.id).where(AnalysisResult.security_id == scope.security_id,
-            AnalysisResult.input_key == key).order_by(AnalysisResult.created_at.desc()).limit(1))
+            AnalysisResult.input_key == key, AnalysisResult.expires_at > now())
+            .order_by(AnalysisResult.created_at.desc()).limit(1))
         if cached:
             lock_analysis_references(s)
             return clone_frozen(s, cached, request, scope.security_id, key)
@@ -100,7 +102,7 @@ def prepare_event_target(s, target):
     if digest([revision.document, revision.events]) != target["event_snapshot_hash"]:
         raise ValueError("冻结事件内容与任务摘要不一致")
     security = SimpleNamespace(**target["identity"])
-    dataset = _required(s, PriceDataset, target["inputs"]["dataset_id"]) if target["inputs"]["dataset_id"] else None
+    dataset = _required(s, PriceCache, target["inputs"]["dataset_id"]) if target["inputs"]["dataset_id"] else None
     benchmark = target["inputs"]["benchmark"]
     # Source existence is independent of observation/acquisition eligibility.
     # Retain original review flags; unverified is not a user exclusion.
@@ -141,9 +143,9 @@ def prepare_event_target(s, target):
             "security_id": security.id,
             "symbol": security.symbol,
             "research_as_of": revision.document["research_as_of"],
-            "price_as_of": dataset.published_at.isoformat()
-            if dataset and dataset.published_at
-            else None,
+            "price_as_of": dataset.fetched_at.isoformat() if dataset else None,
+            "price_fetched_at": dataset.fetched_at.isoformat() if dataset else None,
+            "price_expires_at": dataset.expires_at.isoformat() if dataset else None,
             "price_basis": "split_only",
             "identity": _candidate(security),
             "keyword_scope_policy": "纳入关键词仅指导候选检索；排除关键词按事件名称在保存时阻止选入，原事实保留。其他语义由逐项人工选择与排除理由决定。",
@@ -209,8 +211,10 @@ def publish_event_result(s, request, scope, target, data):
             raise ValueError("新计算结果不应包含完整重叠列表")
         EventOverlapSummary.model_validate(item.get("overlap"))
     data = restore_event_text(data, revision, target["params"])
+    from iirp.shared_compute import result_expiry
     row = AnalysisResult(analysis_id=request.id, security_id=scope.security_id,
-        input_key=target["input_key"], inputs=target["inputs"], data=data)
+        input_key=target["input_key"], inputs=target["inputs"], data=data,
+        expires_at=result_expiry(s, target["inputs"]))
     s.add(row)
     s.flush()
     return row

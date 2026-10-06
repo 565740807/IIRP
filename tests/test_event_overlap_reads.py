@@ -188,13 +188,13 @@ def test_frozen_interval_endpoint_and_missing_window_pages():
 
 
 def test_representation_identity_does_not_reuse_legacy_cache(monkeypatch):
-    from iirp.business_models import AnalysisRequest, PriceDataset, Security
+    from iirp.business_models import AnalysisRequest, PriceCache, Security
     from iirp.event_service import event_input_key
 
     _, _, view, job = published(13)
     with session() as s, s.begin():
         request = s.get(AnalysisRequest, view["id"])
-        dataset = s.get(PriceDataset, job.target["inputs"]["dataset_id"])
+        dataset = s.get(PriceCache, job.target["inputs"]["dataset_id"])
         security = s.get(Security, job.target["security_id"])
         current = event_input_key(request, dataset, security)
         with monkeypatch.context() as patch:
@@ -213,7 +213,7 @@ def test_representation_identity_does_not_reuse_legacy_cache(monkeypatch):
 
 def test_native_earnings_cache_requires_current_overlap_representation(monkeypatch):
     from iirp.analytics.research import CALCULATION_VERSION
-    from iirp.business_models import AnalysisRequest, Batch, PriceDataset, Security
+    from iirp.business_models import AnalysisRequest, Batch, PriceCache, Security
     from iirp.research_pipeline import reuse_result
 
     _, _, view, job = published(13)
@@ -240,7 +240,7 @@ def test_native_earnings_cache_requires_current_overlap_representation(monkeypat
         s.add(request)
         s.flush()
         security = s.get(Security, job.target["security_id"])
-        dataset = s.get(PriceDataset, job.target["inputs"]["dataset_id"])
+        dataset = s.get(PriceCache, job.target["inputs"]["dataset_id"])
         # Even a legacy-key compatibility match cannot authorize copying a huge
         # old representation into a new result. Exercise the fallback cache path.
         monkeypatch.setattr("iirp.lifecycle.research_input_key", lambda *a: "legacy-native-key")

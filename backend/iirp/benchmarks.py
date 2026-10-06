@@ -1,15 +1,13 @@
-"""Explicit benchmark identities, frozen inputs, and shared fenced acquisition."""
+"""Explicit benchmark identities and their prices from the 24-hour cache."""
 
 import re
-from datetime import date, datetime, timezone
+from datetime import datetime, timezone
 
 from sqlalchemy import select
 from sqlalchemy.orm import object_session
 
-from iirp.analytics.calendar import sessions
-from iirp.business_models import PriceDataset, Security
-from iirp.market_data import latest_dataset, price_bars
-from iirp.models import ACTIVE, Job
+from iirp.business_models import Security
+from iirp.price_cache import current_cache, price_bars
 
 INDEXES = {"^GSPC": "标普 500", "^IXIC": "纳斯达克综合"}
 
@@ -47,8 +45,8 @@ def benchmark_snapshot(params, stock, s=None):
     if security.calendar != stock.calendar or security.currency != stock.currency:
         output["status"] = "benchmark_calendar_or_currency_mismatch"
         return output
-    dataset = latest_dataset(s, security.id)
-    if dataset and dataset.basis == "SPLIT_ONLY":
+    dataset = current_cache(s, security.id)
+    if dataset:
         output.update(status="available", dataset_id=dataset.id)
     else:
         output["status"] = "benchmark_prices_pending"
@@ -61,8 +59,8 @@ def benchmark_data(s, snapshot, *, ranges=None):
     return {**snapshot, "bars": price_bars(s, snapshot["security_id"], snapshot["dataset_id"], ranges=ranges)[0] if snapshot.get("dataset_id") else []}
 
 
-def plan_benchmark(s, scope, request, ranges, capacity):
-    """Attach to the user's stock scope: controls, leases, quota and sharing apply.
+def plan_benchmark(s, scope, request, start, end):
+    """Attach to the user's stock scope: controls, leases and sharing apply.
 
     Returns a truthful incomplete reason without withholding usable stock data.
     """
@@ -70,6 +68,7 @@ def plan_benchmark(s, scope, request, ranges, capacity):
     if not symbol:
         return None
     from iirp.lifecycle import add_job, advisory
+    from iirp.price_cache import ensure_prices, fetch_state
     advisory(s, ["security", symbol])
     security = s.scalar(select(Security).where(Security.symbol == symbol).order_by(Security.id).limit(1))
     if not security:
@@ -83,30 +82,9 @@ def plan_benchmark(s, scope, request, ranges, capacity):
     snapshot = benchmark_snapshot(request.params, s.get(Security, scope.security_id), s)
     if snapshot["status"] not in {"available", "benchmark_prices_pending"}:
         return "所选基准的证券类型、币种或交易日历未匹配；请更换ETF或核对来源，股票结果保留"
-    bars = benchmark_data(s, snapshot, ranges=ranges)["bars"]
-    valid = {date.fromisoformat(x["date"]) for x in bars if x["status"] == "VALID"}
-    expected = {d for a, b in ranges for d in sessions(a, b, security.calendar)
-                if not snapshot["listing_date"] or str(d) >= snapshot["listing_date"]}
-    missing = expected - valid
-    pending = s.scalar(select(PriceDataset).where(PriceDataset.security_id == security.id, PriceDataset.status == "BUILDING").order_by(PriceDataset.created_at.desc()).limit(1))
-    if pending and pending.manifest.get("rebase_start"):
-        from iirp.business_models import DatasetBar, MarketBar
-        acquired = set(s.scalars(select(DatasetBar.session_date).join(MarketBar, MarketBar.id == DatasetBar.bar_id)
-                     .where(DatasetBar.dataset_id == pending.id, MarketBar.status == "VALID")))
-        missing |= set(sessions(date.fromisoformat(pending.manifest["rebase_start"]), date.fromisoformat(pending.manifest["rebase_end"]), security.calendar)) - acquired
-    incomplete = bool(missing or pending)
-    for job in s.scalars(select(Job).where(Job.kind == "market_history", Job.status.in_(ACTIVE))).all():
-        if job.target.get("security_id") == security.id and any(job.target["start_date"] <= str(d) <= job.target["end_date"] for d in missing):
-            add_job(s, scope, job.kind, job.target)
-            missing = {d for d in missing if not job.target["start_date"] <= str(d) <= job.target["end_date"]}
-    from iirp.market_ranges import merge_missing_ranges
-    for first, last in reversed(merge_missing_ranges(missing, security.calendar)):
-        if capacity[0] <= 0:
-            break
-        target = {"symbol": symbol, "security_id": security.id, "start_date": str(first), "end_date": str(last)}
-        if pending:
-            target["rebase"] = pending.id
-        job = add_job(s, scope, "market_history", target)
-        job.title = f"正在获取 {INDEXES.get(symbol, symbol)} 基准行情 · {first}—{last}"
-        capacity[0] -= 1
-    return "基准行情有缺口，已安排补齐；共同有效N按已完成配对统计，股票结果可先阅读" if incomplete else None
+    ensured = ensure_prices(s, scope, security, start, end,
+                            title=f"正在获取 {INDEXES.get(symbol, symbol)} 基准行情")
+    status, reason = fetch_state(ensured)
+    if status == "READY":
+        return None
+    return reason or "基准行情正在获取；股票结果可先阅读"

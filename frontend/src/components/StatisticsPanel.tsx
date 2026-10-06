@@ -479,7 +479,7 @@ export function StatisticsPanel({
             {values.length
               ? `共同标尺 ${percent(min)} 至 ${percent(max)}`
               : "当前没有有效样本，不绘制分布标尺"}
-            ；数值与图来自同一冻结结果
+            ；数值与图来自同一结果
           </caption>
           <thead>
             <tr>

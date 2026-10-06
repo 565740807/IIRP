@@ -226,15 +226,15 @@ def person(
 
 
 @router.get("/transactions/{transaction_id}", response_model=GenericOutput)
-def transaction(transaction_id: str, mapping_version: int | None = None, dataset_id: str | None = None, cutoff_date: date | None = None):
-    return invoke("transaction_detail", transaction_id, mapping_version, dataset_id, cutoff_date.isoformat() if cutoff_date else None)
+def transaction(transaction_id: str, mapping_version: int | None = None, cutoff_date: date | None = None):
+    return invoke("transaction_detail", transaction_id, mapping_version, cutoff_date.isoformat() if cutoff_date else None)
 
 
 @router.get("/transactions/{transaction_id}/export")
-def transaction_export(transaction_id: str, format: str = "json", mapping_version: int | None = None, dataset_id: str | None = None, cutoff_date: date | None = None):
+def transaction_export(transaction_id: str, format: str = "json", mapping_version: int | None = None, cutoff_date: date | None = None):
     if format not in {"json", "csv"}:
         raise HTTPException(422, "交易价格导出格式只支持 JSON 或 CSV")
-    result = invoke("transaction_detail", transaction_id, mapping_version, dataset_id, cutoff_date.isoformat() if cutoff_date else None)["data"]
+    result = invoke("transaction_detail", transaction_id, mapping_version, cutoff_date.isoformat() if cutoff_date else None)["data"]
     transaction = result["transaction"]
     context = result["price_context"]
     if not transaction.get("security_id"):
@@ -245,11 +245,11 @@ def transaction_export(transaction_id: str, format: str = "json", mapping_versio
         return Response(body, media_type="application/json", headers={"Content-Disposition": f'attachment; filename="{filename}.json"'})
     output = io.StringIO()
     writer = csv.writer(output)
-    writer.writerow(["transaction_id", "mapping_version", "security_id", "dataset_id", "price_basis", "cutoff_date", "time_basis", "baseline_date", "position", "date", "close", "value", "status"])
+    writer.writerow(["transaction_id", "mapping_version", "security_id", "price_fetched_at", "price_basis", "cutoff_date", "time_basis", "baseline_date", "position", "date", "close", "value", "status"])
     for basis in ("transaction", "disclosure"):
         item = context.get(basis) or {}
         for point in item.get("points", []):
-            writer.writerow([transaction_id, transaction["mapping_version"], transaction["security_id"], context.get("dataset_id"), context.get("price_basis"), context.get("cutoff_date"), basis, item.get("baseline_date"), point.get("x"), point.get("date"), point.get("close"), point.get("value"), point.get("status")])
+            writer.writerow([transaction_id, transaction["mapping_version"], transaction["security_id"], context.get("price_fetched_at"), context.get("price_basis"), context.get("cutoff_date"), basis, item.get("baseline_date"), point.get("x"), point.get("date"), point.get("close"), point.get("value"), point.get("status")])
     return Response(output.getvalue(), media_type="text/csv; charset=utf-8", headers={"Content-Disposition": f'attachment; filename="{filename}.csv"'})
 
 
@@ -281,11 +281,6 @@ def import_commit(preview_id: str):
 @router.post("/cache/cleanup", response_model=GenericOutput, status_code=202)
 def cleanup():
     return invoke("cleanup_cache")
-
-
-@router.patch("/securities/{security_id}/maintenance", response_model=GenericOutput)
-def maintain(security_id: str, enabled: bool):
-    return invoke("maintain_security", security_id, enabled)
 
 
 @router.post("/amendments/{relation_id}/resolve", response_model=GenericOutput)

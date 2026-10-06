@@ -58,7 +58,7 @@ export function EventOverlapDetails({
               <p>
                 重叠详情 {query.data.offset + 1}—
                 {query.data.offset + query.data.items.length} /{" "}
-                {query.data.total} · 冻结结果 {query.data.result_id.slice(0, 8)}
+                {query.data.total} · 结果 {query.data.result_id.slice(0, 8)}
               </p>
               <div className="table-scroll">
                 <table>

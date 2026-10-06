@@ -1,7 +1,7 @@
 import { Timestamp } from "../components/Timestamp";
 import { quoteStatusLabel, quoteTime } from "../freshnessRefresh";
 import { entityRequestParams, entitySnapshotParams } from "../taskPresentation";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useLocation, useParams } from "react-router-dom";
 import {
@@ -24,6 +24,7 @@ import {
 import { DateAnomaly, TradeSummary, TransactionTable } from "../components/Feed";
 import { ResearchChart } from "../components/ResearchChart";
 import { BatchPanel } from "../components/Batches";
+import { useResearchBatch } from "../researchQueries";
 import {
   sourceContext,
   sourceHref,
@@ -644,7 +645,7 @@ function ContextChart({
       <ResearchChart
         data={chart}
         title={`${ticker} · ${title}`}
-        provenance={`${sourceLabel(metadata.price_basis)} · 截至 ${display(metadata.cutoff_date)}\n基准 ${display(context.baseline_date)} · 计算 ${display(metadata.calculation_version)}${metadata.source ? ` · 来源 ${sourceLabel(metadata.source)}` : ""}\n数据 ${display(metadata.dataset_id)}${metadata.data_version ? ` · 版本 ${String(metadata.data_version).slice(0, 12)}` : ""}`}
+        provenance={`${sourceLabel(metadata.price_basis)} · 截至 ${display(metadata.cutoff_date)}\n基准 ${display(context.baseline_date)} · 计算 ${display(metadata.calculation_version)}${metadata.source ? ` · 来源 ${sourceLabel(metadata.source)}` : ""}\n行情获取于 ${display(metadata.price_fetched_at)}`}
       />
       <details className="result-notes">
         <summary>实际日期与价格口径</summary>
@@ -668,12 +669,11 @@ export function TransactionPage() {
   const { id } = useParams();
   const selected = new URLSearchParams(location.search);
   const mappingVersion = selected.get("mapping_version");
-  const datasetId = selected.get("dataset_id");
   const cutoffDate = selected.get("cutoff_date");
   const [windowBatch, setWindowBatch] = useState("");
   const query = useQuery({
-    queryKey: ["entity", "transaction", id, mappingVersion, datasetId, cutoffDate],
-    queryFn: () => api<GenericOutput>(`/transactions/${id}${mappingVersion || datasetId || cutoffDate ? `?${new URLSearchParams({...(mappingVersion ? {mapping_version: mappingVersion} : {}), ...(datasetId ? {dataset_id: datasetId} : {}), ...(cutoffDate ? {cutoff_date: cutoffDate} : {})})}` : ""}`),
+    queryKey: ["entity", "transaction", id, mappingVersion, cutoffDate],
+    queryFn: () => api<GenericOutput>(`/transactions/${id}${mappingVersion || cutoffDate ? `?${new URLSearchParams({...(mappingVersion ? {mapping_version: mappingVersion} : {}), ...(cutoffDate ? {cutoff_date: cutoffDate} : {})})}` : ""}`),
   });
   const notice = useNotice();
   const fetchWindow = useMutation({
@@ -684,10 +684,27 @@ export function TransactionPage() {
     onSuccess: (result) => {
       setWindowBatch(result.batch_id);
       notice({
-        text: "双时间价格窗口已加入后台，范围由交易日和接受时间确定。",
+        text: "正在获取交易前后价格（24 小时缓存，期间不再重复下载）。",
       });
     },
   });
+  // Prices are a 24-hour cache: fetch the window once when it is missing or
+  // expired, and re-read the detail when that fetch finishes.
+  const loaded = facts(query.data?.data);
+  const needsWindow = !!facts(loaded.transaction).security_id &&
+    !facts(loaded.price_context).price_cache_id;
+  const autoWindow = useRef("");
+  useEffect(() => {
+    if (!id || !needsWindow || autoWindow.current === id || fetchWindow.isPending) return;
+    autoWindow.current = id;
+    fetchWindow.mutate();
+  }, [id, needsWindow, fetchWindow]);
+  const windowTask = useResearchBatch(windowBatch);
+  const windowStatus = windowTask.data?.batch.status;
+  const refetchDetail = query.refetch;
+  useEffect(() => {
+    if (windowStatus && ["SUCCEEDED", "PARTIAL", "FAILED"].includes(windowStatus)) void refetchDetail();
+  }, [windowStatus, refetchDetail]);
   if (query.isPending) return <Loading />;
   if (query.error)
     return <ErrorNotice error={query.error} retry={query.refetch} />;
@@ -708,7 +725,7 @@ export function TransactionPage() {
             busy={fetchWindow.isPending}
             onClick={() => fetchWindow.mutate()}
           >
-            获取双时间价格窗口
+            重新获取前后价格
           </Button>
         )}
       </div>
@@ -799,7 +816,8 @@ export function TransactionPage() {
       {!t.security_id && (
         <SecurityMatch key={`${t.id}-unconfirmed`} transaction={t} />
       )}
-      {t.security_id && context.dataset_id && <section className="panel"><p>价格版本 {display(context.dataset_id)} · 对应关系版本 {display(t.mapping_version)} · 截止 {display(context.cutoff_date)}。保存下列版本链接可复现当前读数。</p><div className="button-row"><a className="button button-secondary" href={`/api/v1/transactions/${id}/export?${new URLSearchParams({format:"csv",mapping_version:String(t.mapping_version),dataset_id:String(context.dataset_id),cutoff_date:String(context.cutoff_date)})}`}>导出双时间价格 CSV</a><a className="button button-secondary" href={`/api/v1/transactions/${id}/export?${new URLSearchParams({format:"json",mapping_version:String(t.mapping_version),dataset_id:String(context.dataset_id),cutoff_date:String(context.cutoff_date)})}`}>导出事实与价格 JSON</a></div></section>}
+      {t.security_id && context.price_cache_id && <section className="panel"><p>行情获取于 <Timestamp value={context.price_fetched_at} />，有效至 <Timestamp value={context.price_expires_at} />（24 小时缓存，过期后打开本页会重新获取） · 对应关系版本 {display(t.mapping_version)} · 截止 {display(context.cutoff_date)}。</p><div className="button-row"><a className="button button-secondary" href={`/api/v1/transactions/${id}/export?${new URLSearchParams({format:"csv",mapping_version:String(t.mapping_version),cutoff_date:String(context.cutoff_date)})}`}>导出双时间价格 CSV</a><a className="button button-secondary" href={`/api/v1/transactions/${id}/export?${new URLSearchParams({format:"json",mapping_version:String(t.mapping_version),cutoff_date:String(context.cutoff_date)})}`}>导出事实与价格 JSON</a></div></section>}
+      {rows(t.source_documents).length > 0 && <section className="panel"><p>SEC 原文：{rows(t.source_documents).map((doc, i) => <a key={i} className="text-link" href={`/api/v1/sources/${doc.sha256}`}>{String(doc.url).split("/").pop()}</a>)}</p></section>}
       {t.security_id && context.reason && (
         <div className="notice notice-warning">{display(context.reason)}</div>
       )}
@@ -924,7 +942,7 @@ export function MarketDetailPage() {
                 日线走势 · {display(quote.chart_start)} →{" "}
                 {display(quote.chart_end)}
               </h3>
-              <p className="panel-body muted">{quote.chart_note || (quote.chart_dataset_id ? "已核验日线；不是分时走势。" : "供应商日线序列，当日数据可能尚未收盘；不是分时走势。")}</p>
+              <p className="panel-body muted">{quote.chart_note || "供应商日线序列，当日数据可能尚未收盘；不是分时走势。"}</p>
               <ResearchChart
                 data={chartData}
                 title={`${data.name ?? symbol} · 近期日线${data.unit ? `（${data.unit}）` : ""}`}

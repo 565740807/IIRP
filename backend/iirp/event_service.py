@@ -12,7 +12,6 @@ from iirp.analytics.calendar import (
     calendar_version,
     last_completed_session,
     previous_session,
-    sessions,
 )
 from iirp.analytics.event_dates import CALCULATION_VERSION, event_price_scope
 from iirp.analytics.event_overlaps import REPRESENTATION_VERSION
@@ -20,9 +19,6 @@ from iirp.business_models import (
     AnalysisRequest,
     AnalysisResult,
     Batch,
-    DatasetBar,
-    MarketBar,
-    PriceDataset,
     RequestScope,
     Security,
 )
@@ -35,8 +31,8 @@ from iirp.event_contracts import (
 )
 from iirp.event_models import EventCommandReceipt, EventImportPreview, EventSet, EventSetVersion
 from iirp.event_overlap_reads import get_overlap_page  # noqa: F401
-from iirp.market_data import digest, latest_dataset, price_bars
-from iirp.models import ACTIVE, Job, now
+from iirp.market_data import digest
+from iirp.models import ACTIVE, now
 
 MIC_EXCHANGES = {
     "XNAS": {"NMS", "NGM", "NCM", "NASDAQ", "XNAS"},
@@ -754,74 +750,18 @@ def plan_event_scope(s, scope, batch, capacity):
     )
     selected = _selected_events(revision, request.params)
     ranges = event_price_scope(selected, cutoff, security.calendar)
-    bars, dataset = price_bars(s, security.id, ranges=ranges)
-    valid = (
-        {date.fromisoformat(b["date"]) for b in bars if b["status"] == "VALID"}
-        if (dataset and dataset.basis == "SPLIT_ONLY")
-        else set()
-    )
-    missing = {
-        day for start, end in ranges for day in sessions(start, end, security.calendar)
-    } - valid
-    pending = s.scalar(
-        select(PriceDataset)
-        .where(PriceDataset.security_id == security.id, PriceDataset.status == "BUILDING")
-        .order_by(PriceDataset.created_at.desc())
-        .limit(1)
-    )
-    if pending and pending.manifest.get("rebase_start") and pending.manifest.get("rebase_end"):
-        acquired = set(
-            s.scalars(
-                select(DatasetBar.session_date)
-                .join(MarketBar, MarketBar.id == DatasetBar.bar_id)
-                .where(DatasetBar.dataset_id == pending.id, MarketBar.status == "VALID")
-            )
-        )
-        missing |= (
-            set(
-                sessions(
-                    date.fromisoformat(pending.manifest["rebase_start"]),
-                    min(cutoff, date.fromisoformat(pending.manifest["rebase_end"])),
-                    security.calendar,
-                )
-            )
-            - acquired
-        )
-    history_incomplete = bool(missing)
-    # Borrow overlapping active jobs, preserving pause/cancel and source budget behavior.
-    for job in s.scalars(
-        select(Job).where(Job.kind == "market_history", Job.status.in_(ACTIVE))
-    ).all():
-        if job.target.get("security_id") == security.id and any(
-            job.target["start_date"] <= str(day) <= job.target["end_date"] for day in missing
-        ):
-            add_job(s, scope, job.kind, job.target)
-            missing = {
-                d
-                for d in missing
-                if not job.target["start_date"] <= str(d) <= job.target["end_date"]
-            }
-    from iirp.market_ranges import merge_missing_ranges
-    for first, last in reversed(merge_missing_ranges(missing, security.calendar)):
-        if capacity[0] <= 0:
-            break
-        target = {
-            "symbol": security.symbol,
-            "security_id": security.id,
-            "start_date": str(first),
-            "end_date": str(last),
-        }
-        if pending:
-            target["rebase"] = pending.id
-        job = add_job(s, scope, "market_history", target)
-        job.title = f"{security.symbol} · 事件窗口 {first}—{last}"
-        capacity[0] -= 1
     from iirp.benchmarks import plan_benchmark
-
-    benchmark_reason = plan_benchmark(s, scope, request, ranges, capacity)
     from iirp.event_pipeline import plan_event_compute
+    from iirp.price_cache import ensure_prices, fetch_state
 
-    result = plan_event_compute(s, request, scope, capacity)
+    price_status, price_reason, benchmark_reason = "READY", None, None
+    if ranges:
+        first, last = min(a for a, _ in ranges), max(b for _, b in ranges)
+        price_status, price_reason = fetch_state(ensure_prices(
+            s, scope, security, first, last, title=f"{security.symbol} · 事件窗口行情"))
+        benchmark_reason = plan_benchmark(s, scope, request, first, last)
+    # A failed fetch still publishes which events lack prices.
+    result = plan_event_compute(s, request, scope, capacity) if price_status != "RUNNING" else None
     jobs = linked_jobs(s, scope.id)
     active = [job for job in jobs if job.status in ACTIVE
         and (job.kind != "event_compute" or (
@@ -858,11 +798,8 @@ def plan_event_scope(s, scope, batch, capacity):
         if active
         else "PARTIAL" if bad or stopped_compute
         else "QUEUED" if result is None
-        else "QUEUED"
-        if benchmark_reason and capacity[0] <= 0 and not bad
-        else "PARTIAL"
-        if bad or pending or unresolved or benchmark_reason
-        else ("QUEUED" if missing and capacity[0] <= 0 else "PARTIAL" if missing else "READY")
+        else "PARTIAL" if unresolved or benchmark_reason or price_reason
+        else "READY"
     )
     scope.wait_reason = (
         bad[-1].error
@@ -871,14 +808,10 @@ def plan_event_scope(s, scope, batch, capacity):
         if stopped_compute
         else "活动日期缺失、冲突或未有支持证据；请更新事件资料后重新分析"
         if unresolved
-        else "行情调整基准正在核对"
-        if pending
-        else f"已就绪 {ready}/{total} 次事件；正在补齐缺失历史行情"
-        if history_incomplete and active
-        else "行情任务正在等待调度容量；已完成结果可先阅读"
-        if missing and not active and capacity[0] <= 0
-        else "来源任务已结束但应有日线仍缺失，可重试对应行情任务"
-        if missing and not active
+        else price_reason
+        if price_reason
+        else f"已就绪 {ready}/{total} 次事件；正在获取行情"
+        if active and price_status == "RUNNING"
         else benchmark_reason
         if benchmark_reason
         else "研究结果正在计算或等待计算容量；已完成结果可先阅读"
@@ -895,33 +828,23 @@ def get_analysis(identifier, result_id=None, *, include_freshness=True):
         if request.params.get("kind") != "event_dates":
             raise LookupError("这不是事件日期观察分析")
         batch = _required(s, Batch, request.batch_id)
+        # Results live as long as the price caches they used (D14).
         results = s.execute(
             select(AnalysisResult.id, AnalysisResult.security_id, AnalysisResult.input_key,
                 AnalysisResult.created_at, AnalysisResult.inputs["dataset_id"].astext.label("dataset_id"),
-                PriceDataset.published_at)
-            .outerjoin(PriceDataset, PriceDataset.id == AnalysisResult.inputs["dataset_id"].astext)
-            .where(AnalysisResult.analysis_id == request.id)
+                AnalysisResult.expires_at)
+            .where(AnalysisResult.analysis_id == request.id,
+                   AnalysisResult.expires_at.is_(None) | (AnalysisResult.expires_at > now()))
             .order_by(AnalysisResult.created_at.desc())
         ).all()
         chosen = next((row for row in results if row.id == result_id), None) if result_id else None
         if not result_id and results:
-            current_keys = {}
-            for security_id in dict.fromkeys(row.security_id for row in results):
-                security = _required(s, Security, security_id)
-                dataset = latest_dataset(s, security_id)
-                current_keys[security_id] = event_input_key(request, dataset, security, db=s) if dataset else None
-
-            # A carried result can be written after a worker has already finished
-            # the new version. Arrival time does not make its old inputs current.
-            def rank(row):
-                return (row.input_key == current_keys[row.security_id],
-                    row.published_at or row.created_at, row.created_at, row.id)
-
-            chosen = max(results, key=rank)
+            # Every unexpired result is current data; show the newest one.
+            chosen = max(results, key=lambda row: (row.created_at, row.id))
         # Only the selected immutable result needs its potentially large payload.
         selected = s.get(AnalysisResult, chosen.id) if chosen else None
         if result_id and not selected:
-            raise LookupError("冻结结果不存在或不属于当前分析")
+            raise LookupError("结果已过期或不属于当前分析；请重新获取")
         scopes = s.scalars(select(RequestScope).where(RequestScope.batch_id == batch.id)).all()
         from iirp.research_freshness import freshness
 
@@ -945,13 +868,14 @@ def get_analysis(identifier, result_id=None, *, include_freshness=True):
             ],
             "result_id": selected.id if selected else None,
             "result_cutoff": (selected.inputs.get("params", {}).get("cutoff_date") or selected.data.get("metadata", {}).get("cutoff_date")) if selected else None,
-            "carried_from": selected.inputs.get("carried_from") if selected else None,
+            "expires_at": selected.expires_at.isoformat() if selected and selected.expires_at else None,
             "data": selected.data if selected else None,
             "results": [
                 {
                     "id": row.id,
                     "created_at": row.created_at.isoformat(),
                     "dataset_id": row.dataset_id,
+                    "expires_at": row.expires_at.isoformat() if row.expires_at else None,
                 }
                 for row in results
             ],
@@ -967,7 +891,7 @@ def export_analysis(identifier, result_id, format="json"):
             raise LookupError("这不是事件日期观察分析")
         selected = s.get(AnalysisResult, result_id)
         if not selected or selected.analysis_id != request.id:
-            raise LookupError("冻结结果不存在或不属于当前分析")
+            raise LookupError("结果已过期或不属于当前分析；请重新获取")
         if not selected.data:
             raise ValueError("尚无可导出的冻结结果")
         metadata = selected.data.get("metadata", {})
@@ -979,8 +903,8 @@ def export_analysis(identifier, result_id, format="json"):
         if not isinstance(params, dict):
             # Old non-carried results belong to their original immutable request.
             # A carried legacy result cannot borrow the new request's conditions.
-            params = {} if selected.inputs.get("carried_from") else request.params
-            parameter_basis = "unknown" if selected.inputs.get("carried_from") else "original_request"
+            params = request.params
+            parameter_basis = "original_request"
         from iirp.fiscal_version import fiscal_version_notice
 
         result = {
@@ -994,7 +918,6 @@ def export_analysis(identifier, result_id, format="json"):
             "result_id": selected.id,
             "result_created_at": selected.created_at.isoformat(),
             "result_cutoff": params.get("cutoff_date") or metadata.get("cutoff_date"),
-            "carried_from": selected.inputs.get("carried_from"),
             "input_version": selected.input_key,
             "inputs": selected.inputs,
             "data": selected.data,

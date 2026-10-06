@@ -1,17 +1,11 @@
-"""Coalesce queued computation and reuse immutable, fully identified inputs."""
+"""Coalesce queued computation and reuse results of identical inputs within a cache."""
 
 
 from sqlalchemy import func, select
-from sqlalchemy.orm import aliased
 
-from iirp.business_models import (
-    AnalysisResult,
-    DatasetBar,
-    MarketBar,
-    PriceDataset,
-    RequestScope,
-)
-from iirp.market_data import coverage_for
+from iirp.business_models import AnalysisResult, RequestScope
+from iirp.models import now
+from iirp.price_cache import coverage_for
 
 
 def semantic_params(params):
@@ -55,7 +49,7 @@ def frozen_coverage(s, request, security, dataset):
     )
     if not scope:
         return None
-    coverage = coverage_for(s, security, scope.start_date, scope.end_date, dataset_id=dataset.id)
+    coverage = coverage_for(s, security, scope.start_date, scope.end_date, cache_id=dataset.id)
     return {
         key: coverage.get(key)
         for key in (
@@ -90,6 +84,7 @@ def reuse_result(s, request, security, dataset, events, benchmark, input_key):
             AnalysisResult.security_id == security.id,
             AnalysisResult.input_key == input_key,
             AnalysisResult.inputs["calculation_version"].astext == CALCULATION_VERSION,
+            AnalysisResult.expires_at > now(),
             *representation_filter,
         ).order_by(AnalysisResult.created_at.desc()).limit(1)
     ).all()
@@ -112,6 +107,7 @@ def reuse_result(s, request, security, dataset, events, benchmark, input_key):
                 "coverage": frozen_coverage(s, request, security, dataset),
             },
             data=data,
+            expires_at=cached.expires_at,
         )
         s.add(result)
         s.flush()
@@ -124,104 +120,15 @@ def coalesce_compute(s, scope, target):
     return enqueue(s, scope, "research_compute", target)
 
 
-def is_safe_extension(s, old, new, *, ranges=None):
-    """Later additions may improve N; changed qualified prices must invalidate."""
-    if not old or not new or old.security_id != new.security_id or old.basis_key != new.basis_key:
-        return False
-    if old.id == new.id:
-        return True
-    if old.manifest.get("verified_splits") != new.manifest.get("verified_splits"):
-        return False
-    later = aliased(DatasetBar)
-    query = (select(DatasetBar.bar_id)
-        .join(MarketBar, MarketBar.id == DatasetBar.bar_id)
-        .outerjoin(
-            later, (later.dataset_id == new.id) & (later.session_date == DatasetBar.session_date)
-        )
-        .where(
-            DatasetBar.dataset_id == old.id,
-            MarketBar.status == "VALID",
-            (later.bar_id.is_(None)) | (later.bar_id != DatasetBar.bar_id),
-        )
-        .limit(1))
-    if ranges is not None:
-        from iirp.research_dependencies import range_predicate
-        query = query.where(range_predicate(DatasetBar.session_date, ranges))
-    return s.scalar(query) is None
-
-
 def safe_publication(s, request, security, target, latest, events):
+    """Publish only a result computed from the current cache and benchmark."""
     from iirp.benchmarks import benchmark_snapshot
     from iirp.lifecycle import research_input_key
 
-    if security.status != "VERIFIED":
+    if security.status != "VERIFIED" or latest is None or latest.id != target["dataset_id"]:
         return False
-    original = s.get(PriceDataset, target["dataset_id"])
-    snapshot = target.get("benchmark")
-    if (
-        not original
-        or research_input_key(request, original, events, security, snapshot) != target["input_key"]
-    ):
-        return False
-    from iirp.research_dependencies import research_ranges
-    ranges = research_ranges(effective_input_params(request, security), security.calendar or "XNYS", events)
-    if not is_safe_extension(s, original, latest, ranges=ranges):
-        return False
-    current_benchmark = benchmark_snapshot(request.params, security, s)
-    if snapshot != current_benchmark:
-        if not snapshot or not current_benchmark:
-            return False
-
-        if snapshot.get("dataset_id"):
-            def without_data(value):
-                return {k: v for k, v in value.items() if k not in ("dataset_id", "status")}
-
-            if without_data(snapshot) != without_data(current_benchmark):
-                return False
-            if not is_safe_extension(
-                s, s.get(PriceDataset, snapshot["dataset_id"]),
-                s.get(PriceDataset, current_benchmark.get("dataset_id")),
-                ranges=ranges,
-            ):
-                return False
-        elif snapshot.get("symbol") != current_benchmark.get("symbol"):
-            return False
-        # With no benchmark prices the output contains stock-only statistics.
-        # Resolving the benchmark identity does not invalidate those values.
-    # A later published result for this ticker wins even if this worker finishes
-    # afterwards. Publication is fenced and the compute lane is bounded to one.
-    newer = s.scalar(
-        select(AnalysisResult.id)
-        .join(PriceDataset, PriceDataset.id == AnalysisResult.inputs["dataset_id"].astext)
-        .where(
-            AnalysisResult.analysis_id == request.id,
-            AnalysisResult.security_id == security.id,
-            PriceDataset.published_at > original.published_at,
-        )
-        .limit(1)
-    )
-    if newer:
-        return False
-    peers = s.execute(select(AnalysisResult.input_key, AnalysisResult.inputs).where(
-        AnalysisResult.analysis_id == request.id,
-        AnalysisResult.security_id == security.id,
-        AnalysisResult.inputs["dataset_id"].astext == original.id,
-        AnalysisResult.input_key != target["input_key"],
-    )).all()
-    for key, inputs in peers:
-        peer_benchmark = inputs.get("benchmark") or {}
-        peer_id = peer_benchmark.get("dataset_id")
-        original_id = (snapshot or {}).get("dataset_id")
-        if peer_id and not original_id:
-            return False
-        if peer_id and original_id and peer_id != original_id:
-            old_benchmark = s.get(PriceDataset, original_id)
-            peer_dataset = s.get(PriceDataset, peer_id)
-            if peer_dataset and old_benchmark and peer_dataset.published_at > old_benchmark.published_at:
-                return False
-        if key == research_input_key(request, latest, events, security, current_benchmark):
-            return False
-    return True
+    benchmark = benchmark_snapshot(request.params, security, s)
+    return research_input_key(request, latest, events, security, benchmark) == target["input_key"]
 
 
 def enqueue_frozen_compute(s, scope, kind, target, capacity):

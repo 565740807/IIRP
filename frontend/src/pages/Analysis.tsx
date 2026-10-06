@@ -561,7 +561,6 @@ export function AnalysisPage() {
   if (shown) {
     snapshotUrl.search = serializeResearch(shown.params).toString();
     snapshotUrl.searchParams.set("a", shown.id);
-    snapshotUrl.searchParams.set("result_ids", resultIds);
   }
   const provenance = `${selectedItem?.symbol ?? ""} · ${sourceLabel(meta.price_basis)} · 截至 ${display(meta.cutoff_date)} · ${kind === "earnings" ? "精确历史N" : "N"}=${display(data.effective_n)}${kind === "earnings" ? ` · 当前窗口：${sourceLabel(current.window_status ?? current.status)}` : ""}\n${kind === "monthly" ? `${shown?.params.month}月` : kind === "interval" ? `${shown?.params.start_mmdd}–${shown?.params.end_mmdd}` : `Q${shown?.params.quarter} / ${shown?.params.window}日`} · ${sourceLabel(meta.comparison)} · 来源 ${display(meta.source ?? meta.provider)} · 数据 ${selectedItem?.input_version?.slice(0, 12) ?? "—"} · 计算 ${display(meta.calculation_version)}\n结果 ${selectedItem?.result_id ?? "—"}`;
   const annualProvenance = `${selectedItem?.symbol ?? ""} · ${sourceLabel(meta.price_basis)} · 截至 ${display(meta.cutoff_date)}\n1—12月 · 完整历史月；导出图附各月有效N，当前年度另列 · 来源 ${display(meta.source ?? meta.provider)} · 计算 ${display(meta.calculation_version)}\n数据 ${selectedItem?.input_version?.slice(0, 12) ?? "—"} · 结果 ${selectedItem?.result_id ?? "—"}`;
@@ -939,27 +938,21 @@ export function AnalysisPage() {
       {shown && (
         <section className="research-freshness" aria-label="研究版本与新鲜度">
           <div className="section-heading">
-            <strong>{frozenResults ? "固定快照" : "跟随最新"} · {shown.batch.title}</strong>
+            <strong>{shown.batch.title}</strong>
             <ResearchVersionActions busy={refresh.isPending}
-              refreshLabel={refresh.isPending ? "正在核对更新…" : "以最新数据更新"}
+              refreshLabel={refresh.isPending ? "正在重新获取…" : "重新获取"}
               refresh={() => {
                 if (frozenResults) {
                   client.setQueryData(researchKeys.native(id), shown);
                   const next = new URLSearchParams(params); next.delete("result_ids"); replaceResearch(next);
                 } else if (id) launchRefresh({id, force:true});
-              }}
-              freeze={!frozenResults && resultIds ? () => {
-                refreshEpoch.current += 1;
-                const next = new URLSearchParams(params); next.set("result_ids", resultIds);
-                client.setQueryData(researchKeys.native(id, resultIds), shown); replaceResearch(next);
-              } : undefined} />
+              }} />
           </div>
-          <p>显示结果截至 <strong>{selectedItem?.result_cutoff ?? display(meta.cutoff_date)}</strong> · 最近已完成交易日 <strong>{shown.freshness?.latest_completed_session ?? "待核对"}</strong> · 研究目标截至 {display(shown.params.cutoff_date)}</p>
+          <p>显示结果截至 <strong>{selectedItem?.result_cutoff ?? display(meta.cutoff_date)}</strong> · 最近已完成交易日 <strong>{shown.freshness?.latest_completed_session ?? "待核对"}</strong> · 行情获取于 <strong>{shown.freshness?.price_fetched_at ? new Date(shown.freshness.price_fetched_at).toLocaleString() : "—"}</strong>，有效至 {shown.freshness?.price_expires_at ? new Date(shown.freshness.price_expires_at).toLocaleString() : "—"}</p>
           <details className="research-version-detail">
-            <summary>查看版本与数据核验时间</summary>
-            <small>结果版本 {selectedItem?.result_id?.slice(0, 8) ?? "准备中"} · 数据核验 {shown.freshness?.data_verified_at ? new Date(shown.freshness.data_verified_at).toLocaleString() : "未记录"}。盘中报价时间与日线截止日分别计算。<Link to="/data">查看任务历史</Link></small>
+            <summary>关于行情缓存</summary>
+            <small>行情为 24 小时缓存：获取后 24 小时内重复打开不再下载，过期后打开会自动重新获取；“重新获取”立即按最近已完成交易日取数。结果 {selectedItem?.result_id?.slice(0, 8) ?? "准备中"}。<Link to="/data">查看任务历史</Link></small>
           </details>
-          {selectedItem?.carried_from && <p role="status">新结果仍在准备，当前图、表及导出保留上述旧版本；逐只完成后更新。</p>}
           <ErrorNotice error={refreshFailure} retry={() => id && launchRefresh({id, force:true})} />
         </section>
       )}
@@ -1039,7 +1032,7 @@ export function AnalysisPage() {
                     ? `${shown.params.start_mmdd} → ${shown.params.end_mmdd} 区间历史价格表现如何？`
                     : `FY Q${shown.params.quarter} 公告前后价格如何变化？`}</p>
               </div>
-              <details className="research-exports"><summary>导出与版本链接</summary><div className="button-row">
+              <details className="research-exports"><summary>导出与链接</summary><div className="button-row">
                 <a
                   className="button button-secondary"
                   href={`/api/v1/analyses/${shown.id}/export?result_ids=${encodeURIComponent(resultIds)}`}
@@ -1059,7 +1052,7 @@ export function AnalysisPage() {
                   onClick={() =>
                     navigator.clipboard
                       .writeText(snapshotUrl.toString())
-                      .then(() => notice({ text: "当前结果版本链接已复制。" }))
+                      .then(() => notice({ text: "研究链接已复制；行情过期后打开会自动重新获取。" }))
                       .catch(() =>
                         notice({
                           text: "无法访问剪贴板，请复制浏览器地址。",
@@ -1135,9 +1128,6 @@ export function AnalysisPage() {
                     ? "目标行情已覆盖"
                     : "部分结果 · 行情尚未完整"
                   : "已保存结果 · 原版本未记录目标覆盖"}
-                {selectedItem?.is_current === false
-                  ? " · 当前输入或计算版本已变化，此处保留该版本"
-                  : ""}
               </span>
               <span>
                 {kind === "earnings" ? "精确反应历史" : "有效"} N={display(data.effective_n)} / 目标{" "}

@@ -24,14 +24,14 @@ from iirp.business_models import (
     EarningsEvent,
     ExportManifest,
     Preferences,
-    PriceDataset,
     RequestReceipt,
     RequestScope,
     Security,
 )
 from iirp.db import session
-from iirp.market_data import MARKETS, coverage_for, digest, latest_dataset, price_bars
+from iirp.market_data import MARKETS, digest
 from iirp.models import ACTIVE, Job, now
+from iirp.price_cache import cache_facts, coverage_for, current_cache, price_bars
 
 ET = ZoneInfo("America/New_York")
 BUSINESS_KINDS = {
@@ -56,7 +56,7 @@ def product_preferences():
 
     normal = profiles()["normal_usage"]
     return {
-        "historical_years": normal["complete_historical_price_years"],
+        "historical_years": normal["price_history_years"],
         "history_months": normal["insider_history_months"],
         "comparison": "same_progress",
         "automatic_history": True,
@@ -217,10 +217,6 @@ def _create(s, params, *, trigger="manual", policy_key=None, parent_id=None):
                 security = Security(symbol=symbol)
                 s.add(security)
                 s.flush()
-            if params.get("purpose") != "insider_window" and kind != "market_quotes":
-                security.maintain = True
-            else:
-                security.active_until = now() + timedelta(days=7)
         s.add(
             RequestScope(
                 batch_id=batch.id,
@@ -944,120 +940,31 @@ def _plan_market(s, scope, batch, capacity):
             scope.status = "RUNNING" if earnings_discovery["discovery_pending"] else "PARTIAL"
             scope.wait_reason = earnings_discovery.get("reason")
             return
+    from iirp.price_cache import ensure_prices, fetch_state
+
+    ensured = ensure_prices(s, scope, security, scope.start_date, scope.end_date)
+    status, reason = fetch_state(ensured)
     coverage = coverage_for(s, security, scope.start_date, scope.end_date)
     scope.checkpoint = {**scope.checkpoint, "acquired_sessions": coverage.get("valid_sessions", 0),
                         "expected_sessions": coverage.get("expected_sessions")}
-    from iirp.analytics.calendar import last_completed_session
-
-    completed = last_completed_session(calendar=security.calendar)
-    all_missing = [date.fromisoformat(x) for x in coverage.get("missing_dates", [])]
-    future_pending = any(day > completed for day in all_missing)
-    missing = [day for day in all_missing if day <= completed]
-    jobs = linked_jobs(s, scope.id)
-    if batch.params.get("intent") == "refresh" and not any(
-        j.kind == "market_history" for j in jobs
-    ):
-        from iirp.analytics.calendar import sessions
-
-        refreshed = sessions(scope.start_date, min(scope.end_date, completed), security.calendar)
-        missing = refreshed if batch.params.get("refresh_all") else refreshed[-10:]
-    pending = s.scalar(
-        select(PriceDataset).where(
-            PriceDataset.security_id == security.id, PriceDataset.status == "BUILDING"
-        )
-    )
-    if pending:
-        from iirp.analytics.calendar import sessions
-        from iirp.business_models import DatasetBar, MarketBar
-
-        acquired = set(
-            s.scalars(
-                select(DatasetBar.session_date)
-                .join(MarketBar, MarketBar.id == DatasetBar.bar_id)
-                .where(DatasetBar.dataset_id == pending.id, MarketBar.status == "VALID")
-            )
-        )
-        missing += [
-            d
-            for d in sessions(
-                date.fromisoformat(pending.manifest["rebase_start"]),
-                date.fromisoformat(pending.manifest["rebase_end"]),
-                security.calendar,
-            )
-            if d not in acquired
-        ]
-    # Share already frozen overlapping work before planning the remaining dates.
-    ongoing = s.scalars(
-        select(Job).where(Job.kind == "market_history", Job.status.in_(ACTIVE))
-    ).all()
-    for job in ongoing:
-        if job.target.get("security_id") == security.id and any(
-            job.target["start_date"] <= str(d) <= job.target["end_date"] for d in missing
-        ):
-            add_job(s, scope, job.kind, job.target)
-            missing = [
-                d
-                for d in missing
-                if not job.target["start_date"] <= str(d) <= job.target["end_date"]
-            ]
-    from iirp.market_ranges import merge_missing_ranges
-
-    for first, last in reversed(merge_missing_ranges(missing, security.calendar)):
-        if capacity[0] <= 0:
-            break
-        target = {
-            "symbol": scope.symbol,
-            "security_id": security.id,
-            "start_date": str(first),
-            "end_date": str(last),
-        }
-        if pending:
-            target["rebase"] = pending.id
-        if batch.params.get("intent") == "refresh":
-            target["refresh"] = batch.request_id
-        job = add_job(s, scope, "market_history", target, 10)
-        capacity[0] -= 1
-    jobs = linked_jobs(s, scope.id)
-    active = [j for j in jobs if j.status in ACTIVE]
-    bad = [j for j in jobs if j.status in ("FAILED", "PARTIAL")]
-    scope.status = (
-        "RUNNING"
-        if active
-        else "READY"
-        if coverage["status"] == "COMPLETE" and not pending
-        else "PARTIAL"
-        if bad
-        else "QUEUED"
-    )
-    scope.wait_reason = bad[-1].error if bad else "历史价格版本正在核对" if pending else None
-    if future_pending and not active and not missing:
-        scope.status, scope.wait_reason = "RETRY_WAIT", "等待未来交易日收盘，不请求未来价格"
     request = s.scalar(select(AnalysisRequest).where(AnalysisRequest.batch_id == batch.id))
     benchmark_reason = None
     if request and request.params.get("benchmark"):
         from iirp.benchmarks import plan_benchmark
 
-        benchmark_reason = plan_benchmark(
-            s, scope, request, [(scope.start_date, min(scope.end_date, completed))], capacity
-        )
-        if any(job.status in ACTIVE for job in linked_jobs(s, scope.id)):
+        benchmark_reason = plan_benchmark(s, scope, request, scope.start_date, scope.end_date)
+    scope.status, scope.wait_reason = status, reason
+    if status == "READY":
+        # Stock results do not wait for a benchmark; a paired result follows.
+        benchmark_fetching = any(j.status in ACTIVE and j.kind in ("market_history", "market_identity")
+                                 for j in linked_jobs(s, scope.id))
+        if benchmark_fetching:
             scope.status = "RUNNING"
         elif benchmark_reason:
-            scope.status = "QUEUED" if capacity[0] <= 0 else "PARTIAL"
-        scope.wait_reason = scope.wait_reason or benchmark_reason
-    computed = _plan_compute(s, scope, batch, security)
-    if computed and coverage["status"] == "COMPLETE" and not pending:
-        # Historical/shared compute work for older inputs belongs to its other
-        # subscribers; it must not hold this request's completed result open.
-        source_active = any(j.status in ACTIVE and j.kind != "research_compute"
-                            for j in linked_jobs(s, scope.id))
-        if source_active:
-            scope.status = "RUNNING"
-        elif benchmark_reason:
-            scope.status = "QUEUED" if capacity[0] <= 0 else "PARTIAL"
-        else:
-            scope.status = "READY"
-            scope.wait_reason = None
+            scope.status, scope.wait_reason = "PARTIAL", benchmark_reason
+        if _plan_compute(s, scope, batch, security) and not benchmark_fetching:
+            scope.status = "PARTIAL" if benchmark_reason else "READY"
+            scope.wait_reason = benchmark_reason
     if earnings_discovery:
         if earnings_discovery["discovery_pending"]:
             scope.status = "RUNNING"
@@ -1070,7 +977,7 @@ def _plan_compute(s, scope, batch, security, *, cache_only=False):
     from iirp.benchmarks import benchmark_snapshot
 
     request = s.scalar(select(AnalysisRequest).where(AnalysisRequest.batch_id == batch.id))
-    dataset = latest_dataset(s, security.id)
+    dataset = current_cache(s, security.id)
     if not request or not dataset:
         return
     events = (
@@ -1467,16 +1374,12 @@ def _plan_batch(s, batch, capacity, latest_capacity, document_link_capacity):
 def analysis_view(s, request, result_ids=""):
     from iirp.research_freshness import freshness
 
+    # Results live as long as the price caches they used (D14).
     results = s.execute(
-        select(
-            AnalysisResult.id,
-            AnalysisResult.security_id,
-            AnalysisResult.input_key,
-            AnalysisResult.created_at,
-            PriceDataset.published_at,
-        )
-        .outerjoin(PriceDataset, PriceDataset.id == AnalysisResult.inputs["dataset_id"].astext)
-        .where(AnalysisResult.analysis_id == request.id)
+        select(AnalysisResult.id, AnalysisResult.security_id, AnalysisResult.input_key,
+               AnalysisResult.created_at, AnalysisResult.expires_at)
+        .where(AnalysisResult.analysis_id == request.id,
+               AnalysisResult.expires_at.is_(None) | (AnalysisResult.expires_at > now()))
         .order_by(AnalysisResult.created_at.desc())
     ).all()
     versions = [
@@ -1486,51 +1389,29 @@ def analysis_view(s, request, result_ids=""):
     if result_ids:
         requested = set(result_ids.split(","))
         if not requested.issubset({r.id for r in results}):
-            raise LookupError("所选冻结结果已不存在或不属于这项研究；可从最近研究查看其他保留版本")
+            raise LookupError("所选结果已过期或不属于这项研究；请重新获取")
         results = [r for r in results if r.id in requested]
         if len({r.security_id for r in results}) != len(results):
-            raise ValueError("每只证券请选择一个结果版本")
+            raise ValueError("每只证券请选择一个结果")
     chosen = {}
     for security_id in dict.fromkeys(r.security_id for r in results):
         security = s.get(Security, security_id)
-        dataset = latest_dataset(s, security_id)
-        events = (
-            s.scalars(select(EarningsEvent).where(EarningsEvent.security_id == security_id)).all()
-            if request.params["kind"] == "earnings"
-            else []
-        )
-        current_key = research_input_key(request, dataset, events, security) if dataset else None
-        candidates = [r for r in results if r.security_id == security_id]
-
-        def rank(result):
-            return (
-                result.input_key == current_key,
-                result.published_at or result.created_at,
-                result.created_at,
-                result.id,
-            )
-
-        result = s.get(AnalysisResult, max(candidates, key=rank).id)
-        coverage = result.inputs.get("coverage")
-        coverage_basis = "recorded" if coverage else "unknown"
-        if not coverage and not result.inputs.get("carried_from"):
-            from iirp.research_pipeline import frozen_coverage
-            frozen_dataset = s.get(PriceDataset, result.inputs.get("dataset_id")) if result.inputs.get("dataset_id") else None
-            if frozen_dataset:
-                coverage = frozen_coverage(s, request, security, frozen_dataset)
-                coverage_basis = "rechecked_frozen_dataset" if coverage else "unknown"
+        # Every unexpired result is current data; show the newest one.
+        best = max((r for r in results if r.security_id == security_id),
+                   key=lambda r: (r.created_at, r.id))
+        result = s.get(AnalysisResult, best.id)
         chosen[security_id] = {
             "symbol": security.symbol,
             "security_id": security.id,
             "result_id": result.id,
             "input_version": result.input_key,
             "created_at": result.created_at,
-            "data_published_at": next((r.published_at for r in candidates if r.id == result.id), None),
-            "is_current": result.input_key == current_key,
-            "coverage": coverage,
-            "coverage_basis": coverage_basis,
+            "data_published_at": result.inputs.get("price_fetched_at"),
+            "expires_at": result.expires_at,
+            "is_current": True,
+            "coverage": result.inputs.get("coverage"),
+            "coverage_basis": "recorded" if result.inputs.get("coverage") else "unknown",
             "result_cutoff": result.inputs.get("params", request.params).get("cutoff_date"),
-            "carried_from": result.inputs.get("carried_from"),
             "data": result.data,
         }
     batch = s.get(Batch, request.batch_id)
@@ -1799,7 +1680,6 @@ def get_coverage(ticker="", security_id="", start_date="", end_date=""):
                     "security_id": sec.id,
                     "symbol": sec.symbol,
                     "name": sec.name,
-                    "maintain": sec.maintain,
                     "coverage": coverage_for(s, sec, start, end),
                     "price_range": target,
                 }
@@ -1829,18 +1709,6 @@ def preview_price_range(historical_years=None, start_date=None, end_date=None, a
             params["analysis_params"] = effective
             bounds = plan_scope(effective, today=last_completed_session(as_of=stamp))
         return price_range(params, stamp, collection=bounds)
-
-
-def maintain_security(security_id, enabled):
-    with session() as s, s.begin():
-        security = s.get(Security, security_id, with_for_update=True)
-        if not security:
-            raise LookupError("证券不存在")
-        security.maintain = enabled
-        return {
-            "items": [],
-            "data": {"security_id": security.id, "maintain": enabled, "history_preserved": True},
-        }
 
 
 def entity_history(
@@ -1891,7 +1759,7 @@ def resolve_amendment(relation_id, action, original_event_id, evidence):
         return sec_facts.resolve_amendment(s, relation_id, action, original_event_id, evidence)
 
 
-def transaction_detail(transaction_id, mapping_version=None, dataset_id=None, cutoff_date=None):
+def transaction_detail(transaction_id, mapping_version=None, cutoff_date=None):
     from iirp import sec_facts
     from iirp.analytics.research import transaction_price_context
 
@@ -1938,24 +1806,19 @@ def transaction_detail(transaction_id, mapping_version=None, dataset_id=None, cu
         if sec and sec.status == "VERIFIED" and sec.issuer_id == event.issuer_id:
             record["security_id"] = sec.id
             record["security_mapping"] = mapping
-            bars, dataset = price_bars(s, sec.id, dataset_id)
-            if dataset_id and (dataset is None or dataset.security_id != sec.id):
-                raise ValueError("指定行情版本不属于这项证券对应关系")
+            bars, cache = price_bars(s, sec.id)
             if record.get("transaction_date") and record.get("accepted_at"):
                 observation_date = date.fromisoformat(cutoff_date) if cutoff_date else None
                 context = transaction_price_context(
                     bars, record["transaction_date"], record["accepted_at"],
                     today=observation_date, calendar=sec.calendar,
                 )
-                context["dataset_id"] = dataset.id if dataset else None
                 context["mapping_version"] = record["mapping_version"]
                 context["security_id"] = sec.id
-                context["source"] = dataset.manifest.get("provider") if dataset else None
-                context["data_version"] = dataset.id if dataset else None
-                context["price_basis"] = dataset.basis if dataset else "UNVERIFIED_PROVIDER_RECORDS"
-                context["as_of"] = (
-                    dataset.published_at.isoformat() if dataset and dataset.published_at else None
-                )
+                context["source"] = cache.provider if cache else None
+                context["price_basis"] = "SPLIT_ONLY" if cache else "UNVERIFIED_PROVIDER_RECORDS"
+                context["as_of"] = cache.fetched_at.isoformat() if cache else None
+                context.update(cache_facts(cache))
 
         if record.get("transaction_date") and record.get("accepted_at"):
             accepted = datetime.fromisoformat(record["accepted_at"]).astimezone(ET).date()
@@ -1973,8 +1836,8 @@ def market_detail(symbol):
         security = s.scalar(
             select(Security).where(Security.symbol == symbol).order_by(Security.id).limit(1)
         )
-        bars, dataset = price_bars(s, security.id) if security else ([], None)
-        use_dataset = bool(dataset and dataset.basis == "SPLIT_ONLY")
+        bars, cache = price_bars(s, security.id) if security else ([], None)
+        use_dataset = cache is not None
         records = (
             bars[-60:] if use_dataset else quote.data.get("records", [])[-60:] if quote else []
         )
@@ -1987,13 +1850,11 @@ def market_detail(symbol):
             data.update(
                 chart_start=records[0]["date"],
                 chart_end=records[-1]["date"],
-                chart_dataset_id=dataset.id if use_dataset else None,
-                chart_source=dataset.manifest.get("provider")
-                if use_dataset
-                else data.get("source"),
-                chart_basis="仅拆股调整，不含分红再投资" if use_dataset else "供应商日线原始口径，未作为研究复权价格核验",
+                chart_source=cache.provider if use_dataset else data.get("source"),
+                chart_basis="仅拆股调整，不含分红再投资" if use_dataset else "供应商日线原始口径",
                 chart_intraday=False,
-                chart_note="日线序列，当日数据可能尚未收盘；不是分时走势" if not use_dataset else "已核验研究日线",
+                chart_note="日线序列，当日数据可能尚未收盘；不是分时走势" if not use_dataset else "研究日线（24 小时缓存）",
+                **(cache_facts(cache) if use_dataset else {}),
             )
         return {
             "items": records,

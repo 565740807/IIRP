@@ -15,6 +15,7 @@ from test_lifecycle import (  # noqa: F401
     clean_lifecycle,
     collection,
     lifecycle_database,
+    refetch_prices,
     seed_prices,
     seed_security,
 )
@@ -35,18 +36,25 @@ def params(**values):
     ).model_dump(mode="json")
 
 
-def test_contiguous_eight_year_scope_uses_one_bounded_download():
+def today_et():
+    from iirp.analytics.calendar import ET
+    from iirp.models import now
+
+    return now().astimezone(ET).date()
+
+
+def test_contiguous_eight_year_scope_uses_one_download_with_a_month_of_buffer():
     seed_security()
     lifecycle.create_collection(collection(start_date="2017-12-29", end_date="2026-09-14"))
     lifecycle.plan_tick()
     with session() as s:
         jobs = s.scalars(select(Job).where(Job.kind == "market_history")).all()
         assert len(jobs) == 1
-        assert jobs[0].target["start_date"] == "2017-12-29"
-        assert jobs[0].target["end_date"] == "2026-09-14"
+        assert jobs[0].target["start_date"] == "2017-11-28"
+        assert jobs[0].target["end_date"] == str(today_et())
 
 
-def test_only_missing_contiguous_sessions_are_requested_across_year_boundary():
+def test_a_need_outside_the_cache_fetches_the_union_once():
     security = seed_security()
     seed_prices(security, date(2022, 12, 28), date(2022, 12, 29))
     lifecycle.create_collection(collection(start_date="2022-12-28", end_date="2023-01-05"))
@@ -54,20 +62,20 @@ def test_only_missing_contiguous_sessions_are_requested_across_year_boundary():
     with session() as s:
         jobs = s.scalars(select(Job).where(Job.kind == "market_history")).all()
         assert [(j.target["start_date"], j.target["end_date"]) for j in jobs] == [
-            ("2022-12-30", "2023-01-05")
+            ("2022-11-27", str(today_et()))
         ]
 
 
-def test_latest_not_started_compute_replaces_older_queued_version():
+def test_refetch_replaces_the_not_started_compute_input():
     security = seed_security()
-    first = seed_prices(security, date(2023, 1, 3), date(2023, 1, 5))
+    first = seed_prices(security, date(2023, 1, 3), date(2023, 1, 5), wide=True)
     lifecycle.create_analysis(params())
     lifecycle.plan_tick()
     with session() as s:
         initial = s.scalar(select(Job).where(Job.kind == "research_compute"))
         initial_id = initial.id
         assert initial.target["dataset_id"] == first
-    latest = seed_prices(security, date(2023, 1, 6), date(2023, 1, 10))
+    latest = refetch_prices(security, date(2023, 1, 6), date(2023, 1, 10))
     lifecycle.plan_tick()
     with session() as s:
         queued = s.scalars(
@@ -94,7 +102,7 @@ def finish_compute():
 
 def test_identical_valid_inputs_reuse_result_without_new_compute_or_download():
     security = seed_security()
-    seed_prices(security, date(2022, 12, 1), date(2024, 12, 31))
+    seed_prices(security, date(2022, 12, 1), date(2024, 12, 31), wide=True)
     original = lifecycle.create_analysis(params())
     lifecycle.plan_tick()
     finish_compute()
@@ -119,29 +127,16 @@ def test_identical_valid_inputs_reuse_result_without_new_compute_or_download():
     )
 
 
-def extend_prices(security, old, first, last):
-    from iirp.business_models import DatasetBar
-    from sqlalchemy import insert
-
-    latest = seed_prices(security, first, last)
-    with session() as s, s.begin():
-        for day, bar in s.execute(
-            select(DatasetBar.session_date, DatasetBar.bar_id).where(DatasetBar.dataset_id == old)
-        ):
-            s.execute(insert(DatasetBar).values(dataset_id=latest, session_date=day, bar_id=bar))
-    return latest
-
-
 def test_execution_precheck_skips_obsolete_input_before_preparation(monkeypatch):
     from iirp import business_worker
 
     security = seed_security()
-    old = seed_prices(security, date(2023, 1, 3), date(2023, 1, 5))
+    seed_prices(security, date(2023, 1, 3), date(2023, 1, 5), wide=True)
     lifecycle.create_analysis(params())
     lifecycle.plan_tick()
     job = claim({"research_compute"})
     assert job
-    extend_prices(security, old, date(2023, 1, 6), date(2023, 1, 10))
+    refetch_prices(security, date(2023, 1, 6), date(2023, 1, 10))
 
     def forbidden(_):
         raise AssertionError("obsolete computation must never load bars or start a child")
@@ -152,46 +147,9 @@ def test_execution_precheck_skips_obsolete_input_before_preparation(monkeypatch)
         assert s.get(Job, job.id).result["skipped_before_compute"] is True
 
 
-def test_safe_partial_publication_survives_added_prices_and_keeps_frozen_coverage():
-    from iirp.business_worker import _persist, prepare_target
-    from iirp.operations import operation
-
-    security = seed_security()
-    old = seed_prices(security, date(2023, 1, 3), date(2023, 1, 5))
-    request = lifecycle.create_analysis(params())
-    lifecycle.plan_tick()
-    job = claim({"research_compute"})
-    assert job
-    response = operation(job.kind, prepare_target(job))
-    latest = extend_prices(security, old, date(2023, 1, 6), date(2023, 1, 10))
-    source = save_object(b"synthetic partial immutable output")
-    assert fenced(
-        job, source=source, business_write=lambda s, j: _persist(s, j, response, {}, source)
-    )
-    view = lifecycle.get_analysis(request["id"])
-    assert len(view["results"]) == 1
-    result = view["results"][0]
-    assert result["data"]["metadata"]["dataset_id"] == old
-    assert result["coverage"]["valid_sessions"] == 3
-    assert result["coverage"]["complete"] is False
-    assert result["is_current"] is False
-    lifecycle.plan_tick()
-    with session() as s:
-        assert (
-            s.scalar(
-                select(Job).where(Job.kind == "research_compute", Job.status == "QUEUED")
-            ).target["dataset_id"]
-            == latest
-        )
-    assert (
-        lifecycle.get_analysis(request["id"], result["result_id"])["results"][0]["data"]
-        == result["data"]
-    )
-
-
 def test_changed_research_conditions_do_not_reuse_previous_result():
     security = seed_security()
-    seed_prices(security, date(2022, 12, 1), date(2024, 12, 31))
+    seed_prices(security, date(2022, 12, 1), date(2024, 12, 31), wide=True)
     lifecycle.create_analysis(params())
     lifecycle.plan_tick()
     finish_compute()
@@ -209,29 +167,16 @@ def test_changed_research_conditions_do_not_reuse_previous_result():
         )
 
 
-def test_timeout_splits_failed_scope_and_preserves_shared_subscriptions():
+def test_two_demands_for_the_same_prices_share_one_fetch():
     from iirp.business_models import BatchJob, RequestScope
-    from iirp.business_worker import split_market_failure
 
     seed_security()
     first = lifecycle.create_collection(collection(start_date="2020-01-01", end_date="2024-12-31"))
     second = lifecycle.create_collection(collection(start_date="2020-01-01", end_date="2024-12-31"))
     lifecycle.plan_tick()
-    job = claim({"market_history"})
-    assert job
-    assert not split_market_failure(job, {"error_type": "YFRateLimitError", "status_code": 429})
-    assert split_market_failure(job, {"error_type": "ReadTimeout"})
     with session() as s:
-        children = s.get(Job, job.id).result["split_children"]
-        assert len(children) == 2
-        targets = sorted([s.get(Job, i).target for i in children], key=lambda x: x["start_date"])
-        assert targets[0]["start_date"] == "2020-01-02"  # actual first session
-        assert targets[1]["end_date"] == "2024-12-31"
-        from datetime import timedelta
-
-        assert date.fromisoformat(targets[0]["end_date"]) + timedelta(days=1) == date.fromisoformat(
-            targets[1]["start_date"]
-        )
+        jobs = s.scalars(select(Job).where(Job.kind == "market_history")).all()
+        assert len(jobs) == 1
         for batch in (first, second):
             linked = set(
                 s.scalars(
@@ -240,7 +185,7 @@ def test_timeout_splits_failed_scope_and_preserves_shared_subscriptions():
                     .where(RequestScope.batch_id == batch["batch_id"])
                 )
             )
-            assert set(children) <= linked
+            assert linked == {jobs[0].id}
 
 
 def test_warm_child_reuse_crash_recovery_deadline_and_control():
@@ -304,7 +249,7 @@ def test_calendar_change_does_not_reuse_legacy_or_current_result():
     from iirp.business_models import Security
 
     security = seed_security()
-    seed_prices(security, date(2022, 12, 1), date(2024, 12, 31))
+    seed_prices(security, date(2022, 12, 1), date(2024, 12, 31), wide=True)
     lifecycle.create_analysis(params())
     lifecycle.plan_tick()
     finish_compute()
@@ -313,41 +258,39 @@ def test_calendar_change_does_not_reuse_legacy_or_current_result():
     assert not lifecycle.create_analysis(params())["results"]
 
 
-def test_benchmark_identity_arrival_keeps_stock_partial_but_never_replaces_newer_benchmark():
+def test_results_publish_only_for_the_current_stock_and_benchmark_caches():
     from iirp.benchmarks import benchmark_snapshot
-    from iirp.business_models import AnalysisRequest, PriceDataset, Security
+    from iirp.business_models import AnalysisRequest, PriceCache, Security
     from iirp.research_pipeline import safe_publication
 
     stock_id = seed_security()
-    stock_data = seed_prices(stock_id, date(2023, 1, 3), date(2023, 1, 5))
+    stock_data = seed_prices(stock_id, date(2023, 1, 3), date(2023, 1, 5), wide=True)
     view = lifecycle.create_analysis(params(benchmark="^GSPC"))
-    with session() as s:
-        request, stock, data = s.get(AnalysisRequest, view["id"]), s.get(Security, stock_id), s.get(PriceDataset, stock_data)
-        pending = benchmark_snapshot(request.params, stock, s)
-        target = {"dataset_id": stock_data, "benchmark": pending,
-                  "input_key": lifecycle.research_input_key(request, data, [], stock, pending)}
+
+    def target_now():
+        with session() as s:
+            request, stock, data = s.get(AnalysisRequest, view["id"]), s.get(Security, stock_id), s.get(PriceCache, stock_data)
+            snapshot = benchmark_snapshot(request.params, stock, s)
+            return {"dataset_id": stock_data, "benchmark": snapshot,
+                    "input_key": lifecycle.research_input_key(request, data, [], stock, snapshot)}
+
+    def publishable(target):
+        with session() as s:
+            request, stock, data = s.get(AnalysisRequest, view["id"]), s.get(Security, stock_id), s.get(PriceCache, stock_data)
+            return safe_publication(s, request, stock, target, data, [])
+
+    stock_only = target_now()
+    assert publishable(stock_only)
     benchmark_id = seed_security("^GSPC")
     with session() as s, s.begin():
         s.get(Security, benchmark_id).instrument = "INDEX"
-    old_benchmark_id = seed_prices(benchmark_id, date(2023, 1, 3), date(2023, 1, 5))
-    with session() as s, s.begin():
-        request, stock, data = s.get(AnalysisRequest, view["id"]), s.get(Security, stock_id), s.get(PriceDataset, stock_data)
-        assert safe_publication(s, request, stock, target, data, [])
-        current = benchmark_snapshot(request.params, stock, s)
-        old_target = {"dataset_id": stock_data, "benchmark": current,
-                      "input_key": lifecycle.research_input_key(request, data, [], stock, current)}
-    new_benchmark_id = extend_prices(benchmark_id, old_benchmark_id, date(2023, 1, 6), date(2023, 1, 10))
-    with session() as s, s.begin():
-        request, stock, data = s.get(AnalysisRequest, view["id"]), s.get(Security, stock_id), s.get(PriceDataset, stock_data)
-        assert safe_publication(s, request, stock, old_target, data, [])
-        current = benchmark_snapshot(request.params, stock, s)
-        assert current["dataset_id"] == new_benchmark_id
-        s.add(AnalysisResult(analysis_id=request.id, security_id=stock_id,
-                            input_key=lifecycle.research_input_key(request, data, [], stock, current),
-                            inputs={"dataset_id": stock_data, "benchmark": current}, data={}))
-        s.flush()
-        assert not safe_publication(s, request, stock, old_target, data, [])
-        assert not safe_publication(s, request, stock, target, data, [])
+    seed_prices(benchmark_id, date(2023, 1, 3), date(2023, 1, 5), wide=True)
+    paired = target_now()
+    assert paired["benchmark"]["status"] == "available"
+    # The benchmark arrived: a stock-only computation is recomputed with it.
+    assert not publishable(stock_only) and publishable(paired)
+    refetch_prices(benchmark_id, date(2023, 1, 6), date(2023, 1, 10))
+    assert not publishable(paired)
 
 
 def test_input_facts_and_calculation_version_invalidate_cache(monkeypatch):

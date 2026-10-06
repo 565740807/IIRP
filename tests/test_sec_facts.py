@@ -619,7 +619,9 @@ def test_refresh_reserves_bounded_recheck_while_first_downloads_advance():
         assert scope.checkpoint["remaining_rechecks"] == 1
 
 
-def test_list_snapshots_omit_source_payload_but_transaction_detail_keeps_it():
+def test_facts_reference_the_saved_filing_instead_of_copying_its_xml():
+    from iirp.business_models import FilingVersion, TransactionEvent
+    from iirp.models import SourceObject
     from iirp.sec_facts import transaction_record
 
     with session() as s, s.begin():
@@ -628,6 +630,13 @@ def test_list_snapshots_omit_source_payload_but_transaction_detail_keeps_it():
         row = group["transactions"][0]
         assert "raw_xml" not in row and "footnotes" not in row
         detail = transaction_record(s, row["id"])
-        assert "raw_xml" in detail and "footnotes" in detail
+        assert "raw_xml" not in detail and "footnotes" in detail
+        assert detail["xml_sha256"] and detail["source_documents"]
+        assert all(s.get(SourceObject, doc["sha256"]) for doc in detail["source_documents"])
+        assert all("raw_xml" not in event.data for event in s.scalars(select(TransactionEvent)))
+        for version in s.scalars(select(FilingVersion)):
+            assert "raw_xml" not in version.data
+            assert "xml_payload" not in version.data["source_metadata"]
+            assert all("raw_xml" not in item for item in version.data["rows"])
         history = entity_history(s, "company", "123")
         assert all("raw_xml" not in item and "footnotes" not in item for item in history["items"])

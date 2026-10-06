@@ -51,13 +51,8 @@ def test_csv_cannot_overwrite_existing_verified_fiscal_period_or_release_time():
         assert event.evidence[-1]["candidate"]["fiscal_quarter"] == 1
 
 
-def test_duplicate_csv_keeps_one_candidate_observation_and_preview_does_not_read_prices(monkeypatch):
-    from iirp import imports
-
+def test_duplicate_csv_keeps_one_candidate_observation():
     security()
-    def no_price_scan(*args, **kwargs):
-        raise AssertionError("Earnings CSV preview must not scan the stock price dataset")
-    monkeypatch.setattr(imports, "price_bars", no_price_scan)
     first = preview(values(CSV, kind="earnings"))
     complete(first)
     with session() as s:

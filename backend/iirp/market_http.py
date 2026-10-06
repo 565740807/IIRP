@@ -41,8 +41,9 @@ class HttpTiming:
 
 @lru_cache(maxsize=1)
 def timed_session():
-    # Use the pinned provider's default factory so TLS, proxy and fallback
-    # behavior are identical. Ticker's public session parameter supplies it.
-    from yfinance._http import new_session
+    # yfinance documents passing a curl_cffi browser-impersonating session
+    # through Ticker's public ``session`` parameter; curl_cffi is its own
+    # dependency. No private yfinance module is used.
+    from curl_cffi import requests
 
-    return HttpTiming(new_session())
+    return HttpTiming(requests.Session(impersonate="chrome"))

@@ -166,7 +166,8 @@ def collect_finished(futures):
 
 
 def housekeeping():
-    """Expired discovery sources and the daily exact storage check, off the main loop."""
+    """Expired sources, price caches and results, and the daily exact storage check."""
+    from iirp.price_cache import expire_price_cache
     from iirp.storage import expire_sources
     from iirp.storage_inventory import exact_tick
 
@@ -176,6 +177,12 @@ def housekeeping():
             logging.info("expired sources removed objects=%s bytes=%s", removed["objects"], removed["bytes"])
     except Exception as exc:
         logging.exception("source expiry failed type=%s", type(exc).__name__)
+    try:
+        removed = expire_price_cache()
+        if removed.get("price_caches") or removed.get("analysis_results"):
+            logging.info("expired price caches=%s results=%s", removed["price_caches"], removed["analysis_results"])
+    except Exception as exc:
+        logging.exception("price cache expiry failed type=%s", type(exc).__name__)
     try:
         exact_tick()
     except Exception as exc:

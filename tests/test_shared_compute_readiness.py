@@ -101,9 +101,9 @@ def test_completed_stock_result_preserves_a_persisted_future_scope(monkeypatch):
     finish_compute()
     with session() as s:
         scope = s.scalar(select(RequestScope).where(RequestScope.batch_id == created["batch_id"]))
-        assert scope.status == "RETRY_WAIT"
-        assert scope.wait_reason == "等待未来交易日收盘，不请求未来价格"
-        assert s.get(Batch, created["batch_id"]).status == "RUNNING"
+        # Sessions that have not closed are not fetched; the result is ready.
+        assert scope.status == "READY"
+        assert s.get(Batch, created["batch_id"]).status == "SUCCEEDED"
         assert s.scalar(select(AnalysisResult.id).where(AnalysisResult.analysis_id == created["id"]))
         assert s.scalar(select(Job.id).where(Job.kind == "market_history")) is None
         computations = s.scalars(select(Job).where(Job.kind == "research_compute")).all()

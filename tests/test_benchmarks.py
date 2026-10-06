@@ -12,17 +12,14 @@ from iirp.business_models import (
     AnalysisRequest,
     AnalysisResult,
     BatchJob,
-    DatasetBar,
-    MarketBar,
-    PriceDataset,
     RequestScope,
     Security,
 )
 from iirp.business_worker import _persist, prepare_target
 from iirp.contracts import AnalysisInput
 from iirp.db import session
-from iirp.market_data import latest_dataset, resolve_metadata
-from iirp.models import Job, now
+from iirp.market_data import resolve_metadata
+from iirp.models import Job
 from iirp.operations import operation
 from iirp.queue import claim, fenced
 from iirp.storage import save_object
@@ -31,6 +28,7 @@ from test_event_service import analysis, plan, saved
 from test_lifecycle import (  # noqa: F401
     clean_lifecycle,
     lifecycle_database,
+    refetch_prices,
     seed_prices,
     seed_security,
 )
@@ -42,7 +40,7 @@ def baseline(symbol="^IXIC", prices=True):
         security = s.get(Security, identifier)
         security.instrument = "INDEX" if symbol.startswith("^") else "ETF"
     if prices:
-        seed_prices(identifier, date(2022, 12, 1), date(2025, 1, 1))
+        seed_prices(identifier, date(2022, 12, 1), date(2025, 1, 1), wide=True)
     return identifier
 
 
@@ -58,26 +56,6 @@ def publish(lease):
     return payload
 
 
-def next_version(identifier, revise=False):
-    # A newly published manifest can reuse immutable bar revisions.
-    with session() as s, s.begin():
-        prior = latest_dataset(s, identifier)
-        output = PriceDataset(security_id=identifier, basis="SPLIT_ONLY", basis_key="synthetic", status="PUBLISHED", manifest={"synthetic": True}, published_at=now())
-        s.add(output)
-        s.flush()
-        for row in s.scalars(select(DatasetBar).where(DatasetBar.dataset_id == prior.id)):
-            bar = s.get(MarketBar, row.bar_id)
-            if revise and row.session_date == date(2024, 1, 4):
-                bar = MarketBar(security_id=bar.security_id, session_date=bar.session_date,
-                    provider=bar.provider, source_hash=bar.source_hash, record_hash=uuid.uuid4().hex,
-                    open=bar.open, high=bar.high + 1, low=bar.low, close=bar.close + 1,
-                    adj_close=bar.adj_close, volume=bar.volume, status=bar.status, reason=bar.reason)
-                s.add(bar)
-                s.flush()
-            s.add(DatasetBar(dataset_id=output.id, session_date=row.session_date, bar_id=bar.id))
-        return output.id
-
-
 def test_index_identity_contract_is_specific_to_composite_and_sp500():
     for symbol in ("^IXIC", "^GSPC", "^VIX"):
         identifier = seed_security(symbol)
@@ -88,32 +66,24 @@ def test_index_identity_contract_is_specific_to_composite_and_sp500():
             assert security.status == ("VERIFIED_MARKET" if symbol == "^VIX" else "VERIFIED")
 
 
-def test_only_benchmark_update_rejects_old_worker_and_preserves_frozen_exports():
+def test_benchmark_refetch_rejects_old_worker_and_keeps_earlier_result_readable():
     stock = seed_security()
-    seed_prices(stock, date(2022, 12, 1), date(2024, 1, 31))
+    seed_prices(stock, date(2022, 12, 1), date(2024, 1, 31), wide=True)
     other = baseline()
     created = research()
     lifecycle.plan_tick()
     first = claim({"research_compute"})
     publish(first)
     original = lifecycle.get_analysis(created["id"])["results"][0]
-    # Publishing unchanged revisions is provenance, not a changed input.
-    next_version(other)
-    unchanged = lifecycle.get_analysis(created["id"])["results"][0]
-    assert unchanged["is_current"]
-    assert unchanged["result_id"] == original["result_id"]
+    assert original["is_current"] and original["expires_at"]
     assert claim({"research_compute"}) is None
-    # A real in-window benchmark close correction changes paired calculations.
-    b2 = next_version(other, revise=True)
+    # A new benchmark fetch is a new input; the running computation is stale.
+    b2 = refetch_prices(other, date(2024, 1, 4), date(2024, 1, 4), close=101)
     lifecycle.plan_tick()
     second = claim({"research_compute"})
     assert second.target["benchmark"]["dataset_id"] == b2
     prepared = operation("research_compute", prepare_target(second))
-    b3 = next_version(other)
-    # A corrected adjustment basis is incompatible. Pure additions/reused bar
-    # revisions now safely publish partial output (covered by pipeline tests).
-    with session() as s, s.begin():
-        s.get(PriceDataset, b3).basis_key = "synthetic-corrected-adjustment-basis"
+    b3 = refetch_prices(other, date(2024, 1, 5), date(2024, 1, 5), close=102)
     source = save_object(json.dumps(prepared).encode())
     assert fenced(second, source=source, business_write=lambda s, j: _persist(s, j, prepared, {}, source))
     with session() as s:
@@ -124,15 +94,15 @@ def test_only_benchmark_update_rejects_old_worker_and_preserves_frozen_exports()
     publish(third)
     current = lifecycle.get_analysis(created["id"])
     assert current["results"][0]["input_version"] != original["input_version"]
-    frozen = lifecycle.get_analysis(created["id"], original["result_id"])["results"][0]
-    assert frozen["input_version"] == original["input_version"]
+    earlier = lifecycle.get_analysis(created["id"], original["result_id"])["results"][0]
+    assert earlier["input_version"] == original["input_version"]
     exported = list(csv.DictReader(io.StringIO(lifecycle.export_analysis(created["id"], original["result_id"]).lstrip("\ufeff"))))
     assert {r["result_id"] for r in exported} == {original["result_id"]}
     assert "distribution" in {r["record_type"] for r in exported}
     assert json.loads(next(r for r in exported if r["record_type"] == "benchmark")["data"])["dataset_id"] == original["data"]["benchmark"]["dataset_id"]
 
 
-def test_event_benchmark_capacity_wait_resumes_and_shared_download_controls():
+def test_event_benchmark_download_is_shared_and_follows_controls():
     collection = saved()
     stock = collection["security_id"] if "security_id" in collection else None
     if not stock:
@@ -141,8 +111,6 @@ def test_event_benchmark_capacity_wait_resumes_and_shared_download_controls():
     seed_prices(stock, date(2022, 1, 1), date(2025, 1, 1))
     other = baseline(prices=False)
     first = analysis(collection, benchmark="^IXIC")
-    status, _, _ = plan(first["analysis_id"], 0)
-    assert status == "QUEUED"
     assert plan(first["analysis_id"], 32)[0] == "RUNNING"
     second = analysis(collection, benchmark="^IXIC")
     plan(second["analysis_id"], 32)

@@ -285,8 +285,8 @@ def test_legacy_partial_journal_remains_compatible(isolated_files):
 @pytest.mark.parametrize("collision", ["empty-target", "linked-parent"])
 def test_retention_refuses_existing_trash_namespace(isolated_files, monkeypatch, collision):
     root = isolated_files / "backups"
-    keep, retired = root / "keep", root / "retired"
-    for path in (keep, retired):
+    keep, newer, retired = root / "keep", root / "newer", root / "retired"
+    for path in (keep, newer, retired):
         path.mkdir(parents=True)
         (path / "manifest.json").write_text("retained source")
     trash_parent = root / (".trash-" + "a" * 32)
@@ -297,7 +297,8 @@ def test_retention_refuses_existing_trash_namespace(isolated_files, monkeypatch,
         external.mkdir()
         trash_parent.symlink_to(external, target_is_directory=True)
     stamp = datetime.now(timezone.utc)
-    monkeypatch.setattr(backup, "completed_backups", lambda: [(stamp, keep, {}), (stamp, retired, {})])
+    monkeypatch.setattr(backup, "completed_backups",
+                        lambda: [(stamp, newer, {}), (stamp, keep, {}), (stamp, retired, {})])
     monkeypatch.setattr(backup, "backup_integrity", lambda _entry: True)
     monkeypatch.setattr(backup, "verified_timestamp", lambda _entry: stamp)
     with pytest.raises(FileExistsError if collision == "empty-target" else ValueError):
