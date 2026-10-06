@@ -21,7 +21,7 @@ IIRP 是一个在本机运行的美股投资研究工具，面向电脑浏览器
 
 ## 快速开始（Docker Compose）
 
-需要 Linux、Docker Engine 与 Compose v2。详细说明见[安装说明](deploy/README.zh-CN.md)。
+需要 Docker（Linux 用 Docker Engine 与 Compose v2，macOS 用 Docker Desktop；Windows 请在 WSL2 中运行）和 Python 3（`./iirp` 入口只用标准库）。所有服务、测试和开发工具都在容器里运行，本机不需要安装 PostgreSQL、Node 或 Python 依赖。详细说明见[安装说明](deploy/README.zh-CN.md)。
 
 ```sh
 git clone <本仓库地址> iirp && cd iirp

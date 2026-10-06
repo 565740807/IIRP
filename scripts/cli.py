@@ -1,4 +1,4 @@
-"""Linux development and service entry points, isolated from Mac tooling."""
+"""Implementation of ./iirp: services, tests and dev tools via Docker Compose (Linux and macOS)."""
 
 import argparse
 import hashlib
@@ -49,26 +49,11 @@ def compose():
         "-f",
         str(ROOT / "deploy/compose.yaml"),
     ]
-    if identity := os.environ.get("IIRP_VALIDATION_ID"):
-        if project == "iirp2" or not re.fullmatch(r"[a-f0-9]{32}", identity):
-            raise SystemExit("Validation requires an isolated project and a random 32-hex identity")
-        command += ["-f", str(ROOT / "deploy/validation.compose.yaml")]
     return command
 
 
 def run(args):
     return subprocess.run([str(value) for value in args], cwd=ROOT, check=True)
-
-
-def validation_labels():
-    if not os.environ.get("IIRP_VALIDATION_ID"):
-        return []
-    return [
-        "--label",
-        "iirp.validation=" + os.environ["IIRP_VALIDATION_ID"],
-        "--label",
-        "iirp.validation.project=" + os.environ["IIRP_COMPOSE_PROJECT"],
-    ]
 
 
 def backend(command):
@@ -78,8 +63,6 @@ def backend(command):
     port = os.environ.get("IIRP_DEV_HTTP_PORT")
     if port and (not port.isdigit() or not 1024 <= int(port) <= 65535):
         raise SystemExit("IIRP_DEV_HTTP_PORT 必须是1024—65535的本地端口")
-    if port == "18081" and os.environ.get("IIRP_VALIDATION_ID"):
-        raise SystemExit("Synthetic validation refuses original service port 18081")
     ports = ["-p", f"127.0.0.1:{port}:{port}"] if port else []
     return run(
         compose()
@@ -143,11 +126,10 @@ def isolated_tests(command):
     name = "iirp-check-" + secrets.token_hex(6)
     password = secrets.token_hex(16)
     database = "iirp_v1_test_check"
-    labels = validation_labels()
-    run(["docker", "network", "create", *labels, name])
+    run(["docker", "network", "create", name])
     try:
         run([
-            "docker", "run", "-d", "--rm", "--name", name + "-pg", "--network", name, *labels,
+            "docker", "run", "-d", "--rm", "--name", name + "-pg", "--network", name,
             "--tmpfs", "/var/lib/postgresql:rw,size=4g", "--shm-size", "256m", "--memory", "6g",
             "-e", "POSTGRES_USER=iirp", "-e", "POSTGRES_PASSWORD=" + password,
             "-e", "POSTGRES_DB=" + database,
@@ -165,7 +147,7 @@ def isolated_tests(command):
         else:
             raise SystemExit("Temporary test PostgreSQL did not become ready")
         return run([
-            "docker", "run", "--rm", "--network", name, *labels,
+            "docker", "run", "--rm", "--network", name,
             "--user", f"{os.getuid()}:{os.getgid()}", "--entrypoint", "sh",
             "-v", f"{ROOT}:/workspace", "-w", "/workspace",
             "-e", "PYTHONPATH=/workspace/backend",
@@ -191,7 +173,6 @@ def frontend(args):
         "docker",
         "run",
         "--rm",
-        *validation_labels(),
         "--user",
         f"{os.getuid()}:{os.getgid()}",
         "-e",
@@ -214,60 +195,6 @@ def frontend(args):
     return run(base + args)
 
 
-def browser(args):
-    if not os.environ.get("IIRP_VALIDATION_ID") or len(args) != 2:
-        raise SystemExit(
-            "browser requires an isolated validation profile, fixture JSON and new output path"
-        )
-    manifest, output = (Path(value).resolve() for value in args)
-    if not manifest.is_file() or output.exists():
-        raise SystemExit("Browser fixture must exist; output must be new")
-    output.parent.mkdir(parents=True, exist_ok=True)
-    image = os.environ["IIRP_COMPOSE_PROJECT"] + "-browser:local"
-    run(
-        [
-            "docker",
-            "build",
-            "--pull",
-            "--no-cache",
-            *validation_labels(),
-            "-f",
-            "deploy/Browser.Dockerfile",
-            "-t",
-            image,
-            ".",
-        ]
-    )
-    # Client has its own cgroup. Host networking only reaches a verified loopback
-    # fixture; the JS gate rejects 18081 and mismatched live database identities.
-    return run(
-        [
-            "docker",
-            "run",
-            "--rm",
-            "--init",
-            "--name",
-            os.environ["IIRP_COMPOSE_PROJECT"] + "-browser-client",
-            *validation_labels(),
-            "--network",
-            "host",
-            "--memory",
-            "768m",
-            "--user",
-            f"{os.getuid()}:{os.getgid()}",
-            "-v",
-            f"{manifest}:/fixture.json:ro",
-            "-v",
-            f"{output.parent}:/evidence",
-            image,
-            "node",
-            "browser/run.cjs",
-            "/fixture.json",
-            "/evidence/" + output.name,
-        ]
-    )
-
-
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -284,7 +211,6 @@ def main():
             "python",
             "lint",
             "frontend",
-            "browser",
             "backup",
             "restore-verify",
         ],
@@ -314,8 +240,6 @@ def main():
         )
     elif args.action == "frontend":
         frontend(args.args or ["npm", "run", "build"])
-    elif args.action == "browser":
-        browser(args.args)
     elif args.action == "test":
         isolated_tests(["/workspace/.tools/linux-python/bin/python", "-m", "pytest",
                         *(args.args or ["tests", "-q"])])

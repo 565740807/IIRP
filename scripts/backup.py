@@ -22,7 +22,7 @@ from iirp.maintenance import SCRATCH_DATABASE_DROP_SECONDS
 from psycopg import sql
 from sqlalchemy.engine import make_url
 
-PGBIN = Path(os.environ.get("IIRP_PG_BIN", "/opt/homebrew/opt/postgresql@18/bin"))
+PGBIN = Path(os.environ.get("IIRP_PG_BIN", "/usr/lib/postgresql/18/bin"))
 MANAGED_JOB = None
 OPERATION_ID = None
 _OPERATION = None

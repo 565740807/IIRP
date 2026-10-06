@@ -28945,11 +28945,6 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ========================================================================
-npm playwright-core 1.62.1
-Source: https://registry.npmjs.org/playwright-core/-/playwright-core-1.62.1.tgz
-Archive path: package/LICENSE
-SHA256: 45873d00a0dd243596deb4aa23b2493b3d1f0671921bf2538ea431d7380220eb
-========================================================================
                                  Apache License
                            Version 2.0, January 2004
                         http://www.apache.org/licenses/
@@ -29155,11 +29150,6 @@ SHA256: 45873d00a0dd243596deb4aa23b2493b3d1f0671921bf2538ea431d7380220eb
 
 
 ========================================================================
-npm playwright-core 1.62.1
-Source: https://registry.npmjs.org/playwright-core/-/playwright-core-1.62.1.tgz
-Archive path: package/NOTICE
-SHA256: 6d602191187b35b9b01d2cffa01c8469c2c8d9de8a96f1bf868e0f264f51c81d
-========================================================================
 Playwright
 Copyright (c) Microsoft Corporation
 
@@ -29167,11 +29157,6 @@ This software contains code derived from the Puppeteer project (https://github.c
 available under the Apache 2.0 license (https://github.com/puppeteer/puppeteer/blob/master/LICENSE).
 
 
-========================================================================
-npm playwright-core 1.62.1
-Source: https://registry.npmjs.org/playwright-core/-/playwright-core-1.62.1.tgz
-Archive path: package/lib/serverRegistry.js.LICENSE
-SHA256: 5cf540fe55a2ba9bcf0eb76e739b454faa8581e2f1a0f777602ef0855534302e
 ========================================================================
 packages/playwright-core/lib/serverRegistry.js
 
@@ -29528,11 +29513,6 @@ SUMMARY
 Total Packages: 14
 =========================================
 
-========================================================================
-npm playwright-core 1.62.1
-Source: https://registry.npmjs.org/playwright-core/-/playwright-core-1.62.1.tgz
-Archive path: package/lib/utilsBundle.js.LICENSE
-SHA256: 57945338cba4878e373646733528017fbe3db1503ec2b431fd30d2a390c70c33
 ========================================================================
 packages/playwright-core/lib/utilsBundle.js
 
@@ -31715,11 +31695,6 @@ Total Packages: 91
 =========================================
 
 ========================================================================
-npm playwright-core 1.62.1
-Source: https://registry.npmjs.org/playwright-core/-/playwright-core-1.62.1.tgz
-Archive path: package/lib/webp_codec.LICENSE
-SHA256: 995c7ee35aceb7666829b7a501ca89c0864e12b493c1174b155774ab1e03d831
-========================================================================
 Third-party license notices for the bundled WebP codec (webp_codec.wasm and
 its Emscripten glue webp_codec.js).
 
@@ -31895,11 +31870,6 @@ flag will run closure compiler from third_party/).
 
 
 
-========================================================================
-npm playwright-core 1.62.1
-Source: https://registry.npmjs.org/playwright-core/-/playwright-core-1.62.1.tgz
-Archive path: package/ThirdPartyNotices.txt
-SHA256: a549d329bad8806fe279f0ecae0fc0270dec7e7c2dc8ec10f90e394f7c32b144
 ========================================================================
 microsoft/playwright-core
 

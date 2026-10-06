@@ -8,15 +8,10 @@ No provider requests, live database writes, or fabricated live coverage occur.
 import json
 import math
 import os
-import signal
-import socket
-import subprocess
-import sys
 import time
 import uuid
 from datetime import date, timedelta
 
-import httpx
 import psycopg
 import pytest
 from alembic import command
@@ -361,7 +356,7 @@ def test_large_api_latency_with_frozen_session_new_count():
             "end": bars[-1]["date"],
             "params": params,
         },
-        "claim_boundary": "Generated isolated data and 50 inert jobs; no actual worker/backfill concurrency; browser timings recorded separately",
+        "claim_boundary": "Generated isolated data and 50 inert jobs; no actual worker/backfill concurrency",
     }
     destination = (
         ROOT
@@ -379,89 +374,3 @@ def test_large_api_latency_with_frozen_session_new_count():
     assert timings["frozen_feed_with_new_count"]["p95_ms"] < 600
     assert timings["home"]["p95_ms"] < 250
     assert timings["single_security_nine_year_compute"]["p95_ms"] < 2000
-
-
-@pytest.mark.skipif(
-    not LARGE or os.environ.get("IIRP_RUN_LARGE_BROWSER") != "1",
-    reason="Explicit optional isolated real-browser benchmark",
-)
-def test_large_browser_local_pages_and_300_groups(isolated_performance_database):
-    """Use the current dist against this generated DB; never start a worker."""
-    with socket.socket() as reservation:
-        reservation.bind(("127.0.0.1", 0))
-        port = reservation.getsockname()[1]
-    base = f"http://127.0.0.1:{port}"
-    output = (
-        ROOT
-        / "runtime"
-        / "validation"
-        / ("large-browser-performance" if SAMPLES >= 100 else "large-browser-diagnostic")
-    )
-    output.mkdir(parents=True, exist_ok=True)
-    environment = {
-        **os.environ,
-        "IIRP_PORT": str(port),
-        "IIRP_SEC_USER_AGENT": "",
-        "IIRP_UI_URL": base,
-        "IIRP_UI_OUTPUT": str(output),
-        "IIRP_UI_SYNTHETIC": "1",
-        "IIRP_VALIDATION_ID": uuid.uuid4().hex,
-        "IIRP_BROWSER_MANIFEST": str(output / "fixture.json"),
-    }
-    assert (
-        make_url(environment["IIRP_DATABASE_URL"]).database
-        == isolated_performance_database["database"]
-    )
-    (output / "fixture.json").write_text(json.dumps({
-        "base": base, "database": isolated_performance_database["database"],
-        "validation_id": environment["IIRP_VALIDATION_ID"],
-        "synthetic": True, "no_external_provider_calls": True,
-    }))
-    with (output / "web.log").open("w") as log:
-        server = subprocess.Popen(
-            [
-                sys.executable,
-                "-m",
-                "uvicorn",
-                "scripts.validation.app:app",
-                "--host",
-                "127.0.0.1",
-                "--port",
-                str(port),
-            ],
-            cwd=ROOT,
-            env=environment,
-            stdout=log,
-            stderr=log,
-            start_new_session=True,
-        )
-        try:
-            with httpx.Client(base_url=base, timeout=1) as client:
-                deadline = time.monotonic() + 20
-                while True:
-                    try:
-                        response = client.get("/health/ready")
-                        if response.status_code == 200:
-                            break
-                    except httpx.TransportError:
-                        pass
-                    assert server.poll() is None, "Isolated web exited before readiness"
-                    assert time.monotonic() < deadline, "Isolated web readiness timed out"
-                    time.sleep(0.1)
-            subprocess.run(
-                [
-                    os.environ.get("IIRP_NODE", "node"),
-                    str(ROOT / "browser" / "tests" / "large-performance.cjs"),
-                ],
-                cwd=ROOT,
-                env=environment,
-                check=True,
-                timeout=1200,
-            )
-        finally:
-            os.killpg(server.pid, signal.SIGTERM)
-            try:
-                server.wait(timeout=10)
-            except subprocess.TimeoutExpired:
-                os.killpg(server.pid, signal.SIGKILL)
-                server.wait(timeout=5)

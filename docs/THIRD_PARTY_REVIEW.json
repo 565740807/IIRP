@@ -5485,51 +5485,6 @@
           "bytes": 1509
         }
       ]
-    },
-    {
-      "ecosystem": "npm",
-      "name": "playwright-core",
-      "version": "1.62.1",
-      "url": "https://registry.npmjs.org/playwright-core/-/playwright-core-1.62.1.tgz",
-      "integrity": "sha512-wPYSwEBJY9GHraISXqyqtx0na0LpO3XEX7jNDhntbex7tzUS7kLnZsOlFruFJB4Hi/rhDMjXGqHewDZ68nYZVw==",
-      "sha256": "954be1e183d0ddb9748fe0d2d08b0b66a9210c74dd75c397aeb70303b9f08a00",
-      "bytes": 3070300,
-      "integrity_verified": true,
-      "status": "integrity_and_notice_material_checked",
-      "declared_license": "Apache-2.0",
-      "license_classifiers": [],
-      "notices": [
-        {
-          "archive_path": "package/LICENSE",
-          "sha256": "45873d00a0dd243596deb4aa23b2493b3d1f0671921bf2538ea431d7380220eb",
-          "bytes": 11601
-        },
-        {
-          "archive_path": "package/NOTICE",
-          "sha256": "6d602191187b35b9b01d2cffa01c8469c2c8d9de8a96f1bf868e0f264f51c81d",
-          "bytes": 254
-        },
-        {
-          "archive_path": "package/lib/serverRegistry.js.LICENSE",
-          "sha256": "5cf540fe55a2ba9bcf0eb76e739b454faa8581e2f1a0f777602ef0855534302e",
-          "bytes": 18617
-        },
-        {
-          "archive_path": "package/lib/utilsBundle.js.LICENSE",
-          "sha256": "57945338cba4878e373646733528017fbe3db1503ec2b431fd30d2a390c70c33",
-          "bytes": 122225
-        },
-        {
-          "archive_path": "package/lib/webp_codec.LICENSE",
-          "sha256": "995c7ee35aceb7666829b7a501ca89c0864e12b493c1174b155774ab1e03d831",
-          "bytes": 8841
-        },
-        {
-          "archive_path": "package/ThirdPartyNotices.txt",
-          "sha256": "a549d329bad8806fe279f0ecae0fc0270dec7e7c2dc8ec10f90e394f7c32b144",
-          "bytes": 676
-        }
-      ]
     }
   ],
   "remaining": [
