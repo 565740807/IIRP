@@ -56,7 +56,7 @@ services:
       context: ..
       dockerfile: deploy/Dockerfile
     image: ${IIRP_APP_IMAGE:-iirp-v1-app:0.1.0}
-    command: [sh, -c, 'python -m alembic upgrade head && exec python -m uvicorn iirp.api:app --host 0.0.0.0 --port 18081']
+    command: [sh, -c, 'python -m alembic upgrade head && exec python -m uvicorn iirp.api.app:app --host 0.0.0.0 --port 18081']
     environment: &app-env
       IIRP_DATABASE_URL: postgresql+psycopg://iirp:${IIRP_DB_PASSWORD}@postgres:5432/${IIRP_DB_NAME:-iirp_v1}
       IIRP_RUNTIME_DIR: /app/runtime
@@ -79,7 +79,7 @@ services:
     mem_limit: 768m
   worker:
     image: ${IIRP_APP_IMAGE:-iirp-v1-app:0.1.0}
-    command: [python, -m, iirp.worker]
+    command: [python, -m, iirp.jobs.worker]
     environment: *app-env
     volumes:
       - app-runtime:/app/runtime

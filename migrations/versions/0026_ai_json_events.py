@@ -1,7 +1,7 @@
 """Earnings and custom events become pasted AI-JSON (S3).
 
 - ``event_set`` now holds its events directly in the short format of
-  ``iirp.event_input`` (several tickers allowed). Each saved set's current
+  ``iirp.events.input`` (several tickers allowed). Each saved set's current
   version is converted, so no user data is lost; the immutable versions,
   previews and command receipts are dropped.
 - The verified earnings dates found by the removed SEC 8-K pipeline

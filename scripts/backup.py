@@ -16,9 +16,9 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import psycopg
-from iirp.capacity import capacity_sufficient, temporary_bytes
 from iirp.config import settings
-from iirp.maintenance import SCRATCH_DATABASE_DROP_SECONDS
+from iirp.storage.capacity import capacity_sufficient, temporary_bytes
+from iirp.storage.maintenance import SCRATCH_DATABASE_DROP_SECONDS
 from psycopg import sql
 from sqlalchemy.engine import make_url
 
@@ -34,7 +34,7 @@ KEEP_BACKUPS = 2
 @contextmanager
 def maintenance_lock():
     # Reentrant composition is explicit: public wrappers lock, private helpers do not.
-    from iirp.maintenance import maintenance_lock as acquire
+    from iirp.storage.maintenance import maintenance_lock as acquire
 
     with acquire():
         yield
@@ -967,7 +967,7 @@ if __name__ == "__main__":
             raise InterruptedError("父进程已请求停止维护")
 
         signal.signal(signal.SIGTERM, interrupted)
-        from iirp.maintenance import parent_watchdog
+        from iirp.storage.maintenance import parent_watchdog
 
         parent_watchdog({**MANAGED_JOB, "operation_id": args.operation})
     OPERATION_ID = args.operation

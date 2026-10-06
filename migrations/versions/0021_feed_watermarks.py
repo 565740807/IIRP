@@ -73,7 +73,7 @@ def upgrade():
         seq bigint,
         xid xid8,
         PRIMARY KEY (kind, sort_order, group_key))""")
-    # Transaction ids are meaningful only inside one cluster; see iirp.feed_index.
+    # Transaction ids are meaningful only inside one cluster; see iirp.insider.feed_index.
     op.execute("""CREATE TABLE IF NOT EXISTS feed_watermark_cluster (
         id integer PRIMARY KEY DEFAULT 1 CHECK (id = 1),
         system_identifier text NOT NULL)""")

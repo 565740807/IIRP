@@ -32,4 +32,4 @@ COPY --from=frontend /build/dist frontend/dist
 RUN mkdir -p /app/runtime && chown -R 10001:10001 /app/runtime
 USER 10001:10001
 EXPOSE 18081
-CMD ["python", "-m", "uvicorn", "iirp.api:app", "--host", "0.0.0.0", "--port", "18081"]
+CMD ["python", "-m", "uvicorn", "iirp.api.app:app", "--host", "0.0.0.0", "--port", "18081"]

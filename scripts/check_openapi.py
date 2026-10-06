@@ -4,7 +4,7 @@ import argparse
 import json
 from pathlib import Path
 
-from iirp.api import app
+from iirp.api.app import app
 
 ROOT = Path(__file__).resolve().parents[1]
 

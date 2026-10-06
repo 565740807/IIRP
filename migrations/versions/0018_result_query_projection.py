@@ -26,7 +26,7 @@ def upgrade():
 
 
 def downgrade():
-    from iirp.result_storage import decode_payload
+    from iirp.models.compressed import decode_payload
 
     # Reconstitute the original representation before removing new columns.
     # One immutable result at a time bounds conversion memory. Alembic's

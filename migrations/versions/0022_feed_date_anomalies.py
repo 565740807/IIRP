@@ -20,7 +20,7 @@ ET = ZoneInfo("America/New_York")
 MISSING = "0001-01-01 00:00:00+00"
 
 
-# Frozen copies of the read-path rules in iirp.sec_facts at this revision.
+# Frozen copies of the read-path rules in iirp.insider.facts at this revision.
 def _matches(row, kind):
     table, code = row.get("table"), row.get("code")
     return {
