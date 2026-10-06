@@ -8,7 +8,7 @@ from alembic.config import Config
 from iirp.config import ROOT
 from iirp.db import engine, session
 from iirp.insider.feed_updates import pending_feed_metadata
-from iirp.jobs.lifecycle import add_job
+from iirp.jobs.batches import add_job
 from iirp.models import (
     Batch,
     Filing,

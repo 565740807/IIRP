@@ -80,7 +80,7 @@ def clean(tmp_path):
     ensure_defaults()
     # Foundation restart probes exercise synthetic jobs only. Product freshness
     # defaults are verified separately, with explicit source-policy intent.
-    from iirp.jobs.lifecycle import defaults
+    from iirp.jobs.batches import defaults
     from iirp.models import CollectionStrategy
 
     with session() as s, s.begin():

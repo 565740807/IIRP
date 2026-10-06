@@ -67,7 +67,7 @@ def plan_benchmark(s, scope, request, start, end):
     symbol = request.params.get("benchmark")
     if not symbol:
         return None
-    from iirp.jobs.lifecycle import add_job, advisory
+    from iirp.jobs.batches import add_job, advisory
     from iirp.market.cache import ensure_prices, fetch_state
     advisory(s, ["security", symbol])
     security = s.scalar(select(Security).where(Security.symbol == symbol).order_by(Security.id).limit(1))

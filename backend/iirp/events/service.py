@@ -66,7 +66,7 @@ def _required(s, model, identifier):
 
 
 def _lock(s, value):
-    from iirp.jobs.lifecycle import advisory
+    from iirp.jobs.batches import advisory
 
     advisory(s, ["events", value])
 
@@ -199,7 +199,7 @@ def delete_set(identifier):
 
 
 def _security(s, symbol):
-    from iirp.jobs.lifecycle import advisory
+    from iirp.jobs.batches import advisory
 
     advisory(s, ["security", symbol])
     security = s.scalar(select(Security).where(Security.symbol == symbol).order_by(Security.id).limit(1))
@@ -315,7 +315,7 @@ def _publish(s, request, scope, security, cache):
 
 def plan_event_scope(s, scope, batch, capacity):
     """One ticker: verify identity, ensure one cached fetch, then publish its result."""
-    from iirp.jobs.lifecycle import add_job
+    from iirp.jobs.batches import add_job
     from iirp.market.cache import current_cache, ensure_prices, fetch_state
 
     request = s.scalar(select(AnalysisRequest).where(AnalysisRequest.batch_id == batch.id))

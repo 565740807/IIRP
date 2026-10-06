@@ -5,9 +5,10 @@ from datetime import date, timedelta
 
 import pytest
 from iirp.db import session
-from iirp.insider.facts import _refresh_groups, feed, feed_group
+from iirp.insider.feed import feed, feed_group
 from iirp.insider.feed_index import publish_current
 from iirp.insider.feed_updates import feed_updates, pending_feed_metadata
+from iirp.insider.views import _refresh_groups
 from iirp.models import FeedRevision, FeedSession, Filing, Job, TransactionEvent, now
 from sqlalchemy import func, select
 

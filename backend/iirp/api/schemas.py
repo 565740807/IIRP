@@ -40,7 +40,7 @@ class CollectionInput(Strict):
         if self.kind == "market_history" and not self.tickers:
             raise ValueError("请选择至少一个证券")
         if self.kind == "sec_filing":
-            from iirp.sec.sources import validate_sec_url
+            from iirp.sec.parse import validate_sec_url
 
             if not self.filing_url:
                 raise ValueError("请提供 SEC 完整申报 txt 地址")

@@ -20,7 +20,7 @@ from fastapi.testclient import TestClient
 from iirp.analysis.calendar import sessions
 from iirp.config import ROOT, settings
 from iirp.db import engine, session
-from iirp.insider.facts import feed, feed_group
+from iirp.insider.feed import feed, feed_group
 from iirp.insider.feed_index import reconcile
 from iirp.models import FeedRevision, FeedSession
 from psycopg import sql

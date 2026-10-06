@@ -96,7 +96,7 @@ def no_storage_inventory(monkeypatch):
 
 
 def test_first_start_without_contact_keeps_policy_on_but_sends_nothing(user_agent, sec_requests):
-    from iirp.storage.maintenance import schedule_tick
+    from iirp.jobs.schedule import schedule_tick
 
     user_agent("IIRP contact@example.invalid")
     ensure_fresh({"reason": "startup", "sources": ["sec", "market"]})

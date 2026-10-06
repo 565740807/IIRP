@@ -4,8 +4,9 @@ from uuid import uuid4
 
 from iirp.api.schemas import CollectionInput
 from iirp.db import session
-from iirp.jobs import lifecycle
-from iirp.jobs.queue import claim, fenced, job_view
+from iirp.jobs import batches
+from iirp.jobs.job_views import job_view
+from iirp.jobs.queue import claim, fenced
 from iirp.models import BatchJob, Filing, Job, RequestScope, SourceBudget, now
 from sqlalchemy import select
 
@@ -18,15 +19,15 @@ def scope(s, trigger="automatic", kind="sec_latest"):
     values = CollectionInput.model_validate({
         "request_id": str(uuid4()), "kind": kind,
     }).model_dump(mode="json")
-    batch, _ = lifecycle._create(s, values, trigger=trigger, policy_key="sec")
+    batch, _ = batches._create(s, values, trigger=trigger, policy_key="sec")
     return s.scalar(select(RequestScope).where(RequestScope.batch_id == batch.id))
 
 
 def head(s, target_scope, label="head", *, age=0):
     stamp = now() - timedelta(days=age)
-    job = lifecycle.add_job(s, target_scope, "sec_discover", {
+    job = batches.add_job(s, target_scope, "sec_discover", {
         "mode": "latest", "round": label,
-        "end_date": str(stamp.astimezone(lifecycle.ET).date()),
+        "end_date": str(stamp.astimezone(batches.ET).date()),
     })
     job.created_at = stamp
     s.flush()
@@ -34,7 +35,7 @@ def head(s, target_scope, label="head", *, age=0):
 
 
 def document(s, target_scope, accession="0000000001-26-000001"):
-    job = lifecycle.add_job(s, target_scope, "sec_document", {"accession": accession})
+    job = batches.add_job(s, target_scope, "sec_document", {"accession": accession})
     s.flush()
     return job.id
 
@@ -99,7 +100,7 @@ def test_shared_manual_document_is_foreground_and_reserves_its_source_lane():
         first = document(s, automatic)
         document(s, automatic, "0000000001-26-000002")
         manual = scope(s, trigger="manual")
-        shared = lifecycle.add_job(s, manual, "sec_document", s.get(Job, first).target)
+        shared = batches.add_job(s, manual, "sec_document", s.get(Job, first).target)
         assert shared.id == first
     foreground = claim(KINDS, prefer_latest=True)
     assert foreground.id == first
@@ -149,7 +150,7 @@ def test_aged_quarterly_scan_gets_a_turn_amid_latest_heads():
         first_head = head(s, latest_scope, "first-head")
         second_head = head(s, latest_scope, "second-head", age=1)
         document(s, latest_scope)
-        historical = lifecycle.add_job(s, history_scope, "sec_discover", {
+        historical = batches.add_job(s, history_scope, "sec_discover", {
             "mode": "quarterly", "start_date": "2024-01-01", "end_date": "2024-03-31",
         })
         historical.created_at = now() - timedelta(days=2)
@@ -258,7 +259,7 @@ def test_empty_document_lane_does_not_starve_aged_quarterly_scans():
         history = scope(s, kind="sec_history")
         first = head(s, latest, "first")
         second = head(s, latest, "second", age=1)
-        scan = lifecycle.add_job(s, history, "sec_discover", {
+        scan = batches.add_job(s, history, "sec_discover", {
             "mode": "quarterly", "start_date": "2024-04-01", "end_date": "2024-06-30",
         })
         scan.created_at = now() - timedelta(days=2)

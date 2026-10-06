@@ -140,7 +140,7 @@ def ensure_prices(s, scope, security, start, end, *, title=None):
     Returns the current cache (when it covers the need) and the linked fetch job
     (when one is running or has ended without producing a covering cache).
     """
-    from iirp.jobs.lifecycle import add_job
+    from iirp.jobs.batches import add_job
 
     calendar = security.calendar or "XNYS"
     cache = current_cache(s, security.id)

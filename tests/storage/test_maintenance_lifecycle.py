@@ -22,7 +22,8 @@ from alembic.config import Config
 from iirp.analysis.calendar import ET, sessions
 from iirp.config import ROOT, settings
 from iirp.db import engine, session
-from iirp.jobs.lifecycle import defaults
+from iirp.jobs import schedule
+from iirp.jobs.batches import defaults
 from iirp.jobs.queue import claim, control, fenced
 from iirp.models import (
     AnalysisRequest,
@@ -157,7 +158,7 @@ def isolated(tmp_path, monkeypatch):
     settings.cache_clear()
     # SEC scheduling needs a real contact; fetch_sec keeps its own check (CI has none).
     monkeypatch.setattr("iirp.jobs.auto_update.sec_configured", lambda: True)
-    monkeypatch.setattr("iirp.storage.maintenance.sec_configured", lambda: True)
+    monkeypatch.setattr("iirp.jobs.schedule.sec_configured", lambda: True)
     spec = importlib.util.spec_from_file_location(
         "maintenance_" + uuid.uuid4().hex, ROOT / "scripts/backup.py"
     )
@@ -669,7 +670,7 @@ def test_cleanup_observes_pause_between_small_pages(isolated, monkeypatch):
     ],
 )
 def test_sec_federal_calendar_is_not_exchange_calendar(day, work, stock):
-    assert maintenance.sec_workday(day) is work
+    assert schedule.sec_workday(day) is work
     assert bool(sessions(day, day)) is stock
 
 
@@ -687,21 +688,21 @@ def test_sec_federal_calendar_is_not_exchange_calendar(day, work, stock):
     ],
 )
 def test_sec_time_boundaries(value, seconds):
-    assert maintenance.sec_poll_seconds(datetime.fromisoformat(value)) == seconds
+    assert schedule.sec_poll_seconds(datetime.fromisoformat(value)) == seconds
 
 
 def test_disabled_schedules_and_maintenance_have_no_security_side_effect(isolated, monkeypatch):
     instant = datetime(2026, 9, 8, 10, tzinfo=ET)
-    monkeypatch.setattr(maintenance, "now", lambda: instant)
-    maintenance.schedule_tick()
+    monkeypatch.setattr(schedule, "now", lambda: instant)
+    schedule.schedule_tick()
     with session() as s:
         assert s.scalar(select(func.count()).select_from(Batch)) == 0
     with session() as s, s.begin():
         p = s.get(CollectionStrategy, "backup")
         p.enabled = True
         p.next_run_at = instant - timedelta(days=12)
-    maintenance.schedule_tick()
-    maintenance.schedule_tick()
+    schedule.schedule_tick()
+    schedule.schedule_tick()
     with session() as s:
         assert s.scalar(select(func.count()).select_from(Batch)) == 1
         assert s.scalar(select(func.count()).select_from(Security)) == 0
@@ -713,14 +714,14 @@ def test_sec_sleep_coalesces_slots_and_completed_latest_is_not_starved(isolated,
     from iirp.jobs import auto_update
 
     instant = datetime(2026, 9, 12, 9, tzinfo=ET)
-    monkeypatch.setattr(maintenance, "now", lambda: instant)
+    monkeypatch.setattr(schedule, "now", lambda: instant)
     monkeypatch.setattr(auto_update, "now", lambda: instant)
     with session() as s, s.begin():
         p = s.get(CollectionStrategy, "sec")
         p.enabled = True
         s.get(Policy, 1).sec_enabled = True
         p.next_run_at = instant - timedelta(days=20)
-    maintenance.schedule_tick()
+    schedule.schedule_tick()
     with session() as s, s.begin():
         batches = s.scalars(select(Batch)).all()
         assert sorted(b.kind for b in batches) == ["sec_history", "sec_latest"]
@@ -755,7 +756,7 @@ def test_sec_sleep_coalesces_slots_and_completed_latest_is_not_starved(isolated,
         latest_id, scope_id = latest.id, scope.id
         old_head_id, document_id = discover.id, history.id
         s.get(CollectionStrategy, "sec").next_run_at = instant - timedelta(seconds=1)
-    maintenance.schedule_tick()
+    schedule.schedule_tick()
     with session() as s:
         assert (
             s.scalar(select(func.count()).select_from(Batch).where(Batch.kind == "sec_latest")) == 1
@@ -763,13 +764,13 @@ def test_sec_sleep_coalesces_slots_and_completed_latest_is_not_starved(isolated,
     # A due head must proceed while the old document is still running, but
     # repeated same-day rounds share one durable automatic demand.
     instant += timedelta(seconds=31)
-    maintenance.schedule_tick()
+    schedule.schedule_tick()
     with session() as s:
         # A worker tick does not bypass the non-workday 3,600-second cadence.
         assert s.scalar(select(func.count()).select_from(Job).where(
             Job.kind == "sec_discover", Job.status == "QUEUED")) == 0
     instant += timedelta(seconds=3600 - 31)
-    maintenance.schedule_tick()
+    schedule.schedule_tick()
     with session() as s:
         assert (
             s.scalar(select(func.count()).select_from(Batch).where(Batch.kind == "sec_latest")) == 1

@@ -192,7 +192,7 @@ def initial_prices(security_id, *, start="2022-11-01", end=None):
 
 def test_market_detail_uses_cached_split_only_prices(security_id):
     from iirp.analysis.calendar import sessions
-    from iirp.jobs.lifecycle import market_detail
+    from iirp.market.reads import market_detail
     from iirp.models import MarketQuote
 
     days = sessions(date(2023, 1, 3), date(2023, 5, 31))
@@ -483,8 +483,9 @@ def test_adapter_preserves_explicit_bounds_and_does_not_enumerate_lazy_metadata(
 
 
 def research_lease(kind="interval"):
+    from iirp.analysis.requests import create_analysis
     from iirp.api.schemas import AnalysisInput
-    from iirp.jobs.lifecycle import create_analysis, plan_tick
+    from iirp.jobs.planner import plan_tick
 
     params = AnalysisInput(
         request_id=str(uuid.uuid4()),

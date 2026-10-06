@@ -218,8 +218,9 @@ def main():
     # One coordinator owns bounded provider lanes; other coordinators exit visibly.
     with WorkerOwnership() as owner:
         from iirp.jobs.handlers import execute_business
-        from iirp.jobs.lifecycle import plan_tick
-        from iirp.storage.maintenance import operational_log_tick, schedule_tick
+        from iirp.jobs.planner import plan_tick
+        from iirp.jobs.schedule import schedule_tick
+        from iirp.storage.maintenance import operational_log_tick
 
         lanes = {
             "sec": (2, {"sec_discover", "sec_document", "sec_identity"}),
@@ -247,7 +248,7 @@ def main():
             try:
                 return execute_business(job, stopping, runner=operations if job.kind.startswith("market_") or job.kind == "research_compute" else None)
             finally:
-                from iirp.jobs.lifecycle import plan_job_scopes
+                from iirp.jobs.planner import plan_job_scopes
                 if not stopping():
                     plan_job_scopes(job.id)
         try:

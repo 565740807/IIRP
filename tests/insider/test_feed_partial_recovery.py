@@ -7,7 +7,7 @@ from fastapi.testclient import TestClient
 from iirp.api.app import app
 from iirp.config import settings
 from iirp.db import session
-from iirp.insider.facts import feed
+from iirp.insider.feed import feed
 from iirp.insider.feed_index import publish_current
 from iirp.models import FeedRevision
 from sqlalchemy import select, text

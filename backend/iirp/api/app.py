@@ -16,16 +16,9 @@ from iirp import __version__
 from iirp.api.schemas import FeedOutput, GenericOutput, HomeOutput, SystemOutput
 from iirp.config import ROOT, settings
 from iirp.db import session
+from iirp.jobs.job_views import job_view, list_jobs, policy_view
 from iirp.jobs.providers import sec_configured, sec_user_agent_state
-from iirp.jobs.queue import (
-    control,
-    create_job,
-    ensure_defaults,
-    job_view,
-    list_jobs,
-    policy_view,
-    update_policy,
-)
+from iirp.jobs.queue import control, create_job, ensure_defaults, update_policy
 from iirp.models import Coverage, Job, Policy, SourceObject
 
 
@@ -105,7 +98,7 @@ async def lifespan(_app):
     # Readiness reports DB/migration failure; web can still explain an outage.
     try:
         ensure_defaults()
-        from iirp.jobs.lifecycle import defaults
+        from iirp.jobs.batches import defaults
 
         with session() as s, s.begin():
             defaults(s)

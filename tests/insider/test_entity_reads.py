@@ -5,7 +5,8 @@ from datetime import timedelta
 
 import pytest
 from iirp.db import session
-from iirp.insider.facts import _compact_row, _event_view, _summary, entity_history
+from iirp.insider.records import entity_history
+from iirp.insider.views import _compact_row, _event_view, _summary
 from iirp.models import FeedSession, FilingVersion, TransactionEvent, now
 from sqlalchemy import event, func, select
 from sqlalchemy.orm import Session

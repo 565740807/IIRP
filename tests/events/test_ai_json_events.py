@@ -12,7 +12,7 @@ from iirp.api.app import app
 from iirp.events import prompts as event_prompts
 from iirp.events import service as event_service
 from iirp.events.input import EventInputError, parse_events
-from iirp.jobs import lifecycle
+from iirp.jobs import planner
 from iirp.jobs.handlers import execute_business
 from iirp.jobs.queue import claim
 from iirp.models import Job
@@ -139,7 +139,7 @@ def test_prompt_templates_are_saved_and_restored():
 def run_market(yahoo):
     while job := claim({"market_history"}):
         execute_business(job, runner=yahoo)
-    lifecycle.plan_tick()
+    planner.plan_tick()
 
 
 def test_each_ticker_is_fetched_once_and_results_publish_per_ticker():
@@ -153,7 +153,7 @@ def test_each_ticker_is_fetched_once_and_results_publish_per_ticker():
     created = event_service.create_set({"kind": "earnings", "text": text(*events), "title": None,
                                         "request_id": "s3-test", "analyze": True, "n": 3})
     assert created["set"]["tickers"] == ["AAPL", "MSFT"]
-    lifecycle.plan_tick()
+    planner.plan_tick()
     yahoo = CountingYahoo()
     run_market(yahoo)
     assert sorted(call[1] for call in yahoo.calls) == ["AAPL", "MSFT"]
@@ -168,7 +168,7 @@ def test_each_ticker_is_fetched_once_and_results_publish_per_ticker():
     assert [q["fiscal_quarter"] for q in results["AAPL"]["quarters"]] == [2, 3]
     # Within 24 hours another analysis of the same set downloads nothing.
     again = event_service.create_analysis(created["set"]["id"], {"request_id": str(uuid.uuid4())})
-    lifecycle.plan_tick()
+    planner.plan_tick()
     run_market(yahoo)
     assert len(yahoo.calls) == 2
     assert event_service.get_analysis(again["analysis_id"])["status"] == "SUCCEEDED"

@@ -101,7 +101,7 @@ def _paused(s):
 def claim():
     """Take the poll lease when due; returns the token or None."""
     from iirp.jobs.providers import sec_configured
-    from iirp.storage.maintenance import sec_poll_seconds
+    from iirp.jobs.schedule import sec_poll_seconds
 
     with session() as s, s.begin():
         row = _row(s, lock=True)
@@ -195,7 +195,7 @@ CONTINUE = ("page_budget", "repeated_page", "non_advancing_page")
 
 
 def _run(token, stopping, fetch):
-    from iirp.sec.sources import run_sec_operation
+    from iirp.sec.fetch import run_sec_operation
 
     with session() as s:
         row = s.get(SourcePoll, SOURCE)
@@ -253,7 +253,7 @@ def _run(token, stopping, fetch):
 def poll_once(stopping=lambda: False, fetch=None):
     """Run one due poll; returns its result, or None when not due or not allowed."""
     from iirp.jobs.operations import ProviderFailure, fetch_sec
-    from iirp.storage.maintenance import sec_poll_seconds
+    from iirp.jobs.schedule import sec_poll_seconds
 
     token = claim()
     if token is None:

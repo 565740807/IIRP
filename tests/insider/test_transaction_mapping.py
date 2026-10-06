@@ -5,7 +5,7 @@ from uuid import uuid4
 
 import pytest
 from iirp.db import session
-from iirp.jobs.lifecycle import map_transaction_security, transaction_detail
+from iirp.insider.transactions import map_transaction_security, transaction_detail
 from iirp.models import Security, SecurityIdentifier, TransactionEvent
 from sqlalchemy import select
 

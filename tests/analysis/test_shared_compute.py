@@ -6,9 +6,10 @@ from datetime import date, timedelta
 
 import pytest
 from fastapi.testclient import TestClient
+from iirp.analysis import requests
 from iirp.api.app import app
 from iirp.db import session
-from iirp.jobs import lifecycle
+from iirp.jobs import batch_views, batches, planner
 from iirp.jobs.handlers import execute_business, prepare_target
 from iirp.jobs.operation_pool import OperationPool
 from iirp.jobs.operations import operation
@@ -40,7 +41,7 @@ def setup(mode='monthly'):
     seed_prices(security, date(2022, 1, 1), date(2027, 1, 1))
 
     def create(**overrides):
-        view = lifecycle.create_analysis(params(kind=mode,
+        view = requests.create_analysis(params(kind=mode,
             **({'start_mmdd': '01-03', 'end_mmdd': '01-20'} if mode == 'interval' else {}), **overrides))
         return view['id'], view['batch_id']
     return create
@@ -51,7 +52,7 @@ def plan(identifier):
         request = s.get(AnalysisRequest, identifier)
         batch = s.get(Batch, request.batch_id, with_for_update=True)
         scope = s.scalar(select(RequestScope).where(RequestScope.batch_id == batch.id).with_for_update())
-        return lifecycle._plan_compute(s, scope, batch, s.get(Security, scope.security_id))
+        return planner._plan_compute(s, scope, batch, s.get(Security, scope.security_id))
 
 
 def rows():
@@ -145,7 +146,7 @@ def test_running_join_and_creator_control_cannot_dominate_other_subscribers(acti
                 request = s.get(AnalysisRequest, first[0])
                 request.params = {**request.params, 'month': 2}
         else:
-            lifecycle.control_batch(first[1], action)
+            batches.control_batch(first[1], action)
     with closing(OperationPool()) as pool:
         runner = RealRunner(pool, at_running)
         execute_business(job, runner=runner)
@@ -153,13 +154,13 @@ def test_running_join_and_creator_control_cannot_dominate_other_subscribers(acti
     assert len(jobs()) == 1
     assert [r.analysis_id for r in rows()] == [second[0]]
     if action == 'pause':
-        assert lifecycle.get_batch(first[1])['batch']['status'] == 'PAUSED'
-        lifecycle.control_batch(first[1], 'resume')
+        assert batch_views.get_batch(first[1])['batch']['status'] == 'PAUSED'
+        batches.control_batch(first[1], 'resume')
         plan(first[0])
         assert {r.analysis_id for r in rows()} == {first[0], second[0]}
         assert len(jobs()) == 1
     elif action == 'cancel':
-        assert lifecycle.get_batch(first[1])['batch']['status'] == 'CANCELLED'
+        assert batch_views.get_batch(first[1])['batch']['status'] == 'CANCELLED'
 
 
 def test_completion_between_cache_check_and_subscription(monkeypatch):
@@ -191,12 +192,12 @@ def test_all_stopped_resume_and_stale_worker_fence():
     plan(second[0])
     old = claim({'research_compute'})
     for request in [first, second]:
-        lifecycle.control_batch(request[1], 'pause')
+        batches.control_batch(request[1], 'pause')
     assert not fenced(old, acknowledge_control=False)
     assert not fenced(old)
-    lifecycle.plan_tick()
+    planner.plan_tick()
     for request in [first, second]:
-        lifecycle.control_batch(request[1], 'resume')
+        batches.control_batch(request[1], 'resume')
     replacement = claim({'research_compute'})
     assert replacement.id == old.id and replacement.lease_token != old.lease_token
     assert not fenced(old, status='SUCCEEDED')
@@ -219,8 +220,8 @@ def test_shared_crash_recovery_failure_retry_and_duplicate_callback():
     assert replacement.id == old.id and replacement.lease_token != old.lease_token
     assert not fenced(old, status='SUCCEEDED')
     assert fenced(replacement, status='FAILED', error='synthetic failure')
-    lifecycle.plan_tick()
-    lifecycle.control_batch(first[1], 'retry_failed')
+    planner.plan_tick()
+    batches.control_batch(first[1], 'retry_failed')
     replacement = claim({'research_compute'})
     with closing(OperationPool()) as pool:
         runner = RealRunner(pool)
@@ -275,8 +276,8 @@ def test_fanout_rolls_back_all_results_then_retry_keeps_ownership(monkeypatch):
         execute_business(job, runner=RealRunner(pool))
         assert rows() == []
         monkeypatch.setattr(shared_compute, 'publish', original)
-        lifecycle.plan_tick()
-        lifecycle.control_batch(first[1], 'retry_failed')
+        planner.plan_tick()
+        batches.control_batch(first[1], 'retry_failed')
         execute_business(claim({'research_compute'}), runner=RealRunner(pool))
     assert len(rows()) == 2
     from iirp.storage.maintenance import cleanup
@@ -322,7 +323,7 @@ def test_completed_new_input_not_held_open_by_other_subscribers_old_work():
     assert job.id != old.id
     with closing(OperationPool()) as pool:
         execute_business(job, runner=RealRunner(pool))
-    lifecycle.plan_tick()
+    planner.plan_tick()
     with session() as s:
         assert s.get(Batch, first[1]).status == 'SUCCEEDED'
         assert s.get(Batch, second[1]).status == 'RUNNING'
@@ -336,15 +337,15 @@ def test_retry_old_failure_after_new_request_completed_uses_cache_without_lane()
     plan(first[0])
     failed = claim({'research_compute'})
     assert fenced(failed, status='FAILED', error='synthetic prior attempt')
-    lifecycle.plan_tick()
-    assert lifecycle.get_batch(first[1])['batch']['status'] in {'FAILED', 'PARTIAL'}
+    planner.plan_tick()
+    assert batch_views.get_batch(first[1])['batch']['status'] in {'FAILED', 'PARTIAL'}
     second = create()
     plan(second[0])
     with closing(OperationPool()) as pool:
         runner = RealRunner(pool)
         execute_business(claim({'research_compute'}), runner=runner)
         assert [row.analysis_id for row in rows()] == [second[0]]
-        lifecycle.control_batch(first[1], 'retry_failed')
+        batches.control_batch(first[1], 'retry_failed')
         retried = claim({'research_compute'})
         assert retried.id == failed.id
         execute_business(retried, runner=runner)
@@ -365,7 +366,7 @@ def test_explicit_retry_and_new_subscriber_share_one_active_generation():
     plan(first[0])
     failed = claim({'research_compute'})
     assert fenced(failed, status='FAILED', error='synthetic admission failure')
-    lifecycle.plan_tick()
+    planner.plan_tick()
     second = create()
     control_thread = threading.get_ident()
     pending, seen = [], []
@@ -387,7 +388,7 @@ def test_explicit_retry_and_new_subscriber_share_one_active_generation():
                 pending[0].result(timeout=5)
         event.listen(engine(), 'after_cursor_execute', after)
         try:
-            lifecycle.control_batch(first[1], 'retry_failed')
+            batches.control_batch(first[1], 'retry_failed')
         finally:
             event.remove(engine(), 'after_cursor_execute', after)
         assert seen

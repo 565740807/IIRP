@@ -4,7 +4,7 @@ from uuid import uuid4
 import pytest
 from iirp.api.schemas import CollectionInput
 from iirp.db import session
-from iirp.jobs import lifecycle
+from iirp.jobs import batches, planner
 from iirp.jobs.queue import claim
 from iirp.models import Batch, BatchJob, Job, RequestScope
 from sqlalchemy import insert, select, text
@@ -15,7 +15,7 @@ pytestmark = pytest.mark.slow
 
 
 def test_claim_with_eighty_four_thousand_active_subscriptions():
-    batch = lifecycle.create_collection(CollectionInput.model_validate({
+    batch = batches.create_collection(CollectionInput.model_validate({
         "request_id": str(uuid4()), "kind": "sec_history",
     }).model_dump(mode="json"))
     with session() as s, s.begin():
@@ -59,11 +59,11 @@ def test_recent_manual_research_is_planned_despite_old_background_and_full_sourc
         s.add(auto_scope)
         s.flush()
         for i in range(32):
-            lifecycle.add_job(s, auto_scope, "market_history", {"symbol": "OTHER", "part": i}, 0)
-    request = lifecycle.create_collection(collection(tickers=["META"]))
+            batches.add_job(s, auto_scope, "market_history", {"symbol": "OTHER", "part": i}, 0)
+    request = batches.create_collection(collection(tickers=["META"]))
     with session() as s, s.begin():
         s.get(Batch, request["batch_id"]).last_planned_at = now()
-    lifecycle.plan_tick()
+    planner.plan_tick()
     assert job_ids(request["batch_id"]), "Manual demand must bypass old automatic planning rounds"
     selected = claim({"market_history"})
     assert selected.target["symbol"] == "META", "Manual demand precedes automatic priority-zero work"
@@ -76,12 +76,12 @@ def test_worker_planning_budget_leaves_both_foreground_and_background_an_opportu
                         kind="sec_history", title="Synthetic", params={}, trigger="manual" if i == 0 else "automatic"))
     clock = [0.0]
     planned = []
-    monkeypatch.setattr(lifecycle.time, "monotonic", lambda: clock[0])
+    monkeypatch.setattr(batches.time, "monotonic", lambda: clock[0])
     def slow(identifier, *_):
         planned.append(identifier)
         clock[0] += 2
-    monkeypatch.setattr(lifecycle, "_plan_one", slow)
-    lifecycle.plan_tick(time_budget_seconds=1)
+    monkeypatch.setattr(planner, "_plan_one", slow)
+    planner.plan_tick(time_budget_seconds=1)
     assert len(planned) == 2 and planned[0] == "bounded-0"
     assert planned[1] != "bounded-0"
 
@@ -91,16 +91,16 @@ def test_inflight_automatic_source_yields_safely_and_shared_manual_work_does_not
     from iirp.jobs.queue import fenced, should_yield_to_manual
     values = CollectionInput.model_validate({"request_id": str(uuid4()), "kind": "sec_history"}).model_dump(mode="json")
     with session() as s, s.begin():
-        auto, _ = lifecycle._create(s, values, trigger="automatic", policy_key="sec")
+        auto, _ = batches._create(s, values, trigger="automatic", policy_key="sec")
         auto_scope = s.scalar(select(RequestScope).where(RequestScope.batch_id == auto.id))
-        a = lifecycle.add_job(s, auto_scope, "sec_discover", {"mode": "fixture-auto"})
+        a = batches.add_job(s, auto_scope, "sec_discover", {"mode": "fixture-auto"})
         a.checkpoint = {"committed_page": 2}
         automatic_id = a.id
     running = claim({"sec_discover"})
-    manual = lifecycle.create_collection({**values, "request_id": str(uuid4())})
+    manual = batches.create_collection({**values, "request_id": str(uuid4())})
     with session() as s, s.begin():
         manual_scope = s.scalar(select(RequestScope).where(RequestScope.batch_id == manual["batch_id"]))
-        manual_id = lifecycle.add_job(s, manual_scope, "sec_discover", {"mode": "fixture-manual"}).id
+        manual_id = batches.add_job(s, manual_scope, "sec_discover", {"mode": "fixture-manual"}).id
     assert should_yield_to_manual(running)
     from types import SimpleNamespace
     assert not should_yield_to_manual(SimpleNamespace(id="other-lane", kind="market_quote"))
@@ -132,6 +132,6 @@ def test_inflight_automatic_source_yields_safely_and_shared_manual_work_does_not
     assert resumed.checkpoint["_queue_sec_class"] == "history"
     with session() as s, s.begin():
         scope = s.scalar(select(RequestScope).where(RequestScope.batch_id == manual["batch_id"]))
-        lifecycle.add_job(s, scope, "sec_discover", resumed.target)
-        lifecycle.add_job(s, scope, "sec_discover", {"mode": "another-manual"})
+        batches.add_job(s, scope, "sec_discover", resumed.target)
+        batches.add_job(s, scope, "sec_discover", {"mode": "another-manual"})
     assert not should_yield_to_manual(resumed), "Shared manual demand is foreground too"

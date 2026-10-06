@@ -5,7 +5,7 @@ from datetime import timedelta
 
 import pytest
 from iirp.db import session
-from iirp.jobs import lifecycle
+from iirp.jobs import batches, planner
 from iirp.jobs.queue import claim
 from iirp.models import Batch, Job, RequestScope, now
 from sqlalchemy import select
@@ -24,8 +24,8 @@ def fail_planning(monkeypatch):
     with monkeypatch.context() as patch:
         def fail(*_):
             raise ValueError("synthetic planning failure")
-        patch.setattr(lifecycle, "_plan_batch", fail)
-        lifecycle.plan_tick()
+        patch.setattr(planner, "_plan_batch", fail)
+        planner.plan_tick()
 
 
 def read_batch(client, identifier):
@@ -37,19 +37,19 @@ def read_batch(client, identifier):
 @pytest.mark.parametrize("action", ["pause", "cancel"])
 @pytest.mark.parametrize("work", ["unplanned", "running", "shared"])
 def test_planning_backoff_control_response_and_reread(monkeypatch, lifecycle_client, action, work):
-    identifier = lifecycle.create_collection(collection(tickers=["SYNTH"]))["batch_id"]
+    identifier = batches.create_collection(collection(tickers=["SYNTH"]))["batch_id"]
     other = None
     if work != "unplanned":
-        lifecycle.plan_tick()
+        planner.plan_tick()
         if work == "shared":
             # Different demand, same identity job.
-            other = lifecycle.create_collection(collection(tickers=["SYNTH"], end_date="2023-02-10"))["batch_id"]
-            lifecycle.plan_tick()
+            other = batches.create_collection(collection(tickers=["SYNTH"], end_date="2023-02-10"))["batch_id"]
+            planner.plan_tick()
         assert claim({"market_identity"}) is not None
     with session() as s, s.begin():
         s.get(Batch, identifier).last_planned_at = now() - timedelta(days=1)
         scope = s.scalar(select(RequestScope).where(RequestScope.batch_id == identifier))
-        completed = lifecycle.add_job(s, scope, "synthetic_completed", {"evidence": "frozen"})
+        completed = batches.add_job(s, scope, "synthetic_completed", {"evidence": "frozen"})
         completed.status, completed.result, completed.finished_at = "SUCCEEDED", {"frozen": [1, 2, 3]}, now()
         completed_id = completed.id
     fail_planning(monkeypatch)
@@ -83,12 +83,12 @@ def test_planning_backoff_control_response_and_reread(monkeypatch, lifecycle_cli
             assert "自动重试" not in progress["stage"] and "暂停" not in progress["stage"]
             assert progress["retry_at"] is None
             assert progress["activity_status"] == ("RUNNING" if other else "WAITING")
-        lifecycle.plan_tick()
+        planner.plan_tick()
         assert read_batch(lifecycle_client, identifier)["items"][0]["progress"]["planning_error"] is None
 
 
 def test_explicit_retry_replaces_historical_planning_schedule(monkeypatch, lifecycle_client):
-    identifier = lifecycle.create_collection(collection(tickers=["SYNTH"]))["batch_id"]
+    identifier = batches.create_collection(collection(tickers=["SYNTH"]))["batch_id"]
     fail_planning(monkeypatch)
     with session() as s, s.begin():
         s.get(Batch, identifier).status = "FAILED"

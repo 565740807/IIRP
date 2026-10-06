@@ -10,7 +10,7 @@ from datetime import timedelta
 
 import pytest
 from iirp.db import engine, session
-from iirp.jobs import handlers, lifecycle
+from iirp.jobs import batch_views, batches, handlers, planner
 from iirp.jobs.operation_pool import OperationChild, OperationInterrupted
 from iirp.jobs.ownership import OwnershipLost, WorkerOwnership, previous_leases_drained
 from iirp.jobs.queue import claim, fenced, recover
@@ -37,9 +37,9 @@ def isolated_connection():
 
 @pytest.mark.parametrize("failure", ["timeout", "data"])
 def test_batch_failure_rolls_back_backs_off_and_other_job_publishes(monkeypatch, failure):
-    bad = lifecycle.create_collection(collection(tickers=["BAD"]))["batch_id"]
-    good = lifecycle.create_collection(collection(tickers=["GOOD"]))["batch_id"]
-    original = lifecycle._plan_batch
+    bad = batches.create_collection(collection(tickers=["BAD"]))["batch_id"]
+    good = batches.create_collection(collection(tickers=["GOOD"]))["batch_id"]
+    original = planner._plan_batch
     attempted = []
 
     def inject(s, batch, *args):
@@ -54,9 +54,9 @@ def test_batch_failure_rolls_back_backs_off_and_other_job_publishes(monkeypatch,
             raise ValueError("synthetic invalid batch")
         return original(s, batch, *args)
 
-    monkeypatch.setattr(lifecycle, "_plan_batch", inject)
-    lifecycle.plan_tick()
-    lifecycle.plan_tick()
+    monkeypatch.setattr(planner, "_plan_batch", inject)
+    planner.plan_tick()
+    planner.plan_tick()
     with session() as s:
         failed = s.get(Batch, bad)
         assert failed.planning_failures == 1
@@ -65,7 +65,7 @@ def test_batch_failure_rolls_back_backs_off_and_other_job_publishes(monkeypatch,
         scope = s.scalar(select(RequestScope).where(RequestScope.batch_id == bad))
         assert "must_rollback" not in scope.checkpoint
         assert scope.checkpoint["planning_conflict"]["attempts"] == 1
-        progress = lifecycle.batch_view(s, failed)["items"][0]["progress"]
+        progress = batch_views.batch_view(s, failed)["items"][0]["progress"]
         assert progress["planning_error"]["attempts"] == 1
         assert progress["retry_at"] == failed.planning_retry_at.isoformat()
         assert ("执行期限" if failure == "timeout" else "数据或规则异常") in progress["stage"]
@@ -76,18 +76,18 @@ def test_batch_failure_rolls_back_backs_off_and_other_job_publishes(monkeypatch,
     assert fenced(job, status="SUCCEEDED", result={"verified": "independent queue advanced"})
     with session() as s, s.begin():
         s.get(Batch, bad).planning_retry_at = now() - timedelta(seconds=1)
-    lifecycle.plan_tick()
+    planner.plan_tick()
     with session() as s:
         assert s.get(Batch, bad).planning_failures == 2
         assert s.get(Job, job.id).status == "SUCCEEDED"
     # User controls are immediate even during backoff.
-    lifecycle.control_batch(bad, "cancel")
+    batches.control_batch(bad, "cancel")
     with session() as s:
         assert s.get(Batch, bad).status == "CANCELLED"
 
 
 def test_terminated_database_connection_is_not_misreported_as_batch_error(monkeypatch):
-    bad = lifecycle.create_collection(collection(tickers=["BAD"]))["batch_id"]
+    bad = batches.create_collection(collection(tickers=["BAD"]))["batch_id"]
 
     def terminate(s, batch, *args):
         pid = s.scalar(text("SELECT pg_backend_pid()"))
@@ -96,17 +96,17 @@ def test_terminated_database_connection_is_not_misreported_as_batch_error(monkey
             killer.commit()
         s.execute(text("SELECT 1"))
 
-    monkeypatch.setattr(lifecycle, "_plan_batch", terminate)
+    monkeypatch.setattr(planner, "_plan_batch", terminate)
     with pytest.raises(OperationalError):
-        lifecycle.plan_tick()
+        planner.plan_tick()
     with session() as s:
         assert s.get(Batch, bad).planning_error is None
         assert s.get(Batch, bad).planning_failures == 0
 
 
 def test_singleton_loss_stops_real_child_and_successor_waits_for_old_lease(tmp_path):
-    lifecycle.create_collection(collection(tickers=["SYNTH"]))
-    lifecycle.plan_tick()
+    batches.create_collection(collection(tickers=["SYNTH"]))
+    planner.plan_tick()
     job = claim({"market_identity"})
     assert job is not None
     child = OperationChild()
@@ -148,8 +148,8 @@ def test_singleton_loss_stops_real_child_and_successor_waits_for_old_lease(tmp_p
 
 
 def test_stopping_prevents_completed_response_publication(monkeypatch):
-    lifecycle.create_collection(collection(tickers=["SYNTH"]))
-    lifecycle.plan_tick()
+    batches.create_collection(collection(tickers=["SYNTH"]))
+    planner.plan_tick()
     job = claim({"market_identity"})
     stopped = threading.Event()
     class CompletedAtLoss:
@@ -179,12 +179,15 @@ def test_real_coordinator_exits_after_singleton_connection_loss(tmp_path):
     # loop, executor, lease writes, singleton monitor and claim code all run.
     script = """
 from iirp.jobs import auto_update
-from iirp.jobs import lifecycle
+from iirp.jobs import batch_views
+from iirp.jobs import batches
+from iirp.jobs import planner
+from iirp.jobs import schedule
 from iirp.storage import maintenance
 from iirp.jobs import worker
 auto_update.ensure_fresh = lambda *a, **k: None
-lifecycle.plan_tick = lambda *a, **k: None
-maintenance.schedule_tick = lambda *a, **k: None
+planner.plan_tick = lambda *a, **k: None
+schedule.schedule_tick = lambda *a, **k: None
 maintenance.operational_log_tick = lambda *a, **k: None
 worker.main()
 """
@@ -220,8 +223,8 @@ worker.main()
 
 def test_loss_at_publication_rolls_back_source_and_lease(monkeypatch):
     from iirp.models import SourceObject
-    lifecycle.create_collection(collection(tickers=["SYNTH"]))
-    lifecycle.plan_tick()
+    batches.create_collection(collection(tickers=["SYNTH"]))
+    planner.plan_tick()
     job = claim({"market_identity"})
     stopped = threading.Event()
     original = handlers.fenced
@@ -245,16 +248,16 @@ def test_loss_at_publication_rolls_back_source_and_lease(monkeypatch):
 
 
 def test_batch_error_visible_when_scope_error_projection_is_locked():
-    created = lifecycle.create_collection(collection(tickers=["SCOPELOCK"]))["batch_id"]
+    created = batches.create_collection(collection(tickers=["SCOPELOCK"]))["batch_id"]
     with session() as holder, holder.begin():
         scope = holder.scalar(select(RequestScope).where(RequestScope.batch_id == created).with_for_update())
-        lifecycle.plan_tick()
+        planner.plan_tick()
         with session() as s:
             failed = s.get(Batch, created)
             assert failed.planning_error["sqlstate"] == "55P03"
             assert not s.get(RequestScope, scope.id).checkpoint.get("planning_conflict")
             # API projection falls back to durable batch metadata even when
             # another scope writer prevented its optional checkpoint copy.
-            progress = lifecycle.batch_view(s, failed)["items"][0]["progress"]
+            progress = batch_views.batch_view(s, failed)["items"][0]["progress"]
             assert progress["planning_error"]["sqlstate"] == "55P03"
             assert progress["retry_at"] == failed.planning_retry_at.isoformat()

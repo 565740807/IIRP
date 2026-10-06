@@ -44,8 +44,9 @@ def refresh_analysis(analysis_id, force=False):
     The new research keeps the same conditions with the latest completed
     session as its cutoff; caches that still cover it are reused.
     """
+    from iirp import models
+    from iirp.analysis import requests
     from iirp.api.schemas import AnalysisInput
-    from iirp.jobs import lifecycle
 
     with session() as s, s.begin():
         request = s.get(AnalysisRequest, analysis_id)
@@ -63,10 +64,10 @@ def refresh_analysis(analysis_id, force=False):
         batch = s.get(Batch, request.batch_id)
         current = freshness(s, request)
         # A running fetch answers repeated clicks; otherwise only lapsed results refetch.
-        if batch.status in lifecycle.ACTIVE or (not force and not current["expired"]):
+        if batch.status in models.ACTIVE or (not force and not current["expired"]):
             track.checked_at = now()
             s.flush()
-            return lifecycle.analysis_view(s, request)
+            return requests.analysis_view(s, request)
         if force:
             import uuid
             command_id = "refetch:" + uuid.uuid4().hex
@@ -80,7 +81,7 @@ def refresh_analysis(analysis_id, force=False):
             values = batch.params.get("analysis_input", request.params)
             values = {key: value for key, value in values.items() if key in AnalysisInput.model_fields}
             values["request_id"] = command_id
-            created = lifecycle.create_analysis(AnalysisInput.model_validate(values).model_dump(mode="json"), retry_generation=command_id)
+            created = requests.create_analysis(AnalysisInput.model_validate(values).model_dump(mode="json"), retry_generation=command_id)
             child_id = created["id"]
         child = s.get(AnalysisRequest, child_id)
         child_batch = s.get(Batch, child.batch_id)
@@ -88,4 +89,4 @@ def refresh_analysis(analysis_id, force=False):
         child_batch.title = batch.title
         track.latest_id, track.fingerprint, track.checked_at = child.id, command_id[-64:], now()
         s.flush()
-        return lifecycle.analysis_view(s, child)
+        return requests.analysis_view(s, child)

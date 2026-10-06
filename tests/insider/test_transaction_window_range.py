@@ -5,7 +5,8 @@ from uuid import uuid4
 
 import pytest
 from iirp.db import session
-from iirp.jobs.lifecycle import _create, transaction_window
+from iirp.insider.transactions import transaction_window
+from iirp.jobs.batches import _create
 from iirp.models import Batch, RequestScope, TransactionEvent
 from sqlalchemy import select
 

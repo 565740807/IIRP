@@ -87,7 +87,7 @@ def wait_for_sec_slot():
 
 
 def fetch_sec(url):
-    from iirp.sec.sources import validate_sec_url
+    from iirp.sec.parse import validate_sec_url
 
     url = validate_sec_url(url)
     from iirp.jobs.providers import sec_configured
@@ -141,7 +141,7 @@ def operation(kind, target):
     if kind in ("market_identity", "market_history", "market_quote"):
         return fetch_market(kind, target)
     if kind in ("sec_discover", "sec_document", "sec_identity"):
-        from iirp.sec.sources import run_sec_operation
+        from iirp.sec.fetch import run_sec_operation
 
         return run_sec_operation(kind, target, fetch=fetch_sec)
     if kind == "research_compute":

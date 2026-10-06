@@ -16,7 +16,7 @@ from sqlalchemy.dialects.postgresql import insert
 
 from iirp.config import ROOT
 from iirp.db import session
-from iirp.jobs.lifecycle import add_job
+from iirp.jobs.batches import add_job
 from iirp.jobs.operation_pool import OperationInterrupted
 from iirp.jobs.queue import ManualPriorityYield, fenced, should_yield_to_manual
 from iirp.market.cache import persist_prices, price_bars

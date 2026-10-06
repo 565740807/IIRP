@@ -3,7 +3,7 @@ from datetime import timedelta
 
 import pytest
 from iirp.db import session
-from iirp.jobs import lifecycle
+from iirp.jobs import batch_views, batches, planner
 from iirp.jobs.auto_update import ensure_fresh, source_status
 from iirp.models import Batch, Job, RequestScope, SourcePoll, now
 from sqlalchemy import func, select
@@ -15,7 +15,7 @@ from tests.jobs.test_lifecycle import clean_lifecycle, lifecycle_database  # noq
 def sec_contact_configured(monkeypatch):
     """Scheduling needs a real SEC contact; fetch_sec keeps its own check (CI has none)."""
     monkeypatch.setattr("iirp.jobs.auto_update.sec_configured", lambda: True)
-    monkeypatch.setattr("iirp.storage.maintenance.sec_configured", lambda: True)
+    monkeypatch.setattr("iirp.jobs.schedule.sec_configured", lambda: True)
 
 
 def polled(seconds_ago):
@@ -34,7 +34,7 @@ def test_repeated_opens_reuse_one_daily_demand_and_create_no_jobs():
     first = ensure_fresh({"reason": "open", "sources": ["sec"]})
     for reason in ("scheduler", "open", "visible", "resume"):
         assert ensure_fresh({"reason": reason, "sources": ["sec"]})["batch_ids"] == first["batch_ids"]
-    lifecycle.plan_tick()
+    planner.plan_tick()
     with session() as s:
         assert s.scalar(select(func.count()).select_from(Batch)) == 1
         assert s.scalar(select(func.count()).select_from(Job)) == 0
@@ -53,7 +53,7 @@ def test_opens_pull_the_poll_forward_at_most_every_thirty_seconds():
 def test_parallel_automatic_ensure_reuses_committed_demand_without_waiting_for_lock():
     first = ensure_fresh({"reason": "open", "sources": ["sec"]})
     with session() as locked, locked.begin():
-        lifecycle.advisory(locked, ["freshness", "sec"])
+        batches.advisory(locked, ["freshness", "sec"])
         second = ensure_fresh({"reason": "open", "sources": ["sec"]})
     assert second["batch_ids"] == first["batch_ids"]
     with session() as s:
@@ -91,13 +91,13 @@ def test_next_day_starts_new_frozen_scope_and_keeps_yesterday_work():
         batch = s.get(Batch, first["batch_ids"][0])
         batch.created_at = now() - timedelta(days=1)
         scope = s.scalar(select(RequestScope).where(RequestScope.batch_id == batch.id))
-        lifecycle.add_job(s, scope, "sec_document", {"accession": "synthetic-pending"})
+        batches.add_job(s, scope, "sec_document", {"accession": "synthetic-pending"})
     next_day = ensure_fresh({"reason": "scheduler", "sources": ["sec"]})
     assert next_day["batch_ids"] != first["batch_ids"]
     with session() as s:
         assert s.scalar(select(func.count()).select_from(Batch)) == 2
         old = s.scalar(select(RequestScope).where(RequestScope.batch_id == first["batch_ids"][0]))
-        assert any(job.target.get("accession") == "synthetic-pending" for job in lifecycle.linked_jobs(s, old.id))
+        assert any(job.target.get("accession") == "synthetic-pending" for job in batch_views.linked_jobs(s, old.id))
 
 
 def test_paused_demand_is_not_replaced_and_is_not_polled(monkeypatch):
@@ -127,7 +127,7 @@ def test_uncommitted_control_is_not_overwritten_by_an_automatic_opener():
         control.flush()
         # The control holds the freshness-independent batch row; the opener
         # coalesces on the advisory lock and returns readable committed state.
-        lifecycle.advisory(control, ["freshness", "sec"])
+        batches.advisory(control, ["freshness", "sec"])
         assert ensure_fresh({"reason": "scheduler", "sources": ["sec"]})["batch_ids"] == [batch_id]
     with session() as s:
         assert s.get(Batch, batch_id).status == "PAUSE_REQUESTED"

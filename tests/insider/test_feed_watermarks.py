@@ -12,7 +12,7 @@ from alembic import command
 from alembic.config import Config
 from iirp.config import ROOT
 from iirp.db import engine, session
-from iirp.insider.facts import feed, feed_group
+from iirp.insider.feed import feed, feed_group
 from iirp.insider.feed_index import decode_cursor, encode_cursor, ensure_cluster
 from iirp.insider.feed_updates import feed_updates
 from iirp.models import (
@@ -175,7 +175,7 @@ def test_tombstone_leaves_listing_but_keeps_history_for_open_sessions():
         opened = feed(s, kind="buy")
         victim = opened["groups"][0]
     with session() as s, s.begin():
-        from iirp.insider.facts import _refresh_groups
+        from iirp.insider.views import _refresh_groups
 
         for event in s.scalars(select(TransactionEvent).where(TransactionEvent.issuer_id == victim["issuer_id"])):
             if str(event.accepted_at.date()) >= victim["accepted_date"]:

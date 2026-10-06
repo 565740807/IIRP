@@ -32,7 +32,7 @@ def lock_input(s, kind, security_id, input_key):
 
 
 def enqueue(s, scope, kind, target, capacity=None):
-    from iirp.jobs.lifecycle import add_job
+    from iirp.jobs.batches import add_job
     target = {**target, 'shared_compute': 1}
     key = work_key(kind, target)
     # Caller holds the input lock across cache lookup and admission. Never skip
@@ -72,7 +72,7 @@ def enqueue(s, scope, kind, target, capacity=None):
 
 def restart_obsolete(s, scope, kind, target, capacity=None):
     """A finished work item with no compatible result (e.g. A -> B -> A)."""
-    from iirp.jobs.lifecycle import add_job
+    from iirp.jobs.batches import add_job
     if capacity is not None and capacity[0] <= 0:
         return None
     job = add_job(s, scope, kind, {**target, 'shared_compute': 1}, 5, reuse_completed=False)
@@ -105,7 +105,7 @@ def subscribers(s, job):
 
 
 def pending_subscribers(s, job):
-    from iirp.jobs.lifecycle import research_input_key
+    from iirp.jobs.planner import research_input_key
     from iirp.market.cache import current_cache
     from iirp.models import Security
     security = s.get(Security, job.target['security_id'])
