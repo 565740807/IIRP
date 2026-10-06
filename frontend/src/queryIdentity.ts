@@ -13,13 +13,10 @@ export const researchKeys = {
   set: (id: string, version = "") => ["event-set", id, version] as const,
   recent: (kind: string, ticker: string) => ["recent-analyses", kind, ticker] as const,
   batch: (id: string) => ["batch", id] as const,
-  overlaps: (analysis: string, result: string, event: string, cursor: string | null, limit = 50) =>
-    ["event-overlaps", analysis, result, event, cursor, limit] as const,
 };
 
 export function isFrozenResearchQuery(key: readonly unknown[]) {
-  return ((key[0] === "analysis" || key[0] === "event-analysis") && !!key[2]) ||
-    key[0] === "event-overlaps";
+  return (key[0] === "analysis" || key[0] === "event-analysis") && !!key[2];
 }
 
 /** Commands and task progress cannot make an immutable result stale. */

@@ -33,7 +33,7 @@ def _current_but_incomplete(monkeypatch):
         request = s.get(AnalysisRequest, view["id"])
         security = s.get(Security, security_id)
         dataset = s.get(PriceCache, dataset_id)
-        key = lifecycle.research_input_key(request, dataset, [], security)
+        key = lifecycle.research_input_key(request, dataset, security)
         bars, _ = price_bars(s, security_id, dataset_id)
         result = AnalysisResult(analysis_id=request.id, security_id=security_id, input_key=key,
             inputs={"dataset_id": dataset_id, "params": request.params,
@@ -71,22 +71,18 @@ def test_automatic_refresh_does_not_loop_on_an_unexpired_gap(monkeypatch):
         assert s.scalar(select(func.count()).select_from(AnalysisRequest)) == before
 
 
-@pytest.mark.parametrize("kind", ["monthly", "interval", "earnings"])
+@pytest.mark.parametrize("kind", ["monthly", "interval"])
 def test_range_bounded_loading_keeps_full_financial_output_identical(kind):
     cutoff = date(2024, 6, 30)
     values = {"kind": kind, "cutoff_date": str(cutoff), "years": [2022, 2023], "current_year": 2024,
-              "current_fiscal_year": 2024, "month": 2, "comparison": "complete",
-              "start_mmdd": "12-15", "end_mmdd": "01-20", "cross_year": True, "quarter": 1, "window": 5}
-    events = [{"id": f"synthetic-{year}-{quarter}", "fiscal_year": year, "fiscal_quarter": quarter,
-               "announced_date": f"{year}-{month:02d}-15", "announced_at": f"{year}-{month:02d}-15T08:00:00-05:00",
-               "time_precision": "exact", "verified": True}
-              for year in (2021, 2022, 2023, 2024) for quarter, month in ((1, 2), (2, 5), (3, 8), (4, 11))]
+              "month": 2, "comparison": "complete",
+              "start_mmdd": "12-15", "end_mmdd": "01-20", "cross_year": True}
     bars = history(date(2020, 12, 1), date(2024, 12, 31))
-    ranges = research_ranges(values, "XNYS", events)
+    ranges = research_ranges(values, "XNYS")
     clipped = [row for row in bars if any(str(first) <= row["date"] <= str(last) for first, last in ranges)]
     benchmark = {"symbol": "SYNTHETIC", "status": "available", "bars": bars}
-    full = compute_research(values, bars, events, today=cutoff, benchmark=benchmark)
-    trimmed = compute_research(values, clipped, events, today=cutoff, benchmark={**benchmark, "bars": clipped})
+    full = compute_research(values, bars, today=cutoff, benchmark=benchmark)
+    trimmed = compute_research(values, clipped, today=cutoff, benchmark={**benchmark, "bars": clipped})
     assert trimmed == full
 
 

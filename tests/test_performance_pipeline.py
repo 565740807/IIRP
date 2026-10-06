@@ -1,7 +1,7 @@
 """Performance regressions with synthetic data, only iirp_v1_test_* databases."""
 
 import uuid
-from datetime import date, timedelta
+from datetime import date
 
 from iirp import lifecycle
 from iirp.business_models import AnalysisResult
@@ -272,12 +272,12 @@ def test_results_publish_only_for_the_current_stock_and_benchmark_caches():
             request, stock, data = s.get(AnalysisRequest, view["id"]), s.get(Security, stock_id), s.get(PriceCache, stock_data)
             snapshot = benchmark_snapshot(request.params, stock, s)
             return {"dataset_id": stock_data, "benchmark": snapshot,
-                    "input_key": lifecycle.research_input_key(request, data, [], stock, snapshot)}
+                    "input_key": lifecycle.research_input_key(request, data, stock, snapshot)}
 
     def publishable(target):
         with session() as s:
             request, stock, data = s.get(AnalysisRequest, view["id"]), s.get(Security, stock_id), s.get(PriceCache, stock_data)
-            return safe_publication(s, request, stock, target, data, [])
+            return safe_publication(s, request, stock, target, data)
 
     stock_only = target_now()
     assert publishable(stock_only)
@@ -295,66 +295,14 @@ def test_results_publish_only_for_the_current_stock_and_benchmark_caches():
 
 def test_input_facts_and_calculation_version_invalidate_cache(monkeypatch):
     from iirp.analytics import research
-    from iirp.business_models import Security
 
     security = seed_security()
     seed_prices(security, date(2022, 12, 1), date(2024, 12, 31))
     lifecycle.create_analysis(params())
     lifecycle.plan_tick()
     finish_compute()
-    with session() as s, s.begin():
-        stock = s.get(Security, security)
-        stock.metadata_json = {**stock.metadata_json, "verified_fiscal_year_end": "06-30"}
-    assert not lifecycle.create_analysis(params())["results"]
-    with session() as s, s.begin():
-        stock = s.get(Security, security)
-        stock.metadata_json = {k: v for k, v in stock.metadata_json.items() if k != "verified_fiscal_year_end"}
     monkeypatch.setattr(research, "CALCULATION_VERSION", "synthetic-new-calculation-version")
     assert not lifecycle.create_analysis(params())["results"]
-
-
-def test_implicit_fiscal_year_rollover_does_not_reuse_same_cutoff_prices(monkeypatch):
-    from datetime import datetime
-    from zoneinfo import ZoneInfo
-
-    from iirp.business_models import AnalysisRequest, Batch, RequestScope, Security
-    from iirp.research_pipeline import effective_input_params
-
-    security = seed_security()
-    seed_prices(security, date(2022, 12, 1), date(2026, 7, 31))
-    with session() as s, s.begin():
-        s.get(Security, security).metadata_json = {"verified_fiscal_year_end": "07-31"}
-    monkeypatch.setattr("iirp.analytics.calendar.last_completed_session", lambda *args, **kwargs: date(2026, 7, 31))
-    requested = params(kind="earnings", current_year=2026)
-    first = lifecycle.create_analysis(requested)
-    with session() as s, s.begin():
-        request = s.get(AnalysisRequest, first["id"])
-        s.get(Batch, request.batch_id).created_at = datetime(2026, 7, 31, 18, tzinfo=ZoneInfo("America/New_York"))
-        assert effective_input_params(request, s.get(Security, security))["current_fiscal_year"] == 2026
-    with session() as s, s.begin():
-        request = s.get(AnalysisRequest, first["id"])
-        scope = s.scalar(select(RequestScope).where(RequestScope.batch_id == request.batch_id))
-        lifecycle._plan_compute(s, scope, s.get(Batch, request.batch_id), s.get(Security, security))
-    finish_compute()
-    old = lifecycle.get_analysis(first["id"])["results"][0]
-    assert old["data"]["metadata"]["current_year"] == 2026
-    requested["request_id"] = str(uuid.uuid4())
-    second = lifecycle.create_analysis(requested)
-    assert second["params"]["cutoff_date"] == first["params"]["cutoff_date"] == "2026-07-31"
-    assert not second["results"], "new request must reject cache immediately"
-    with session() as s, s.begin():
-        request = s.get(AnalysisRequest, second["id"])
-        s.get(Batch, request.batch_id).created_at = datetime(2026, 8, 1, 12, tzinfo=ZoneInfo("America/New_York"))
-        assert effective_input_params(request, s.get(Security, security))["current_fiscal_year"] == 2027
-    with session() as s, s.begin():
-        request = s.get(AnalysisRequest, second["id"])
-        scope = s.scalar(select(RequestScope).where(RequestScope.batch_id == request.batch_id))
-        lifecycle._plan_compute(s, scope, s.get(Batch, request.batch_id), s.get(Security, security))
-    assert not lifecycle.get_analysis(second["id"])["results"]
-    finish_compute()
-    new = lifecycle.get_analysis(second["id"])["results"][0]
-    assert new["data"]["metadata"]["current_year"] == 2027
-    assert old["input_version"] != new["input_version"]
 
 
 def test_shared_quote_demand_stays_attached_after_completion():
@@ -399,33 +347,3 @@ class CountingYahoo:
                     "volume": "10", "splits": "0", "dividends": "0"} for day in days]
         return {"ok": True, "data": {"provider": "synthetic", "library_version": "fixture",
                 "fetched_at": "2024-01-01T00:00:00+00:00", "records": records, "metadata": {}}}
-
-
-def test_one_earnings_analysis_requests_yahoo_once_while_quarters_are_found():
-    from dateutil.relativedelta import relativedelta
-    from iirp.business_models import Security
-    from iirp.business_worker import execute_business
-    from test_earnings_lifecycle import event
-
-    security = seed_security()
-    today = today_et()
-    lifecycle.create_analysis(params(kind="earnings", historical_years=8,
-                                     current_fiscal_year=today.year))
-    yahoo = CountingYahoo()
-    # Discovery keeps finding older quarters; each tick may see a new one.
-    found = [(today.year - 1, 4), (today.year - 4, 2), (today.year - 8, 1)]
-    for year, quarter in [(None, None), *found]:
-        if year:
-            with session() as s, s.begin():
-                event(s, s.get(Security, security), f"{year}-{quarter * 3:02d}-15", year, quarter)
-        lifecycle.plan_tick()
-        job = claim({"market_history"})
-        if job:
-            execute_business(job, runner=yahoo)
-    assert len(yahoo.calls) == 1
-    first = today - relativedelta(years=9) - timedelta(days=31)
-    assert yahoo.calls[0][2:] == (str(first), str(today))
-    with session() as s:
-        assert s.scalar(select(func.count()).select_from(Job).where(Job.kind == "market_history")) == 1
-        # Prices are sliced locally for the quarters found so far.
-        assert s.scalar(select(func.count()).select_from(Job).where(Job.kind == "research_compute"))

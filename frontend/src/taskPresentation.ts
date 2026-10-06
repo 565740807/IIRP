@@ -7,7 +7,6 @@ export function taskEntryCategory(counts: Record<string, number> = {}) {
 
 export function taskSource(kind: string) {
   if (kind.startsWith("sec_")) return "SEC";
-  if (kind === "earnings") return "SEC / 公告来源 / Yahoo";
   if (["market_history", "market_quotes", "event_dates"].includes(kind)) return "Yahoo / 本地计算";
   return "本地维护";
 }

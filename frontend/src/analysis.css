@@ -78,3 +78,14 @@
     padding: 12px 18px;
   }
 }
+/* Earnings and custom events (S3). Blue up, orange down, always with a sign. */
+.ev-up { color: #1d4ed8; font-variant-numeric: tabular-nums; }
+.ev-down { color: #c2410c; font-variant-numeric: tabular-nums; }
+.ev-text { width: 100%; font: 13px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; padding: 10px; border: 1px solid #cbd5e1; border-radius: 8px; resize: vertical; }
+.ev-n { width: 4.5em; }
+.ev-errors ul { margin: 6px 0 0; padding-left: 20px; }
+.ev-note { display: block; color: #64748b; }
+.ev-candles { width: 100%; height: 260px; }
+.ev-preview { max-height: 320px; overflow-y: auto; margin: 8px 0; }
+.chip { border: 1px solid #cbd5e1; background: white; border-radius: 999px; padding: 2px 10px; cursor: pointer; }
+.chip.selected { border-color: #2563eb; background: #eff6ff; color: #1d4ed8; }

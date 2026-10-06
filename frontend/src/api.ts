@@ -24,9 +24,6 @@ export type GenericOutput = Omit<
 > & { data: Fact; items: Fact[] };
 export type StrategyInput = components["schemas"]["StrategyInput"];
 export type PreferenceInput = components["schemas"]["PreferenceInput"];
-export type ImportInput = components["schemas"]["ImportInput"];
-export type ImportOutput = components["schemas"]["ImportOutput"];
-export type EventCorrection = components["schemas"]["EventCorrection"];
 export type TransactionSecurityInput =
   components["schemas"]["TransactionSecurityInput"];
 export type RequestIdentity = components["schemas"]["RequestIdentity"];

@@ -32,7 +32,10 @@ def test_database_commit_failure_retries_without_consuming_source_attempts(monke
         calls.append(kwargs)
         return True
     monkeypatch.setattr(business_worker, "fenced", fence)
-    job = SimpleNamespace(id="fenced-test", kind="local_import", attempts=2)
+    # The first fenced business write fails to commit.
+    monkeypatch.setattr(business_worker, "skip_obsolete_compute",
+                        lambda job: business_worker.fenced(job, business_write=lambda s, current: None))
+    job = SimpleNamespace(id="fenced-test", kind="research_compute", attempts=2)
     business_worker.execute_business(job)
     assert calls[-1]["status"] == "RETRY_WAIT"
     assert calls[-1]["retry_seconds"] == 5

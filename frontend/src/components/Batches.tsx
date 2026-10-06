@@ -30,7 +30,7 @@ function AnalysisLink({
   if (!batch.analysis_id) return null;
   const purpose =
     batch.kind === "event_dates"
-      ? "events"
+      ? batch.params.event_kind === "earnings" ? "earnings" : "events"
       : String(batch.params.purpose ?? "monthly");
   const kind = ["monthly", "interval", "earnings", "events"].includes(purpose)
     ? purpose
@@ -38,16 +38,7 @@ function AnalysisLink({
   return (
     <Link
       className="text-link"
-      to={
-        kind === "events"
-          ? "/analysis/events?set=" +
-            batch.params.event_set_id +
-            "&version=" +
-            batch.params.event_version +
-            "&a=" +
-            batch.analysis_id
-          : "/analysis/" + kind + "?a=" + batch.analysis_id
-      }
+      to={"/analysis/" + kind + "?a=" + batch.analysis_id}
       onClick={onNavigate}
     >
       查看研究结果 →
@@ -240,13 +231,12 @@ function batchTitle(batch: Batch) {
   const labels: Record<string, string> = {
     monthly: "月度分析",
     interval: "区间分析",
-    earnings: "财报分析",
-    event_dates: "事件日期分析",
+    event_dates: "事件分析",
     research: "历史行情",
     market_history: "历史行情",
   };
   return batch.title.replace(
-    /\b(monthly|interval|earnings|event_dates|research|market_history)\b/g,
+    /\b(monthly|interval|event_dates|research|market_history)\b/g,
     (value) => labels[value],
   );
 }
@@ -273,7 +263,7 @@ export function BatchScopes({ batch }: { batch: Batch }) {
                 {batch.price_range ? "计算/获取范围：" : "已保存范围："}{item.coverage.start_date ?? "起点待确定"} →{" "}
                 {item.coverage.end_date ?? "最新"}
                 {item.security_id && item.progress?.acquired_sessions == null &&
-                  ["market_history", "earnings"].includes(batch.kind) && (
+                  batch.kind === "market_history" && (
                     <>
                       {" "}
                       · 已获取 {item.coverage.valid_sessions} 个有效交易日
@@ -532,14 +522,6 @@ export function BatchList({ compact = false, initialCategory, onCategoryChange }
               <div className="button-row">
                 <BatchActions batch={batch} />
                 <AnalysisLink batch={batch} />
-                {active?.wait_reason && batch.kind === "earnings" && (
-                  <Link
-                    to={`/analysis/events?kind=earnings&new=1&tickers=${encodeURIComponent(active.symbol)}`}
-                    state={{ from: `/data?batch=${batch.id}` }}
-                  >
-                    核对或补录财报资料 →
-                  </Link>
-                )}
                 <Button
                   variant="ghost"
                   onClick={() =>

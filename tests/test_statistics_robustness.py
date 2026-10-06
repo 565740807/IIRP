@@ -4,9 +4,7 @@ from decimal import Decimal
 
 import pytest
 from iirp.analytics.distributions import Distribution, add_distributions
-from iirp.analytics.event_dates import analyze_event_dates
 from iirp.analytics.research import compute_research
-from test_event_dates import event, history
 from test_research import history as price_history
 
 
@@ -79,35 +77,6 @@ def test_early_late_boundary_uses_target_year_span_not_survivors_or_returns():
     assert reversed_item["robustness"]["historical_segments"]["boundary_year"] == 2021
 
 
-def test_overlap_warns_without_silently_dropping_samples_and_provenance_is_explicit():
-    events = [event(client_event_id="one", first_observed_at="2026-09-22T12:00:00Z", review={"confirmed_at": "2026-09-22T12:01:00Z"}),
-              event(client_event_id="two")]
-    result = analyze_event_dates(events, history(), cutoff=date(2024, 12, 31), current_year=2025,
-                                 metadata={"inclusion_rule": {"description": "All synthetic events"}})
-    robust = result["distributions"][0]["robustness"]
-    assert robust["sample_unit"] == "event_sample" and robust["n"] == 2
-    assert robust["same_year_counts"] == {"2024": 2}
-    assert len(robust["overlapping_pairs"]) == 1
-    assert {robust["overlapping_pairs"][0]["first_key"], robust["overlapping_pairs"][0]["second_key"]} == {"one", "two"}
-    assert result["rows"][0]["first_observed_at"] == "2026-09-22T12:00:00Z"
-    assert result["rows"][0]["date_verified_at"] == "2026-09-22T12:01:00Z"
-    assert result["metadata"]["inclusion_rule"]["description"] == "All synthetic events"
-    unverified = analyze_event_dates([event(date_verified=False, review={"confirmed_at": "2026-09-22T12:01:00Z"})], history(), cutoff=date(2024, 12, 31), current_year=2025)
-    assert unverified["rows"][0]["date_verified_at"] is None
-
-
-def test_paired_robustness_uses_only_same_date_pairs_and_keeps_stock_n():
-    bars = history()
-    other = [row for index, row in enumerate(bars) if index != 8]
-    result = analyze_event_dates([event()], bars, cutoff=date(2024, 12, 31), current_year=2025,
-        benchmark={"symbol": "SYNTHETIC", "status": "available", "bars": other})
-    after = next(d for d in result["distributions"] if d["metric"] == "after5")
-    assert after["robustness"]["n"] == 1
-    assert after["paired_difference_robustness"]["n"] == 0
-    assert after["paired_difference_robustness"]["sample_unit"] == "paired_sample"
-    assert after["missing"] == {"benchmark_missing_prices": 1}
-
-
 def test_monthly_and_interval_baseline_and_drawdown_are_independently_reproducible():
     bars = price_history(date(2022, 12, 1), date(2024, 1, 31), {"2023-01-03": "110", "2023-01-04": "120", "2023-01-05": "90", "2023-01-31": "121"})
     params = {"years": [2023], "current_year": 2024, "month": 1, "comparison": "complete"}
@@ -120,47 +89,8 @@ def test_monthly_and_interval_baseline_and_drawdown_are_independently_reproducib
     assert "首个交易日收盘" in interval["metadata"]["methodology"]["baseline_rule"]
 
 
-def test_event_drawdown_requires_full_path_and_stays_inside_each_window():
-    result = analyze_event_dates([event()], history(), cutoff=date(2024, 12, 31), current_year=2025)
-    windows = result["rows"][0]["windows"]
-    assert Decimal(windows["through5"]["max_drawdown"]) == Decimal(".1")
-    assert Decimal(windows["after5"]["max_drawdown"]) == 0
-    broken = analyze_event_dates([event()], history()[:8] + history()[9:], cutoff=date(2024, 12, 31), current_year=2025)
-    assert broken["rows"][0]["windows"]["through5"]["max_drawdown"] is None
-    assert broken["rows"][0]["windows"]["day0"]["max_drawdown"] == "0.1"
-
-
-def test_native_earnings_adds_robustness_and_complete_closing_risk():
-    bars = price_history(date(2022, 12, 1), date(2024, 6, 30), {"2023-01-03": "120", "2023-01-04": "90", "2023-01-09": "110"})
-    events = [{"id": "synthetic", "fiscal_year": 2023, "fiscal_quarter": 1, "announced_date": "2023-01-03", "announced_at": "2023-01-03T08:00:00-05:00", "time_precision": "exact", "verified": True, "first_observed_at": "2026-09-22T12:00:00Z", "last_verified_at": "2026-09-22T12:01:00Z",
-               "evidence": [
-                   {"provider": "synthetic", "source_url": "https://example.com/synthetic-announcement", "announced_date": "2023-01-03", "fiscal_year": 2023, "fiscal_quarter": 1,
-                        "announced_at": "2023-01-03T08:00:00-05:00", "time_precision": "exact",
-                        "time_evidence": "Synthetic issuer statement: results first released January 3 at 8:00 a.m. ET"},
-                   {"provider": "synthetic", "source_url": "https://example.com/synthetic-quarterly-filing", "fiscal_year": 2023, "fiscal_quarter": 1,
-                    "period_kind": "regular", "period_kind_evidence": "Synthetic ordinary fiscal quarter statement"}]}]
-    result = compute_research({"kind": "earnings", "current_fiscal_year": 2024, "years": [2023]}, bars, events, today=date(2024, 6, 30))
-    selected = next(d for d in result["distributions"] if d["group"] == "Q1" and d["metric"] == "5")
-    assert selected["robustness"]["n"] == 1 and selected["robustness"]["sample_unit"] == "event_sample"
-    assert Decimal(selected["closing_max_drawdown"]["max"]) == Decimal(".25")
-    assert result["metadata"]["calculation_version"] == "research-v10-time-source-attribution"
-    assert result["date_observation"]["metadata"]["calculation_version"] == "event-dates-v7-fiscal-scope-evidence"
-    assert result["date_observation"]["rows"][0]["first_observed_at"] == "2026-09-22T12:00:00Z"
-    assert result["date_observation"]["rows"][0]["date_verified_at"] == "2026-09-22T12:01:00Z"
-
-
 def test_old_distribution_remains_readable_without_inventing_robustness():
     old = Distribution.model_validate({"key": "1:endpoint", "label": "1月", "metric": "endpoint", "group": "1", "stock": {"n": 1, "mean": ".1"}})
     assert old.robustness is None and old.closing_max_drawdown is None
 
 
-def test_many_overlaps_keep_all_samples_and_count_without_quadratic_preview():
-    events = [event(client_event_id=f"event-{index}") for index in range(25)]
-    result = analyze_event_dates(events, history(), cutoff=date(2024, 12, 31), current_year=2025)
-    robust = result["distributions"][0]["robustness"]
-    assert robust["n"] == len(robust["sample_keys"]) == 25
-    assert robust["overlap_pair_count"] == 25 * 24 // 2
-    assert len(robust["overlapping_pairs"]) == 200
-    assert robust["overlap_details_truncated"]
-    assert len(robust["leave_one_out"]["points"]) == 25
-    assert all(Decimal(point["mean"]) == Decimal(".1") for point in robust["leave_one_out"]["points"])

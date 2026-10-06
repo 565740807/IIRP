@@ -438,23 +438,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/analyses/{analysis_id}/results/{result_id}/event-overlaps": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Event Overlaps */
-        get: operations["event_overlaps_api_v1_analyses__analysis_id__results__result_id__event_overlaps_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v1/analyses/{analysis_id}/refresh": {
         parameters: {
             query?: never;
@@ -627,74 +610,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/earnings": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Earnings */
-        get: operations["earnings_api_v1_earnings_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/earnings/{event_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        /** Earnings Update */
-        patch: operations["earnings_update_api_v1_earnings__event_id__patch"];
-        trace?: never;
-    };
-    "/api/v1/imports/preview": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Import Preview */
-        post: operations["import_preview_api_v1_imports_preview_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/imports/{preview_id}/commit": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Import Commit */
-        post: operations["import_commit_api_v1_imports__preview_id__commit_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v1/cache/cleanup": {
         parameters: {
             query?: never;
@@ -797,15 +712,15 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/events/limits": {
+    "/api/v1/events/defaults": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** Import Limits */
-        get: operations["import_limits_api_v1_events_limits_get"];
+        /** Defaults */
+        get: operations["defaults_api_v1_events_defaults_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -814,7 +729,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/events/prompt": {
+    "/api/v1/events/prompts/{kind}": {
         parameters: {
             query?: never;
             header?: never;
@@ -822,16 +737,18 @@ export interface paths {
             cookie?: never;
         };
         /** Prompt */
-        get: operations["prompt_api_v1_events_prompt_get"];
-        put?: never;
+        get: operations["prompt_api_v1_events_prompts__kind__get"];
+        /** Save Prompt */
+        put: operations["save_prompt_api_v1_events_prompts__kind__put"];
         post?: never;
-        delete?: never;
+        /** Reset Prompt */
+        delete: operations["reset_prompt_api_v1_events_prompts__kind__delete"];
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/v1/events/preview": {
+    "/api/v1/events/validate": {
         parameters: {
             query?: never;
             header?: never;
@@ -840,25 +757,8 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Preview */
-        post: operations["preview_api_v1_events_preview_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/events/confirm": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Confirm */
-        post: operations["confirm_api_v1_events_confirm_post"];
+        /** Validate */
+        post: operations["validate_api_v1_events_validate_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -875,7 +775,8 @@ export interface paths {
         /** Sets */
         get: operations["sets_api_v1_events_sets_get"];
         put?: never;
-        post?: never;
+        /** Create Set */
+        post: operations["create_set_api_v1_events_sets_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -889,11 +790,13 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Detail */
-        get: operations["detail_api_v1_events_sets__set_id__get"];
-        put?: never;
+        /** Get Set */
+        get: operations["get_set_api_v1_events_sets__set_id__get"];
+        /** Update Set */
+        put: operations["update_set_api_v1_events_sets__set_id__put"];
         post?: never;
-        delete?: never;
+        /** Delete Set */
+        delete: operations["delete_set_api_v1_events_sets__set_id__delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -933,17 +836,17 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/events/analyses/{analysis_id}/export": {
+    "/api/v1/events/analyses/{analysis_id}/refresh": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** Export */
-        get: operations["export_api_v1_events_analyses__analysis_id__export_get"];
+        get?: never;
         put?: never;
-        post?: never;
+        /** Refresh */
+        post: operations["refresh_api_v1_events_analyses__analysis_id__refresh_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -990,7 +893,7 @@ export interface components {
              * @default monthly
              * @enum {string}
              */
-            kind: "monthly" | "interval" | "earnings";
+            kind: "monthly" | "interval";
             /** Tickers */
             tickers: string[];
             /**
@@ -1004,8 +907,6 @@ export interface components {
             excluded_years?: number[];
             /** Current Year */
             current_year?: number | null;
-            /** Current Fiscal Year */
-            current_fiscal_year?: number | null;
             /**
              * Month
              * @default 1
@@ -1035,30 +936,6 @@ export interface components {
             end_mmdd: string;
             /** Cross Year */
             cross_year?: boolean | null;
-            /**
-             * Quarter
-             * @default 1
-             */
-            quarter: number;
-            /**
-             * Window
-             * @default 5
-             * @enum {integer}
-             */
-            window: 1 | 5 | 20 | 60;
-            /**
-             * Date Window
-             * @default after5
-             * @enum {string}
-             */
-            date_window: "before5" | "day0" | "after5" | "through5";
-            /** Date Category */
-            date_category?: "unassigned_earnings" | null;
-            /**
-             * Common Years
-             * @default false
-             */
-            common_years: boolean;
             /** Benchmark */
             benchmark?: string | null;
         };
@@ -1211,7 +1088,7 @@ export interface components {
              * Kind
              * @enum {string}
              */
-            kind: "market_history" | "market_quotes" | "sec_latest" | "sec_history" | "sec_filing" | "earnings";
+            kind: "market_history" | "market_quotes" | "sec_latest" | "sec_history" | "sec_filing";
             /** Tickers */
             tickers?: string[];
             /** Historical Years */
@@ -1323,111 +1200,6 @@ export interface components {
             /** Reasons */
             reasons?: string[];
         };
-        /** CustomEvent */
-        CustomEvent: {
-            /** Client Event Id */
-            client_event_id: string;
-            /** Event Name */
-            event_name: string;
-            /** Event Date */
-            event_date: string | null;
-            /** Event Time */
-            event_time: string | null;
-            /** Timezone */
-            timezone: string | null;
-            /**
-             * Time Precision
-             * @enum {string}
-             */
-            time_precision: "minute" | "date" | "unknown";
-            /**
-             * Time Basis
-             * @enum {string}
-             */
-            time_basis: "official_schedule" | "reported_actual" | "unknown";
-            /**
-             * Event Status
-             * @enum {string}
-             */
-            event_status: "occurred" | "scheduled" | "cancelled" | "unknown";
-            /**
-             * Date Status
-             * @enum {string}
-             */
-            date_status: "supported" | "conflicting" | "unverified";
-            /** Notes */
-            notes: string | null;
-            /** Event Type */
-            event_type: string;
-            /** Event Year */
-            event_year: number;
-            /** Sources */
-            sources: components["schemas"]["EventSource"][];
-        };
-        /** CustomEventCoverage */
-        CustomEventCoverage: {
-            /**
-             * Search Status
-             * @enum {string}
-             */
-            search_status: "searched" | "partial" | "not_searched";
-            /**
-             * Result Status
-             * @enum {string}
-             */
-            result_status: "events_found" | "not_found" | "confirmed_none" | "unresolved";
-            /** Event Ids */
-            event_ids: string[];
-            /** Source Urls */
-            source_urls: string[];
-            /** Notes */
-            notes: string;
-            /** Year */
-            year: number;
-            /** Event Type */
-            event_type: string;
-        };
-        /** CustomEventScope */
-        CustomEventScope: {
-            /** Year Start */
-            year_start: number;
-            /** Year End */
-            year_end: number;
-            /** Event Types */
-            event_types: string[];
-            /** Include Keywords */
-            include_keywords: string[];
-            /** Exclude Keywords */
-            exclude_keywords: string[];
-            /**
-             * Anchor Basis
-             * @constant
-             */
-            anchor_basis: "event_start";
-            /** Include Scheduled */
-            include_scheduled: boolean;
-        };
-        /** CustomEventsImport */
-        CustomEventsImport: {
-            /**
-             * Schema Version
-             * @constant
-             */
-            schema_version: "iirp.custom-events.v1";
-            /**
-             * Research As Of
-             * Format: date
-             */
-            research_as_of: string;
-            company: components["schemas"]["EventCompany"];
-            scope: components["schemas"]["CustomEventScope"];
-            /** Events */
-            events: components["schemas"]["CustomEvent"][];
-            /** Coverage */
-            coverage: components["schemas"]["CustomEventCoverage"][];
-            /** Warnings */
-            warnings: string[];
-        };
         /** Distribution */
         Distribution: {
             /** Key */
@@ -1529,148 +1301,6 @@ export interface components {
              */
             flat: number;
         };
-        /** EarningsEvent */
-        EarningsEvent: {
-            /** Client Event Id */
-            client_event_id: string;
-            /** Event Name */
-            event_name: string;
-            /** Event Date */
-            event_date: string | null;
-            /** Event Time */
-            event_time: string | null;
-            /** Timezone */
-            timezone: string | null;
-            /**
-             * Time Precision
-             * @enum {string}
-             */
-            time_precision: "minute" | "date" | "unknown";
-            /**
-             * Time Basis
-             * @enum {string}
-             */
-            time_basis: "official_schedule" | "reported_actual" | "unknown";
-            /**
-             * Event Status
-             * @enum {string}
-             */
-            event_status: "occurred" | "scheduled" | "cancelled" | "unknown";
-            /**
-             * Date Status
-             * @enum {string}
-             */
-            date_status: "supported" | "conflicting" | "unverified";
-            /** Notes */
-            notes: string | null;
-            /**
-             * Event Type
-             * @constant
-             */
-            event_type: "earnings_release";
-            /** Event Year */
-            event_year: number | null;
-            /** Fiscal Year */
-            fiscal_year: number | null;
-            /** Fiscal Quarter */
-            fiscal_quarter: number | null;
-            /** Period End */
-            period_end: string | null;
-            /** Period Start */
-            period_start?: string | null;
-            /**
-             * Period Kind
-             * @enum {string}
-             */
-            period_kind: "regular" | "transition" | "unknown";
-            /**
-             * Release Session
-             * @enum {string}
-             */
-            release_session: "before_open" | "during_session" | "after_close" | "unknown";
-            /** Sources */
-            sources: components["schemas"]["EarningsSource"][];
-        };
-        /** EarningsEventCoverage */
-        EarningsEventCoverage: {
-            /**
-             * Search Status
-             * @enum {string}
-             */
-            search_status: "searched" | "partial" | "not_searched";
-            /**
-             * Result Status
-             * @enum {string}
-             */
-            result_status: "events_found" | "not_found" | "confirmed_none" | "unresolved";
-            /** Event Ids */
-            event_ids: string[];
-            /** Source Urls */
-            source_urls: string[];
-            /** Notes */
-            notes: string;
-            /** Fiscal Year */
-            fiscal_year: number;
-            /** Fiscal Quarter */
-            fiscal_quarter: number;
-        };
-        /** EarningsEventScope */
-        EarningsEventScope: {
-            /** Fiscal Year Start */
-            fiscal_year_start: number;
-            /** Fiscal Year End */
-            fiscal_year_end: number;
-            /** Fiscal Quarters */
-            fiscal_quarters: number[];
-            /**
-             * Anchor Basis
-             * @constant
-             */
-            anchor_basis: "earnings_release";
-            /** Include Scheduled */
-            include_scheduled: boolean;
-        };
-        /** EarningsEventsImport */
-        EarningsEventsImport: {
-            /**
-             * Schema Version
-             * @constant
-             */
-            schema_version: "iirp.earnings-events.v1";
-            /**
-             * Research As Of
-             * Format: date
-             */
-            research_as_of: string;
-            company: components["schemas"]["EventCompany"];
-            scope: components["schemas"]["EarningsEventScope"];
-            /** Events */
-            events: components["schemas"]["EarningsEvent"][];
-            /** Coverage */
-            coverage: components["schemas"]["EarningsEventCoverage"][];
-            /** Warnings */
-            warnings: string[];
-        };
-        /** EarningsSource */
-        EarningsSource: {
-            /** Url */
-            url: string;
-            /** Title */
-            title: string;
-            /** Publisher */
-            publisher: string;
-            /** Published Date */
-            published_date: string | null;
-            /**
-             * Source Kind
-             * @enum {string}
-             */
-            source_kind: "primary" | "secondary" | "unknown";
-            /** Supports */
-            supports: ("event_date" | "event_time" | "timezone" | "release_session" | "event_status" | "fiscal_year" | "fiscal_quarter" | "period_end" | "period_start" | "period_kind")[];
-            /** Evidence Note */
-            evidence_note: string;
-        };
         /** EventAnalysisCreated */
         EventAnalysisCreated: {
             /** Analysis Id */
@@ -1679,48 +1309,13 @@ export interface components {
             batch_id: string;
             /** Reused */
             reused: boolean;
-        } & {
-            [key: string]: unknown;
         };
         /** EventAnalysisInput */
         EventAnalysisInput: {
             /** Request Id */
             request_id: string;
-            /** Version */
-            version: number;
-            /** Cutoff Date */
-            cutoff_date?: string | null;
-            /** Current Fiscal Year */
-            current_fiscal_year?: number | null;
-            /**
-             * Include Unverified
-             * @default false
-             */
-            include_unverified: boolean;
-            /** Benchmark */
-            benchmark?: string | null;
-            /**
-             * Historical Years
-             * @default 8
-             */
-            historical_years: number;
-            /** Years */
-            years?: number[] | null;
-            /** Excluded Years */
-            excluded_years?: number[];
-            /**
-             * Common Years
-             * @default false
-             */
-            common_years: boolean;
-            /**
-             * Date Window
-             * @default after5
-             * @enum {string}
-             */
-            date_window: "before5" | "day0" | "after5" | "through5";
-            /** Date Category */
-            date_category?: string | null;
+            /** N */
+            n?: number | null;
         };
         /** EventAnalysisOutput */
         EventAnalysisOutput: {
@@ -1728,272 +1323,115 @@ export interface components {
             id: string;
             /** Batch Id */
             batch_id: string;
-            /** Params */
-            params: {
-                [key: string]: unknown;
-            };
             /** Status */
             status: string;
-            /** Requested Action */
-            requested_action: string | null;
+            /** Title */
+            title: string;
+            /**
+             * Event Kind
+             * @enum {string}
+             */
+            event_kind: "earnings" | "custom";
+            /** Event Set Id */
+            event_set_id: string | null;
+            /** N */
+            n: number;
+            /** Cutoff Date */
+            cutoff_date: string;
+            /** Event Count */
+            event_count: number;
             /** Created At */
             created_at: string;
-            /** Progress */
-            progress: components["schemas"]["EventProgressView"][];
-            /** Result Id */
-            result_id: string | null;
-            /** Result Cutoff */
-            result_cutoff: string | null;
-            /** Expires At */
-            expires_at?: string | null;
-            /** Data */
-            data: {
+            /** Tickers */
+            tickers: components["schemas"]["EventTickerView"][];
+            /** Freshness */
+            freshness: {
                 [key: string]: unknown;
-            } | null;
-            /** Results */
-            results: components["schemas"]["EventResultReference"][];
-            freshness?: components["schemas"]["ResearchFreshness"] | null;
-        } & {
-            [key: string]: unknown;
+            };
         };
         /** EventAnalysisReference */
         EventAnalysisReference: {
             /** Id */
             id: string;
-            /** Batch Id */
-            batch_id: string;
-            /** Params */
-            params: {
-                [key: string]: unknown;
-            };
             /** Created At */
             created_at: string;
-        } & {
-            [key: string]: unknown;
-        };
-        /** EventCompany */
-        EventCompany: {
-            /** Name */
-            name: string;
-            /** Ticker */
-            ticker: string | null;
-            /** Exchange Mic */
-            exchange_mic: string | null;
-        };
-        /** EventConfirmInput */
-        EventConfirmInput: {
-            /** Preview Id */
-            preview_id: string;
-            /** Request Id */
-            request_id: string;
-            /** Security Id */
-            security_id?: string | null;
-            /** Title */
-            title?: string | null;
-            /** Expected Version */
-            expected_version?: number | null;
-            /** Reviews */
-            reviews: components["schemas"]["EventReviewInput"][];
-            /**
-             * Revision Note
-             * @default
-             */
-            revision_note: string;
-            /**
-             * Analyze
-             * @default false
-             */
-            analyze: boolean;
-        };
-        /** EventConfirmOutput */
-        EventConfirmOutput: {
-            /** Set Id */
-            set_id: string;
-            /** Version */
-            version: number;
-            /** Version Id */
-            version_id: string;
-            /** Reused */
-            reused: boolean;
-            analysis?: components["schemas"]["EventAnalysisCreated"] | null;
-        } & {
-            [key: string]: unknown;
-        };
-        /** EventCorrection */
-        EventCorrection: {
-            /**
-             * Is Primary
-             * @default true
-             */
-            is_primary: boolean;
-            /** Fiscal Year */
-            fiscal_year: number;
-            /** Fiscal Quarter */
-            fiscal_quarter: number;
-            /**
-             * Announced Date
-             * Format: date
-             */
-            announced_date: string;
-            /** Announced At */
-            announced_at?: string | null;
-            /**
-             * Time Precision
-             * @enum {string}
-             */
-            time_precision: "exact" | "before_open" | "after_close" | "date_only" | "intraday" | "conflict";
-            /** Source Url */
-            source_url: string;
-            /** Note */
-            note: string;
-            /** Period Kind */
-            period_kind?: ("regular" | "transition" | "unknown") | null;
-            /** Period Kind Source Url */
-            period_kind_source_url?: string | null;
-            /** Period Kind Evidence */
-            period_kind_evidence?: string | null;
-            /** Time Evidence */
-            time_evidence?: string | null;
-            /** Revision */
-            revision: number;
-        };
-        /** EventErrorOutput */
-        EventErrorOutput: {
-            /** Detail */
-            detail: string | {
-                [key: string]: unknown;
-            }[];
-        } & {
-            [key: string]: unknown;
-        };
-        /** EventImportLimitsOutput */
-        EventImportLimitsOutput: {
-            /**
-             * Text Characters
-             * @default 4000000
-             */
-            text_characters: number;
-            /**
-             * Text Utf8 Bytes
-             * @default 16000000
-             */
-            text_utf8_bytes: number;
-            /**
-             * Request Bytes
-             * @default 50331648
-             */
-            request_bytes: number;
-            /**
-             * Explanation
-             * @default 字符按 Unicode 码点计数；UTF-8 与 JSON 包装/转义分别占字节。预览、修订预览、确认保存使用同一请求额度。
-             */
-            explanation: string;
-        };
-        /** EventOverlapItem */
-        EventOverlapItem: {
-            /** Event Key */
-            event_key: string;
-            /** Label */
-            label: string;
-            /** Start Date */
-            start_date: string | null;
-            /** End Date */
-            end_date: string | null;
-        };
-        /** EventOverlapPage */
-        EventOverlapPage: {
-            /** Result Id */
-            result_id: string;
-            /** Event Key */
-            event_key: string;
-            /**
-             * Representation Version
-             * @enum {string}
-             */
-            representation_version: "event-overlaps-v2" | "legacy-full-list-v1";
-            summary: components["schemas"]["EventOverlapSummary"];
-            /** Total */
-            total: number;
-            /** Offset */
-            offset: number;
-            /** Limit */
-            limit: number;
-            /** Items */
-            items: components["schemas"]["EventOverlapItem"][];
-            /** Next Cursor */
-            next_cursor: string | null;
-        };
-        /** EventOverlapSummary */
-        EventOverlapSummary: {
-            /** Total */
-            total: number;
-            /** Preview Event Ids */
-            preview_event_ids: string[];
-            /**
-             * Preview Limit
-             * @default 10
-             * @constant
-             */
-            preview_limit: 10;
-            /** Truncated */
-            truncated: boolean;
-            /**
-             * Ordering
-             * @default frozen_row_order
-             * @constant
-             */
-            ordering: "frozen_row_order";
-        };
-        /** EventPreviewInput */
-        EventPreviewInput: {
-            /** Text */
-            text: string;
-            /** Set Id */
-            set_id?: string | null;
-            /** Expected Version */
-            expected_version?: number | null;
-        };
-        /** EventPreviewOutput */
-        EventPreviewOutput: {
-            /** Preview Id */
-            preview_id: string;
-            /** Content Hash */
-            content_hash: string;
-            /** Document */
-            document: components["schemas"]["CustomEventsImport"] | components["schemas"]["EarningsEventsImport"];
-            /** Warnings */
-            warnings: string[];
-            /** Candidates */
-            candidates: {
-                [key: string]: unknown;
-            }[];
-            /** Set Id */
-            set_id: string | null;
-            /** Expected Version */
-            expected_version: number | null;
-            /** Events */
-            events: {
-                [key: string]: unknown;
-            }[];
-        };
-        /** EventProgressView */
-        EventProgressView: {
-            /** Symbol */
-            symbol: string;
+            /** N */
+            n: number | null;
             /** Status */
             status: string;
-            /** Wait Reason */
-            wait_reason: string | null;
-            /** Ready Events */
-            ready_events?: number | null;
-            /** Event Count */
-            event_count?: number | null;
-            /** Required Ranges */
-            required_ranges?: {
-                [key: string]: unknown;
-            }[] | null;
-        } & {
-            [key: string]: unknown;
+        };
+        /** EventCandle */
+        EventCandle: {
+            /** Offset */
+            offset: number;
+            /** Date */
+            date: string;
+            /** Open */
+            open: string | null;
+            /** High */
+            high: string | null;
+            /** Low */
+            low: string | null;
+            /** Close */
+            close: string | null;
+        };
+        /** EventDefaultsOutput */
+        EventDefaultsOutput: {
+            /** Window Sessions */
+            window_sessions: {
+                [key: string]: number;
+            };
+            /** Min */
+            min: number;
+            /** Max */
+            max: number;
+        };
+        /** EventDeleted */
+        EventDeleted: {
+            /** Deleted */
+            deleted: string;
+        };
+        /** EventInputIssue */
+        EventInputIssue: {
+            /**
+             * Index
+             * @description 1-based position in events; null for the whole document
+             */
+            index: number | null;
+            /** Field */
+            field: string | null;
+            /** Message */
+            message: string;
+        };
+        /** EventItem */
+        EventItem: {
+            /** Ticker */
+            ticker: string;
+            /** Date */
+            date: string;
+            /**
+             * Session
+             * @enum {string}
+             */
+            session: "before_open" | "during" | "after_close" | "unknown";
+            /** Name */
+            name: string;
+            /** Fiscal Year */
+            fiscal_year?: number | null;
+            /** Fiscal Quarter */
+            fiscal_quarter?: number | null;
+            /** Note */
+            note?: string | null;
+            /**
+             * Reaction Date
+             * @description R per D23; null outside the exchange calendar
+             */
+            reaction_date?: string | null;
+        };
+        /** EventPromptInput */
+        EventPromptInput: {
+            /** Text */
+            text: string;
         };
         /** EventPromptOutput */
         EventPromptOutput: {
@@ -2001,221 +1439,268 @@ export interface components {
              * Kind
              * @enum {string}
              */
-            kind: "custom" | "earnings";
+            kind: "earnings" | "custom";
             /**
              * Language
              * @enum {string}
              */
             language: "zh" | "en";
-            /** Schema Version */
-            schema_version: string;
-            /** Prompt */
-            prompt: string;
-            /** Json Schema */
-            json_schema: {
-                [key: string]: unknown;
-            };
-            /** Input Schema Version */
-            input_schema_version: string;
-            /** Input Example */
-            input_example: {
-                [key: string]: unknown;
-            };
-            /** Input Json Schema */
-            input_json_schema: {
-                [key: string]: unknown;
+            /** Text */
+            text: string;
+            /** Is Default */
+            is_default: boolean;
+            /** Default Text */
+            default_text: string;
+            /** Updated At */
+            updated_at: string | null;
+        };
+        /** EventQuarterSummary */
+        EventQuarterSummary: {
+            /** Fiscal Quarter */
+            fiscal_quarter: number;
+            /** Event Count */
+            event_count: number;
+            /** Summary */
+            summary: {
+                [key: string]: components["schemas"]["EventStatistics"];
             };
         };
-        /** EventResultReference */
-        EventResultReference: {
-            /** Id */
-            id: string;
-            /** Created At */
-            created_at: string;
-            /** Dataset Id */
-            dataset_id: string | null;
-            /** Expires At */
-            expires_at?: string | null;
-        } & {
-            [key: string]: unknown;
-        };
-        /** EventReviewInput */
-        EventReviewInput: {
-            /** Client Event Id */
-            client_event_id: string;
-            /** Selected */
-            selected: boolean;
+        /** EventRow */
+        EventRow: {
+            /** Ticker */
+            ticker: string;
+            /** Date */
+            date: string;
             /**
-             * Date Verified
-             * @default false
+             * Session
+             * @enum {string}
              */
-            date_verified: boolean;
-            /**
-             * Time Verified
-             * @default false
-             */
-            time_verified: boolean;
-            /**
-             * Period Verified
-             * @default false
-             */
-            period_verified: boolean;
-            /**
-             * Note
-             * @default
-             */
-            note: string;
-        };
-        /** EventSecurityView */
-        EventSecurityView: {
-            /** Id */
-            id: string;
-            /** Symbol */
-            symbol: string;
+            session: "before_open" | "during" | "after_close" | "unknown";
             /** Name */
             name: string;
-            /** Currency */
-            currency: string | null;
-            /** Exchange */
-            exchange: string | null;
-            /** Status */
-            status: string;
-            /** Calendar */
-            calendar: string | null;
-        } & {
-            [key: string]: unknown;
+            /** Note */
+            note: string | null;
+            /** Fiscal Year */
+            fiscal_year: number | null;
+            /** Fiscal Quarter */
+            fiscal_quarter: number | null;
+            /** Reaction Date */
+            reaction_date: string;
+            /** Baseline Date */
+            baseline_date: string;
+            /** Windows */
+            windows: {
+                [key: string]: components["schemas"]["EventWindow"];
+            };
+            /** Candles */
+            candles: components["schemas"]["EventCandle"][];
+            /** Notes */
+            notes: string[];
+        };
+        /** EventSetCreated */
+        EventSetCreated: {
+            set: components["schemas"]["EventSetOutput"];
+            analysis?: components["schemas"]["EventAnalysisCreated"] | null;
+        };
+        /** EventSetInput */
+        EventSetInput: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "earnings" | "custom";
+            /** Text */
+            text: string;
+            /** Title */
+            title?: string | null;
+            /** Request Id */
+            request_id?: string | null;
+            /**
+             * Analyze
+             * @default false
+             */
+            analyze: boolean;
+            /** N */
+            n?: number | null;
         };
         /** EventSetOutput */
         EventSetOutput: {
             /** Id */
             id: string;
-            /** Title */
-            title: string;
             /**
              * Kind
              * @enum {string}
              */
-            kind: "custom" | "earnings";
-            /** Version */
-            version: number;
-            /** Latest Version */
-            latest_version: number;
-            /** Version Id */
-            version_id: string;
-            security: components["schemas"]["EventSecurityView"];
+            kind: "earnings" | "custom";
+            /** Title */
+            title: string;
+            /** Event Count */
+            event_count: number;
+            /** Tickers */
+            tickers: string[];
+            /** First Date */
+            first_date: string | null;
+            /** Last Date */
+            last_date: string | null;
             /** Created At */
             created_at: string;
             /** Updated At */
             updated_at: string;
-            /** Research As Of */
-            research_as_of: string;
-            /** Event Count */
-            event_count: number;
-            /** Selected Count */
-            selected_count: number;
-            /** Verified Count */
-            verified_count: number;
-            /** Revision Note */
-            revision_note: string;
-            /** Document */
-            document: {
-                [key: string]: unknown;
-            };
             /** Events */
-            events: {
-                [key: string]: unknown;
-            }[];
-            /** Reviews */
-            reviews: {
-                [key: string]: unknown;
-            }[];
-            /** Raw Text */
-            raw_text: string;
-            /** Content Hash */
-            content_hash: string;
-            /** Warnings */
-            warnings: string[];
-            /** Versions */
-            versions: components["schemas"]["EventVersionView"][];
+            events: components["schemas"]["EventItem"][];
             /** Analyses */
             analyses: components["schemas"]["EventAnalysisReference"][];
-        } & {
-            [key: string]: unknown;
         };
         /** EventSetSummary */
         EventSetSummary: {
             /** Id */
             id: string;
-            /** Title */
-            title: string;
             /**
              * Kind
              * @enum {string}
              */
-            kind: "custom" | "earnings";
-            /** Version */
-            version: number;
-            /** Latest Version */
-            latest_version: number;
-            /** Version Id */
-            version_id: string;
-            security: components["schemas"]["EventSecurityView"];
+            kind: "earnings" | "custom";
+            /** Title */
+            title: string;
+            /** Event Count */
+            event_count: number;
+            /** Tickers */
+            tickers: string[];
+            /** First Date */
+            first_date: string | null;
+            /** Last Date */
+            last_date: string | null;
             /** Created At */
             created_at: string;
             /** Updated At */
             updated_at: string;
-            /** Research As Of */
-            research_as_of: string;
-            /** Event Count */
-            event_count: number;
-            /** Selected Count */
-            selected_count: number;
-            /** Verified Count */
-            verified_count: number;
-            /** Revision Note */
-            revision_note: string;
-        } & {
-            [key: string]: unknown;
+        };
+        /** EventSetUpdate */
+        EventSetUpdate: {
+            /** Title */
+            title?: string | null;
+            /** Text */
+            text?: string | null;
         };
         /** EventSetsOutput */
         EventSetsOutput: {
             /** Items */
             items: components["schemas"]["EventSetSummary"][];
-        } & {
-            [key: string]: unknown;
         };
-        /** EventSource */
-        EventSource: {
-            /** Url */
-            url: string;
-            /** Title */
-            title: string;
-            /** Publisher */
-            publisher: string;
-            /** Published Date */
-            published_date: string | null;
+        /** EventStatistics */
+        EventStatistics: {
+            /** N */
+            n: number;
+            /** Median */
+            median?: string | null;
+            /** Q25 */
+            q25?: string | null;
+            /** Q75 */
+            q75?: string | null;
+            /** Mean */
+            mean?: string | null;
+            /** Min */
+            min?: string | null;
+            /** Max */
+            max?: string | null;
+            /** Up */
+            up: number;
+            /** Flat */
+            flat: number;
+            /** Up Ratio */
+            up_ratio: string | null;
+        };
+        /** EventTickerResult */
+        EventTickerResult: {
             /**
-             * Source Kind
+             * Kind
+             * @constant
+             */
+            kind: "event_windows";
+            /**
+             * Event Kind
              * @enum {string}
              */
-            source_kind: "primary" | "secondary" | "unknown";
-            /** Supports */
-            supports: ("event_date" | "event_time" | "timezone" | "event_status" | "event_type")[];
-            /** Evidence Note */
-            evidence_note: string;
+            event_kind: "earnings" | "custom";
+            /** Symbol */
+            symbol: string;
+            /** N */
+            n: number;
+            /** Cutoff Date */
+            cutoff_date: string;
+            /** Calendar */
+            calendar: string;
+            /** Calculation Version */
+            calculation_version: string;
+            /** Price Fetched At */
+            price_fetched_at: string | null;
+            /** Event Count */
+            event_count: number;
+            /**
+             * Summary
+             * @description before, reaction, gap and after windows
+             */
+            summary: {
+                [key: string]: components["schemas"]["EventStatistics"];
+            };
+            /** Quarters */
+            quarters?: components["schemas"]["EventQuarterSummary"][] | null;
+            /** Rows */
+            rows: components["schemas"]["EventRow"][];
         };
-        /** EventVersionView */
-        EventVersionView: {
-            /** Version */
-            version: number;
-            /** Id */
-            id: string;
-            /** Created At */
-            created_at: string;
-            /** Revision Note */
-            revision_note: string;
-        } & {
-            [key: string]: unknown;
+        /** EventTickerView */
+        EventTickerView: {
+            /** Symbol */
+            symbol: string;
+            /** Status */
+            status: string;
+            /** Wait Reason */
+            wait_reason: string | null;
+            /** Price Start */
+            price_start: string | null;
+            /** Price End */
+            price_end: string | null;
+            /** Expires At */
+            expires_at: string | null;
+            result: components["schemas"]["EventTickerResult"] | null;
+        };
+        /** EventValidateInput */
+        EventValidateInput: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "earnings" | "custom";
+            /** Text */
+            text: string;
+        };
+        /** EventValidateOutput */
+        EventValidateOutput: {
+            /** Valid */
+            valid: boolean;
+            /** Errors */
+            errors: components["schemas"]["EventInputIssue"][];
+            /** Events */
+            events: components["schemas"]["EventItem"][];
+            /** Tickers */
+            tickers: string[];
+        };
+        /** EventWindow */
+        EventWindow: {
+            /**
+             * Value
+             * @description Decimal ratio, e.g. -0.0123; null when pending or missing
+             */
+            value: string | null;
+            /** Start Date */
+            start_date: string;
+            /** End Date */
+            end_date: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "ok" | "pending" | "missing_price";
         };
         /** FeedGroupOutput */
         FeedGroupOutput: {
@@ -2299,104 +1784,6 @@ export interface components {
             pending_filings?: {
                 [key: string]: unknown;
             }[];
-        };
-        /** FiscalCalendarEntry */
-        FiscalCalendarEntry: {
-            /** Key */
-            key?: string | null;
-            /** Fiscal Year */
-            fiscal_year: number | null;
-            /** Quarter */
-            quarter: string;
-            /** Group */
-            group: string;
-            /** Period Start */
-            period_start?: string | null;
-            /** Period End */
-            period_end?: string | null;
-            /** Announcement Date */
-            announcement_date?: string | null;
-            /**
-             * Period Start Status
-             * @default missing
-             * @enum {string}
-             */
-            period_start_status: "confirmed" | "missing" | "unverified" | "unsupported" | "conflicting";
-            /**
-             * Period End Status
-             * @default missing
-             * @enum {string}
-             */
-            period_end_status: "confirmed" | "missing" | "unverified" | "unsupported" | "conflicting";
-            /**
-             * Announcement Status
-             * @default missing
-             * @enum {string}
-             */
-            announcement_status: "confirmed" | "missing" | "unverified" | "unsupported" | "conflicting";
-            /** Reasons */
-            reasons?: string[];
-            /** Sources */
-            sources?: {
-                [key: string]: unknown;
-            }[];
-            /** Review Note */
-            review_note?: string | null;
-        };
-        /** FiscalCoverage */
-        FiscalCoverage: {
-            /** Target Years */
-            target_years: number[];
-            /** Current Fiscal Year */
-            current_fiscal_year: number | null;
-            /** Rankings */
-            rankings: {
-                [key: string]: unknown;
-            }[];
-            /** Gaps */
-            gaps: {
-                [key: string]: unknown;
-            }[];
-            /** Definition */
-            definition: string;
-            /** Target Reason */
-            target_reason?: string | null;
-            /** Quarter Calendar */
-            quarter_calendar?: components["schemas"]["FiscalQuarterCalendar"][] | null;
-        };
-        /** FiscalMonthRange */
-        FiscalMonthRange: {
-            /** Label */
-            label: string;
-            /** N */
-            n: number;
-        };
-        /** FiscalQuarterCalendar */
-        FiscalQuarterCalendar: {
-            /** Quarter */
-            quarter: string;
-            /** Period Months */
-            period_months?: string | null;
-            /** Period Ranges */
-            period_ranges?: components["schemas"]["FiscalMonthRange"][];
-            /** Announcement Months */
-            announcement_months?: string | null;
-            /** Common Announcement Months */
-            common_announcement_months?: number[];
-            /** Announcement Counts */
-            announcement_counts?: components["schemas"]["MonthCount"][];
-            /**
-             * Period N
-             * @default 0
-             */
-            period_n: number;
-            /**
-             * Announcement N
-             * @default 0
-             */
-            announcement_n: number;
-            /** Entries */
-            entries?: components["schemas"]["FiscalCalendarEntry"][];
         };
         /** FreshnessInput */
         FreshnessInput: {
@@ -2491,41 +1878,6 @@ export interface components {
             mode: string;
             /** Notice */
             notice: string;
-        };
-        /** ImportInput */
-        ImportInput: {
-            /**
-             * Kind
-             * @constant
-             */
-            kind: "earnings";
-            /** Ticker */
-            ticker: string;
-            /** Csv */
-            csv: string;
-            /** Source Url */
-            source_url: string;
-        };
-        /** ImportOutput */
-        ImportOutput: {
-            /** Id */
-            id: string;
-            /** Kind */
-            kind: string;
-            /** Status */
-            status: string;
-            /** Valid Rows */
-            valid_rows: number;
-            /** Errors */
-            errors: string[];
-            /** Preview */
-            preview: {
-                [key: string]: unknown;
-            }[];
-            /** Differences */
-            differences: string[];
-            /** Batch Id */
-            batch_id?: string | null;
         };
         /** JobDetailView */
         JobDetailView: {
@@ -2721,13 +2073,6 @@ export interface components {
              * @default 每次去掉一个实际年度或事件后重算；检查单样本影响，不是样本外验证，也不增加独立样本。
              */
             interpretation: string;
-        };
-        /** MonthCount */
-        MonthCount: {
-            /** Month */
-            month: number;
-            /** N */
-            n: number;
         };
         /** MonthlyRanking */
         MonthlyRanking: {
@@ -3058,7 +2403,7 @@ export interface components {
              * Kind
              * @enum {string}
              */
-            kind: "monthly" | "interval" | "earnings";
+            kind: "monthly" | "interval";
             metadata: components["schemas"]["ResearchMetadata"];
             /** Summary */
             summary: {
@@ -3080,10 +2425,6 @@ export interface components {
             exclusions: {
                 [key: string]: unknown;
             }[];
-            /** Date Observation */
-            date_observation?: {
-                [key: string]: unknown;
-            } | null;
             /** Distributions */
             distributions?: components["schemas"]["Distribution"][];
             /** Benchmark */
@@ -3092,7 +2433,6 @@ export interface components {
             } | null;
             /** Monthly Rankings */
             monthly_rankings?: components["schemas"]["MonthlyRanking"][];
-            fiscal_coverage?: components["schemas"]["FiscalCoverage"] | null;
         };
         /** ResearchSeries */
         ResearchSeries: {
@@ -3156,7 +2496,7 @@ export interface components {
              * Key
              * @enum {string}
              */
-            key: "sec" | "market" | "earnings" | "backup" | "maintenance";
+            key: "sec" | "market" | "backup" | "maintenance";
             /** Enabled */
             enabled: boolean;
         };
@@ -4044,42 +3384,6 @@ export interface operations {
             };
         };
     };
-    event_overlaps_api_v1_analyses__analysis_id__results__result_id__event_overlaps_get: {
-        parameters: {
-            query: {
-                event_key: string;
-                cursor?: string | null;
-                limit?: number;
-            };
-            header?: never;
-            path: {
-                analysis_id: string;
-                result_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["EventOverlapPage"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
     analysis_refresh_api_v1_analyses__analysis_id__refresh_post: {
         parameters: {
             query?: {
@@ -4466,136 +3770,6 @@ export interface operations {
             };
         };
     };
-    earnings_api_v1_earnings_get: {
-        parameters: {
-            query?: {
-                ticker?: string;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["GenericOutput"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    earnings_update_api_v1_earnings__event_id__patch: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                event_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["EventCorrection"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["GenericOutput"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    import_preview_api_v1_imports_preview_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ImportInput"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ImportOutput"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    import_commit_api_v1_imports__preview_id__commit_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                preview_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ImportOutput"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
     cleanup_api_v1_cache_cleanup_post: {
         parameters: {
             query?: never;
@@ -4774,7 +3948,7 @@ export interface operations {
             };
         };
     };
-    import_limits_api_v1_events_limits_get: {
+    defaults_api_v1_events_defaults_get: {
         parameters: {
             query?: never;
             header?: never;
@@ -4789,46 +3963,20 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["EventImportLimitsOutput"];
-                };
-            };
-            /** @description Not Found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["EventErrorOutput"];
-                };
-            };
-            /** @description Conflict */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["EventErrorOutput"];
-                };
-            };
-            /** @description Unprocessable Content */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["EventErrorOutput"];
+                    "application/json": components["schemas"]["EventDefaultsOutput"];
                 };
             };
         };
     };
-    prompt_api_v1_events_prompt_get: {
+    prompt_api_v1_events_prompts__kind__get: {
         parameters: {
             query?: {
-                kind?: "custom" | "earnings";
                 language?: "zh" | "en";
             };
             header?: never;
-            path?: never;
+            path: {
+                kind: "earnings" | "custom";
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -4842,45 +3990,31 @@ export interface operations {
                     "application/json": components["schemas"]["EventPromptOutput"];
                 };
             };
-            /** @description Not Found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["EventErrorOutput"];
-                };
-            };
-            /** @description Conflict */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["EventErrorOutput"];
-                };
-            };
-            /** @description Unprocessable Content */
+            /** @description Validation Error */
             422: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["EventErrorOutput"];
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
     };
-    preview_api_v1_events_preview_post: {
+    save_prompt_api_v1_events_prompts__kind__put: {
         parameters: {
-            query?: never;
+            query?: {
+                language?: "zh" | "en";
+            };
             header?: never;
-            path?: never;
+            path: {
+                kind: "earnings" | "custom";
+            };
             cookie?: never;
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["EventPreviewInput"];
+                "application/json": components["schemas"]["EventPromptInput"];
             };
         };
         responses: {
@@ -4890,39 +4024,54 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["EventPreviewOutput"];
+                    "application/json": components["schemas"]["EventPromptOutput"];
                 };
             };
-            /** @description Not Found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["EventErrorOutput"];
-                };
-            };
-            /** @description Conflict */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["EventErrorOutput"];
-                };
-            };
-            /** @description Unprocessable Content */
+            /** @description Validation Error */
             422: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["EventErrorOutput"];
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
     };
-    confirm_api_v1_events_confirm_post: {
+    reset_prompt_api_v1_events_prompts__kind__delete: {
+        parameters: {
+            query?: {
+                language?: "zh" | "en";
+            };
+            header?: never;
+            path: {
+                kind: "earnings" | "custom";
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EventPromptOutput"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    validate_api_v1_events_validate_post: {
         parameters: {
             query?: never;
             header?: never;
@@ -4931,7 +4080,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["EventConfirmInput"];
+                "application/json": components["schemas"]["EventValidateInput"];
             };
         };
         responses: {
@@ -4941,34 +4090,16 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["EventConfirmOutput"];
+                    "application/json": components["schemas"]["EventValidateOutput"];
                 };
             };
-            /** @description Not Found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["EventErrorOutput"];
-                };
-            };
-            /** @description Conflict */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["EventErrorOutput"];
-                };
-            };
-            /** @description Unprocessable Content */
+            /** @description Validation Error */
             422: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["EventErrorOutput"];
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -4976,7 +4107,7 @@ export interface operations {
     sets_api_v1_events_sets_get: {
         parameters: {
             query?: {
-                kind?: ("custom" | "earnings") | null;
+                kind?: ("earnings" | "custom") | null;
             };
             header?: never;
             path?: never;
@@ -4993,40 +4124,53 @@ export interface operations {
                     "application/json": components["schemas"]["EventSetsOutput"];
                 };
             };
-            /** @description Not Found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["EventErrorOutput"];
-                };
-            };
-            /** @description Conflict */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["EventErrorOutput"];
-                };
-            };
-            /** @description Unprocessable Content */
+            /** @description Validation Error */
             422: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["EventErrorOutput"];
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
     };
-    detail_api_v1_events_sets__set_id__get: {
+    create_set_api_v1_events_sets_post: {
         parameters: {
-            query?: {
-                version?: number | null;
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EventSetInput"];
             };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EventSetCreated"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_set_api_v1_events_sets__set_id__get: {
+        parameters: {
+            query?: never;
             header?: never;
             path: {
                 set_id: string;
@@ -5044,31 +4188,79 @@ export interface operations {
                     "application/json": components["schemas"]["EventSetOutput"];
                 };
             };
-            /** @description Not Found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["EventErrorOutput"];
-                };
-            };
-            /** @description Conflict */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["EventErrorOutput"];
-                };
-            };
-            /** @description Unprocessable Content */
+            /** @description Validation Error */
             422: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["EventErrorOutput"];
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_set_api_v1_events_sets__set_id__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                set_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EventSetUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EventSetOutput"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_set_api_v1_events_sets__set_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                set_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EventDeleted"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -5097,39 +4289,52 @@ export interface operations {
                     "application/json": components["schemas"]["EventAnalysisCreated"];
                 };
             };
-            /** @description Not Found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["EventErrorOutput"];
-                };
-            };
-            /** @description Conflict */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["EventErrorOutput"];
-                };
-            };
-            /** @description Unprocessable Content */
+            /** @description Validation Error */
             422: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["EventErrorOutput"];
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
     };
     analysis_api_v1_events_analyses__analysis_id__get: {
         parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                analysis_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EventAnalysisOutput"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    refresh_api_v1_events_analyses__analysis_id__refresh_post: {
+        parameters: {
             query?: {
-                result_id?: string | null;
+                force?: boolean;
             };
             header?: never;
             path: {
@@ -5148,83 +4353,13 @@ export interface operations {
                     "application/json": components["schemas"]["EventAnalysisOutput"];
                 };
             };
-            /** @description Not Found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["EventErrorOutput"];
-                };
-            };
-            /** @description Conflict */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["EventErrorOutput"];
-                };
-            };
-            /** @description Unprocessable Content */
+            /** @description Validation Error */
             422: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["EventErrorOutput"];
-                };
-            };
-        };
-    };
-    export_api_v1_events_analyses__analysis_id__export_get: {
-        parameters: {
-            query: {
-                result_id: string;
-                format?: "json" | "csv";
-            };
-            header?: never;
-            path: {
-                analysis_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Not Found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["EventErrorOutput"];
-                };
-            };
-            /** @description Conflict */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["EventErrorOutput"];
-                };
-            };
-            /** @description Unprocessable Content */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["EventErrorOutput"];
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

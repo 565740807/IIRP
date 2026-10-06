@@ -21,7 +21,6 @@ from iirp.business_models import (
     BatchJob,
     BatchPlanSignal,
     CollectionStrategy,
-    EarningsEvent,
     ExportManifest,
     Preferences,
     RequestReceipt,
@@ -41,13 +40,9 @@ BUSINESS_KINDS = {
     "sec_discover",
     "sec_document",
     "sec_identity",
-    "earnings_candidates",
-    "earnings_evidence",
     "research_compute",
-    "event_compute",
     "maintenance_backup",
     "maintenance_clean",
-    "local_import",
 }
 
 
@@ -74,7 +69,7 @@ def resolve_defaults(s, params):
 
 
 def defaults(s):
-    for key in ("sec", "market", "earnings", "backup", "maintenance"):
+    for key in ("sec", "market", "backup", "maintenance"):
         s.execute(
             insert(CollectionStrategy)
             .values(
@@ -134,17 +129,6 @@ def scope_range(params):
         return today - timedelta(days=40), today
     if params["kind"] == "market_history":
         return date(year - n, 1, 1), end
-    if params["kind"] == "earnings" and params.get("years"):
-        # Fiscal years can span prior calendar years; include the explicit
-        # current comparison while avoiding an unrelated eight-year scan.
-        fiscal_years = [*params["years"], params.get("current_fiscal_year") or year]
-        return date(max(1, min(fiscal_years) - 1), 1, 1), end
-    if params["kind"] == "earnings":
-        from dateutil.relativedelta import relativedelta
-
-        # Fixed once: the selected years plus one fiscal year; the price fetch
-        # adds the month of buffer. Discovered quarters are sliced from it.
-        return stamp.astimezone(ET).date() - relativedelta(years=n + 1), end
     return date(year - n - 1, 12, 1), end
 
 
@@ -277,14 +261,7 @@ def create_analysis(params, *, retry_generation=None):
     submitted = {k: v for k, v in params.items() if k not in {"request_id", "research_label"}}
 
     def comparable(value):
-        return {
-            key: item
-            for key, item in value.items()
-            if not (
-                (key == "date_window" and item == "after5")
-                or (key == "date_category" and item is None)
-            )
-        }
+        return value
 
     with session() as s:
         receipt = s.get(RequestReceipt, params["request_id"])
@@ -301,24 +278,16 @@ def create_analysis(params, *, retry_generation=None):
     stamp = now()
     completed = last_completed_session(as_of=stamp)
     effective = {**submitted, "cutoff_date": completed.isoformat()}
-    if params["kind"] != "earnings":
-        as_of_date = stamp.astimezone(ET).date()
-        effective["current_year"] = (
-            _interval_rules({k: v for k, v in params.items() if v is not None}, as_of_date)[3]
-            if params["kind"] == "interval"
-            else params.get("current_year") or as_of_date.year
-        )
-    start, end = (
-        scope_range({**params, "kind": "earnings"})
-        if params["kind"] == "earnings"
-        else plan_scope(
-            effective,
-            today=completed,
-        )
+    as_of_date = stamp.astimezone(ET).date()
+    effective["current_year"] = (
+        _interval_rules({k: v for k, v in params.items() if v is not None}, as_of_date)[3]
+        if params["kind"] == "interval"
+        else params.get("current_year") or as_of_date.year
     )
+    start, end = plan_scope(effective, today=completed)
     collection = {
         "request_id": params["request_id"],
-        "kind": "earnings" if params["kind"] == "earnings" else "market_history",
+        "kind": "market_history",
         "tickers": params["tickers"],
         "historical_years": params["historical_years"],
         "start_date": start.isoformat(),
@@ -330,10 +299,9 @@ def create_analysis(params, *, retry_generation=None):
     }
     if retry_generation:
         collection["retry_generation"] = retry_generation
-    if params["kind"] != "earnings":
-        from iirp.history_range import price_range
-        collection["price_range"] = price_range(collection, stamp, collection=(start, end))
-        effective["price_range"] = collection["price_range"]
+    from iirp.history_range import price_range
+    collection["price_range"] = price_range(collection, stamp, collection=(start, end))
+    effective["price_range"] = collection["price_range"]
     with session() as s, s.begin():
         batch, _ = _create(s, collection)
         if params.get("research_label"):
@@ -572,17 +540,8 @@ def _control_batch_once(batch_id, action):
             for scope in scopes:
                 scope.status, scope.wait_reason = "QUEUED", None
                 for job in linked_jobs(s, scope.id):
-                    from iirp.earnings_data import EARNINGS_PARSER_VERSION
-
-                    old_parser = (
-                        job.kind == "earnings_evidence"
-                        and (job.result or {}).get("source_hash")
-                        and job.result.get("parser_version") != EARNINGS_PARSER_VERSION
-                    )
-                    if job.status in ("FAILED", "PARTIAL") or (
-                        job.status == "SUCCEEDED" and old_parser
-                    ):
-                        if (job.kind in {"research_compute", "event_compute"}
+                    if job.status in ("FAILED", "PARTIAL"):
+                        if (job.kind == "research_compute"
                                 and job.target.get("shared_compute") == 1):
                             # Serialize reactivation with a new subscriber's
                             # admission, including the no-active-job snapshot.
@@ -631,8 +590,8 @@ def scope_progress(scope, jobs, *, active_job_ids=None, planning_error=None,
     job = active[0] if active else None
     stage = STAGES.get(job.kind, "处理数据") if job else None
     if job and not executing(job):
-        source = ("SEC" if job.kind in {"sec_discover", "sec_document", "sec_identity", "earnings_evidence"}
-                  else "Yahoo" if job.kind in {"market_identity", "market_history", "market_quote", "earnings_candidates"}
+        source = ("SEC" if job.kind in {"sec_discover", "sec_document", "sec_identity"}
+                  else "Yahoo" if job.kind in {"market_identity", "market_history", "market_quote"}
                   else "本地计算")
         prefix = "等待来源重试" if job.status == "RETRY_WAIT" else f"等待 {source} 通道"
         stage = f"{prefix} · {stage.removeprefix('正在')}"
@@ -937,14 +896,6 @@ def _plan_market(s, scope, batch, capacity):
     if security.status != "VERIFIED":
         scope.status, scope.wait_reason = "PARTIAL", "证券身份或交易日历需核对；其他证券继续"
         return
-    earnings_discovery = None
-    if batch.kind == "earnings":
-        from iirp.earnings_planner import plan_earnings_discovery
-
-        earnings_discovery = plan_earnings_discovery(s, scope, batch, capacity)
-        if not earnings_discovery["fetch_prices"]:
-            scope.status, scope.wait_reason = "PARTIAL", earnings_discovery.get("reason")
-            return
     from iirp.price_cache import ensure_prices, fetch_state
 
     ensured = ensure_prices(s, scope, security, scope.start_date, scope.end_date)
@@ -959,10 +910,7 @@ def _plan_market(s, scope, batch, capacity):
 
         benchmark_reason = plan_benchmark(s, scope, request, scope.start_date, scope.end_date)
     scope.status, scope.wait_reason = status, reason
-    if status == "READY" and earnings_discovery and not earnings_discovery["price_ready"]:
-        # Prices are cached for the whole range; nothing to compute until an event is found.
-        scope.status = "RUNNING" if earnings_discovery["discovery_pending"] else "PARTIAL"
-    elif status == "READY":
+    if status == "READY":
         # Stock results do not wait for a benchmark; a paired result follows.
         benchmark_fetching = any(j.status in ACTIVE and j.kind in ("market_history", "market_identity")
                                  for j in linked_jobs(s, scope.id))
@@ -973,12 +921,6 @@ def _plan_market(s, scope, batch, capacity):
         if _plan_compute(s, scope, batch, security) and not benchmark_fetching:
             scope.status = "PARTIAL" if benchmark_reason else "READY"
             scope.wait_reason = benchmark_reason
-    if earnings_discovery:
-        if earnings_discovery["discovery_pending"]:
-            scope.status = "RUNNING"
-        elif earnings_discovery["partial"] and scope.status != "RUNNING":
-            scope.status = "PARTIAL"
-        scope.wait_reason = earnings_discovery.get("reason") or scope.wait_reason
 
 
 def _plan_compute(s, scope, batch, security, *, cache_only=False):
@@ -988,44 +930,31 @@ def _plan_compute(s, scope, batch, security, *, cache_only=False):
     dataset = current_cache(s, security.id)
     if not request or not dataset:
         return
-    events = (
-        s.scalars(
-            select(EarningsEvent)
-            .where(EarningsEvent.security_id == security.id)
-            .order_by(EarningsEvent.id)
-        ).all()
-        if request.params["kind"] == "earnings"
-        else []
-    )
     benchmark = benchmark_snapshot(request.params, security, s)
-    input_key = research_input_key(request, dataset, events, security, benchmark)
+    input_key = research_input_key(request, dataset, security, benchmark)
     from iirp.research_pipeline import coalesce_compute, effective_input_params, reuse_result
     from iirp.shared_compute import lock_input
     if not lock_input(s, "research_compute", security.id, input_key):
         scope.status, scope.wait_reason = "QUEUED", "等待相同输入共享计算的规划完成"
         return False
 
-    if reuse_result(s, request, security, dataset, events, benchmark, input_key):
+    if reuse_result(s, request, security, dataset, benchmark, input_key):
         return True
     if cache_only:
         return False
-    from iirp.earnings_data import event_dict
-
     job = coalesce_compute(
         s, scope, {
             "analysis_id": request.id,
             "security_id": security.id,
             "dataset_id": dataset.id,
             "input_key": input_key,
-            "events": [event_dict(e) for e in events],
             "benchmark": benchmark,
             "params": {**request.params, **effective_input_params(request, security)},
             "calendar": security.calendar or "XNYS",
-            "fiscal_year_end": security.metadata_json.get("verified_fiscal_year_end"),
         },
     )
     if job.status == "SUCCEEDED":
-        if reuse_result(s, request, security, dataset, events, benchmark, input_key):
+        if reuse_result(s, request, security, dataset, benchmark, input_key):
             return True
         from iirp.shared_compute import restart_obsolete
         job = restart_obsolete(s, scope, "research_compute", {
@@ -1039,44 +968,34 @@ def _plan_compute(s, scope, batch, security, *, cache_only=False):
         scope.status, scope.wait_reason = "PARTIAL", job.error
 
 
-def research_input_key(request, dataset, events, security, benchmark=None):
-    from iirp.benchmarks import benchmark_snapshot
-
-    if request.params.get("kind") == "event_dates":
-        from iirp.event_service import event_input_key
-
-        return event_input_key(request, dataset, security, benchmark=benchmark)
+def research_input_key(request, dataset, security, benchmark=None):
     from sqlalchemy.orm import object_session
 
     from iirp.analytics.calendar import calendar_version
     from iirp.analytics.research import CALCULATION_VERSION
+    from iirp.benchmarks import benchmark_snapshot
     from iirp.research_dependencies import benchmark_dependency, dataset_dependency, research_ranges
     from iirp.research_pipeline import effective_input_params
 
     db = object_session(request) or object_session(security)
     effective = effective_input_params(request, security)
-    ranges = research_ranges(effective, security.calendar or "XNYS", events)
+    ranges = research_ranges(effective, security.calendar or "XNYS")
     prices = dataset_dependency(db, dataset, ranges) if db else dataset.id
     benchmark = benchmark if benchmark is not None else benchmark_snapshot(request.params, security)
     paired = benchmark_dependency(db, benchmark, ranges) if db else benchmark
-    from iirp.analytics.event_overlaps import REPRESENTATION_VERSION
-    from iirp.earnings_data import event_dict
-    from iirp.event_service import _candidate
 
     return digest(
         [
             "research-input-f-v1",
-            _candidate(security),
+            {key: getattr(security, key) for key in
+             ("id", "symbol", "name", "currency", "exchange", "status", "calendar")},
             security.instrument,
             effective,
             prices,
-            sorted((e.id, e.revision, event_dict(e)) for e in events),
-            security.metadata_json.get("verified_fiscal_year_end"),
             calendar_version(),
             CALCULATION_VERSION,
             paired,
             security.calendar or "XNYS",
-            *([REPRESENTATION_VERSION] if request.params.get("kind") == "earnings" else []),
         ]
     )
 
@@ -1240,19 +1159,18 @@ def _plan_one(identifier, statuses, document_link_capacity):
                 + latest_pending,
             )
         ]
-        if batch.kind in ("market_history", "earnings", "event_dates"):
+        if batch.kind in ("market_history", "event_dates"):
             # SEC backlog cannot consume Yahoo/compute planning capacity. Shared
             # market jobs still count once across every subscribing research.
-            market_kinds = ("market_identity", "market_history", "market_quote",
-                            "earnings_candidates", "earnings_evidence", "research_compute", "event_compute")
+            market_kinds = ("market_identity", "market_history", "market_quote", "research_compute")
             market_pending = s.scalar(select(func.count()).select_from(Job).where(
                 Job.status.in_(("QUEUED", "RUNNING", "RETRY_WAIT")),
                 Job.kind.in_(market_kinds),
             ))
             capacity = [max(0, 32 - market_pending)]
         if batch.trigger == "manual":
-            lane_kinds = market_kinds if batch.kind in ("market_history", "earnings", "event_dates") else (
-                "sec_discover", "sec_document", "sec_identity", "earnings_evidence",
+            lane_kinds = market_kinds if batch.kind in ("market_history", "event_dates") else (
+                "sec_discover", "sec_document", "sec_identity",
             )
             manual_links = (select(BatchJob.job_id)
                 .join(RequestScope, RequestScope.id == BatchJob.scope_id)
@@ -1300,31 +1218,7 @@ def _plan_batch(s, batch, capacity, latest_capacity, document_link_capacity):
             batch.status = "PAUSED" if batch.requested_action == "pause" else "CANCELLED"
         return
     for scope in scopes:
-        if batch.params.get("import_id"):
-            sec = s.get(Security, scope.security_id)
-            if sec.status == "PENDING" and batch.kind == "market_history":
-                job = add_job(
-                    s,
-                    scope,
-                    "market_identity",
-                    {"symbol": sec.symbol, "security_id": sec.id},
-                )
-            else:
-                job = add_job(
-                    s,
-                    scope,
-                    "local_import",
-                    {"import_id": batch.params["import_id"], "security_id": sec.id},
-                )
-            scope.status = (
-                "READY"
-                if job.kind == "local_import" and job.status == "SUCCEEDED"
-                else "RUNNING"
-                if job.status in ACTIVE
-                else "PARTIAL"
-            )
-            scope.wait_reason = job.error
-        elif batch.kind == "event_dates":
+        if batch.kind == "event_dates":
             from iirp.event_service import plan_event_scope
 
             plan_event_scope(s, scope, batch, capacity)
@@ -1439,8 +1333,8 @@ def analysis_view(s, request, result_ids=""):
 
 
 def recent_analyses(kind="monthly", ticker=""):
-    if kind not in {"monthly", "interval", "earnings"}:
-        raise ValueError("请选择月度、区间或财报研究")
+    if kind not in {"monthly", "interval"}:
+        raise ValueError("请选择月度或区间研究")
     with session() as s:
         query = (
             select(AnalysisRequest, Batch.status)
@@ -1478,8 +1372,6 @@ def get_analysis(analysis_id, result_ids=""):
 
 
 def export_analysis(analysis_id, result_ids="", format="csv"):
-    from iirp.fiscal_version import fiscal_version_notice
-
     with session() as s, s.begin():
         from iirp.maintenance import lock_analysis_references
 
@@ -1513,9 +1405,6 @@ def export_analysis(analysis_id, result_ids="", format="csv"):
                 "created_at": result.created_at.isoformat(),
                 "params": result.inputs.get("params", request.params),
                 "inputs": result.inputs, "data": result.data,
-                "version_notice": fiscal_version_notice(
-                    "native_earnings", result.data.get("metadata", {}).get("calculation_version")
-                ) if request.params.get("kind") == "earnings" else None,
             } for result in results]
             return json.dumps({
                 "schema": "iirp.analysis-snapshot.v2", "id": request.id,
@@ -1539,29 +1428,15 @@ def export_analysis(analysis_id, result_ids="", format="csv"):
         )
         for result in results:
             security = s.get(Security, result.security_id)
-            notice = fiscal_version_notice(
-                "native_earnings", result.data.get("metadata", {}).get("calculation_version")
-            ) if request.params.get("kind") == "earnings" else None
             for record_type, records in (
-                ("version_notice", [{"message": notice}] if notice else []),
                 ("metadata", [result.data.get("metadata", {})]),
                 ("summary", [result.data.get("summary", {})]),
                 ("distribution", result.data.get("distributions", [])),
                 ("monthly_ranking", result.data.get("monthly_rankings", [])),
                 ("benchmark", [result.data["benchmark"]] if result.data.get("benchmark") else []),
-                (
-                    "fiscal_coverage",
-                    [result.data["fiscal_coverage"]] if result.data.get("fiscal_coverage") else [],
-                ),
                 ("row", result.data.get("rows", [])),
                 ("cell", result.data.get("cells", [])),
                 ("series", result.data.get("series", [])),
-                (
-                    "date_observation",
-                    [result.data["date_observation"]]
-                    if result.data.get("date_observation")
-                    else [],
-                ),
             ):
                 for row in records:
                     writer.writerow(
@@ -1707,8 +1582,6 @@ def preview_price_range(historical_years=None, start_date=None, end_date=None, a
         bounds = None
         if analysis:
             effective = {k: v for k, v in analysis.items() if v is not None}
-            if effective["kind"] == "earnings":
-                raise ValueError("财报范围按真实财政年度与已核对公告窗口确定")
             if effective["kind"] == "monthly":
                 effective.setdefault("current_year", stamp.astimezone(ET).year)
             else:
@@ -1868,33 +1741,6 @@ def market_detail(symbol):
             "items": records,
             "data": data,
         }
-
-
-# Event/import/maintenance functions are kept behind the same application interface.
-def get_earnings(ticker=""):
-    from iirp.earnings_data import read_events
-
-    with session() as s:
-        return read_events(s, ticker)
-
-
-def correct_event(event_id, values):
-    from iirp.earnings_data import correct_event as correct
-
-    with session() as s, s.begin():
-        return correct(s, event_id, values)
-
-
-def preview_import(values):
-    from iirp.imports import preview
-
-    return preview(values)
-
-
-def commit_import(preview_id):
-    from iirp.imports import commit
-
-    return commit(preview_id)
 
 
 def cleanup_cache():

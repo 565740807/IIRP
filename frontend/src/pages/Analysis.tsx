@@ -29,10 +29,7 @@ import {
   useNotice,
 } from "../components/ui";
 import { ResearchChart } from "../components/ResearchChart";
-import { EventDatesResult } from "../components/EventDatesResult";
 import { ResearchTable } from "../components/ResearchTable";
-import { preciseEarningsView, selectedDateObservationN } from "../earningsPresentation";
-import { fiscalVersionNotice } from "../fiscalVersionNotice";
 import { comparableResults } from "../comparableResults";
 import {
   BenchmarkPicker,
@@ -44,7 +41,6 @@ import {
   serializeResearch,
   yearList,
   useReadingState,
-  sourceContext,
   useContextSearchParams,
 } from "../researchStorage";
 import {
@@ -77,33 +73,18 @@ function marketCalendar() {
 function researchConditionSummary(value: Record<string, unknown>): string {
   const names = (items: unknown) => Array.isArray(items)
     ? [...new Set(items.map(String))].join("、") : "";
-  const earnings = value.kind === "earnings";
   const years = names(value.years);
   const excluded = names(value.excluded_years);
   const parts = [names(value.tickers) || "待选择证券",
-    years ? `指定历史${earnings ? "财年" : "年份"} ${years}`
-      : `${value.historical_years ?? 8} 个完整历史${earnings ? "财年" : "年"}`];
-  if (excluded) parts.push(`排除${earnings ? "财年" : "年份"} ${excluded}`);
-  if (earnings) {
-    parts.push(value.current_fiscal_year != null
-      ? `当前财年 ${value.current_fiscal_year}（另列）` : "当前财年按公司财年核定（另列）");
-    parts.push(value.date_category === "unassigned_earnings"
-      ? "财季未归属日期观察" : `Q${value.quarter ?? 1}`);
-    const windows: Record<string, string> = {
-      before5: "D−6→D−1", day0: "D−1→D0", after5: "D0→D+5", through5: "D−1→D+5",
-    };
-    parts.push(`日期窗口 ${windows[String(value.date_window ?? "after5")] ?? "待确认"}`,
-      `精确反应 ${value.window ?? 5} 个交易日`);
-  } else {
-    parts.push(value.current_year != null
-      ? `当前对照年 ${value.current_year}（另列）` : "当前对照年自动确定（另列）");
-    parts.push(value.kind === "interval"
-      ? `区间 ${value.start_mmdd ?? "01-01"}→${value.end_mmdd ?? "12-31"}${value.cross_year === true ? "（跨年）" : ""}`
-      : `${value.month ?? 1} 月`);
-    parts.push(value.comparison === "complete" ? "完整历史范围" : "截至同期",
-      value.alignment === "trading" ? "按交易日序号对齐" : "按日历位置对齐");
-  }
-  if (value.common_years) parts.push("多股仅比较共同有效年份");
+    years ? `指定历史年份 ${years}` : `${value.historical_years ?? 8} 个完整历史年`];
+  if (excluded) parts.push(`排除年份 ${excluded}`);
+  parts.push(value.current_year != null
+    ? `当前对照年 ${value.current_year}（另列）` : "当前对照年自动确定（另列）");
+  parts.push(value.kind === "interval"
+    ? `区间 ${value.start_mmdd ?? "01-01"}→${value.end_mmdd ?? "12-31"}${value.cross_year === true ? "（跨年）" : ""}`
+    : `${value.month ?? 1} 月`);
+  parts.push(value.comparison === "complete" ? "完整历史范围" : "截至同期",
+    value.alignment === "trading" ? "按交易日序号对齐" : "按日历位置对齐");
   parts.push(value.benchmark ? `基准 ${value.benchmark}` : "仅查看股票");
   return parts.join(" · ");
 }
@@ -127,7 +108,6 @@ function initial(
     current_year:
       Number(p.get("current_year")) ||
       (kind === "monthly" ? calendar.year : undefined),
-    current_fiscal_year: Number(p.get("current_fiscal_year")) || undefined,
     month: Number(p.get("month")) || calendar.month,
     comparison:
       p.get("comparison") === "complete" ? "complete" : "same_progress",
@@ -137,18 +117,6 @@ function initial(
     cross_year: p.has("cross_year")
       ? p.get("cross_year") === "true"
       : undefined,
-    quarter: Number(p.get("quarter")) || 1,
-    window: (Number(p.get("window")) || 5) as 1 | 5 | 20 | 60,
-    date_window: (["before5", "day0", "after5", "through5"].includes(
-      p.get("date_window") ?? "",
-    )
-      ? p.get("date_window")
-      : "after5") as AnalysisInput["date_window"],
-    common_years: p.get("common_years") === "true",
-    date_category:
-      p.get("date_category") === "unassigned_earnings"
-        ? "unassigned_earnings"
-        : undefined,
     benchmark: p.get("benchmark") || undefined,
   };
 }
@@ -298,10 +266,7 @@ export function AnalysisPage() {
       return;
     const canonical = serializeResearch(result.data.params);
     const savedYear = facts(result.data.results[0]?.data.metadata).current_year;
-    const yearKey =
-      result.data.params.kind === "earnings"
-        ? "current_fiscal_year"
-        : "current_year";
+    const yearKey = "current_year";
     if (!canonical.has(yearKey) && savedYear != null)
       canonical.set(yearKey, String(savedYear));
     canonical.set("a", result.data.id);
@@ -500,14 +465,9 @@ export function AnalysisPage() {
   }, [selected, shown?.results, setSelected]);
   const data = facts(selectedItem?.data);
   const meta = facts(data.metadata);
-  const preciseData = kind === "earnings" ? preciseEarningsView(data) : data;
+  const preciseData = data;
   const summary = facts(preciseData.summary);
   const current = facts(summary.current);
-  const dateObservationN = kind === "earnings" && shown
-    ? selectedDateObservationN(data, Number(shown.params.quarter),
-        String(shown.params.date_window ?? "after5"), shown.params.date_category === "unassigned_earnings"
-          ? "unassigned_earnings" : undefined)
-    : null;
   const displayedTickers = useMemo(
     () => chartTickers ?? shown?.results.slice(0, 5).map((r) => r.symbol) ?? [],
     [chartTickers, shown?.results],
@@ -523,8 +483,7 @@ export function AnalysisPage() {
       series:
         comparisonItems
           .flatMap((r) => {
-            const d = kind === "earnings"
-              ? preciseEarningsView(facts(r.data)) : facts(r.data);
+            const d = facts(r.data);
             if (compare === "current")
               return rows(d.series)
                 .filter((s) => s.group === "current")
@@ -562,7 +521,7 @@ export function AnalysisPage() {
     snapshotUrl.search = serializeResearch(shown.params).toString();
     snapshotUrl.searchParams.set("a", shown.id);
   }
-  const provenance = `${selectedItem?.symbol ?? ""} · ${sourceLabel(meta.price_basis)} · 截至 ${display(meta.cutoff_date)} · ${kind === "earnings" ? "精确历史N" : "N"}=${display(data.effective_n)}${kind === "earnings" ? ` · 当前窗口：${sourceLabel(current.window_status ?? current.status)}` : ""}\n${kind === "monthly" ? `${shown?.params.month}月` : kind === "interval" ? `${shown?.params.start_mmdd}–${shown?.params.end_mmdd}` : `Q${shown?.params.quarter} / ${shown?.params.window}日`} · ${sourceLabel(meta.comparison)} · 来源 ${display(meta.source ?? meta.provider)} · 数据 ${selectedItem?.input_version?.slice(0, 12) ?? "—"} · 计算 ${display(meta.calculation_version)}\n结果 ${selectedItem?.result_id ?? "—"}`;
+  const provenance = `${selectedItem?.symbol ?? ""} · ${sourceLabel(meta.price_basis)} · 截至 ${display(meta.cutoff_date)} · N=${display(data.effective_n)}\n${kind === "monthly" ? `${shown?.params.month}月` : `${shown?.params.start_mmdd}–${shown?.params.end_mmdd}`} · ${sourceLabel(meta.comparison)} · 来源 ${display(meta.source ?? meta.provider)} · 数据 ${selectedItem?.input_version?.slice(0, 12) ?? "—"} · 计算 ${display(meta.calculation_version)}\n结果 ${selectedItem?.result_id ?? "—"}`;
   const annualProvenance = `${selectedItem?.symbol ?? ""} · ${sourceLabel(meta.price_basis)} · 截至 ${display(meta.cutoff_date)}\n1—12月 · 完整历史月；导出图附各月有效N，当前年度另列 · 来源 ${display(meta.source ?? meta.provider)} · 计算 ${display(meta.calculation_version)}\n数据 ${selectedItem?.input_version?.slice(0, 12) ?? "—"} · 结果 ${selectedItem?.result_id ?? "—"}`;
   return (
     <>
@@ -604,8 +563,10 @@ export function AnalysisPage() {
           <Link
             key={t.id}
             to={
-              params.has("ticker") || params.has("tickers")
-                ? `/analysis/${t.id}?${new URLSearchParams([...params].filter(([key]) => !["a", "result_ids", "kind", ...(t.id === kind ? [] : ["current_year", "current_fiscal_year"])].includes(key)))}`
+              t.id === "earnings" || t.id === "events"
+                ? `/analysis/${t.id}`
+                : params.has("ticker") || params.has("tickers")
+                ? `/analysis/${t.id}?${new URLSearchParams([...params].filter(([key]) => !["a", "result_ids", "kind", ...(t.id === kind ? [] : ["current_year"])].includes(key)))}`
                 : researchHref(
                     t.id,
                     new URLSearchParams(
@@ -613,9 +574,7 @@ export function AnalysisPage() {
                         ([k]) =>
                           k !== "a" &&
                           (t.id === kind ||
-                            !["current_year", "current_fiscal_year"].includes(
-                              k,
-                            )),
+                            k !== "current_year"),
                       ),
                     ).toString(),
                   )
@@ -626,20 +585,6 @@ export function AnalysisPage() {
           </Link>
         ))}
       </div>
-      {kind === "earnings" && (
-        <p className="notice notice-info">
-          按实际财报日期查看当天及前后 5
-          个交易日；时间核对充分时还可查看精确反应窗口。
-          <Link
-            className="text-link"
-            state={sourceContext(location)}
-            to={`/analysis/events?${serializeResearch({ ...(shown?.params ?? draft), kind: "earnings", new: "1", draft: `earnings-${shown?.id ?? "new"}` })}`}
-          >
-            {" "}
-            用 AI 整理财报日期并导入 →
-          </Link>
-        </p>
-      )}
       <details
         className="panel analysis-conditions"
         open={conditionsOpen}
@@ -694,29 +639,21 @@ export function AnalysisPage() {
           <label
             className={kind === "interval" ? "interval-year-field" : undefined}
           >
-            当前{kind === "earnings" ? "财年" : "对照年"}
+            当前对照年
             <input
               type="number"
               min="1"
               max="9998"
               placeholder={
-                kind === "earnings"
-                  ? "按公司财年"
-                  : kind === "interval"
-                    ? "按区间与日期自动确定"
-                    : String(marketCalendar().year)
+                kind === "interval"
+                  ? "按区间与日期自动确定"
+                  : String(marketCalendar().year)
               }
-              value={
-                kind === "earnings"
-                  ? (draft.current_fiscal_year ?? "")
-                  : (draft.current_year ?? "")
-              }
+              value={draft.current_year ?? ""}
               onChange={(e) =>
                 setDraft((d) => ({
                   ...d,
-                  [kind === "earnings"
-                    ? "current_fiscal_year"
-                    : "current_year"]: e.target.value
+                  current_year: e.target.value
                     ? e.target.valueAsNumber
                     : undefined,
                 }))
@@ -747,49 +684,7 @@ export function AnalysisPage() {
               </label>
             </>
           )}
-          {kind === "earnings" && (
-            <>
-              <label>
-                同一财季
-                <select
-                  value={draft.quarter}
-                  onChange={(e) =>
-                    setDraft((d) => ({
-                      ...d,
-                      quarter: Number(e.target.value),
-                      date_category: undefined,
-                    }))
-                  }
-                >
-                  {[1, 2, 3, 4].map((q) => (
-                    <option key={q} value={q}>
-                      Q{q}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label>
-                反应窗口（仅精确公告反应）
-                <select
-                  value={draft.window}
-                  onChange={(e) =>
-                    setDraft((d) => ({
-                      ...d,
-                      window: Number(e.target.value) as 1 | 5 | 20 | 60,
-                    }))
-                  }
-                >
-                  {[1, 5, 20, 60].map((w) => (
-                    <option key={w} value={w}>
-                      {w} 个交易日
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </>
-          )}
-          {kind !== "earnings" && (
-            <label>
+                      <label>
               {kind === "monthly" ? "单月走势比较口径" : "比较口径"}
               <select
                 value={draft.comparison}
@@ -804,12 +699,6 @@ export function AnalysisPage() {
                 <option value="complete">完整历史范围</option>
               </select>
             </label>
-          )}
-          {kind === "earnings" && (
-            <p className="context-baseline">
-              同财季按所选完整窗口比较；当前财年另列，按交易日对齐。
-            </p>
-          )}
           <div className="button-row">
             <Button type="submit" variant="primary" busy={isApplying}>
               查看分析
@@ -818,8 +707,7 @@ export function AnalysisPage() {
           <p className="context-baseline">
             查看分析会复用已有行情，按当前条件与所选基准补齐缺口。已有结果保留原版本。
           </p>
-          {kind !== "earnings" && (
-            <PriceRangePreview
+                      <PriceRangePreview
               request={{
                 historical_years: draft.historical_years,
                 analysis: {
@@ -837,7 +725,6 @@ export function AnalysisPage() {
                 },
               }}
             />
-          )}
           <div className="analysis-form">
             <BenchmarkPicker
               value={draft.benchmark ?? ""}
@@ -868,8 +755,7 @@ export function AnalysisPage() {
                   placeholder="2020, 2022"
                 />
               </label>
-              {kind !== "earnings" && (
-                <label>
+                              <label>
                   横轴对齐
                   <select
                     value={draft.alignment}
@@ -884,17 +770,6 @@ export function AnalysisPage() {
                     <option value="trading">交易日序号</option>
                   </select>
                 </label>
-              )}
-              <label className="check-label">
-                <input
-                  type="checkbox"
-                  checked={draft.common_years}
-                  onChange={(e) =>
-                    setDraft((d) => ({ ...d, common_years: e.target.checked }))
-                  }
-                />
-                多股仅比较共同有效年份
-              </label>
               <Button
                 type="button"
                 busy={save.isPending}
@@ -1028,9 +903,7 @@ export function AnalysisPage() {
                 </h2>
                 <p className="research-question">研究问题：{kind === "monthly"
                   ? `${shown.params.month} 月历史价格表现如何？`
-                  : kind === "interval"
-                    ? `${shown.params.start_mmdd} → ${shown.params.end_mmdd} 区间历史价格表现如何？`
-                    : `FY Q${shown.params.quarter} 公告前后价格如何变化？`}</p>
+                  : `${shown.params.start_mmdd} → ${shown.params.end_mmdd} 区间历史价格表现如何？`}</p>
               </div>
               <details className="research-exports"><summary>导出与链接</summary><div className="button-row">
                 <a
@@ -1074,7 +947,7 @@ export function AnalysisPage() {
                       <th>
                         {kind === "monthly"
                           ? `${shown.params.month} 月走势 N`
-                          : kind === "earnings" ? "精确历史样本 N" : "有效样本 N"}
+                          : "有效样本 N"}
                       </th>
                       <th>
                         {kind === "monthly" ? "细看月份历史中位" : "历史中位"}
@@ -1102,8 +975,7 @@ export function AnalysisPage() {
                         <td>{display(r.data.effective_n)}</td>
                         <td>{percent(facts(r.data.summary).median)}</td>
                         <td>
-                          {percent(kind === "earnings" && facts(facts(r.data.summary).current).precise !== true
-                            ? null : facts(facts(r.data.summary).current).endpoint)}
+                          {percent(facts(facts(r.data.summary).current).endpoint)}
                         </td>
                         <td>
                           {r.coverage
@@ -1130,24 +1002,12 @@ export function AnalysisPage() {
                   : "已保存结果 · 原版本未记录目标覆盖"}
               </span>
               <span>
-                {kind === "earnings" ? "精确反应历史" : "有效"} N={display(data.effective_n)} / 目标{" "}
+                有效 N={display(data.effective_n)} / 目标{" "}
                 {display(meta.target_n)}
               </span>
             </div>
             {kind === "monthly" && meta.comparison === "same_progress" && (
               <p className="context-baseline">截至同期走势只计算到各历史年与当前研究相同的月内位置；下方 1—12 月分布与排名使用各年完整月份。两种终点的中位数可以不同。</p>
-            )}
-            {kind === "earnings" && fiscalVersionNotice("native_earnings", meta.calculation_version) && (
-              <p className="reason" role="status">
-                {fiscalVersionNotice("native_earnings", meta.calculation_version)}
-              </p>
-            )}
-            {kind === "earnings" && (
-              <p className="context-baseline">
-                所选财季日期观察历史 N={display(dateObservationN)}；精确反应历史 N={display(data.effective_n)}。
-                日期已核对但公告时点未知时，价格可在下方日期观察阅读，不能据此判断公告前后精确反应；
-                当前财年另列，不计入历史 N。
-              </p>
             )}
             <details className="analysis-version" data-result-id={selectedItem?.result_id}>
               <summary>覆盖明细、方法与技术版本</summary>
@@ -1174,39 +1034,6 @@ export function AnalysisPage() {
                 </details>
               ) : null}
             </details>
-            {kind === "earnings" && data.date_observation && (
-              <EventDatesResult
-                data={facts(data.date_observation)}
-                analysisId={shown?.id}
-                resultId={selectedItem?.result_id}
-                securitySymbol={selectedItem?.symbol}
-                nativeEarnings
-                readingScope={`${readingKey}:date-observation`}
-                title="财报日期观察 · 当天与前后 5 个交易日"
-                busy={isApplying}
-                onSelect={({ metric, group }) =>
-                  selectResult({
-                    ...(metric
-                      ? { date_window: metric as AnalysisInput["date_window"] }
-                      : {}),
-                    ...(group
-                      ? group === "unassigned_earnings"
-                        ? { date_category: "unassigned_earnings" as const }
-                        : {
-                            quarter: Number(group.replace("Q", "")),
-                            date_category: null,
-                          }
-                      : {}),
-                  })
-                }
-              />
-            )}
-            {kind === "earnings" && (
-              <div className="section-heading">
-                <h2>精确反应窗口</h2>
-                <span>R=1 按已核对发布时间对齐，和上方日期 D0 分开观察</span>
-              </div>
-            )}
             {kind === "monthly" && rows(data.monthly_rankings).length > 0 && (
               <p className="context-baseline">
                 全年 1—12
@@ -1236,57 +1063,31 @@ export function AnalysisPage() {
                 </div>
               </div>
             )}
-            {selectedItem && <ResearchEvidence data={preciseData} readingId={readingKey} defaultMetric={kind === "earnings" ? String(shown.params.window ?? 5) : "endpoint"} />}
+            {selectedItem && <ResearchEvidence data={preciseData} readingId={readingKey} defaultMetric="endpoint" />}
             <StatisticsPanel
               key={`statistics:${readingKey}:${conditionKey}`}
               readingId={readingKey}
               data={preciseData}
-              defaultMetric={
-                kind === "earnings"
-                  ? String(shown.params.window ?? 5)
-                  : "endpoint"
-              }
+              defaultMetric="endpoint"
               title={
-                kind === "earnings"
-                  ? "精确公告反应 · 历史窗口分布"
-                  : kind === "monthly"
-                    ? "1—12 月历史涨跌幅与排名"
-                    : "历史窗口涨跌幅分布"
+                kind === "monthly"
+                  ? "1—12 月历史涨跌幅与排名"
+                  : "历史窗口涨跌幅分布"
               }
               busy={isApplying}
-              onSelect={({ metric, group }) =>
-                selectResult({
-                  ...(kind === "earnings" && metric
-                    ? { window: Number(metric) as AnalysisInput["window"] }
-                    : {}),
-                  ...(group
-                    ? kind === "monthly"
-                      ? { month: Number(group) }
-                      : {
-                          quarter: Number(group.replace("Q", "")),
-                          date_category: null,
-                        }
-                    : {}),
-                })
-              }
+              onSelect={({ group }) => {
+                if (group && kind === "monthly") selectResult({ month: Number(group) });
+              }}
             />
-            {kind !== "interval" && (
+            {kind === "monthly" && (
               <ResearchChart
                 data={preciseData}
-                title={
-                  kind === "monthly" ? "年份 × 月份总览" : "财年 × 财季总览"
-                }
+                title="年份 × 月份总览"
                 heatmap
                 key={`${readingKey}:overview`}
                 readingId={`${readingKey}:overview`}
-                provenance={kind === "monthly" ? annualProvenance : provenance}
-                onCell={(cell) =>
-                  selectResult(
-                    kind === "monthly"
-                      ? { month: Number(cell.month) }
-                      : { quarter: Number(cell.quarter), date_category: null },
-                  )
-                }
+                provenance={annualProvenance}
+                onCell={(cell) => selectResult({ month: Number(cell.month) })}
               />
             )}
             {kind === "monthly" && (
@@ -1314,34 +1115,20 @@ export function AnalysisPage() {
             )}
             <ResearchChart
               data={preciseData}
-              title={`${selectedItem?.symbol} · ${kind === "monthly" ? `${shown.params.month} 月` : kind === "interval" ? `${shown.params.start_mmdd} → ${shown.params.end_mmdd}` : `Q${shown.params.quarter}`} 价格路径`}
+              title={`${selectedItem?.symbol} · ${kind === "monthly" ? `${shown.params.month} 月` : `${shown.params.start_mmdd} → ${shown.params.end_mmdd}`} 价格路径`}
               key={`${readingKey}:path`}
               readingId={`${readingKey}:path`}
               provenance={provenance}
             />
-            {kind === "earnings" && (
-              <div className="window-counts">
-                {Object.entries(facts(summary.windows)).map(([w, v]) => (
-                  <span key={w}>
-                    {w} 日有效 N={display(facts(v).n)} · 中位{" "}
-                    {percent(facts(v).median)}
-                  </span>
-                ))}
-              </div>
-            )}
             <div className="section-heading">
               <h2>逐次明细</h2>
               <span>与图表及导出使用同一结果</span>
             </div>
-            {kind === "earnings" && rows(preciseData.rows).length === 0 ? (
-              <p className="notice notice-info">尚无已核对公告时点的精确反应明细；日期观察的价格与覆盖见上方独立区块。</p>
-            ) : (
-              <ResearchTable
-                key={`${readingKey}:${conditionKey}`}
-                data={rows(preciseData.rows)}
-                kind={kind}
-              />
-            )}
+            <ResearchTable
+              key={`${readingKey}:${conditionKey}`}
+              data={rows(preciseData.rows)}
+              kind={kind}
+            />
             <details className="result-notes">
               <summary>数据口径、来源与排除原因</summary>
               <p>
@@ -1415,7 +1202,7 @@ export function AnalysisPage() {
                   title={
                     compare === "current" ? "各股当前对照" : "各股历史中位路径"
                   }
-                  provenance={`${comparisonItems.map((r) => r.symbol).join(", ")} · ${sourceLabel(meta.price_basis)} · ${kind === "monthly" ? `${shown.params.month}月` : kind === "interval" ? `${shown.params.start_mmdd}–${shown.params.end_mmdd}` : `Q${shown.params.quarter} / ${shown.params.window}日`} · ${sourceLabel(meta.comparison)}\n分析 ${shown.id} · ${display(meta.calculation_version)}\n${comparisonItems
+                  provenance={`${comparisonItems.map((r) => r.symbol).join(", ")} · ${sourceLabel(meta.price_basis)} · ${kind === "monthly" ? `${shown.params.month}月` : `${shown.params.start_mmdd}–${shown.params.end_mmdd}`} · ${sourceLabel(meta.comparison)}\n分析 ${shown.id} · ${display(meta.calculation_version)}\n${comparisonItems
                     .map(
                       (r) =>
                         `${r.symbol}: N=${r.data.effective_n} 截至${display(facts(r.data.metadata).cutoff_date)} ${display(facts(r.data.metadata).source)} 结果${r.result_id}`,
@@ -1426,14 +1213,6 @@ export function AnalysisPage() {
             </section>
           )}
         </>
-      )}
-      {kind === "earnings" && (
-        <Link
-          className="text-link"
-          to={`/data?events=${encodeURIComponent(tickerText.split(/[\s,，]+/)[0] ?? "AAPL")}`}
-        >
-          核对财报事件、修正财年财季或导入事件 CSV →
-        </Link>
       )}
     </>
   );

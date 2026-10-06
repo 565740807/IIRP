@@ -111,7 +111,7 @@ class OperationPool:
         self.lock = threading.Lock()
 
     def run(self, kind, *args, **kwargs):
-        lane = "compute" if kind in {"research_compute", "event_compute"} else "market"
+        lane = "compute" if kind == "research_compute" else "market"
         with self.lock:
             child = self.children.setdefault(lane, OperationChild())
         return child.run(kind, *args, **kwargs)

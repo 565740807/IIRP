@@ -29,8 +29,8 @@ Compose 启动三个服务：`postgres`、`web`（启动时先执行 `alembic up
 | 任务与调度 | `queue.py`、`worker.py`、`business_worker.py`、`worker_ownership.py`、`operations.py`、`operation_pool.py`、`shared_compute.py`、`lifecycle.py` | 持久任务、租约与围栏、批次与订阅、共享计算 |
 | SEC 内部人交易 | `sec_sources.py`、`sec_facts.py`、`feed_index.py`、`feed_updates.py`、`feed_snapshots.py`、`entity_reads.py` | 发现与下载申报、解析为按行事实、信息流（水位线、当前修订与排序键）与公司/人员详情；`feed_snapshots.py` 只为升级前的旧阅读会话保留 |
 | 行情 | `market_data.py`、`price_cache.py`、`market_quotes.py`、`market_http.py`、`ticker_identity.py`、`freshness.py` | yfinance 适配器与校验、24 小时日线缓存、报价、证券身份 |
-| 财报与事件 | `earnings_data.py`、`earnings_planner.py`、`event_service.py`、`event_pipeline.py`、`event_views.py`、`imports.py` | 财报候选与核对、自定义事件集、CSV 预览与导入 |
-| 研究计算 | `analytics/`（`research.py`、`prices.py`、`calendar.py`、`distributions.py`、`event_dates.py`、`event_overlaps.py`、`fiscal_calendar.py`）、`research_pipeline.py`、`result_storage.py`、`result_reuse.py` | 月度、跨年区间、财报与事件分析；所有金融计算都在这里，前端不重复实现 |
+| 财报与事件 | `event_input.py`（简短 JSON 校验）、`event_prompts.py`（提示词模板）、`event_service.py`（事件集与分析）、`event_api.py`、`event_models.py` | 财报和自定义事件共用一套流程：提示词模板 → 粘贴 AI 返回的简短 JSON → 校验与预览 → 按日期取价（24 小时缓存，每只股票一次）→ 以反应日为中心的窗口统计（D23）；事件集与模板是用户数据，长期保存 |
+| 研究计算 | `analytics/`（`research.py`、`prices.py`、`calendar.py`、`distributions.py`、`event_windows.py`）、`research_pipeline.py`、`result_storage.py`、`result_reuse.py` | 月度、跨年区间、财报与事件分析；所有金融计算都在这里，前端不重复实现 |
 | 维护 | `maintenance.py`、`storage.py`、`storage_inventory.py`、`capacity.py`、`system_status.py` | 保留策略、清理、备份、容量与系统状态 |
 | 基础 | `config.py`、`db.py`、`models.py`、`business_models.py`、`event_models.py`、`profiles.py`、`providers.py` | 配置、会话、表定义、来源预算 |
 
@@ -45,7 +45,7 @@ Compose 启动三个服务：`postgres`、`web`（启动时先执行 `alembic up
 1. **采集**：用户在界面提交需求（或启用自动策略）→ API 写入批次与任务 → worker 领取任务 → 访问外部来源（网络调用不在数据库事务内）→ 原文按内容哈希存入 `runtime/objects`，解析结果在一次带围栏的事务中提交为事实。
 2. **SEC 内部人交易**：最新申报由 worker 按来源轮询（`iirp/sec_poll.py`，状态是 `source_poll` 中每个来源一行：水位线、未读完的补扫游标、下次时间、租约），不为每次轮询建任务；历史回补用 `sec_discover` 扫日/季索引 → `sec_document` 下载并解析 Form 3/4/5 → 写入申报、版本、申报人和按行的交易事实；修订按行记录，不覆盖旧版本。交易日、接受时间和发现时间分开保存；缺失、未知和已知零分别表示。
 3. **行情**：`market_identity` 确认证券身份 → 规划时若该证券的缓存覆盖不了所需区间，`market_history` 一次取“所需区间 + 前 1 个月余量”到当天，替换为一份新的 24 小时缓存（`price_cache` + `price_cache_bar`，仅拆股调整的 OHLC、分红与拆股，记下获取与到期时间）→ `market_quote` 另行更新首页报价。到期的缓存由 worker 删除。
-4. **分析**：用户显式应用条件 → `research_compute`/`event_compute` 读取本地事实与缓存日线，计算并写入结果（记下所用缓存与获取时间）。结果与所用缓存同生命周期（`analysis_result.expires_at`），图表、表格、摘要和 JSON/CSV/PNG 导出都读同一份结果；过期后打开研究会自动按最近已完成交易日重新获取。
+4. **分析**：用户显式应用条件 → 月度/区间由 `research_compute` 任务、财报/事件由规划器在行情缓存就绪后直接读取缓存日线，计算并写入结果（记下所用缓存与获取时间）。结果与所用缓存同生命周期（`analysis_result.expires_at`），图表、表格、摘要和 JSON/CSV/PNG 导出都读同一份结果；过期后打开研究会自动按最近已完成交易日重新获取。
 5. **读取**：所有 GET 只读本地数据库；信息流和详情在阅读会话中保持稳定，新内容以提示形式出现。
 
 ### 信息流的阅读会话
@@ -64,11 +64,11 @@ Compose 启动三个服务：`postgres`、`web`（启动时先执行 `alembic up
 - **依赖**：`job_dependency` 表达先后关系，前置任务未成功前后续任务不会被领取。
 - **来源预算与限流**：`source_budget` 记录各来源的请求预算；所有外部请求走同一个传输入口，由调用方统一限速。
 - **任务列表**：`GET /api/v1/jobs` 按 (创建时间, id) 键集分页、每页默认 20 条，只返回标量字段；`checkpoint`、`result`、`target` 只在 `GET /api/v1/jobs/{id}` 中返回。
-- **主要任务类型**：`sec_probe`、`sec_discover`、`sec_identity`、`sec_document`、`market_identity`、`market_history`、`market_quote`、`earnings_candidates`、`earnings_evidence`、`local_import`、`research_compute`、`event_compute`、`maintenance_backup`、`maintenance_clean`。
+- **主要任务类型**：`sec_probe`、`sec_discover`、`sec_identity`、`sec_document`、`market_identity`、`market_history`、`market_quote`、`research_compute`、`maintenance_backup`、`maintenance_clean`。
 
 ## 存储
 
-- **PostgreSQL**：业务事实（`issuer`、`reporting_owner`、`security`、`filing`、`filing_version`、`transaction_event`、`earnings_event` 等）、24 小时行情缓存（`price_cache`、`price_cache_bar`）、信息流修订与索引（`feed_group_revision`、`feed_group_current`、`feed_group_order`；`feed_manifest` 只剩升级前的旧数据，由维护清理回收）、任务与批次（`job`、`batch`、`batch_job`）、分析请求与结果（`analysis_request`、`analysis_result`、`export_manifest`）、事件集（`event_set`、`event_set_version`）、维护记录。
+- **PostgreSQL**：业务事实（`issuer`、`reporting_owner`、`security`、`filing`、`filing_version`、`transaction_event` 等）、24 小时行情缓存（`price_cache`、`price_cache_bar`）、信息流修订与索引（`feed_group_revision`、`feed_group_current`、`feed_group_order`；`feed_manifest` 只剩升级前的旧数据，由维护清理回收）、任务与批次（`job`、`batch`、`batch_job`）、分析请求与结果（`analysis_request`、`analysis_result`、`export_manifest`）、事件集与提示词模板（`event_set`、`prompt_template`）、维护记录。
 - **来源对象**：原始 XML/JSON/CSV 以内容哈希为文件名存放在 `runtime/objects/<前两位>/<哈希>`，数据库的 `source_object` 与 `source_observation` 记录来源、哈希和观察时间。可随时重新获取的内容带 `expires_at`：SEC 列表页、索引文件和 SEC 任务的响应 JSON 7 天，Yahoo 与计算任务的响应 JSON 24 小时；worker 每 10 分钟分批删除过期对象、其观察记录和文件。申报原文（`filing_version` 引用的完整申报、XML 和索引页）和解析出的事实永久保留；交易与申报的 JSONB 不再复制原始 XML，按 `source_objects` 引用读取原文。
 - **存储盘点**：系统状态只读记录——原文大小取自 `source_object`，备份取自各自清单（按文件身份缓存，只解析一次），恢复副本取自其报告，数据库取自 PostgreSQL；不遍历目录。目录实际占用的精确核对（约 130 万个文件）在数据页手动触发，或由 worker 每天最多一次在美东 0–5 点运行。
 - **卷**：Compose 的 `postgres-data`（数据库）与 `app-runtime`（来源对象、备份、维护日志）。`./iirp stop` 保留卷；备份由 `./iirp backup` 生成一致快照（`pg_dump` + 来源对象哈希清单），每次成功后只保留最近 2 份，`./iirp restore-verify` 在随机新库上验证恢复，通过后删除副本原文和恢复库，只留验证报告（写入备份清单，并在 `runtime/restores/<名称>-report.json`）。

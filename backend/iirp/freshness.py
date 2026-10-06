@@ -15,7 +15,7 @@ STAGES = {
     "sec_discover": "检查申报索引", "sec_document": "下载并解析申报",
     "sec_identity": "核对公司身份", "market_identity": "核对证券",
     "market_quote": "获取最新市场报价", "market_history": "补齐历史日线",
-    "research_compute": "计算研究结果", "event_compute": "计算事件研究结果", "earnings_evidence": "核对财报公告与财期",
+    "research_compute": "计算研究结果",
 }
 
 

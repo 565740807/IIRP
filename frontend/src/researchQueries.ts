@@ -11,14 +11,13 @@ const interval = (status?: string) => status && activeStatuses.includes(status)
   ? (document.hidden ? 10000 : 2000) : false;
 const read = <T>(path: string, signal: AbortSignal) => api<T>(path, "GET", undefined, signal);
 
-export function eventResearchOptions(id: string, result = "") {
+export function eventResearchOptions(id: string) {
   return queryOptions({
-    queryKey: researchKeys.events(id, result),
+    queryKey: researchKeys.events(id, ""),
     enabled: !!id,
-    queryFn: ({ signal }) => read<EventAnalysisOutput>(
-      `/events/analyses/${encodeURIComponent(id)}${result ? `?result_id=${encodeURIComponent(result)}` : ""}`, signal),
-    staleTime: result ? "static" : 5000,
-    refetchInterval: q => result ? false : interval(q.state.data?.status),
+    queryFn: ({ signal }) => read<EventAnalysisOutput>(`/events/analyses/${encodeURIComponent(id)}`, signal),
+    staleTime: 5000,
+    refetchInterval: q => interval(q.state.data?.status),
   });
 }
 
@@ -45,13 +44,11 @@ export function batchOptions(id: string) {
   });
 }
 
-export function eventSetOptions(id: string, version = "") {
+export function eventSetOptions(id: string) {
   return queryOptions({
-    queryKey: researchKeys.set(id, version),
+    queryKey: researchKeys.set(id, ""),
     enabled: !!id,
-    queryFn: ({ signal }) => read<EventSetOutput>(
-      `/events/sets/${encodeURIComponent(id)}${version ? `?version=${encodeURIComponent(version)}` : ""}`, signal),
-    // The facts are versioned, but the envelope also contains a live research list.
+    queryFn: ({ signal }) => read<EventSetOutput>(`/events/sets/${encodeURIComponent(id)}`, signal),
     staleTime: 5000,
   });
 }
@@ -73,20 +70,9 @@ export function recentResearchOptions(kind: string, ticker: string) {
   });
 }
 
-export function overlapOptions(analysis: string, result: string, event: string, cursor: string | null, limit = 50) {
-  return queryOptions({
-    queryKey: researchKeys.overlaps(analysis, result, event, cursor, limit),
-    enabled: !!analysis && !!result,
-    staleTime: "static",
-    retry: false,
-    queryFn: ({ signal }) => read<components["schemas"]["EventOverlapPage"]>(
-      `/analyses/${encodeURIComponent(analysis)}/results/${encodeURIComponent(result)}/event-overlaps?${new URLSearchParams({ event_key: event, limit: String(limit), ...(cursor ? { cursor } : {}) })}`, signal),
-  });
-}
-
-export const useEventResearch = (id: string, result = "") => useQuery(eventResearchOptions(id, result));
+export const useEventResearch = (id: string) => useQuery(eventResearchOptions(id));
 export const useNativeResearch = (id: string | null, results = "") => useQuery(nativeResearchOptions(id, results));
 export const useResearchBatch = (id: string) => useQuery(batchOptions(id));
-export const useEventSet = (id: string, version = "") => useQuery(eventSetOptions(id, version));
+export const useEventSet = (id: string) => useQuery(eventSetOptions(id));
 export const useEventSets = (kind: string) => useQuery(eventSetsOptions(kind));
 export const useRecentResearch = (kind: string, ticker: string) => useQuery(recentResearchOptions(kind, ticker));

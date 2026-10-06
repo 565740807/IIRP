@@ -1,5 +1,4 @@
 import { systemRefreshInterval } from "../systemRefresh";
-import { correctionSources } from "../earningsCorrectionSources";
 import { Timestamp } from "../components/Timestamp";
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -11,34 +10,27 @@ import {
   formatNumber,
   marketName,
   requestId,
-  rows,
   sourceLabel,
   useCollection,
   useInvalidate,
   usePreferences,
   useProviders,
   type CollectionInput,
-  type EventCorrection,
   type GenericOutput,
-  type ImportInput,
-  type ImportOutput,
   type Fact,
 } from "../api";
 import {
-  CollectionButton,
   PolicyControl,
   ScopeNotice,
 } from "../components/CollectionControls";
 import { BatchList, BatchPanel } from "../components/Batches";
 import { PriceRangePreview } from "../components/PriceRange";
 import { TaskList } from "../components/Tasks";
-import { FactTable } from "../components/ResearchTable";
 import {
   Button,
   EmptyState,
   ErrorNotice,
   Loading,
-  Modal,
   useNotice,
 } from "../components/ui";
 export function ProviderList() {
@@ -131,7 +123,6 @@ function CollectionForm() {
             <option value="sec_latest">最新 SEC 申报</option>
             <option value="sec_history">SEC 历史申报</option>
             <option value="sec_filing">指定 SEC 原文</option>
-            <option value="earnings">财报事件与行情</option>
           </select>
         </label>
         {kind === "sec_filing" ? (
@@ -322,530 +313,6 @@ function CoveragePanel() {
         <p className="panel-footer">
           {display(q.data.data.summary ?? q.data.data.notice)}
         </p>
-      )}
-    </section>
-  );
-}
-function ImportPanel() {
-  const kind: ImportInput["kind"] = "earnings";
-  const [ticker, setTicker] = useState("AAPL");
-  const [source, setSource] = useState("");
-  const [csv, setCsv] = useState("");
-  const [preview, setPreview] = useState<ImportOutput | null>(null);
-  const [error, setError] = useState<Error | null>(null);
-  const invalidate = useInvalidate();
-  const mutation = useMutation({
-    mutationFn: (v: ImportInput) =>
-      api<ImportOutput>("/imports/preview", "POST", v),
-    onSuccess: (r) => {
-      setPreview(r);
-      setError(null);
-    },
-    onError: setError,
-  });
-  const commit = useMutation({
-    mutationFn: () =>
-      api<ImportOutput>(`/imports/${preview!.id}/commit`, "POST"),
-    onSuccess: (r) => {
-      setPreview(r);
-      void invalidate();
-    },
-    onError: setError,
-  });
-  function change() {
-    setPreview(null);
-  }
-  return (
-    <section className="panel" id="imports">
-      <div className="section-heading">
-        <h2>财报 CSV 导入</h2>
-        <span>先预览差异，再确认入库；行情为 24 小时缓存，不接受 CSV 行情</span>
-      </div>
-      <form
-        className="analysis-form"
-        onSubmit={(e) => {
-          e.preventDefault();
-          mutation.mutate({
-            kind,
-            ticker,
-            csv,
-            source_url: source,
-          });
-        }}
-      >
-        <label>
-          证券代码
-          <input
-            required
-            value={ticker}
-            onChange={(e) => {
-              setTicker(e.target.value.toUpperCase());
-              change();
-            }}
-          />
-        </label>
-        <label className="ticker-field">
-          来源链接
-          <input
-            type="url"
-            required
-            value={source}
-            placeholder="https://…"
-            onChange={(e) => {
-              setSource(e.target.value);
-              change();
-            }}
-          />
-        </label>
-        <label className="csv-field">
-          CSV 文件（最多 5 MB）
-          <input
-            type="file"
-            accept=".csv,text/csv"
-            onChange={async (e) => {
-              const f = e.target.files?.[0];
-              if (!f) return;
-              if (f.size > 5_000_000) {
-                setError(new Error("文件超过 5 MB，请拆分后导入。"));
-                return;
-              }
-              setCsv(await f.text());
-              change();
-            }}
-          />
-        </label>
-        <label className="csv-field">
-          预览输入内容
-          <textarea
-            required
-            rows={5}
-            value={csv}
-            onChange={(e) => {
-              setCsv(e.target.value);
-              change();
-            }}
-            placeholder="fiscal_year,fiscal_quarter,announced_date,announced_at,time_precision,source_url"
-          />
-        </label>
-        <Button type="submit" busy={mutation.isPending}>
-          预览差异
-        </Button>
-      </form>
-      <ErrorNotice error={error} />
-      {preview && (
-        <div className="import-preview">
-          <div className="notice notice-info">
-            {sourceLabel(preview.status)} · {preview.valid_rows} 行有效 ·
-            此预览冻结了当前文件及来源信息
-          </div>
-          {preview.errors.map((e, i) => (
-            <p className="form-error" key={i}>
-              {e}
-            </p>
-          ))}
-          {preview.differences.map((d, i) => (
-            <p key={i}>{d}</p>
-          ))}
-          <FactTable
-            data={preview.preview}
-            columns={Object.keys(preview.preview[0] ?? {}).map((k) => ({
-              key: k,
-              label: k,
-            }))}
-          />
-          <div className="button-row">
-            <Button
-              variant="primary"
-              busy={commit.isPending}
-              disabled={
-                !preview.valid_rows ||
-                preview.errors.length > 0 ||
-                ["COMMITTED", "committed"].includes(preview.status)
-              }
-              onClick={() => commit.mutate()}
-            >
-              确认导入 {preview.valid_rows} 行
-            </Button>
-            {preview.batch_id && (
-              <Link
-                className="text-link"
-                to={`/data?batch=${preview.batch_id}`}
-              >
-                查看导入批次 →
-              </Link>
-            )}
-          </div>
-        </div>
-      )}
-    </section>
-  );
-}
-function EventEditor({
-  event,
-  ticker,
-  close,
-}: {
-  event: Fact;
-  ticker: string;
-  close: () => void;
-}) {
-  const [value, setValue] = useState<EventCorrection>({
-    fiscal_year: event.fiscal_year ?? new Date().getFullYear(),
-    fiscal_quarter: event.fiscal_quarter ?? event.quarter ?? 1,
-    announced_date: event.announced_date ?? "",
-    announced_at: event.announced_at ?? null,
-    time_precision: event.time_precision ?? "date_only",
-    is_primary: event.is_primary ?? true,
-    ...correctionSources(event),
-    note: "",
-    revision: event.revision ?? 1,
-  });
-  const invalidate = useInvalidate();
-  const mutation = useMutation({
-    mutationFn: () =>
-      api<GenericOutput>(`/earnings/${event.id}`, "PATCH", value),
-    onSuccess: () => {
-      void invalidate();
-      close();
-    },
-  });
-  return (
-    <Modal
-      open
-      onOpenChange={close}
-      title={`${ticker} · 核对财报事件`}
-      description="保留原始观察与修订历史；精确反应统计只使用满足时间要求的事件。"
-    >
-      <form
-        className="analysis-form"
-        onSubmit={(e) => {
-          e.preventDefault();
-          mutation.mutate();
-        }}
-      >
-        <label>
-          财政年度
-          <input
-            type="number"
-            required
-            min="1"
-            max="9998"
-            value={value.fiscal_year}
-            onChange={(e) =>
-              setValue((v) => ({ ...v, fiscal_year: e.target.valueAsNumber }))
-            }
-          />
-        </label>
-        <label>
-          财政季度
-          <select
-            value={value.fiscal_quarter}
-            onChange={(e) =>
-              setValue((v) => ({
-                ...v,
-                fiscal_quarter: Number(e.target.value),
-              }))
-            }
-          >
-            {[1, 2, 3, 4].map((q) => (
-              <option key={q} value={q}>
-                Q{q}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
-          公告日期
-          <input
-            type="date"
-            required
-            value={value.announced_date}
-            onChange={(e) =>
-              setValue((v) => ({ ...v, announced_date: e.target.value }))
-            }
-          />
-        </label>
-        <label>
-          时间精度
-          <select
-            value={value.time_precision}
-            onChange={(e) =>
-              setValue((v) => ({
-                ...v,
-                time_precision: e.target
-                  .value as EventCorrection["time_precision"],
-              }))
-            }
-          >
-            {[
-              "exact",
-              "before_open",
-              "after_close",
-              "date_only",
-              "intraday",
-              "conflict",
-            ].map((t) => (
-              <option key={t} value={t}>
-                {sourceLabel(t)}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="csv-field">
-          公告时刻（含时区，未知留空）
-          <input
-            value={value.announced_at ?? ""}
-            placeholder="2026-07-30T16:30:00-04:00"
-            onChange={(e) =>
-              setValue((v) => ({ ...v, announced_at: e.target.value || null }))
-            }
-          />
-        </label>
-        {["exact", "before_open", "after_close"].includes(value.time_precision) && <label className="csv-field">
-          实际首次公开时刻或盘前/盘后来源原文及位置
-          <textarea
-            required
-            rows={2}
-            value={value.time_evidence ?? ""}
-            onChange={(e) => setValue((v) => ({ ...v, time_evidence: e.target.value }))}
-            placeholder="引用发行人公告中明确的发布时间或盘前/盘后说明；电话会时间和官方排期不适用"
-          />
-        </label>}
-        <label>
-          财期类型
-          <select
-            value={value.period_kind ?? "unknown"}
-            onChange={(e) => setValue((v) => ({
-              ...v,
-              period_kind: e.target.value as EventCorrection["period_kind"],
-              period_kind_source_url: e.target.value === "unknown" ? null : v.period_kind_source_url,
-              period_kind_evidence: e.target.value === "unknown" ? null : v.period_kind_evidence,
-            }))}
-          >
-            <option value="unknown">未知 · 不进入常规财季汇总</option>
-            <option value="regular">常规 · 须有明确来源</option>
-            <option value="transition">过渡 · 不进入常规财季汇总</option>
-          </select>
-        </label>
-        {value.period_kind !== "unknown" && <label className="csv-field">
-          财期类型来源链接（可与公告日期来源不同）
-          <input
-            type="url"
-            required
-            value={value.period_kind_source_url ?? ""}
-            onChange={(e) => setValue((v) => ({ ...v, period_kind_source_url: e.target.value }))}
-          />
-        </label>}
-        {value.period_kind !== "unknown" && <label className="csv-field">
-          财期类型的来源原文或明确位置
-          <textarea
-            required
-            rows={2}
-            value={value.period_kind_evidence ?? ""}
-            onChange={(e) => setValue((v) => ({ ...v, period_kind_evidence: e.target.value }))}
-          />
-        </label>}
-        <label className="csv-field">
-          公告日期/时刻核对来源
-          <input
-            type="url"
-            required
-            value={value.source_url}
-            onChange={(e) =>
-              setValue((v) => ({ ...v, source_url: e.target.value }))
-            }
-          />
-        </label>
-        <label className="csv-field">
-          修正依据
-          <textarea
-            required
-            rows={3}
-            value={value.note}
-            onChange={(e) => setValue((v) => ({ ...v, note: e.target.value }))}
-          />
-        </label>
-        <label className="check-label csv-field">
-          <input
-            type="checkbox"
-            checked={value.is_primary}
-            onChange={(e) =>
-              setValue((v) => ({ ...v, is_primary: e.target.checked }))
-            }
-          />
-          作为该财年财季的主公告
-        </label>
-        <p className="muted csv-field">
-          同季重复或辅助公告请取消勾选，保留其真实财年、季度与核对依据。
-        </p>
-        <ErrorNotice error={mutation.error} />
-        <Button type="submit" variant="primary" busy={mutation.isPending}>
-          保存核对结果
-        </Button>
-      </form>
-      <details className="result-notes">
-        <summary>来源与核对记录（{rows(event.evidence).length}）</summary>
-        {rows(event.evidence).map((record, index) => (
-          <article className="scope-item" key={index}>
-            <p>
-              <strong>{sourceLabel(record.provider)}</strong>
-              {record.reviewed_at && <> · <Timestamp value={record.reviewed_at} /></>}
-            </p>
-            {record.note && <p>{record.note}</p>}
-            {record.reason && <p>{record.reason}</p>}
-            {record.fiscal_year && (
-              <p>
-                FY{record.fiscal_year} Q{record.fiscal_quarter} ·{" "}
-                {display(record.announced_date)} ·{" "}
-                {sourceLabel(record.time_precision)}
-              </p>
-            )}
-            {record.previous && (
-              <p>
-                修正前：FY{facts(record.previous).fiscal_year} Q
-                {facts(record.previous).fiscal_quarter} ·{" "}
-                {display(facts(record.previous).announced_date)} ·{" "}
-                {sourceLabel(facts(record.previous).time_precision)}
-              </p>
-            )}
-            {record.source_url && (
-              <a
-                className="text-link"
-                href={record.source_url}
-                target="_blank"
-                rel="noreferrer"
-              >
-                查看这条记录的原始来源 ↗
-              </a>
-            )}
-          </article>
-        ))}
-      </details>
-    </Modal>
-  );
-}
-function EarningsPanel() {
-  const [params] = useSearchParams();
-  const [ticker, setTicker] = useState(params.get("events") ?? "AAPL");
-  const [selected, setSelected] = useState(ticker);
-  const [editing, setEditing] = useState<Fact | null>(null);
-  const [page, setPage] = useState(0);
-  const q = useQuery({
-    queryKey: ["earnings", selected],
-    queryFn: () =>
-      api<GenericOutput>(`/earnings?ticker=${encodeURIComponent(selected)}`),
-  });
-  return (
-    <section className="panel" id="events">
-      <div className="section-heading">
-        <h2>财报事件核对</h2>
-        <span>财政年度与自然年度分别记录</span>
-      </div>
-      <form
-        className="analysis-form"
-        onSubmit={(e) => {
-          e.preventDefault();
-          setSelected(ticker.trim().toUpperCase());
-          setPage(0);
-        }}
-      >
-        <label>
-          股票代码
-          <input value={ticker} onChange={(e) => setTicker(e.target.value)} />
-        </label>
-        <Button type="submit">查看事件</Button>
-        <CollectionButton kind="earnings" tickers={[selected]}>
-          获取与核对事件
-        </CollectionButton>
-      </form>
-      <ErrorNotice error={q.error} retry={q.refetch} />
-      {q.isPending ? (
-        <Loading />
-      ) : q.data?.items.length ? (
-        <div className="table-scroll">
-          <table>
-            <thead>
-              <tr>
-                <th>财年 / 季度</th>
-                <th>公告时间（美东）</th>
-                <th>精度</th>
-                <th>核对状态</th>
-                <th>操作</th>
-              </tr>
-            </thead>
-            <tbody>
-              {q.data.items.slice(page * 50, (page + 1) * 50).map((e, i) => (
-                <tr key={e.id ?? i} data-event-id={e.id}>
-                  <td>
-                    {display(e.fiscal_year)} / Q
-                    {display(e.fiscal_quarter ?? e.quarter)}
-                  </td>
-                  <td>
-                    {e.announced_at
-                      ? <Timestamp value={e.announced_at} />
-                      : display(e.announced_date)}
-                  </td>
-                  <td>{sourceLabel(e.time_precision)}</td>
-                  <td>
-                    {sourceLabel(e.status ?? e.verification_status)}
-                    {e.is_primary === false && <small> · 辅助公告</small>}
-                    {e.legacy_combined_source && <small> · 旧版合并来源待分项复核</small>}
-                  </td>
-                  <td>
-                    <Button variant="ghost" onClick={() => setEditing(e)}>
-                      核对 / 修正
-                    </Button>
-                    {e.source_url && (
-                      <a
-                        className="text-link"
-                        href={e.source_url}
-                        target="_blank"
-                        rel="noreferrer"
-                      >
-                        来源 ↗
-                      </a>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      ) : (
-        <EmptyState
-          title="还没有本地财报事件"
-          description="获取候选并核对，或在 CSV 导入中提供有来源的事件。"
-        />
-      )}
-      {(q.data?.items.length ?? 0) > 50 && (
-        <div className="pagination">
-          <Button disabled={!page} onClick={() => setPage((p) => p - 1)}>
-            上一页事件
-          </Button>
-          <span>
-            第 {page + 1} 页 · 共 {q.data!.items.length} 个事件
-          </span>
-          <Button
-            disabled={(page + 1) * 50 >= q.data!.items.length}
-            onClick={() => setPage((p) => p + 1)}
-          >
-            下一页事件
-          </Button>
-        </div>
-      )}
-      {q.data?.data && (
-        <p className="panel-footer">
-          {display(
-            q.data.data.coverage ?? q.data.data.message ?? q.data.data.notice,
-          )}
-        </p>
-      )}
-      {editing && (
-        <EventEditor
-          event={editing}
-          ticker={selected}
-          close={() => setEditing(null)}
-        />
       )}
     </section>
   );
@@ -1085,15 +552,12 @@ export function DiagnosticsPage() {
 }
 export function DataPage() {
   const [params, setParams] = useSearchParams();
-  const tab = params.get("events") ? "events" : (params.get("tab") ?? "tasks");
+  const tab = params.get("tab") ?? "tasks";
   const invalidate = useInvalidate();
-  const targetBatch = params.get("batch"),
-    targetEvents = params.get("events");
+  const targetBatch = params.get("batch");
   useEffect(() => {
     if (targetBatch) window.scrollTo({ top: 0, behavior: "instant" });
-    else if (targetEvents)
-      document.getElementById("events")?.scrollIntoView({ block: "start" });
-  }, [targetBatch, targetEvents]);
+  }, [targetBatch]);
   return (
     <>
       <div className="page-heading">
@@ -1111,8 +575,6 @@ export function DataPage() {
           ["collect", "获取数据"],
           ["coverage", "数据覆盖"],
           ["automatic", "自动更新"],
-          ["events", "财报核对"],
-          ["imports", "导入"],
           ["sources", "数据来源"],
           ["maintenance", "维护与偏好"],
         ].map(([id, label]) => (
@@ -1122,7 +584,6 @@ export function DataPage() {
             onClick={() => {
               const next = new URLSearchParams(params);
               next.set("tab", id);
-              next.delete("events");
               next.delete("batch");
               setParams(next);
             }}
@@ -1157,8 +618,6 @@ export function DataPage() {
       )}
       {tab === "coverage" && <CoveragePanel />}
       {tab === "sources" && <ProviderList />}
-      {tab === "events" && <EarningsPanel />}
-      {tab === "imports" && <ImportPanel />}
       {tab === "maintenance" && (
         <>
           <PreferencesPanel />
