@@ -15,8 +15,6 @@ test-results/
 playwright-report/
 
 frontend/*.tsbuildinfo
-browser/node_modules/
-browser/.browsers/
 
 # 过程证据与归档目录（保存在仓库外）
 work/

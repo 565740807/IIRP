@@ -1,20 +1,6 @@
 #!/bin/sh
+# Entry point on Linux and macOS: everything runs through Docker Compose.
 set -eu
-IIRP_PROJECT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
-cd "$IIRP_PROJECT_DIR"
-export PYTHONPATH="$IIRP_PROJECT_DIR/backend"
-if [ "$(uname -s)" = Linux ]; then
-  if [ "$#" -eq 0 ]; then set -- start; fi
-  exec python3 scripts/linux.py "$@"
-fi
-if [ ! -x .venv/bin/python ]; then
-  echo '请先执行 ./scripts/bootstrap-mac.sh'
-  exit 1
-fi
-case "${1:-start}" in
-  init|start|stop|status|restart) exec .venv/bin/python scripts/dev.py "${1:-start}" ;;
-  check) .venv/bin/ruff check backend tests scripts migrations; .venv/bin/python -m pytest tests -q; .venv/bin/python scripts/check_openapi.py; (cd frontend && npm run check:api && npm test && npm run build) ;;
-  backup) exec .venv/bin/python scripts/backup.py create ;;
-  restore-verify) shift; exec .venv/bin/python scripts/backup.py verify "$@" ;;
-  *) echo '用法: ./iirp {start|stop|restart|status|check|backup|restore-verify 备份目录}'; exit 2 ;;
-esac
+cd "$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
+if [ "$#" -eq 0 ]; then set -- start; fi
+exec python3 scripts/cli.py "$@"

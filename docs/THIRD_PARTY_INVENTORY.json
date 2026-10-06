@@ -3879,20 +3879,6 @@
         "integrity_verified": true
       },
       "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
-    },
-    {
-      "ecosystem": "npm",
-      "name": "playwright-core",
-      "version": "1.62.1",
-      "license": "Apache-2.0",
-      "lock": "browser/package-lock.json",
-      "distribution_review": {
-        "status": "integrity_and_notice_material_checked",
-        "url": "https://registry.npmjs.org/playwright-core/-/playwright-core-1.62.1.tgz",
-        "sha256": "954be1e183d0ddb9748fe0d2d08b0b66a9210c74dd75c397aeb70303b9f08a00",
-        "integrity_verified": true
-      },
-      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
     }
   ]
 }

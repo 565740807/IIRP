@@ -2,12 +2,12 @@
 
 import pytest
 
-from scripts import linux
+from scripts import cli
 
 
 @pytest.fixture
 def isolated_profile(tmp_path, monkeypatch):
-    monkeypatch.setattr(linux, "ROOT", tmp_path)
+    monkeypatch.setattr(cli, "ROOT", tmp_path)
     (tmp_path / "deploy").mkdir()
     (tmp_path / "deploy/.env").write_text("synthetic-default-placeholder")
     (tmp_path / "private.env").write_text("synthetic-placeholder")
@@ -17,14 +17,13 @@ def isolated_profile(tmp_path, monkeypatch):
         "IIRP_HTTP_PORT",
         "IIRP_DB_NAME",
         "IIRP_APP_IMAGE",
-        "IIRP_VALIDATION_ID",
     ]:
         monkeypatch.delenv(name, raising=False)
     return tmp_path
 
 
 def test_existing_default_selection_kept(isolated_profile):
-    command = linux.compose()
+    command = cli.compose()
     assert command[:4] == ["docker", "compose", "-p", "iirp2"]
     assert str(isolated_profile / "deploy/.env") in command
 
@@ -44,12 +43,10 @@ def test_isolated_project_owns_distinct_image_and_profile(isolated_profile, monk
 
     profile(monkeypatch)
     monkeypatch.setenv("IIRP_APP_IMAGE", "original-image:must-not-touch")
-    monkeypatch.setenv("IIRP_VALIDATION_ID", "a" * 32)
-    command = linux.compose()
+    command = cli.compose()
     assert command[3] == "iirp-h-test"
     assert str(isolated_profile / "private.env") in command
     assert os.environ["IIRP_APP_IMAGE"] == "iirp-h-test-app:local"
-    assert str(isolated_profile / "deploy/validation.compose.yaml") in command
 
 
 @pytest.mark.parametrize(
@@ -61,7 +58,6 @@ def test_isolated_project_owns_distinct_image_and_profile(isolated_profile, monk
         ("IIRP_HTTP_PORT", "1"),
         ("IIRP_HTTP_PORT", ""),
         ("IIRP_DB_NAME", "iirp_v1"),
-        ("IIRP_VALIDATION_ID", "invalid"),
     ],
 )
 def test_partial_or_unsafe_overrides_refused_before_docker(
@@ -70,28 +66,22 @@ def test_partial_or_unsafe_overrides_refused_before_docker(
     profile(monkeypatch)
     monkeypatch.setenv(key, value)
     with pytest.raises(SystemExit):
-        linux.compose()
-
-
-def test_validation_cannot_select_original_project(isolated_profile, monkeypatch):
-    monkeypatch.setenv("IIRP_VALIDATION_ID", "a" * 32)
-    with pytest.raises(SystemExit):
-        linux.compose()
+        cli.compose()
 
 
 def test_backend_tests_use_a_throwaway_tmpfs_postgres_and_remove_it(isolated_profile, monkeypatch):
     (isolated_profile / "deploy/compose.yaml").write_text(
         "services:\n  postgres:\n    image: postgres:18.6-bookworm@sha256:" + "0" * 64 + "\n")
-    monkeypatch.setattr(linux, "_app_image", lambda: "iirp-v1-app:synthetic")
+    monkeypatch.setattr(cli, "_app_image", lambda: "iirp-v1-app:synthetic")
     commands, cleanup = [], []
-    monkeypatch.setattr(linux, "run", lambda args: commands.append([str(a) for a in args]))
+    monkeypatch.setattr(cli, "run", lambda args: commands.append([str(a) for a in args]))
 
     def fake_subprocess(args, **_kwargs):
         cleanup.append(args)
         return type("Done", (), {"returncode": 0})()
 
-    monkeypatch.setattr(linux.subprocess, "run", fake_subprocess)
-    linux.isolated_tests(["python", "-m", "pytest"])
+    monkeypatch.setattr(cli.subprocess, "run", fake_subprocess)
+    cli.isolated_tests(["python", "-m", "pytest"])
     network = commands[0][-1]
     assert commands[0][:3] == ["docker", "network", "create"]
     server = commands[1]

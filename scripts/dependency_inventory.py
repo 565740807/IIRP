@@ -30,7 +30,7 @@ def inventory():
                 "lock": "uv.lock",
             }
         )
-    for lock_path in ["frontend/package-lock.json", "browser/package-lock.json"]:
+    for lock_path in ["frontend/package-lock.json"]:
         lock = json.loads((ROOT / lock_path).read_text())
         for path, package in lock["packages"].items():
             if not path or "version" not in package:

@@ -1,6 +1,6 @@
 # 运行与使用手册
 
-安装与配置见 [安装说明](../deploy/README.zh-CN.md)，系统结构见 [架构说明](ARCHITECTURE.zh-CN.md)。默认 `./iirp start/stop` 作用于既有的 `iirp2` 实例，不用于创建验证副本；验证副本见本文“验证”一节。
+安装与配置见 [安装说明](../deploy/README.zh-CN.md)，系统结构见 [架构说明](ARCHITECTURE.zh-CN.md)。默认 `./iirp start/stop` 作用于既有的 `iirp2` 实例；另起独立实例见安装说明的“独立实例”。
 
 ## 日常操作
 
@@ -9,7 +9,7 @@
 ./iirp status
 ./iirp stop
 ./iirp check
-./iirp test tests/test_shared_compute.py
+./iirp test tests/test_sec_poll.py
 ./iirp lint
 ./iirp frontend npm test
 ./iirp frontend npm run build
@@ -41,17 +41,13 @@
 
 每次备份成功后只保留最近 2 份完整备份，更早的备份目录和不再被引用的对象池文件随即删除（备份之间以硬链接共享原文，删除后空间随之释放）；没有完整清单的目录不会被当作备份删除。恢复验证创建随机新库和新目录，核对完整快照后关闭副本采集、暂停未完成任务、清除旧租约。它不是直接覆盖主库或切换运行库。副本需要独立空间（验证期间）；验证通过后自动删除副本原文和恢复库，只留验证报告（备份清单的 `restore_verification`，以及 `runtime/restores/<名称>-report.json`），失败时按操作记录回滚。备份不完整、目标冲突、锁超时或权限失败时保留日志，按下文“升级与恢复”处理，不能修改版本标记强行通过。
 
-API 前端类型从 `docs/openapi.json` 生成；`./iirp check` 包含 Python 检查/真实 PG 测试、OpenAPI一致性、前端行为/类型/构建。离线缓存补充测试不等于此完整入口通过。慢容量和浏览器命令见下文“验证”。
+API 前端类型从 `docs/openapi.json` 生成；`./iirp check` 包含 Python 检查/真实 PG 测试、OpenAPI一致性、前端行为/类型/构建。离线缓存补充测试不等于此完整入口通过。大型容量基准用 `./iirp test -m slow`。
 
 ## 升级与恢复
 
 只对明确选定的实例操作。应用代码回滚不等于数据库回滚；本项目不承诺任意 Alembic downgrade，已提交的结构变化只能按实测迁移路径和已验证备份处理。
 
-独立演练（在全新的 Compose 项目和空库上执行真实 `alembic upgrade head`，再把合成备份恢复到另一新项目/卷）：
-
-```sh
-python3 scripts/validate.py --suite recovery --output test-results/recovery
-```
+迁移和恢复的要点：
 
 - 迁移测试从空库升到旧版本，按当时结构写入合法的冻结结果、来源标识和已暂停控制，再升级到最新，核对零/未知、原 JSON 和控制版本；不通过修改 `alembic_version` 冒充旧结构。另用表锁阻断迁移，核对失败后仍停在旧版本、没有半迁移字段。
 - 备份使用一致快照、数据库 dump 和来源对象哈希清单。恢复核对冻结 JSON/CSV、全部分页、来源文件、表内容指纹、控制状态和旧租约拒绝，再重启目标 PG 复核。恢复副本的自动策略关闭，未完成任务和批次暂停，避免自动领取旧任务。
@@ -106,18 +102,4 @@ python3 scripts/bench_reads.py --base-url http://127.0.0.1:18092 --ids-from ../b
 
 ## 验证
 
-`./iirp check` 是日常入口。独立、可重复的合成验证用：
-
-```sh
-python3 scripts/release_candidates.py --output ../iirp-export
-cd ../iirp-export
-python3 scripts/validate.py --suite full --output test-results/full
-```
-
-需要可用的 Docker Engine/Compose、网络和本地端口。入口创建随机的 Compose 项目、`iirp_v1_test_*` 数据库、卷、私有配置和端口，不触碰 `iirp2`；失败保留日志，结束时只清理自己创建的资源。输出目录须是新建的。`--suite check|install|browser|recovery|capacity` 可以定位失败阶段。完整验证耗时较长（GitHub 工作流 `validation.yml` 仅手动触发，上限 180 分钟），只在公开发布前整体运行一次。本地命令成功不代表 GitHub 上的 CI 成功。
-
-**浏览器**：`browser/package-lock.json` 固定 Playwright Core 版本和 SHA-512，`browser/browser-lock.json` 固定 Chromium 修订；`deploy/Browser.Dockerfile` 把匹配的浏览器装进项目内 `.browsers`，测试拒绝使用宿主 Chrome 路径、channel 或个人缓存。合成服务提供随机身份和实际 `current_database()`，客户端先核对身份、`iirp_v1_test_*` 库名并拒绝默认实例端口。桌面矩阵为 1366×768、1440×900、1920×1080，覆盖四种研究、鼠标/Tab、窗口调整、滚动稳定、图表以及冻结 JSON/CSV/PNG。受控响应拦截只用于迟到/丢响应行为，计算、PG 和共享控制走真实路径，报告中分开描述。CDP 的 pageScaleFactor 只是视觉缩放，不算浏览器菜单缩放。
-
-**远程浏览器客户端**：在验证主机启动合成夹具并保留 manifest、数据库身份和输出，不要转发默认实例端口；客户端用 `ssh -N -L 本地端口:127.0.0.1:夹具端口 用户@主机` 转发，先检查 `__iirp_test_identity__` 与夹具一致，再在浏览器菜单实际选择 80%/100%/125%/150% 缩放并截图；结束后关闭转发、正常停止夹具并确认自建进程与数据库已清理。
-
-**容量与统计**：目标写在 `config/validation-targets.json`：A14、B10（1500 事件）、C100 保留完整的结果/来源/分页断言；应用与 PG 内存上限、SQL 5 秒、锁 500 毫秒、OperationPool 输入 16MiB/输出 80MiB/110 秒。真实 HTTP 客户端在宿主独立进程，对只读和后台 worker 写入各跑 100 轮，每轮校验冻结结果 SHA 与 1500 行；socket 超时 5 秒、零重试。p50 取中位数，p95 取 nearest-rank，最大值单独报告；默认/详情 p95 ≤ 500 毫秒、最大 ≤ 1000 毫秒。已知问题：17MiB 备注的容量用例在当前资源上限下仍会超时（2026-10-04 `./iirp check` 复现），归入改进计划 P2 的容量调整；新环境没有实际运行时不生成假样本。
+`./iirp check` 是日常入口：Ruff、后端测试（临时 PostgreSQL 容器）、OpenAPI 一致性、前端测试与构建。CI（`.github/workflows/ci.yml`）在每个 PR 上跑同样的检查，另有只能手动触发的 slow 作业（大型容量与基准，`pytest -m slow`）。本地命令成功不代表 GitHub 上的 CI 成功。性能改动用 `scripts/bench_reads.py` 做一次前后对比（见上文）。
