@@ -486,7 +486,7 @@ def _backup():
                 "batch",
                 "request_scope",
                 "transaction_event",
-                "earnings_event",
+                "event_set",
                 "analysis_request",
                 "analysis_result",
             ):

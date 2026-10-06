@@ -10,7 +10,6 @@ from iirp.analytics.calendar import (
     next_regular_open_after,
     reaction_session,
     session_bounds,
-    session_window,
     sessions,
 )
 from iirp.analytics.research import (
@@ -345,145 +344,6 @@ def test_cross_year_current_in_january_and_cutoff_in_historical_year():
     assert result["effective_n"] == 1
 
 
-def event(identifier, year, when, *, quarter=1, precision="before_open", verified=True):
-    return {
-        "id": identifier,
-        "fiscal_year": year,
-        "fiscal_quarter": quarter,
-        "announced_date": when,
-        "time_precision": precision,
-        "verified": verified,
-        "evidence": [
-            {
-                "provider": "synthetic", "source_url": "https://example.com/synthetic-announcement",
-                "announced_date": when, "fiscal_year": year, "fiscal_quarter": quarter,
-                "time_precision": precision,
-                "time_evidence": f"Synthetic issuer states results actually released {precision}" if precision in {"before_open", "after_close"} else None,
-                "note": "Synthetic independent date support",
-            },
-            {
-                "provider": "synthetic", "source_url": "https://example.com/synthetic-quarterly-filing",
-                "fiscal_year": year, "fiscal_quarter": quarter,
-                "period_kind": "regular",
-                "period_kind_evidence": "Synthetic ordinary fiscal quarter statement",
-            },
-        ],
-    }
-
-
-def test_earnings_window_numbering_independent_n_and_multiplicative_gap():
-    prices = history(
-        date(2023, 11, 1),
-        date(2024, 1, 8),
-        {
-            "2023-12-29": "100",
-            "2024-01-02": "121",
-            "2024-01-08": "132",
-        },
-    )
-    next(row for row in prices if row["date"] == "2024-01-02")["open"] = "110"
-    result = compute_research(
-        {
-            "kind": "earnings",
-            "years": [2023],
-            "current_fiscal_year": 2024,
-            "quarter": 1,
-        },
-        prices,
-        [event("historical", 2023, "2024-01-02")],
-        today=date(2024, 1, 8),
-    )
-    row = historical(result, 2023)
-    assert row["reaction_date"] == "2024-01-02"
-    assert row["baseline_date"] == "2023-12-29"
-    assert row["opening_gap"] == "0.1"
-    assert row["windows"]["1"]["after_open"] == "0.1"
-    assert row["windows"]["1"]["cumulative"] == "0.21"
-    assert row["windows"]["5"]["end_date"] == "2024-01-08"
-    assert row["windows"]["5"]["cumulative"] == "0.32"
-    assert row["windows"]["20"]["status"] == "not_yet_formed"
-    assert row["windows"]["60"]["cumulative"] is None
-    assert {key: value["n"] for key, value in result["summary"]["windows"].items()} == {
-        "1": 1,
-        "5": 1,
-        "20": 0,
-        "60": 0,
-    }
-
-
-@pytest.mark.parametrize("precision", ["date_only", "intraday", "conflict"])
-def test_uncertain_earnings_dates_retain_observation_without_precise_statistics(precision):
-    result = compute_research(
-        {
-            "kind": "earnings",
-            "years": [2023],
-            "current_fiscal_year": 2024,
-        },
-        history(date(2023, 11, 1), date(2024, 1, 8)),
-        [event("a", 2023, "2024-01-02", precision=precision)],
-        today=date(2024, 1, 8),
-    )
-    row = historical(result, 2023)
-    assert row["endpoint"] == "0"
-    assert row["opening_gap"] is None
-    assert result["effective_n"] == 0
-    assert result["series"][0]["points"]
-    assert not result["summary"]["path"]
-
-
-def test_earnings_missing_intermediate_price_keeps_endpoint_but_excludes_window():
-    prices = [
-        row for row in history(date(2023, 11, 1), date(2024, 1, 8)) if row["date"] != "2024-01-04"
-    ]
-    result = compute_research(
-        {"kind": "earnings", "years": [2023], "current_fiscal_year": 2024},
-        prices,
-        [event("a", 2023, "2024-01-02")],
-        today=date(2024, 1, 8),
-    )
-    assert result["summary"]["windows"]["1"]["n"] == 1
-    assert result["summary"]["windows"]["5"]["n"] == 0
-    assert historical(result, 2023)["windows"]["5"]["cumulative"] == "0"
-
-
-def test_fiscal_years_are_company_specific_and_current_is_not_added_to_history():
-    prices = history(date(2023, 8, 1), date(2024, 1, 31))
-    events = [event("a", 2023, "2023-09-01"), event("b", 2024, "2024-01-02")]
-    params = {"kind": "earnings", "historical_years": 1}
-    september = compute_research(
-        {**params, "fiscal_year_end_mmdd": "09-30"}, prices, events, today=date(2023, 10, 10)
-    )
-    december = compute_research(
-        {**params, "fiscal_year_end_mmdd": "12-31"}, prices, events, today=date(2023, 10, 10)
-    )
-    assert september["metadata"]["current_year"] == 2024
-    assert december["metadata"]["current_year"] == 2023
-    assert september["metadata"]["historical_years"] == [2023]
-    current = compute_research(
-        {**params, "current_fiscal_year": 2024}, prices, events, today=date(2024, 1, 31)
-    )
-    assert current["effective_n"] == 1
-    assert historical(current, 2024)["group"] == "current"
-
-
-def test_unknown_fiscal_identity_and_duplicate_primary_events_are_explicit():
-    prices = history(date(2023, 11, 1), date(2024, 1, 8))
-    result = compute_research(
-        {"kind": "earnings"}, prices, [event("a", 2023, "2024-01-02")], today=date(2024, 1, 8)
-    )
-    assert result["metadata"]["current_year"] is None
-    assert result["metadata"]["warnings"] == ["current_fiscal_year_unconfirmed"]
-    assert result["effective_n"] == 0
-    duplicate = compute_research(
-        {"kind": "earnings", "years": [2023], "current_fiscal_year": 2024},
-        prices,
-        [event("a", 2023, "2024-01-02"), event("b", 2023, "2024-01-03")],
-        today=date(2024, 1, 8),
-    )
-    assert historical(duplicate, 2023)["status"] == "duplicate_primary_events"
-    assert duplicate["effective_n"] == 0
-
-
 def test_transaction_dual_baselines_and_next_open_after_intraday_disclosure():
     prices = history(
         date(2023, 12, 1),
@@ -542,12 +402,3 @@ def test_unqualified_bars_and_duplicate_versions_cannot_enter_research():
         )
 
 
-def test_earnings_scope_requires_actual_events_and_adds_exact_20_and_60_sessions():
-    with pytest.raises(ValueError, match="Discover fiscal earnings"):
-        plan_scope({"kind": "earnings", "historical_years": 8}, date(2024, 6, 1))
-    start, end = plan_scope(
-        {"kind": "earnings", "events": [event("a", 2023, "2024-01-02")]}, date(2024, 6, 1)
-    )
-    assert start == date(2023, 11, 30)
-    assert end == date(2024, 3, 27)
-    assert len(session_window(date(2023, 12, 29), 20, 60)) == 81

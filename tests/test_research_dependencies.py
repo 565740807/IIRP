@@ -16,7 +16,7 @@ from test_performance_pipeline import params
 
 def _key(request_id, cache_id, security_id):
     with session() as s:
-        return lifecycle.research_input_key(s.get(AnalysisRequest, request_id), s.get(PriceCache, cache_id), [], s.get(Security, security_id))
+        return lifecycle.research_input_key(s.get(AnalysisRequest, request_id), s.get(PriceCache, cache_id), s.get(Security, security_id))
 
 
 def test_same_cache_gives_the_same_input_and_a_refetch_a_new_one():

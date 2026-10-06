@@ -9,7 +9,6 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field
 
 from iirp.analytics.calendar import sessions
-from iirp.analytics.fiscal_calendar import quarter_calendar
 from iirp.analytics.prices import endpoint_change
 
 
@@ -267,8 +266,6 @@ def methodology(kind: str) -> dict:
     baseline = {
         "monthly": "完整月度从上月最后交易日收盘到本月最后有效收盘；当前年/同期进度另列。",
         "interval": "区间从窗口内首个交易日收盘到所示终点收盘；不包含首日开盘至收盘，和月度前收基准不同。",
-        "earnings": "精确反应窗口从公告反应日的前一交易日收盘起算；盘前/盘后按已核对时点确定反应日，只有日期时只进入日期观察。",
-        "event_dates": "日期观察D0保留交易所当地事件日，非交易日顺延；前5日D−6至D−1、当日D−1至D0、后5日D0至D+5、含当天D−1至D+5，均用收盘。",
     }[kind]
     scope = "每个ticker比较12个完整历史月份；月份排名、年份排除和反复选择窗口均属探索性筛选，最优月份不代表可靠信号。" if kind == "monthly" else "在所选ticker、年份及日期/事件窗口内描述历史；反复调整窗口和事后挑选事件会产生选择偏差，需先明确纳入规则。"
     return ResearchMethodology(baseline_rule=baseline, sample_unit="annual_sample" if kind in {"monthly", "interval"} else "event_sample", exploration_scope=scope).model_dump()
@@ -345,18 +342,6 @@ def add_distributions(result: dict, benchmark: dict | None = None) -> dict:
             eligible = row.get("eligible", row["group"] == "historical" and row["complete"] and row["period_ended"])
             label = f"{group}月 · 完整历史月" if kind == "monthly" else "所选区间"
             sample(row, "endpoint", group, label, row["endpoint"], eligible, row["baseline_date"], row["actual_end"], row["status"])
-    else:
-        data = [*result["rows"], *result.get("coverage_rows", [])] if kind == "event_dates" else result["cells"]
-        for row in data:
-            group = row.get("category", f"Q{row.get('quarter')}")
-            windows = row.get("windows", {})
-            # Missing fiscal events must still contribute a visible coverage gap.
-            keys = list(windows) or (["1", "5", "20", "60"] if kind == "earnings" else ["before5", "day0", "after5", "through5"])
-            for metric in keys:
-                window = windows.get(metric, {})
-                sample(row, metric, group, group, window.get("value", window.get("cumulative")), window.get("eligible", False),
-                       window.get("start_date", row.get("baseline_date")), window.get("end_date"),
-                       window.get("status", row.get("status", "missing_event")))
     output = []
     for key, group in groups.items():
         samples = group.pop("samples")
@@ -382,12 +367,6 @@ def add_distributions(result: dict, benchmark: dict | None = None) -> dict:
     result["distributions"] = output
     if kind == "monthly":
         result["monthly_rankings"] = monthly_rankings(output)
-    if kind == "earnings" or metadata.get("research_kind") == "earnings" or any(row.get("fiscal_year") is not None for row in result["rows"]):
-        quarters = metadata.get("requested_fiscal_quarters") or [1, 2, 3, 4]
-        result["fiscal_coverage"] = fiscal_coverage(output, target, metadata.get("current_fiscal_year", metadata.get("current_year")), quarters=quarters)
-        observation = result.get("date_observation") or result
-        calendar_rows = [*observation["rows"], *observation.get("coverage_rows", [])]
-        result["fiscal_coverage"]["quarter_calendar"] = quarter_calendar(calendar_rows, target, metadata["cutoff_date"], quarters=quarters)
     if benchmark:
         result["benchmark"] = {k: v for k, v in benchmark.items() if k != "bars"}
         rowmap = {str(r.get("key", r.get("event_id", r.get("year")))): r for r in result["rows"]}
@@ -404,58 +383,3 @@ def add_distributions(result: dict, benchmark: dict | None = None) -> dict:
                 point["difference"] = str(Decimal(point["value"]) - Decimal(value)) if point.get("value") is not None and value is not None else None
                 point["benchmark_status"] = status
     return result
-
-
-def fiscal_coverage(distributions, target, current, *, quarters=(1, 2, 3, 4)):
-    rankings, gaps = [], []
-    metrics = sorted({item["metric"] for item in distributions}) or ["after5"]
-    for metric in metrics:
-        entries = []
-        for quarter in (f"Q{value}" for value in quarters):
-            item = next((x for x in distributions if x["group"] == quarter and x["metric"] == metric), None)
-            item = item or {"stock": statistics([]), "years": [], "samples": []}
-            entries.append({"quarter": quarter, "window": metric, "statistics": item["stock"], "valid_years": item["years"], "target_years": target})
-            for year in target:
-                samples = [s for s in item["samples"] if s["year"] == year]
-                reasons = list(dict.fromkeys(reason for s in samples if not s["eligible"]
-                                             for reason in s.get("reasons", [s["status"]])))
-                gaps.append({"year": year, "quarter": quarter, "window": metric,
-                             "status": "available" if any(s["eligible"] for s in samples) else reasons[0] if reasons else "missing_event",
-                             "reasons": reasons or ([] if samples else ["missing_event"]),
-                             "event_keys": [s["key"] for s in samples]})
-        for statistic in ("median", "mean"):
-            valid = sorted({Decimal(x["statistics"][statistic]) for x in entries if x["statistics"][statistic] is not None}, reverse=True)
-            for item in entries:
-                value = item["statistics"][statistic]
-                item[f"{statistic}_rank"] = 1 + valid.index(Decimal(value)) if value is not None else None
-                item[f"{statistic}_reverse_rank"] = len(valid) - valid.index(Decimal(value)) if value is not None else None
-        rankings.extend(entries)
-    return {"target_years": target, "current_fiscal_year": current, "rankings": rankings, "gaps": gaps,
-            "definition": "财报日期附近股价表现；标准财季、已核对实际发布、完整历史窗口；当前财年另列。",
-            "target_reason": None if target else "当前财年归属或研究年份未确定，不能将观察年数称为目标覆盖。"}
-
-
-def qualify_common_quarters(rows, enabled, *, quarters=(1, 2, 3, 4)):
-    """Optional common-year cohort, separately per window; never fill a gap."""
-    requested = tuple(f"Q{quarter}" for quarter in quarters)
-    if not enabled or not requested or not any(
-        row.get("category", f"Q{row.get('quarter')}") in requested for row in rows
-    ):
-        return
-    for metric in {key for row in rows for key in row.get("windows", {})}:
-        qualified = {q: {row["year"] for row in rows if row.get("group") == "historical"
-                        and row.get("category", f"Q{row.get('quarter')}") == q
-                        and row.get("windows", {}).get(metric, {}).get("eligible")} for q in requested}
-        common = set.intersection(*qualified.values())
-        for row in rows:
-            window = row.get("windows", {}).get(metric)
-            if window and window.get("eligible") and row.get("year") not in common:
-                window.update(eligible=False, status="not_common_fiscal_year")
-    for x in {p["x"] for row in rows for p in row.get("points", [])}:
-        for flag in ("eligible", "daily_eligible"):
-            qualified = {q: {row["year"] for row in rows if row.get("category") == q and any(p["x"] == x and p.get(flag) for p in row.get("points", []))} for q in requested}
-            common = set.intersection(*qualified.values())
-            for row in rows:
-                for point in row.get("points", []):
-                    if point["x"] == x and row.get("year") not in common:
-                        point[flag] = False

@@ -275,25 +275,6 @@ def test_analysis_request_replay_keeps_frozen_dates_across_day_change(monkeypatc
     assert replay["batch"]["params"]["end_date"] == "2024-01-02"
 
 
-def test_analysis_replay_accepts_new_window_defaults_but_rejects_changed_window():
-    params = AnalysisInput(
-        request_id=str(uuid.uuid4()),
-        tickers=["AAPL"],
-        kind="earnings",
-        historical_years=8,
-        current_year=2026,
-    ).model_dump(mode="json")
-    old_params = {
-        key: value for key, value in params.items() if key not in {"date_window", "date_category"}
-    }
-    original = lifecycle.create_analysis(old_params)
-    replay = lifecycle.create_analysis(params)
-    assert replay["id"] == original["id"]
-    assert replay["batch_id"] == original["batch_id"]
-    with pytest.raises(ValueError, match="同一分析请求标识不能改变参数"):
-        lifecycle.create_analysis({**params, "date_window": "before5"})
-
-
 @pytest.mark.parametrize("action,expected", [("pause", "PAUSED"), ("cancel", "CANCELLED")])
 def test_planner_does_not_lock_other_batches_or_overwrite_concurrent_control(
     monkeypatch, action, expected

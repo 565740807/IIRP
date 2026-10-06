@@ -7,7 +7,7 @@ from datetime import date
 
 from sqlalchemy import func, or_, select
 
-from iirp.analytics.calendar import previous_session, reaction_session, session_window
+from iirp.analytics.calendar import previous_session
 from iirp.business_models import PriceCache, PriceCacheBar
 
 
@@ -27,7 +27,7 @@ def range_predicate(column, ranges):
     return or_(*(column.between(first, last) for first, last in normalize_ranges(ranges))) if ranges else False
 
 
-def research_ranges(params, calendar='XNYS', events=()):
+def research_ranges(params, calendar='XNYS'):
     from iirp.analytics.research import _interval_rules, _mapped_day, _selected_years
 
     values = {k: v for k, v in params.items() if v is not None}
@@ -44,22 +44,6 @@ def research_ranges(params, calendar='XNYS', events=()):
         years, _ = _selected_years(values, current)
         for year in [*years, current]:
             ranges.append((_mapped_day(year, first), min(cutoff, _mapped_day(year + int(cross), last))))
-    elif kind == 'earnings':
-        # The fiscal matrix and date observations can use every selected quarter,
-        # including its independent 1/5/20/60-day maturity and pre-event path.
-        current = values.get('current_fiscal_year')
-        years, _ = _selected_years(values, current)
-        allowed = {*years, current}
-        for event in events:
-            item = event if isinstance(event, dict) else {
-                key: getattr(event, key) for key in ('announced_at', 'announced_date', 'time_precision', 'fiscal_year')
-            }
-            if current and item.get('fiscal_year') is not None and item['fiscal_year'] not in allowed:
-                continue
-            anchor = reaction_session(item.get('announced_at'), announced_date=item.get('announced_date'), time_precision=item.get('time_precision', 'date_only'), calendar=calendar)
-            if anchor['baseline_date']:
-                days = session_window(date.fromisoformat(anchor['baseline_date']), 20, 60, calendar)
-                ranges.append((days[0], min(cutoff, days[-1])))
     return normalize_ranges(ranges)
 
 

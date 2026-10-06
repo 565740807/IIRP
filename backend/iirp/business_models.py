@@ -390,24 +390,6 @@ class FeedSession(Base):
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 
 
-class EarningsEvent(Base):
-    __tablename__ = "earnings_event"
-    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uid)
-    security_id: Mapped[str] = mapped_column(ForeignKey("security.id"), index=True)
-    fiscal_year: Mapped[int | None] = mapped_column(Integer)
-    fiscal_quarter: Mapped[int | None] = mapped_column(Integer)
-    announced_date: Mapped[date] = mapped_column(Date)
-    announced_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    time_precision: Mapped[str] = mapped_column(String(24), default="date_only")
-    verified: Mapped[bool] = mapped_column(Boolean, default=False)
-    is_estimate: Mapped[bool] = mapped_column(Boolean, default=False)
-    status: Mapped[str] = mapped_column(String(24), default="CANDIDATE")
-    evidence: Mapped[list] = mapped_column(JSONB, default=list)
-    revision: Mapped[int] = mapped_column(Integer, default=1)
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
-    __table_args__ = (UniqueConstraint("security_id", "announced_date"),)
-
-
 class AnalysisRequest(Base):
     __tablename__ = "analysis_request"
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uid)
@@ -446,14 +428,10 @@ class AnalysisResult(Base):
 
     @data.setter
     def data(self, value):
-        from iirp.result_storage import overlap_projection
-
-        projection = overlap_projection(value)
-        # Only the E2 representation takes the new storage path. Other research
-        # modes and legacy results retain their original representation.
-        self.overlap_projection = projection
-        self.payload = value if projection is not None else None
-        self.legacy_data = {} if projection is not None else value
+        # Compressed payloads were only used by removed SEC earnings results.
+        self.overlap_projection = None
+        self.payload = None
+        self.legacy_data = value
 
 
 class ExportManifest(Base):
@@ -463,17 +441,6 @@ class ExportManifest(Base):
     params: Mapped[dict[str, Any]] = mapped_column(JSONB)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
-
-
-class ImportPreview(Base):
-    __tablename__ = "import_preview"
-    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uid)
-    kind: Mapped[str] = mapped_column(String(24))
-    source_hash: Mapped[str] = mapped_column(ForeignKey("source_object.sha256"))
-    data: Mapped[dict[str, Any]] = mapped_column(JSONB)
-    status: Mapped[str] = mapped_column(String(24), default="PREVIEW")
-    batch_id: Mapped[str | None] = mapped_column(ForeignKey("batch.id"))
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
 
 
 class MaintenanceRun(Base):

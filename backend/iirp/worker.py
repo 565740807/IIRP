@@ -222,12 +222,12 @@ def main():
         from iirp.maintenance import operational_log_tick, schedule_tick
 
         lanes = {
-            "sec": (2, {"sec_discover", "sec_document", "sec_identity", "earnings_evidence"}),
+            "sec": (2, {"sec_discover", "sec_document", "sec_identity"}),
             "market": (
                 1,
-                {"market_identity", "market_history", "market_quote", "earnings_candidates"},
+                {"market_identity", "market_history", "market_quote"},
             ),
-            "compute": (1, {"research_compute", "event_compute", "local_import"}),
+            "compute": (1, {"research_compute"}),
             "diagnostic": (1, {"fixture_check", "sec_probe", "market_probe"}),
             "maintenance": (1, {"maintenance_backup", "maintenance_clean"}),
         }
@@ -245,7 +245,7 @@ def main():
         drained = False
         def business(job):
             try:
-                return execute_business(job, stopping, runner=operations if job.kind.startswith("market_") or job.kind in {"research_compute", "event_compute", "earnings_candidates"} else None)
+                return execute_business(job, stopping, runner=operations if job.kind.startswith("market_") or job.kind == "research_compute" else None)
             finally:
                 from iirp.lifecycle import plan_job_scopes
                 if not stopping():

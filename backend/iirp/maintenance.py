@@ -389,9 +389,9 @@ def schedule_tick():
                 continue
             if policy.key == "sec":
                 _sec_schedule(s, policy, current, request_id)
-            elif policy.key in ("market", "earnings"):
+            elif policy.key == "market":
                 # Prices are a 24-hour cache fetched on demand (D14); home quotes
-                # refresh while shown. Nothing is scheduled for these keys.
+                # refresh while shown. Nothing is scheduled for this key.
                 policy.next_run_at = None
             elif policy.key in ("backup", "maintenance"):
                 if not _has_running(s, policy.key):

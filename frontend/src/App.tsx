@@ -412,13 +412,7 @@ function useReadingScroll() {
       mutations = new MutationObserver(schedule);
       mutations.observe(document.body, { childList: true, subtree: true, characterData: true });
       schedule();
-    } else if (
-      previousPath.current !== location.pathname &&
-      !(
-        location.pathname === "/data" &&
-        new URLSearchParams(location.search).has("events")
-      )
-    )
+    } else if (previousPath.current !== location.pathname)
       window.scrollTo({ top: 0, behavior: "instant" });
     previousPath.current = location.pathname;
     window.addEventListener("scroll", save, { passive: true });
@@ -533,9 +527,12 @@ function AppShell() {
               />
               <Route
                 path="/analysis/earnings"
-                element={<AnalysisPage key="earnings" />}
+                element={<EventsPage key="earnings" kind="earnings" />}
               />
-              <Route path="/analysis/events" element={<EventsPage />} />
+              <Route
+                path="/analysis/events"
+                element={<EventsPage key="custom" kind="custom" />}
+              />
               <Route path="/data" element={<DataPage />} />
               <Route path="/data/diagnostics" element={<DiagnosticsPage />} />
               <Route

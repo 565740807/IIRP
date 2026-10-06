@@ -9,7 +9,7 @@ from iirp.business_models import AnalysisRequest, AnalysisResult, Batch, BatchJo
 from iirp.market_data import digest
 from iirp.models import ACTIVE, Job, now
 
-COMPUTE_KINDS = {'research_compute', 'event_compute'}
+COMPUTE_KINDS = {'research_compute'}
 
 
 def work_key(kind, target):
@@ -97,18 +97,13 @@ def subscribers(s, job):
 
 
 def pending_subscribers(s, job):
-    from iirp.business_models import EarningsEvent, Security
-    from iirp.event_pipeline import compatible_input
+    from iirp.business_models import Security
     from iirp.lifecycle import research_input_key
     from iirp.price_cache import current_cache
     security = s.get(Security, job.target['security_id'])
     for request, scope in subscribers(s, job):
-        if job.kind == 'event_compute':
-            compatible = compatible_input(s, request, scope, job.target)
-        else:
-            dataset = current_cache(s, security.id)
-            events = s.scalars(select(EarningsEvent).where(EarningsEvent.security_id == security.id)).all() if request.params['kind'] == 'earnings' else []
-            compatible = bool(dataset and research_input_key(request, dataset, events, security) == job.target['input_key'])
+        dataset = current_cache(s, security.id)
+        compatible = bool(dataset and research_input_key(request, dataset, security) == job.target['input_key'])
         cached = s.scalar(select(AnalysisResult.id).where(AnalysisResult.analysis_id == request.id,
             AnalysisResult.security_id == scope.security_id, AnalysisResult.input_key == job.target['input_key']))
         if compatible and not cached:
@@ -117,22 +112,12 @@ def pending_subscribers(s, job):
 
 def publish(s, job, response):
     """One fenced transaction, distinct immutable result IDs for each subscriber."""
-    from iirp.event_pipeline import compatible_input, publish_event_result
     from iirp.maintenance import lock_analysis_references
-    from iirp.result_reuse import clone_frozen
     lock_analysis_references(s)
     published = []
-    source_id = None
     for request, scope in subscribers(s, job):
-        if job.kind == 'event_compute':
-            if not compatible_input(s, request, scope, job.target):
-                continue
-            row = (clone_frozen(s, source_id, request, scope.security_id, job.target['input_key'])
-                   if source_id else publish_event_result(s, request, scope, job.target, response))
-        else:
-            row = publish_native(s, request, scope, job.target, response)
+        row = publish_native(s, request, scope, job.target, response)
         if row:
-            source_id = row.id
             published.append({'analysis_id': request.id, 'result_id': row.id})
             # Flush each payload separately; don't accumulate a full payload
             # copy per subscriber in the Session's pending INSERT collection.
@@ -156,13 +141,12 @@ def result_expiry(s, target):
 
 def publish_native(s, request, scope, target, response):
     from iirp.analytics.research import CALCULATION_VERSION
-    from iirp.business_models import EarningsEvent, PriceCache, Security
+    from iirp.business_models import PriceCache, Security
     from iirp.price_cache import current_cache
     from iirp.research_pipeline import frozen_coverage, owned_result_data, safe_publication
     from iirp.result_reuse import result_identity
     security = s.get(Security, scope.security_id)
-    events = s.scalars(select(EarningsEvent).where(EarningsEvent.security_id == security.id)).all() if request.params['kind'] == 'earnings' else []
-    if not safe_publication(s, request, security, target, current_cache(s, security.id), events):
+    if not safe_publication(s, request, security, target, current_cache(s, security.id)):
         return None
     existing = result_identity(s, request.id, security.id, target['input_key'])
     if existing:
@@ -174,9 +158,6 @@ def publish_native(s, request, scope, target, response):
     data = {**response, 'metadata': {**response.get('metadata', {}), **metadata,
         'params': {**response.get('metadata', {}).get('params', {}), **request.params},
         'calculation_version': CALCULATION_VERSION}}
-    if response.get('date_observation'):
-        observer = response['date_observation']
-        data['date_observation'] = {**observer, 'metadata': {**observer['metadata'], **metadata}}
     row = AnalysisResult(analysis_id=request.id, security_id=security.id, input_key=target['input_key'],
         inputs={'dataset_id': original.id, 'calculation_version': CALCULATION_VERSION,
             'params': request.params, 'source': '24 小时行情缓存',
@@ -202,20 +183,15 @@ def reuse_pending(s, job):
         AnalysisResult.expires_at > now()).limit(1))
     if source_id is None:
         return
-    from iirp.business_models import EarningsEvent, Security
+    from iirp.business_models import Security
     from iirp.maintenance import lock_analysis_references
     from iirp.price_cache import current_cache
     from iirp.research_pipeline import reuse_result
-    from iirp.result_reuse import clone_frozen
     lock_analysis_references(s)
     for request, scope in pending_subscribers(s, job):
-        if job.kind == 'event_compute':
-            row = clone_frozen(s, source_id, request, scope.security_id, job.target['input_key'])
-        else:
-            security = s.get(Security, scope.security_id)
-            events = s.scalars(select(EarningsEvent).where(EarningsEvent.security_id == security.id)).all() if request.params['kind'] == 'earnings' else []
-            row = reuse_result(s, request, security, current_cache(s, security.id), events,
-                               job.target.get('benchmark'), job.target['input_key'])
+        security = s.get(Security, scope.security_id)
+        row = reuse_result(s, request, security, current_cache(s, security.id),
+                           job.target.get('benchmark'), job.target['input_key'])
         if row:
             s.flush()
             s.expunge(row)

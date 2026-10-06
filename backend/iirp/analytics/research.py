@@ -31,11 +31,8 @@ from iirp.analytics.distributions import (
     MonthlyRanking,
     ResearchMethodology,
     add_distributions,
-    qualify_common_quarters,
     statistics,
 )
-from iirp.analytics.event_dates import analyze_event_dates
-from iirp.analytics.fiscal_calendar import FiscalCoverage
 from iirp.analytics.prices import endpoint_change, maximum_drawdown
 
 CALCULATION_VERSION = "research-v10-time-source-attribution"
@@ -81,7 +78,7 @@ class ResearchMetadata(BaseModel):
 
 
 class ResearchResult(BaseModel):
-    kind: Literal["monthly", "interval", "earnings"]
+    kind: Literal["monthly", "interval"]
     metadata: ResearchMetadata
     summary: dict[str, Any]
     cells: list[dict[str, Any]]
@@ -89,11 +86,9 @@ class ResearchResult(BaseModel):
     rows: list[dict[str, Any]]
     effective_n: int
     exclusions: list[dict[str, Any]]
-    date_observation: dict[str, Any] | None = None
     distributions: list[Distribution] = Field(default_factory=list)
     benchmark: dict[str, Any] | None = None
     monthly_rankings: list[MonthlyRanking] = Field(default_factory=list)
-    fiscal_coverage: FiscalCoverage | None = None
 
 
 def _text(value: Decimal | None) -> str | None:
@@ -174,16 +169,6 @@ def _interval_rules(params: dict, today: date) -> tuple[tuple, tuple, bool, int]
     return start, end, cross, current
 
 
-def _current_fiscal_year(params: dict, today: date) -> int | None:
-    explicit = params.get("current_fiscal_year", params.get("current_year"))
-    if explicit is not None:
-        return _year(explicit)
-    if params.get("fiscal_year_end_mmdd"):
-        boundary = _mmdd(params["fiscal_year_end_mmdd"])
-        return today.year + int((today.month, today.day) > boundary)
-    return None
-
-
 def _selected_years(params: dict, current: int | None) -> tuple[list[int], list[dict]]:
     count = _positive_int(params.get("historical_years", 8), "historical_years")
     excluded = {_year(value) for value in params.get("excluded_years", [])}
@@ -212,11 +197,7 @@ def _selected_years(params: dict, current: int | None) -> tuple[list[int], list[
 
 
 def plan_scope(params: dict, today: date) -> tuple[date, date]:
-    """Inclusive collection bounds, including needed baseline, never future.
-
-    Earnings price bounds require actual discovered events in params['events'];
-    fiscal years cannot be safely translated to a fixed natural-year interval.
-    """
+    """Inclusive collection bounds, including needed baseline, never future."""
     params = {key: value for key, value in params.items() if value is not None}
     kind = params.get("kind", "monthly")
     name = params.get("calendar", "XNYS")
@@ -232,22 +213,6 @@ def plan_scope(params: dict, today: date) -> tuple[date, date]:
         all_years = [*years, current]
         start = min(_mapped_day(year, start_md) for year in all_years)
         end = min(today, max(_mapped_day(year + int(cross), end_md) for year in all_years))
-    elif kind == "earnings":
-        ranges = []
-        for event in params.get("events", []):
-            anchor = reaction_session(
-                event.get("announced_at"),
-                announced_date=event.get("announced_date"),
-                time_precision=event.get("time_precision", "date_only"),
-                calendar=name,
-            )
-            if anchor["baseline_date"]:
-                baseline = date.fromisoformat(anchor["baseline_date"])
-                days = session_window(baseline, 20, 60, name)
-                ranges.append((days[0], min(today, days[-1])))
-        if not ranges:
-            raise ValueError("Discover fiscal earnings events before planning their price windows")
-        start, end = min(pair[0] for pair in ranges), max(pair[1] for pair in ranges)
     else:
         raise ValueError(f"Unsupported research kind: {kind}")
     if start > end:
@@ -594,536 +559,8 @@ def _period_research(params: dict, index: dict, today: date, cutoff: date) -> di
     }
 
 
-def _event_row(event: dict, index: dict, cutoff: date, name: str) -> tuple[dict, list[dict]]:
-    anchor = reaction_session(
-        event.get("announced_at"),
-        announced_date=event.get("announced_date"),
-        time_precision=event.get("time_precision", "date_only"),
-        calendar=name,
-    )
-    row = {
-        "event_id": str(event.get("id", "")),
-        "year": event.get("fiscal_year"),
-        "fiscal_year": event.get("fiscal_year"),
-        "quarter": event.get("fiscal_quarter"),
-        "announced_at": event.get("announced_at"),
-        "announced_date": event.get("announced_date"),
-        "time_precision": event.get("time_precision", "date_only"),
-        "verified": event.get("verified") is True,
-        **anchor,
-        "pre_20": None,
-        "opening_gap": None,
-        "windows": {},
-    }
-    fact = earnings_date_event(event, cutoff)
-    row.update(period_start=fact.get("period_start"), period_end=fact.get("period_end"))
-    row["precise"] = bool(anchor["opening_attribution"] and row["verified"]
-        and fact["date_verified"] and fact["time_verified"] and fact["period_verified"]
-        and fact["period_kind"] == "regular" and fact["event_status"] == "occurred" and not fact["excluded"])
-    if not row["verified"]:
-        row["status"] = "unverified_event"
-    if not anchor["baseline_date"]:
-        for window in WINDOWS:
-            row["windows"][str(window)] = {
-                "day": window,
-                "cumulative": None,
-                "after_open": None,
-                "status": "missing_event_date",
-                "complete": False,
-                "eligible": False,
-            }
-        return row, []
-    baseline_date = date.fromisoformat(anchor["baseline_date"])
-    days = session_window(baseline_date, 20, 60, name)
-    baseline = _price(index, baseline_date, cutoff)
-    reaction_date = days[21]
-    opening = _price(index, reaction_date, cutoff, "open")
-    row["pre_20"] = _ratio(_price(index, days[0], cutoff), baseline)
-    row["opening_gap"] = _ratio(baseline, opening) if row["precise"] else None
-    row["mature_sessions"] = sum(day <= cutoff for day in days[21:])
-    for window in WINDOWS:
-        selected = days[21 : 21 + window]
-        closes = [_price(index, day, cutoff) for day in selected]
-        mature = selected[-1] <= cutoff
-        complete = mature and baseline is not None and all(price is not None for price in closes)
-        status = (
-            "not_yet_formed"
-            if not mature
-            else "missing_baseline"
-            if baseline is None
-            else "incomplete_path"
-            if not complete
-            else "available"
-            if row["precise"]
-            else "unconfirmed_event_time"
-        )
-        row["windows"][str(window)] = {
-            "day": window,
-            "start_date": baseline_date.isoformat(),
-            "end_date": selected[-1].isoformat(),
-            "cumulative": _ratio(baseline, closes[-1]) if mature else None,
-            "after_open": _ratio(opening, closes[-1]) if mature and row["precise"] else None,
-            "status": status,
-            "complete": complete,
-            "max_drawdown": _text(maximum_drawdown([baseline, *closes]).value) if complete else None,
-            "eligible": complete and row["precise"],
-            "missing_dates": [
-                day.isoformat()
-                for day, close in zip(selected, closes)
-                if day <= cutoff and close is None
-            ],
-        }
-    points = [
-        _point(day, i - 20, baseline, index, cutoff) for i, day in enumerate(days) if day <= cutoff
-    ]
-    return row, points
-
-
-def earnings_date_event(event: dict, as_of: date) -> dict:
-    """Adapt a server earnings fact, never a supplier's guessed clock.
-
-    Legacy verified means the date and fiscal identity were reviewed together.
-    Explicit newer review flags can only narrow that qualification here. A
-    period-only clock stays a period; only an aware actual instant becomes HH:MM.
-    """
-    raw_date = event.get("announced_date")
-    try:
-        day = date.fromisoformat(str(raw_date)) if raw_date is not None else None
-    except ValueError:
-        day = None
-    precision = event.get("time_precision", "date_only")
-    conflict = precision == "conflict" or event.get("status") == "CONFLICT"
-    date_verified = (
-        event.get("date_verified", event.get("verified")) is True
-        and not conflict
-        and day is not None
-    )
-    fiscal_year, fiscal_quarter = event.get("fiscal_year"), event.get("fiscal_quarter")
-    period_verified = bool(
-        event.get("fiscal_period_verified", event.get("verified")) is True
-        and fiscal_year is not None
-        and fiscal_quarter in (1, 2, 3, 4)
-    )
-    actual_time, zone, time_basis, time_verified = None, None, "unknown", False
-    release_session = "unknown"
-    if precision == "exact" and event.get("announced_at") and date_verified:
-        stamp = event["announced_at"]
-        try:
-            stamp = (
-                datetime.fromisoformat(stamp.replace("Z", "+00:00"))
-                if isinstance(stamp, str)
-                else stamp
-            )
-            if stamp.tzinfo is not None and stamp.utcoffset() is not None:
-                stamp = stamp.astimezone(ET)
-                if day is not None and stamp.date() != day:
-                    conflict, date_verified = True, False
-                elif event.get("precise_time_supported", event.get("verified")) is True:
-                    actual_time, zone = stamp.strftime("%H:%M"), "America/New_York"
-                    time_basis, time_verified = "reported_actual", True
-        except (ValueError, AttributeError):
-            pass
-    elif precision in {"before_open", "after_close", "intraday"} and date_verified:
-        # 'precise_time_supported' denotes opening attribution, so it is false
-        # for a verified intraday period even though that period is known.
-        if (
-            precision == "intraday"
-            or event.get("precise_time_supported", event.get("verified")) is True
-        ):
-            release_session = "during_session" if precision == "intraday" else precision
-            time_verified = True
-    evidence = [
-        item
-        for item in (event.get("evidence") or [])
-        if isinstance(item, dict) and not item.get("rejected")
-    ]
-    # An EX99 release can receive its date from the containing 8-K Item 2.02.
-    # Keep both raw objects, but attribute that date to the 8-K itself.
-    for item in list(evidence):
-        contexts = item.get("announcement_date_evidence") or []
-        context_url = item.get("announcement_context_source_url")
-        if context_url and isinstance(contexts, list):
-            for context in contexts:
-                if isinstance(context, dict) and context.get("announced_date") == item.get("announced_date"):
-                    evidence.append({
-                        "provider": "SEC announcement context",
-                        "source_url": context_url,
-                        "announced_date": context["announced_date"],
-                        "fiscal_year": item.get("fiscal_year"),
-                        "fiscal_quarter": item.get("fiscal_quarter"),
-                        "excerpt": context.get("excerpt"),
-                        "source_hash": item.get("source_hash"),
-                    })
-    from iirp.earnings_data import validate_source_url
-
-    def source_link_ok(candidate):
-        try:
-            validate_source_url(candidate.get("source_url"))
-        except ValueError:
-            return False
-        return True
-
-    def ambiguous_legacy(candidate):
-        return (
-            candidate.get("provider") == "manual_review"
-            and candidate.get("period_kind") in {"regular", "transition"}
-        )
-
-    date_claimed = any(
-        source_link_ok(item)
-        and not ambiguous_legacy(item)
-        and not item.get("announcement_date_evidence")
-        and day is not None
-        and str(item.get("announced_date")) == day.isoformat()
-        and item.get("fiscal_year", fiscal_year) == fiscal_year
-        and item.get("fiscal_quarter", fiscal_quarter) == fiscal_quarter
-        for item in evidence
-    )
-    if date_verified and not date_claimed:
-        date_verified = False
-        actual_time, zone, time_basis, time_verified = None, None, "unknown", False
-        release_session = "unknown"
-
-    def time_source_matches(candidate):
-        if (
-            not source_link_ok(candidate)
-            or ambiguous_legacy(candidate)
-            or not isinstance(candidate.get("time_evidence"), str)
-            or not candidate["time_evidence"].strip()
-            or day is None
-            or str(candidate.get("announced_date")) != day.isoformat()
-            or candidate.get("fiscal_year") != fiscal_year
-            or candidate.get("fiscal_quarter") != fiscal_quarter
-            or candidate.get("time_precision") != precision
-        ):
-            return False
-        if precision == "exact":
-            try:
-                claim = datetime.fromisoformat(str(candidate.get("announced_at")).replace("Z", "+00:00"))
-                actual = datetime.fromisoformat(str(event.get("announced_at")).replace("Z", "+00:00"))
-                return claim.tzinfo is not None and actual.tzinfo is not None and claim == actual
-            except ValueError:
-                return False
-        return precision in {"before_open", "after_close"}
-
-    time_claimed = date_verified and time_verified and any(time_source_matches(item) for item in evidence)
-    if not time_claimed:
-        actual_time, zone, time_basis, time_verified = None, None, "unknown", False
-        release_session = "unknown"
-    sources = []
-    period_dates = set()
-    period_starts = set()
-    for candidate in [event, *evidence]:
-        if not candidate.get("period_end"):
-            continue
-        if (
-            fiscal_year is None
-            or fiscal_quarter not in (1, 2, 3, 4)
-            or candidate.get("fiscal_year") != fiscal_year
-            or candidate.get("fiscal_quarter") != fiscal_quarter
-        ):
-            continue
-        try:
-            period_end = date.fromisoformat(str(candidate["period_end"]))
-            if day is not None and period_end <= day:
-                period_dates.add(period_end.isoformat())
-                if candidate.get("period_start"):
-                    start = date.fromisoformat(str(candidate["period_start"]))
-                    if start <= period_end:
-                        period_starts.add(start.isoformat())
-        except ValueError:
-            pass
-    # Fiscal year/quarter review alone does not prove a regular reporting
-    # period. Require an explicit, linked source claim for this exact period;
-    # conflicting or missing claims remain unknown.
-    period_reviews = [item for item in evidence if item.get("provider") == "manual_period_review"]
-    # Older one-link manual reviews can conflate the announcement and a later
-    # 10-Q. They need a new field-specific review before qualifying as regular.
-    kind_candidates = [period_reviews[-1]] if period_reviews else [
-        item for item in evidence if item.get("provider") != "manual_review"
-    ]
-    known_kinds = {
-        item["period_kind"]
-        for item in kind_candidates
-        if item.get("period_kind") in {"regular", "transition"}
-        and isinstance(item.get("period_kind_evidence"), str)
-        and bool(item["period_kind_evidence"].strip())
-        and source_link_ok(item)
-        and fiscal_year is not None
-        and fiscal_quarter in (1, 2, 3, 4)
-        and item.get("fiscal_year") == fiscal_year
-        and item.get("fiscal_quarter") == fiscal_quarter
-    }
-    period_kind = next(iter(known_kinds)) if len(known_kinds) == 1 else "unknown"
-    estimated = event.get("is_estimate") is True
-    event_status = (
-        "scheduled"
-        if estimated
-        else "occurred"
-        if day is not None and day <= as_of and date_verified
-        else "unknown"
-    )
-    excluded = bool(
-        event.get("excluded")
-        or event.get("is_primary") is False
-        or event.get("status") in {"EXCLUDED", "SECONDARY", "DUPLICATE_CONFIRMED"}
-    )
-    # A source URL alone does not attest to every fiscal field. Match each
-    # source's explicit values to this version, never a manual review's previous.
-    for candidate in evidence:
-        if not source_link_ok(candidate):
-            continue
-        supports = set()
-        ambiguous_legacy_review = ambiguous_legacy(candidate)
-        date_scope_match = all(candidate.get(field, value) == value for field, value in
-                               (("fiscal_year", fiscal_year), ("fiscal_quarter", fiscal_quarter)))
-        if not ambiguous_legacy_review and not candidate.get("announcement_date_evidence") and date_scope_match and day is not None and str(candidate.get("announced_date")) == day.isoformat():
-            supports.add("event_date")
-        if time_claimed and time_source_matches(candidate):
-            supports.add("event_time" if precision == "exact" else "release_session")
-        explicit_period_match = (
-            fiscal_year is not None
-            and fiscal_quarter in (1, 2, 3, 4)
-            and candidate.get("fiscal_year") == fiscal_year
-            and candidate.get("fiscal_quarter") == fiscal_quarter
-        )
-        if explicit_period_match:
-            if period_kind != "unknown" and candidate in kind_candidates and candidate.get("period_kind") == period_kind:
-                supports.add("period_kind")
-            for field, known in (("period_start", period_starts), ("period_end", period_dates)):
-                if len(known) == 1 and str(candidate.get(field)) in known:
-                    supports.add(field)
-        kind_evidence = (
-            candidate.get("period_kind_evidence")
-            if "period_kind" in supports else None
-        )
-        other_note = (
-            "旧版单来源同时标注公告与财期，来源支持存在歧义；须分别复核"
-            if ambiguous_legacy_review
-            else candidate.get("note") or candidate.get("excerpt")
-        )
-        note_parts = [
-            f"财期类型依据：{kind_evidence}" if kind_evidence else None,
-            f"实际公开时刻依据：{candidate.get('time_evidence')}" if "event_time" in supports or "release_session" in supports else None,
-            other_note if other_note != kind_evidence else None,
-        ]
-        sources.append({
-            "url": candidate["source_url"],
-            "title": candidate.get("title") or candidate.get("provider") or "来源",
-            "evidence_note": "；".join(part for part in note_parts if part) or None,
-            "period_kind_evidence": kind_evidence,
-            "supports": sorted(supports),
-        })
-    return {
-        "client_event_id": str(event.get("id", "")),
-        "first_observed_at": event.get("first_observed_at"),
-        "review": {"confirmed_at": event.get("last_verified_at")} if date_verified else {},
-        "event_name": f"FY{fiscal_year} Q{fiscal_quarter} 业绩发布"
-        if fiscal_year is not None and fiscal_quarter is not None
-        else "财期待核对的业绩发布日期",
-        "event_type": "earnings_release",
-        "event_date": day.isoformat() if day is not None and not conflict else None,
-        "event_year": day.year if day is not None and not conflict else None,
-        "event_time": actual_time if not conflict else None,
-        "timezone": zone if not conflict else None,
-        "time_precision": "unknown"
-        if day is None or conflict
-        else "minute"
-        if actual_time
-        else "date",
-        "time_basis": time_basis if not conflict else "unknown",
-        "release_session": release_session if not conflict else "unknown",
-        "event_status": event_status,
-        "date_status": "conflicting"
-        if conflict
-        else "supported"
-        if date_verified
-        else "unverified",
-        "date_verified": date_verified,
-        "time_verified": time_verified and not conflict,
-        "fiscal_year": fiscal_year,
-        "fiscal_quarter": fiscal_quarter,
-        "period_end": next(iter(period_dates)) if len(period_dates) == 1 else None,
-        "period_start": next(iter(period_starts)) if len(period_starts) == 1 else None,
-        "period_kind": period_kind,
-        "period_verified": period_verified,
-        "excluded": excluded,
-        "sources": sources,
-        "calendar_conflicts": [field for field, values in
-                               (("period_start", period_starts), ("period_end", period_dates)) if len(values) > 1],
-    }
-
-
-def _earnings_date_observation(
-    params: dict, index: dict, events: list[dict], today: date, cutoff: date
-) -> dict:
-    current = _current_fiscal_year(params, today)
-    years, _ = _selected_years(params, current)
-    excluded_years = set(params.get("excluded_years") or [])
-    quarter = int(params.get("quarter", 1))
-    selected = []
-    for event in events:
-        fiscal_year = event.get("fiscal_year")
-        if fiscal_year in excluded_years:
-            continue
-        if fiscal_year is not None:
-            if current is not None and fiscal_year not in [*years, current]:
-                continue
-            if current is None and params.get("years") is not None and fiscal_year not in years:
-                continue
-        # Unknown fiscal identity remains a labelled candidate observation. It
-        # never joins the requested standard quarter's default sample count.
-        selected.append(earnings_date_event(event, today))
-    bars = [
-        {"date": day.isoformat(), "close": value["close"], "status": "VALID"}
-        for day, value in index.items()
-    ]
-    return analyze_event_dates(
-        selected,
-        bars,
-        cutoff=cutoff,
-        current_year=today.year,
-        current_fiscal_year=current,
-        calendar=params.get("calendar", "XNYS"),
-        metadata={
-            "research_kind": "earnings",
-            "requested_fiscal_years": years,
-            "common_years": params.get("common_years", False),
-            "quarter": quarter,
-            "params": params,
-            "parent_calculation_version": CALCULATION_VERSION,
-            "warnings": [
-                "日期观察与精确反应分别计算样本数量；未知财期候选不归入所选标准季度",
-                "候选日期仅供核对，不因已有行情而升级为实际发布事实",
-            ],
-        },
-    )
-
-
-def _earnings_research(
-    params: dict, index: dict, events: list[dict], today: date, cutoff: date
-) -> dict:
-    name = params.get("calendar", "XNYS")
-    current = _current_fiscal_year(params, today)
-    years, exclusions = _selected_years(params, current)
-    quarter = int(params.get("quarter", 1))
-    window = int(params.get("window", 5))
-    if quarter not in (1, 2, 3, 4) or window not in WINDOWS:
-        raise ValueError("quarter must be 1–4 and window must be 1, 5, 20 or 60")
-    warnings = []
-    if current is None:
-        warnings.append("current_fiscal_year_unconfirmed")
-        # Date observations remain useful, but cannot become a falsely labelled
-        # historical or current-fiscal-year comparison.
-    groups = defaultdict(list)
-    for event in events:
-        if event.get("fiscal_year") is not None and event.get("fiscal_quarter") in (1, 2, 3, 4):
-            groups[(int(event["fiscal_year"]), int(event["fiscal_quarter"]))].append(event)
-        else:
-            exclusions.append({"event_id": event.get("id"), "reason": "fiscal_period_unconfirmed"})
-    display_years = sorted({year for year, _ in groups}) if current is None else [*years, current]
-    rows, cells, series = [], [], []
-    for year in display_years:
-        group = "observation" if current is None else "current" if year == current else "historical"
-        for fiscal_quarter in (1, 2, 3, 4):
-            candidates = groups.get((year, fiscal_quarter), [])
-            # Parent may provide candidate duplicates or call this before main
-            # event selection; never silently pick a favourable observation.
-            primaries = [event for event in candidates if event.get("is_primary", True)]
-            if len(primaries) != 1:
-                reason = "missing_event" if not primaries else "duplicate_primary_events"
-                cell = {
-                    "year": year,
-                    "fiscal_year": year,
-                    "quarter": fiscal_quarter,
-                    "group": group,
-                    "endpoint": None,
-                    "status": reason,
-                    "eligible": False,
-                }
-                cells.append(cell)
-                if fiscal_quarter == quarter:
-                    rows.append({**cell, "windows": {}})
-                    exclusions.append({"year": year, "quarter": fiscal_quarter, "reason": reason})
-                continue
-            row, points = _event_row(primaries[0], index, cutoff, name)
-            row["group"] = group
-            for result in row["windows"].values():
-                result["eligible"] = result["eligible"] and group == "historical"
-            selected = row["windows"][str(window)]
-            row["endpoint"] = selected["cumulative"]
-            row["eligible"] = selected["eligible"]
-            row["window_status"] = selected["status"]
-            cells.append({**row, "window": window})
-            if fiscal_quarter == quarter:
-                rows.append(row)
-                series.append(
-                    {
-                        "key": str(row["event_id"]),
-                        "label": f"FY{year} Q{quarter}",
-                        "year": year,
-                        "group": group,
-                        "points": points,
-                    }
-                )
-                if not row["eligible"]:
-                    exclusions.append(
-                        {
-                            "year": year,
-                            "quarter": quarter,
-                            "event_id": row["event_id"],
-                            "reason": "current_fiscal_year"
-                            if group == "current"
-                            else selected["status"],
-                        }
-                    )
-    qualify_common_quarters(cells, params.get("common_years", False))
-    for row in [*rows, *cells]:
-        row["eligible"] = row.get("windows", {}).get(str(window), {}).get("eligible", False)
-    window_summaries = {}
-    for item in WINDOWS:
-        key = str(item)
-        eligible = [row for row in rows if row.get("windows", {}).get(key, {}).get("eligible")]
-        window_summaries[key] = {
-            **_statistics([row["windows"][key]["cumulative"] for row in eligible]),
-            "opening_gap": _statistics([row["opening_gap"] for row in eligible]),
-            "after_open": _statistics([row["windows"][key]["after_open"] for row in eligible]),
-        }
-    summary = {**window_summaries[str(window)], "windows": window_summaries}
-    # Unreliable dates may be drawn individually but never enter precise bands.
-    precise_ids = {str(row.get("event_id")) for row in rows if row.get("precise")}
-    if params.get("common_years"):
-        precise_ids &= {str(row.get("event_id")) for row in rows if row.get("eligible")}
-    summary["path"] = _path_statistics([item for item in series if item["key"] in precise_ids])
-    summary["current"] = next((row for row in rows if row["group"] == "current"), None)
-    return {
-        "kind": "earnings",
-        "date_observation": _earnings_date_observation(params, index, events, today, cutoff),
-        "metadata": {
-            "params": params,
-            "historical_years": years,
-            "current_year": current,
-            "target_n": len(years)
-            if current is not None
-            else int(params.get("historical_years", 8)),
-            "cutoff_date": cutoff.isoformat(),
-            "calendar": name,
-            "calendar_version": calendar_version(),
-            "alignment": "trading",
-            "comparison": "same_fiscal_quarter",
-            "warnings": warnings,
-        },
-        "summary": summary,
-        "cells": cells,
-        "series": series,
-        "rows": rows,
-        "effective_n": summary["n"],
-        "exclusions": exclusions,
-    }
-
-
 def compute_research(
-    params: dict, bars: list[dict], events: list[dict] | None = None, today: date | None = None,
+    params: dict, bars: list[dict], today: date | None = None,
     benchmark: dict | None = None,
 ) -> dict:
     """Compute one security using a single qualified price/input version."""
@@ -1134,13 +571,9 @@ def compute_research(
     kind = params.get("kind", "monthly")
     if kind in {"monthly", "interval"}:
         result = _period_research(params, index, as_of, cutoff)
-    elif kind == "earnings":
-        result = _earnings_research(params, index, events or [], as_of, cutoff)
     else:
         raise ValueError(f"Unsupported research kind: {kind}")
     add_distributions(result, benchmark)
-    if result.get("date_observation"):
-        add_distributions(result["date_observation"], benchmark)
     return ResearchResult.model_validate(result).model_dump(mode="json")
 
 

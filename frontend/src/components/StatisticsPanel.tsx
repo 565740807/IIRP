@@ -1,7 +1,6 @@
 import type { components } from "../generated/api";
-import { display, facts, percent, rows, sourceLabel, type Fact } from "../api";
+import { display, facts, percent, sourceLabel, type Fact } from "../api";
 import { useReadingState } from "../researchStorage";
-import { FiscalReviewLink, useFiscalCalendar } from "./FiscalCalendar";
 
 type Distribution = components["schemas"]["Distribution"];
 type Stats = components["schemas"]["DistributionStatistics"];
@@ -202,36 +201,26 @@ export function StatisticsPanel({
   const readingKey = readingId
     ? `statistics:${readingId}:${title}`
     : `statistics:${title}:${JSON.stringify(data.metadata)}`;
-  const [ranking, setRanking] = useReadingState(
-    readingKey + ":ranking",
-    "median",
-  );
   const [monthOrder, setMonthOrder] = useReadingState(
     readingKey + ":month-order",
     "calendar",
   );
   const [reverse, setReverse] = useReadingState(readingKey + ":reverse", false);
-  const coverage = facts(data.fiscal_coverage);
-  const calendar = useFiscalCalendar(data, readingKey);
   const metrics = [
     ...new Set([
       ...distributions.map((d) => d.metric),
-      ...rows(coverage.rankings).map((r) => String(r.window)),
     ]),
   ];
   const metric = metrics.includes(defaultMetric) ? defaultMetric : metrics[0];
   const groups = [
     ...new Set([
       ...distributions.map((d) => d.group),
-      ...rows(coverage.rankings).map((r) => String(r.quarter)),
     ]),
   ];
   const defaultGroup =
     data.kind === "monthly"
       ? String(facts(facts(data.metadata).params).month ?? groups[0])
-      : data.kind === "earnings"
-        ? `Q${facts(facts(data.metadata).params).quarter ?? 1}`
-        : (groups[0] ?? "");
+      : (groups[0] ?? "");
   const selectedGroup = group || defaultGroup;
   const selected = distributions
     .filter(
@@ -290,11 +279,7 @@ export function StatisticsPanel({
   );
   const min = Math.min(0, ...values),
     max = Math.max(0, ...values);
-  const rankKey = `${ranking}${reverse ? "_reverse" : ""}_rank`;
-  const ranked = rows(coverage.rankings)
-    .filter((r) => r.window === metric)
-    .sort((a, b) => Number(a[rankKey] ?? 999) - Number(b[rankKey] ?? 999));
-  if (!distributions.length && !rows(coverage.rankings).length)
+  if (!distributions.length)
     return (
       <p className="reason">
         此保留版本尚无箱线统计。重新应用研究条件会使用本地行情生成新版，原结果仍保留。
@@ -394,83 +379,6 @@ export function StatisticsPanel({
             : gapLabel(benchmark.status)}{" "}
           差值正数为领先、负数为落后（百分点），缺失不填0。
         </p>
-      )}
-      {ranked.length > 0 && (
-        <>
-          <div className="section-heading">
-            <h3>Q1—Q4 财报附近股价表现排名</h3>
-            <div className="inline-controls">
-              <label>
-                排序依据
-                <select
-                  value={ranking}
-                  onChange={(e) => setRanking(e.target.value)}
-                >
-                  <option value="median">历史中位数</option>
-                  <option value="mean">历史平均数</option>
-                </select>
-              </label>
-              <label>
-                <input
-                  type="checkbox"
-                  checked={reverse}
-                  onChange={(e) => setReverse(e.target.checked)}
-                />{" "}
-                最差到最好
-              </label>
-            </div>
-          </div>
-          <p>
-            目标{" "}
-            {rows(coverage.gaps).length
-              ? display(coverage.target_years)
-              : "财年待确定"}
-            ；当前财年 {display(coverage.current_fiscal_year)} 另列。
-            {coverage.target_reason}
-          </p>
-          <div className="table-scroll">
-            <table>
-              <thead>
-                <tr>
-                  <th>排名 / 季度</th>
-                  <th>财季覆盖月份</th>
-                  <th>财报公布月份</th>
-                  <th>有效年份 / 目标</th>
-                  <th>平均</th>
-                  <th>中位</th>
-                  <th>最高 / 最低</th>
-                  <th>上涨次数 / N</th>
-                </tr>
-              </thead>
-              <tbody>
-                {ranked.map((item) => {
-                  const s = facts(item.statistics);
-                  return (
-                    <tr key={item.quarter}>
-                      <td>
-                        {display(item[rankKey])} · {item.quarter}
-                      </td>
-                      {calendar.cells(String(item.quarter))}
-                      <td>
-                        {(item.valid_years ?? []).length} /{" "}
-                        {(item.target_years ?? []).length} 年
-                      </td>
-                      <td>{percent(s.mean)}</td>
-                      <td>{percent(s.median)}</td>
-                      <td>
-                        {percent(s.max)} / {percent(s.min)}
-                      </td>
-                      <td>
-                        {s.up} / {s.n}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-          {calendar.details}
-        </>
       )}
       <p className="table-hint">分布表可横向滚动；聚焦表格后可用方向键阅读。</p>
       <div className="table-scroll" role="region" aria-label="统计分布表" tabIndex={0}>
@@ -617,22 +525,6 @@ export function StatisticsPanel({
             </div>
           </div>
         ))}
-        {rows(coverage.gaps)
-          .filter((g) => g.window === metric && g.status !== "available")
-          .map((g, i) => (
-            <p key={i} className="fiscal-coverage-gap">
-              <span>
-                FY{g.year} {g.quarter}：{gapLabel(g.status)}
-              </span>
-              {Array.isArray(g.reasons) &&
-                g.reasons
-                  .filter((r) => r !== g.status)
-                  .map((r) => <small key={String(r)}>{gapLabel(r)}</small>)}
-              {g.event_keys?.length > 0 && (
-                <FiscalReviewLink data={data} eventKey={g.event_keys[0]} />
-              )}
-            </p>
-          ))}
       </details>
     </section>
   );

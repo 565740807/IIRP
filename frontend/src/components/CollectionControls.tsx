@@ -82,10 +82,7 @@ export function PolicyControl({ full = false }: { full?: boolean }) {
   if (query.isPending) return <Loading label="读取自动更新策略…" />;
   if (query.error)
     return <ErrorNotice error={query.error} retry={query.refetch} />;
-  // Daily prices are a 24-hour cache fetched on demand; nothing to schedule
-  // for earnings (S3 replaces that pipeline).
-  const policies =
-    query.data?.items.filter((x) => (full && x.key !== "earnings") || x.key === "sec") ?? [];
+  const policies = query.data?.items.filter((x) => full || x.key === "sec") ?? [];
   return (
     <div className={full ? "panel policy-list" : "policy-inline"}>
       {full && (

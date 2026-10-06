@@ -6,25 +6,19 @@ import json
 import uuid
 from datetime import date
 
-from iirp import event_service, lifecycle
-from iirp.benchmarks import benchmark_snapshot
+from iirp import lifecycle
 from iirp.business_models import (
-    AnalysisRequest,
     AnalysisResult,
-    BatchJob,
-    RequestScope,
     Security,
 )
 from iirp.business_worker import _persist, prepare_target
 from iirp.contracts import AnalysisInput
 from iirp.db import session
 from iirp.market_data import resolve_metadata
-from iirp.models import Job
 from iirp.operations import operation
 from iirp.queue import claim, fenced
 from iirp.storage import save_object
 from sqlalchemy import select
-from test_event_service import analysis, plan, saved
 from test_lifecycle import (  # noqa: F401
     clean_lifecycle,
     lifecycle_database,
@@ -100,54 +94,3 @@ def test_benchmark_refetch_rejects_old_worker_and_keeps_earlier_result_readable(
     assert {r["result_id"] for r in exported} == {original["result_id"]}
     assert "distribution" in {r["record_type"] for r in exported}
     assert json.loads(next(r for r in exported if r["record_type"] == "benchmark")["data"])["dataset_id"] == original["data"]["benchmark"]["dataset_id"]
-
-
-def test_event_benchmark_download_is_shared_and_follows_controls():
-    collection = saved()
-    stock = collection["security_id"] if "security_id" in collection else None
-    if not stock:
-        with session() as s:
-            stock = s.scalar(select(Security.id).where(Security.symbol == "AAPL"))
-    seed_prices(stock, date(2022, 1, 1), date(2025, 1, 1))
-    other = baseline(prices=False)
-    first = analysis(collection, benchmark="^IXIC")
-    assert plan(first["analysis_id"], 32)[0] == "RUNNING"
-    second = analysis(collection, benchmark="^IXIC")
-    plan(second["analysis_id"], 32)
-    with session() as s:
-        jobs = s.scalars(select(Job).where(Job.kind == "market_history", Job.target["security_id"].astext == other)).all()
-        assert jobs
-        assert all(len(s.scalars(select(BatchJob).where(BatchJob.job_id == j.id, BatchJob.active.is_(True))).all()) == 2 for j in jobs)
-    lifecycle.control_batch(first["batch_id"], "pause")
-    lease = claim({"market_history"})
-    assert lease is not None
-    lifecycle.control_batch(second["batch_id"], "cancel")
-    assert not fenced(lease, status="SUCCEEDED")
-    lifecycle.control_batch(first["batch_id"], "resume")
-    lifecycle.plan_tick()
-    assert claim({"market_history"}) is not None
-
-
-def test_event_publish_captures_benchmark_once_and_empty_year_selection_stays_empty(monkeypatch):
-    collection = saved()
-    baseline()
-    created = analysis(collection, benchmark="^IXIC")
-    with session() as s:
-        request = s.get(AnalysisRequest, created["analysis_id"])
-        scope = s.scalar(select(RequestScope).where(RequestScope.batch_id == request.batch_id))
-        frozen = benchmark_snapshot(request.params, s.get(Security, scope.security_id), s)
-    calls = []
-    def snapshot(*args, **kwargs):
-        calls.append(1)
-        return frozen
-    monkeypatch.setattr("iirp.event_pipeline.benchmark_snapshot", snapshot)
-    with session() as s, s.begin():
-        request = s.get(AnalysisRequest, created["analysis_id"])
-        scope = s.scalar(select(RequestScope).where(RequestScope.batch_id == request.batch_id))
-        from iirp.event_pipeline import plan_event_compute
-        row = plan_event_compute(s, request, scope, [32])
-        assert row.inputs["benchmark"]["dataset_id"] == frozen["dataset_id"]
-    assert len(calls) == 1
-    empty = analysis(collection, years=[2024], excluded_years=[2024])
-    result = event_service.get_analysis(empty["analysis_id"])
-    assert result["params"]["years"] == [] and result["data"]["rows"] == []

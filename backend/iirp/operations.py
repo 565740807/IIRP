@@ -1,6 +1,5 @@
 """Disposable provider/compute process. Only coordination budgets may write here."""
 
-import hashlib
 import json
 import os
 import sys
@@ -145,39 +144,6 @@ def operation(kind, target):
         from iirp.sec_sources import run_sec_operation
 
         return run_sec_operation(kind, target, fetch=fetch_sec)
-    if kind == "earnings_candidates":
-        from iirp.earnings_data import fetch_candidates
-
-        return fetch_candidates(target)
-    if kind == "earnings_evidence":
-        from iirp.earnings_data import fetch_evidence, reparse_evidence
-
-        cached_hash = target.get("cached_source_hash")
-        if cached_hash:
-            if len(cached_hash) != 64 or any(
-                char not in "0123456789abcdef" for char in cached_hash
-            ):
-                raise ValueError("已保存来源标识无效")
-            path = settings().runtime_dir / "objects" / cached_hash[:2] / cached_hash
-            payload = path.read_bytes()
-            if hashlib.sha256(payload).hexdigest() != cached_hash:
-                raise ValueError("已保存来源哈希不一致，不能重解析")
-            from iirp.storage import hydrate_response_evidence
-            return reparse_evidence(target, hydrate_response_evidence(payload, target.get("cached_observation")))
-
-        return fetch_evidence(target, fetch_sec)
-    if kind == "event_compute":
-        from iirp.analytics.event_dates import analyze_event_dates
-
-        return analyze_event_dates(
-            target["events"], target["bars"],
-            observed_event_ids=set(target["observed_event_ids"]),
-            cutoff=date.fromisoformat(target["cutoff"]),
-            current_year=target["current_year"],
-            current_fiscal_year=target["current_fiscal_year"],
-            calendar=target["calendar"], benchmark=target["benchmark"],
-            metadata=target["metadata"],
-        )
     if kind == "research_compute":
         from iirp.analytics.research import compute_research
 
@@ -185,7 +151,6 @@ def operation(kind, target):
         result = compute_research(
             target["params"],
             target["bars"],
-            events=target.get("events"),
             today=date.fromisoformat(cutoff) if cutoff else None,
             benchmark=target.get("benchmark"),
         )

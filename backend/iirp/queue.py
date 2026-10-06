@@ -356,8 +356,8 @@ def claim(allowed_kinds=None, *, prefer_latest=False):
         ))
         query = select(Job).where(
             ~blocked,
-            ~(Job.kind.in_(("sec_discover", "sec_document", "sec_identity", "earnings_evidence")) & sec_blocked),
-            ~(Job.kind.in_(("market_identity", "market_history", "market_quote", "earnings_candidates")) & yahoo_blocked),
+            ~(Job.kind.in_(("sec_discover", "sec_document", "sec_identity")) & sec_blocked),
+            ~(Job.kind.in_(("market_identity", "market_history", "market_quote")) & yahoo_blocked),
         )
         # While manual work owns a provider lane, automatic work waits even if
         # that lane has another slot. Other provider lanes remain independent.
@@ -537,8 +537,8 @@ def claim(allowed_kinds=None, *, prefer_latest=False):
 
 # Provider lanes, not all background work, yield to a manual request.
 SOURCE_LANES = (
-    ("sec_discover", "sec_document", "sec_identity", "earnings_evidence"),
-    ("market_identity", "market_history", "market_quote", "earnings_candidates"),
+    ("sec_discover", "sec_document", "sec_identity"),
+    ("market_identity", "market_history", "market_quote"),
 )
 
 
@@ -587,7 +587,7 @@ def fenced(
 ):
     """Every visible result and file reference commits under the same lease+control fence."""
     with session() as s, s.begin():
-        if business_write is not None and job.kind in {"research_compute", "event_compute"}:
+        if business_write is not None and job.kind == "research_compute":
             from iirp.shared_compute import lock_subscribers
             lock_subscribers(s, job.id)
         if business_write is not None:
@@ -598,7 +598,7 @@ def fenced(
                 .where(BatchJob.job_id == job.id, BatchJob.active.is_(True))
                 .order_by(RequestScope.id).with_for_update(of=RequestScope)))
         current = s.get(Job, job.id, with_for_update=(
-            {"key_share": True} if job.kind in {"research_compute", "event_compute"} else True
+            {"key_share": True} if job.kind == "research_compute" else True
         ))
         if (
             not current

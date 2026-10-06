@@ -1,7 +1,7 @@
 """Coalesce queued computation and reuse results of identical inputs within a cache."""
 
 
-from sqlalchemy import func, select
+from sqlalchemy import select
 
 from iirp.business_models import AnalysisResult, RequestScope
 from iirp.models import now
@@ -15,30 +15,13 @@ def semantic_params(params):
 
 
 def effective_input_params(request, security):
-    params = semantic_params(request.params)
-    if params.get("kind") == "earnings" and not params.get("current_fiscal_year"):
-        from sqlalchemy.orm import object_session
-
-        from iirp.business_models import Batch
-        from iirp.earnings_planner import ET, _years
-
-        batch = object_session(request).get(Batch, request.batch_id)
-        params["current_fiscal_year"] = _years(
-            params, batch.created_at.astimezone(ET).date(),
-            security.metadata_json.get("verified_fiscal_year_end"),
-        )[0]
-    return params
+    return semantic_params(request.params)
 
 
 def owned_result_data(data, params):
     """Rebind only per-request envelopes; immutable numerical arrays are shared."""
-    result = {**data, "metadata": {**data.get("metadata", {}),
+    return {**data, "metadata": {**data.get("metadata", {}),
         "params": {**data.get("metadata", {}).get("params", {}), **params}}}
-    if data.get("date_observation"):
-        observer = data["date_observation"]
-        result["date_observation"] = {**observer, "metadata": {**observer["metadata"],
-            "params": {**observer["metadata"].get("params", {}), **params}}}
-    return result
 
 
 def frozen_coverage(s, request, security, dataset):
@@ -64,28 +47,19 @@ def frozen_coverage(s, request, security, dataset):
     } | {"complete": coverage["status"] == "COMPLETE"}
 
 
-def reuse_result(s, request, security, dataset, events, benchmark, input_key):
+def reuse_result(s, request, security, dataset, benchmark, input_key):
     from iirp.analytics.research import CALCULATION_VERSION
     from iirp.maintenance import lock_analysis_references
     from iirp.result_reuse import result_identity
     exists = result_identity(s, request.id, security.id, input_key)
     if exists:
         return exists
-    from iirp.analytics.event_overlaps import REPRESENTATION_VERSION
-    representation_filter = (
-        [func.coalesce(
-            AnalysisResult.overlap_projection["metadata"]["representation_version"].astext,
-            AnalysisResult.legacy_data["date_observation"]["metadata"]["representation_version"].astext,
-        ) == REPRESENTATION_VERSION]
-        if request.params.get("kind") == "earnings" else []
-    )
     candidates = s.scalars(
         select(AnalysisResult.id).where(
             AnalysisResult.security_id == security.id,
             AnalysisResult.input_key == input_key,
             AnalysisResult.inputs["calculation_version"].astext == CALCULATION_VERSION,
             AnalysisResult.expires_at > now(),
-            *representation_filter,
         ).order_by(AnalysisResult.created_at.desc()).limit(1)
     ).all()
     for cached_id in candidates:
@@ -120,7 +94,7 @@ def coalesce_compute(s, scope, target):
     return enqueue(s, scope, "research_compute", target)
 
 
-def safe_publication(s, request, security, target, latest, events):
+def safe_publication(s, request, security, target, latest):
     """Publish only a result computed from the current cache and benchmark."""
     from iirp.benchmarks import benchmark_snapshot
     from iirp.lifecycle import research_input_key
@@ -128,9 +102,5 @@ def safe_publication(s, request, security, target, latest, events):
     if security.status != "VERIFIED" or latest is None or latest.id != target["dataset_id"]:
         return False
     benchmark = benchmark_snapshot(request.params, security, s)
-    return research_input_key(request, latest, events, security, benchmark) == target["input_key"]
+    return research_input_key(request, latest, security, benchmark) == target["input_key"]
 
-
-def enqueue_frozen_compute(s, scope, kind, target, capacity):
-    from iirp.shared_compute import enqueue
-    return enqueue(s, scope, kind, target, capacity)

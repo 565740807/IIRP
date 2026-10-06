@@ -17,7 +17,7 @@ class Strict(BaseModel):
 class CollectionInput(Strict):
     request_id: str = Field(min_length=1, max_length=128)
     kind: Literal[
-        "market_history", "market_quotes", "sec_latest", "sec_history", "sec_filing", "earnings"
+        "market_history", "market_quotes", "sec_latest", "sec_history", "sec_filing"
     ]
     tickers: list[str] = Field(default_factory=list, max_length=20)
     historical_years: int | None = Field(default=None, ge=1)
@@ -37,7 +37,7 @@ class CollectionInput(Strict):
         self.tickers = list(dict.fromkeys(x.strip().upper() for x in self.tickers if x.strip()))
         if any(not normalized_ticker(x) or not re.fullmatch(r"[A-Z0-9^][A-Z0-9.^=\-]{0,19}", x) for x in self.tickers):
             raise ValueError("证券代码格式不合法")
-        if self.kind in ("market_history", "earnings") and not self.tickers:
+        if self.kind == "market_history" and not self.tickers:
             raise ValueError("请选择至少一个证券")
         if self.kind == "sec_filing":
             from iirp.sec_sources import validate_sec_url
@@ -59,24 +59,18 @@ class CollectionInput(Strict):
 class AnalysisInput(Strict):
     research_label: str | None = Field(default=None, max_length=100)
     request_id: str = Field(min_length=1, max_length=128)
-    kind: Literal["monthly", "interval", "earnings"] = "monthly"
+    kind: Literal["monthly", "interval"] = "monthly"
     tickers: list[str] = Field(min_length=1, max_length=20)
     historical_years: int = Field(default=8, ge=1)
     years: list[int] | None = None
     excluded_years: list[int] = Field(default_factory=list)
     current_year: int | None = Field(default=None, ge=1, le=9998)
-    current_fiscal_year: int | None = Field(default=None, ge=1, le=9998)
     month: int = Field(default=1, ge=1, le=12)
     comparison: Literal["same_progress", "complete"] = "same_progress"
     alignment: Literal["calendar", "trading"] = "calendar"
     start_mmdd: str = Field(default="01-01", pattern=r"^\d{2}-\d{2}$")
     end_mmdd: str = Field(default="12-31", pattern=r"^\d{2}-\d{2}$")
     cross_year: bool | None = None
-    quarter: int = Field(default=1, ge=1, le=4)
-    window: Literal[1, 5, 20, 60] = 5
-    date_window: Literal["before5", "day0", "after5", "through5"] = "after5"
-    date_category: Literal["unassigned_earnings"] | None = None
-    common_years: bool = False
     benchmark: str | None = None
 
     @model_validator(mode="after")
@@ -277,7 +271,7 @@ class StrategyView(BaseModel):
 
 
 class StrategyInput(Strict):
-    key: Literal["sec", "market", "earnings", "backup", "maintenance"]
+    key: Literal["sec", "market", "backup", "maintenance"]
     enabled: bool
 
 
@@ -295,54 +289,6 @@ class PreferenceInput(Strict):
 class PreferenceOutput(BaseModel):
     values: PreferenceInput
     version: int
-
-
-class ImportInput(Strict):
-    # Prices are a 24-hour provider cache (D14); only earnings CSV is imported.
-    kind: Literal["earnings"]
-    ticker: str = Field(min_length=1, max_length=20)
-    csv: str = Field(min_length=1, max_length=5_000_000)
-    source_url: str = Field(min_length=1, max_length=2000)
-
-
-class ImportOutput(BaseModel):
-    id: str
-    kind: str
-    status: str
-    valid_rows: int
-    errors: list[str]
-    preview: list[dict[str, Any]]
-    differences: list[str]
-    batch_id: str | None = None
-
-
-class EventCorrection(Strict):
-    is_primary: bool = True
-    fiscal_year: int = Field(ge=1, le=9998)
-    fiscal_quarter: int = Field(ge=1, le=4)
-    announced_date: date
-    announced_at: datetime | None = None
-    time_precision: Literal[
-        "exact", "before_open", "after_close", "date_only", "intraday", "conflict"
-    ]
-    source_url: str = Field(min_length=1, max_length=2000)
-    note: str = Field(min_length=1, max_length=2000)
-    period_kind: Literal["regular", "transition", "unknown"] | None = None
-    period_kind_source_url: str | None = Field(default=None, max_length=2000)
-    period_kind_evidence: str | None = Field(default=None, max_length=2000)
-    time_evidence: str | None = Field(default=None, max_length=2000)
-    revision: int = Field(ge=1)
-
-    @model_validator(mode="after")
-    def period_kind_source(self):
-        if self.time_precision in {"exact", "before_open", "after_close"} and not (self.time_evidence or "").strip():
-            raise ValueError("精确时刻或盘前/盘后须填写来源中支持实际首次公开时间的原文或明确位置；电话会时间和官方排期不能替代")
-        if self.period_kind in {"regular", "transition"} and (
-            not (self.period_kind_source_url or "").strip()
-            or not (self.period_kind_evidence or "").strip()
-        ):
-            raise ValueError("常规/过渡财期须分别填写财期类型来源链接及原文或明确位置；财年财季本身不证明财期类型")
-        return self
 
 
 class GenericOutput(BaseModel):

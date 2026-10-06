@@ -76,15 +76,8 @@ def refresh_analysis(analysis_id, force=False):
             # Repeated automatic checks of the same lapsed research reuse one command.
             command_id = "refetch:" + digest([origin, request.id])
         if request.params["kind"] == "event_dates":
-            from iirp.analytics.calendar import last_completed_session
-            from iirp.event_api import EventAnalysisInput
-            from iirp.event_service import create_analysis
-            values = {key: value for key, value in request.params.items() if key in EventAnalysisInput.model_fields}
-            values.update(request_id=command_id, version=request.params["event_version"],
-                          cutoff_date=last_completed_session(as_of=now()).isoformat(),
-                          retry_generation=command_id)
-            created = create_analysis(request.params["event_set_id"], values)
-            child_id = created["analysis_id"]
+            from iirp.event_service import repeat_analysis
+            child_id = repeat_analysis(s, request, command_id).id
         else:
             values = batch.params.get("analysis_input", request.params)
             values = {key: value for key, value in values.items() if key in AnalysisInput.model_fields}

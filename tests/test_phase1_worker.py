@@ -215,17 +215,11 @@ worker.main()
                 proc.wait(timeout=8)
 
 
-@pytest.mark.parametrize("kind", ["market_identity", "local_import"])
-def test_loss_at_publication_rolls_back_source_and_lease(monkeypatch, kind):
+def test_loss_at_publication_rolls_back_source_and_lease(monkeypatch):
     from iirp.models import SourceObject
-    # Use a normal batch subscription to make a local import claim eligible.
     lifecycle.create_collection(collection(tickers=["SYNTH"]))
     lifecycle.plan_tick()
     job = claim({"market_identity"})
-    if kind == "local_import":
-        with session() as s, s.begin():
-            s.get(Job, job.id).kind = kind
-        job.kind = kind
     stopped = threading.Event()
     original = business_worker.fenced
     observed_lease = []

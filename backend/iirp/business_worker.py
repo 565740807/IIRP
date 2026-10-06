@@ -44,47 +44,24 @@ def scope_links(s, job_id):
 
 
 def prepare_target(job):
-    if job.kind == "earnings_evidence" and (job.result or {}).get("source_hash"):
-        from iirp.earnings_data import EARNINGS_PARSER_VERSION
-
-        if job.result.get("parser_version") != EARNINGS_PARSER_VERSION:
-            with session() as s:
-                observation = s.scalar(select(SourceObservation).where(
-                    SourceObservation.job_id == getattr(job, "id", None),
-                    SourceObservation.source_hash == job.result["source_hash"]
-                ).order_by(SourceObservation.observed_at.desc()).limit(1))
-                metadata = observation.params.get("observation", {}) if observation else {}
-            return {**job.target, "cached_source_hash": job.result["source_hash"], "cached_observation": metadata}
-    if job.kind == "event_compute":
-        from iirp.event_pipeline import prepare_event_target
-        with session() as s:
-            return prepare_event_target(s, job.target)
     if job.kind != "research_compute":
         return job.target
     with session() as s:
         request = s.get(AnalysisRequest, job.target["analysis_id"])
         security = s.get(Security, job.target["security_id"])
-        events = job.target.get("events", [])
         params = {**job.target.get("params", request.params),
                   "calendar": job.target.get("calendar", security.calendar or "XNYS")}
-        # SEC-verified fiscal metadata is distinct from quote-provider estimates.
-        fiscal_year_end = job.target.get("fiscal_year_end", security.metadata_json.get("verified_fiscal_year_end"))
-        if fiscal_year_end:
-            params["fiscal_year_end_mmdd"] = fiscal_year_end
-        if "params" not in job.target and request.params["kind"] == "earnings":
-            from iirp.research_pipeline import effective_input_params
-            params["current_fiscal_year"] = effective_input_params(request, security).get("current_fiscal_year")
         from iirp.research_dependencies import (
             benchmark_dependency,
             dataset_dependency,
             research_ranges,
         )
-        ranges = research_ranges(params, security.calendar or "XNYS", events)
+        ranges = research_ranges(params, security.calendar or "XNYS")
         bars, dataset = price_bars(s, security.id, job.target["dataset_id"], ranges=ranges)
         if dataset is None:
             raise ValueError("行情缓存已过期或已更新，等待按新缓存重新计算")
         from iirp.benchmarks import benchmark_data
-        return {"params": params, "bars": bars, "events": events, "dataset_id": dataset.id,
+        return {"params": params, "bars": bars, "dataset_id": dataset.id,
                 "benchmark": benchmark_data(s, job.target.get("benchmark"), ranges=ranges),
                 "dependency_manifest": {"ranges": [[str(a), str(b)] for a, b in ranges],
                     "prices": dataset_dependency(s, dataset, ranges),
@@ -103,9 +80,9 @@ def _persist(s, current, response, sources, source, observation_metadata=None):
             job_id=current.id,
             source_hash=source["sha256"],
             provider="sec"
-            if kind.startswith("sec") or kind == "earnings_evidence"
+            if kind.startswith("sec")
             else "yfinance"
-            if kind.startswith(("market", "earnings"))
+            if kind.startswith("market")
             else "local",
             params={**current.target, "observation": observation_metadata or {}},
         )
@@ -196,19 +173,7 @@ def _persist(s, current, response, sources, source, observation_metadata=None):
                 s.flush()
             if not security.issuer_id or security.issuer_id == cik:
                 security.issuer_id = cik
-    elif kind == "earnings_candidates":
-        from iirp.earnings_data import persist_candidates
-
-        result.update(persist_candidates(s, current, response, source["sha256"]))
-        if response.get("reason"):
-            status, error = "PARTIAL", response["reason"]
-    elif kind == "earnings_evidence":
-        from iirp.earnings_data import persist_evidence
-
-        result.update(persist_evidence(s, current, response, source_hashes, source["sha256"]))
-        if result.get("reason"):
-            status, error = "PARTIAL", result["reason"]
-    elif kind in {"event_compute", "research_compute"}:
+    elif kind == "research_compute":
         from iirp.shared_compute import publish
         result = publish(s, current, response)
     current.result = result
@@ -241,33 +206,11 @@ def execute_business(job, stopping=lambda: False, runner=None):
     try:
         if stopping():
             return
-        if job.kind == "local_import":
-            from iirp.imports import persist
-
-            def commit_local(s, current):
-                if stopping():
-                    raise OperationInterrupted
-                current.result = persist(s, current)
-                current.status = "PARTIAL" if current.result.get("reason") else "SUCCEEDED"
-                current.error = current.result.get("reason")
-                current.progress_done = 1
-                current.finished_at = now()
-                current.lease_token = current.lease_until = None
-                s.add(
-                    SourceObservation(
-                        job_id=current.id,
-                        source_hash=current.result["source_hash"],
-                        provider="manual_csv",
-                        params=current.target,
-                    )
-                )
-
-            return fenced(job, business_write=commit_local)
         if job.kind.startswith("maintenance_"):
             from iirp.maintenance import execute_maintenance
 
             return execute_maintenance(job, stopping=stopping)
-        if job.kind.startswith(("market_", "earnings_candidates")):
+        if job.kind.startswith("market_"):
             with session() as s, s.begin():
                 s.execute(
                     insert(SourceBudget)
@@ -280,7 +223,7 @@ def execute_business(job, stopping=lambda: False, runner=None):
                 fenced(job, status="RETRY_WAIT", error="Yahoo 共享冷却中", retry_seconds=delay,
                        business_write=lambda s, current: setattr(current, "attempts", max(0, current.attempts - 1)))
                 return
-        if job.kind in {"research_compute", "event_compute"} and skip_obsolete_compute(job):
+        if job.kind == "research_compute" and skip_obsolete_compute(job):
             return
         prepare_started = time.perf_counter()
         target = prepare_target(job)
@@ -351,7 +294,7 @@ def execute_business(job, stopping=lambda: False, runner=None):
             delay = min(
                 3600, max(float(response.get("retry_seconds", 60)), 15 * 2 ** min(job.attempts, 6))
             ) + random.uniform(0, 3)
-            if job.kind.startswith(("market_", "earnings_candidates")):
+            if job.kind.startswith("market_"):
                 with session() as s, s.begin():
                     budget = s.get(SourceBudget, "yfinance", with_for_update=True)
                     budget.failures += 1
@@ -402,7 +345,7 @@ def execute_business(job, stopping=lambda: False, runner=None):
             "adapter_seconds": data.get("timing", {}).get("adapter_seconds"),
             "http_seconds": data.get("timing", {}).get("http_seconds"),
             "http_requests": data.get("timing", {}).get("http_requests"),
-            "compute_seconds": response.get("operation_seconds") if job.kind in {"research_compute", "event_compute"} else None,
+            "compute_seconds": response.get("operation_seconds") if job.kind == "research_compute" else None,
             "storage_seconds": time.perf_counter() - storage_started,
         }
         def commit_response(s, current):

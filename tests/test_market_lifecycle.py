@@ -491,7 +491,6 @@ def research_lease(kind="interval"):
         kind=kind,
         historical_years=1,
         current_year=2024,
-        current_fiscal_year=2024,
         start_mmdd="01-03",
         end_mmdd="01-05",
         comparison="complete",
@@ -522,7 +521,7 @@ def test_research_publish_records_cache_and_calculation_metadata(security_id):
     request, lease = research_lease()
     target = prepare_target(lease)
     result = compute_research(
-        target["params"], target["bars"], events=target["events"], today=date(2024, 2, 1)
+        target["params"], target["bars"], today=date(2024, 2, 1)
     )
     assert publish_research(lease, result)
     with session() as s:
@@ -561,43 +560,3 @@ def test_result_from_a_replaced_cache_is_not_published(security_id):
             == 0
         )
         assert "未发布" in s.get(Job, lease.id).result["message"]
-
-
-def test_earnings_event_snapshot_is_frozen_and_old_revision_cannot_publish(security_id):
-    from iirp.business_models import AnalysisResult, EarningsEvent
-    from iirp.business_worker import prepare_target
-
-    initial_prices(security_id)
-    with session() as s, s.begin():
-        event = EarningsEvent(
-            security_id=security_id,
-            fiscal_year=2023,
-            fiscal_quarter=1,
-            announced_date=date(2023, 1, 4),
-            time_precision="before_open",
-            verified=True,
-        )
-        s.add(event)
-        s.flush()
-        event_id = event.id
-    request, lease = research_lease("earnings")
-    with session() as s, s.begin():
-        event = s.get(EarningsEvent, event_id)
-        event.time_precision = "after_close"
-        event.revision += 1
-    target = prepare_target(lease)
-    assert target["events"][0]["revision"] == 1
-    assert target["events"][0]["time_precision"] == "before_open"
-    result = compute_research(
-        target["params"], target["bars"], events=target["events"], today=date(2024, 2, 1)
-    )
-    assert publish_research(lease, result)
-    with session() as s:
-        assert (
-            s.scalar(
-                select(func.count())
-                .select_from(AnalysisResult)
-                .where(AnalysisResult.analysis_id == request["id"])
-            )
-            == 0
-        )

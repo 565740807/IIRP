@@ -16,13 +16,10 @@ from iirp.contracts import (
     BatchesOutput,
     CollectionInput,
     CollectionOutput,
-    EventCorrection,
     FeedGroupOutput,
     FreshnessInput,
     FreshnessOutput,
     GenericOutput,
-    ImportInput,
-    ImportOutput,
     PreferenceInput,
     PreferenceOutput,
     PriceRangeInput,
@@ -33,7 +30,6 @@ from iirp.contracts import (
     StrategyOutput,
     TransactionSecurityInput,
 )
-from iirp.event_overlap_reads import EventOverlapPage, get_overlap_page
 
 router = APIRouter(prefix="/api/v1")
 
@@ -118,19 +114,6 @@ def recent_analyses(kind: str = "monthly", ticker: str = ""):
 @router.get("/analyses/{analysis_id}", response_model=AnalysisOutput)
 def analysis(analysis_id: str, result_ids: str = ""):
     return invoke("get_analysis", analysis_id, result_ids)
-
-
-@router.get("/analyses/{analysis_id}/results/{result_id}/event-overlaps", response_model=EventOverlapPage)
-def event_overlaps(analysis_id: str, result_id: str,
-                   event_key: str = Query(min_length=1),
-                   cursor: str | None = Query(default=None, max_length=4096),
-                   limit: int = Query(default=50, ge=1, le=100)):
-    try:
-        return get_overlap_page(analysis_id, result_id, event_key, cursor, limit)
-    except LookupError as exc:
-        raise HTTPException(404, str(exc)) from exc
-    except ValueError as exc:
-        raise HTTPException(422, str(exc)) from exc
 
 
 @router.post("/analyses/{analysis_id}/refresh", response_model=AnalysisRefreshOutput, status_code=202)
@@ -256,26 +239,6 @@ def transaction_export(transaction_id: str, format: str = "json", mapping_versio
 @router.get("/market/{symbol}", response_model=GenericOutput)
 def market(symbol: str):
     return invoke("market_detail", symbol)
-
-
-@router.get("/earnings", response_model=GenericOutput)
-def earnings(ticker: str = ""):
-    return invoke("get_earnings", ticker)
-
-
-@router.patch("/earnings/{event_id}", response_model=GenericOutput)
-def earnings_update(event_id: str, body: EventCorrection):
-    return invoke("correct_event", event_id, body.model_dump(mode="json"))
-
-
-@router.post("/imports/preview", response_model=ImportOutput)
-def import_preview(body: ImportInput):
-    return invoke("preview_import", body.model_dump())
-
-
-@router.post("/imports/{preview_id}/commit", response_model=ImportOutput)
-def import_commit(preview_id: str):
-    return invoke("commit_import", preview_id)
 
 
 @router.post("/cache/cleanup", response_model=GenericOutput, status_code=202)

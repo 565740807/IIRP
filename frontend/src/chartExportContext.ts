@@ -1,5 +1,4 @@
 import type { Fact } from "./api";
-import { fiscalVersionNotice } from "./fiscalVersionNotice";
 
 /** Facts copied from the frozen backend result; no price/statistics recalculation. */
 export function chartExportContext(
@@ -14,25 +13,11 @@ export function chartExportContext(
   const kind = params.kind ?? data.kind;
   const window = kind === "monthly" ? `${params.month ?? "?"}月`
     : kind === "interval" ? `${params.start_mmdd ?? "?"} → ${params.end_mmdd ?? "?"}`
-    : kind === "earnings" ? `Q${params.quarter ?? "?"}`
-    : kind === "event_dates" ? `${params.date_window ?? meta.date_window ?? "日期观察"}`
     : String(kind ?? "未知");
   const years = Array.isArray(meta.historical_years) ? meta.historical_years
     : Array.isArray(params.years) ? params.years : [];
-  const symbol = meta.symbol ?? params.tickers?.join(", ") ?? params.company?.ticker;
-  // A native earnings page embeds date-observation charts frozen by the
-  // event-dates calculator; identify that version by its own prefix.
-  const dateVersion = typeof meta.calculation_version === "string"
-    && meta.calculation_version.startsWith("event-dates-v");
-  const versionNotice = kind === "earnings" && !dateVersion
-    ? fiscalVersionNotice("native_earnings", meta.calculation_version)
-    : dateVersion && kind === "earnings"
-      ? fiscalVersionNotice("native_event_dates", meta.calculation_version)
-      : kind === "event_dates"
-        ? fiscalVersionNotice("event_import", meta.calculation_version)
-        : null;
+  const symbol = meta.symbol ?? params.tickers?.join(", ");
   const lines = [
-    ...(versionNotice ? [versionNotice] : []),
     `证券 ${symbol || "待核对"} · ${meta.price_basis ?? "价格口径未知"} · 行情截至 ${meta.cutoff_date ?? "未知"}`,
     `研究窗口 ${window}${years.length ? ` · 历史年份 ${years.join("、")}` : params.historical_years ? ` · 历史目标 ${params.historical_years} 个完整年` : ""}`,
     ...notes,
@@ -52,12 +37,8 @@ export function chartExportContext(
   }
   const distributions = Array.isArray(data.distributions) ? data.distributions : [];
   const distributionKind = data.kind ?? kind;
-  const group = distributionKind === "monthly" ? String(params.month)
-    : distributionKind === "interval" ? "interval"
-    : params.date_category ?? `Q${params.quarter}`;
-  const metric = distributionKind === "earnings" ? String(params.window ?? 5)
-    : distributionKind === "event_dates" ? params.date_window ?? meta.date_window ?? "after5"
-    : "endpoint";
+  const group = distributionKind === "monthly" ? String(params.month) : "interval";
+  const metric = "endpoint";
   const selected = distributions.find((d: any) => d.metric === metric && String(d.group) === String(group));
   if (selected) lines.push(`所选组股票 N=${selected.stock?.n ?? "未知"} · 与基准同日配对 N=${selected.paired_stock?.n ?? "未知"}`);
   lines.push(...provenance.split("\n").filter(Boolean));

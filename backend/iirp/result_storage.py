@@ -1,12 +1,10 @@
-"""Lossless result storage and a linear, immutable overlap query projection."""
+"""Lossless compressed result storage (older rows) and the result size query."""
 
 import json
 import zlib
 
 from sqlalchemy import LargeBinary
 from sqlalchemy.types import TypeDecorator
-
-from iirp.analytics.event_overlaps import REPRESENTATION_VERSION
 
 PAYLOAD_MAGIC = b"IIRP-JSON-ZLIB\x00\x01"
 
@@ -40,25 +38,6 @@ class CompressedResultJSON(TypeDecorator):
 
     def process_result_value(self, value, dialect):
         return None if value is None else decode_payload(value)
-
-
-def overlap_projection(data):
-    observer = data if data.get("kind") == "event_dates" else data.get("date_observation")
-    if not observer or observer.get("metadata", {}).get("representation_version") != REPRESENTATION_VERSION:
-        return None
-
-    def project(row):
-        points = row.get("points") or []
-        return {
-            "key": row["key"], "label": row["label"], "overlap": row["overlap"],
-            "points": [{"date": points[0]["date"]}, {"date": points[-1]["date"]}] if points else [],
-        }
-
-    return {
-        "metadata": {"representation_version": REPRESENTATION_VERSION},
-        "rows": [project(row) for row in observer.get("rows", [])],
-        "coverage_rows": [project(row) for row in observer.get("coverage_rows", [])],
-    }
 
 
 # Include the legacy column, the lossless payload and its small query projection.

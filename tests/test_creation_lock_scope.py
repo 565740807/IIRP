@@ -25,13 +25,13 @@ from test_shared_compute import RealRunner, plan, setup
 
 
 def values(**overrides):
-    return params(kind="earnings", current_fiscal_year=2025, years=[2024], **overrides)
+    return params(kind="monthly", years=[2024], **overrides)
 
 
 @pytest.mark.parametrize("boundary", ["cache", "response"])
 @pytest.mark.parametrize("relation", ["same_scope", "same_request", "same_security"])
 def test_slow_local_work_does_not_hold_creation_locks(monkeypatch, boundary, relation):
-    setup("earnings")
+    setup("monthly")
     first_values = values()
     following_values = {
         **first_values,
@@ -92,7 +92,7 @@ def test_slow_local_work_does_not_hold_creation_locks(monkeypatch, boundary, rel
 
 
 def complete_cached_result():
-    setup("earnings")
+    setup("monthly")
     first = lifecycle.create_analysis(values())
     plan(first["id"])
     job = claim({"research_compute"})
@@ -170,7 +170,7 @@ def test_busy_batch_defers_cache_without_losing_durable_signal(monkeypatch):
 
 
 def test_post_commit_failure_keeps_the_same_recoverable_request(monkeypatch):
-    setup("earnings")
+    setup("monthly")
     submitted = values()
 
     def unavailable(_identifier):
