@@ -1,4 +1,4 @@
-"""Synthetic market/version publication tests on their own PostgreSQL database."""
+"""Synthetic 24-hour price cache tests on their own PostgreSQL database."""
 
 import hashlib
 import json
@@ -15,25 +15,16 @@ from alembic.config import Config
 from iirp.analytics.research import compute_research
 from iirp.business_models import (
     BatchJob,
-    CorporateAction,
-    CoverageSegment,
-    DatasetBar,
-    MarketBar,
-    PriceDataset,
+    PriceCache,
+    PriceCacheBar,
     RequestScope,
     Security,
 )
 from iirp.config import ROOT, settings
 from iirp.db import engine, session
-from iirp.market_data import (
-    coverage_for,
-    latest_dataset,
-    persist_prices,
-    price_bars,
-    quote_from_history,
-    source_contract,
-)
+from iirp.market_data import quote_from_history, source_contract
 from iirp.models import Base, Job, SourceObject
+from iirp.price_cache import coverage_for, current_cache, persist_prices, price_bars
 from iirp.queue import claim, fenced
 from iirp.storage import save_object
 from psycopg import sql
@@ -121,11 +112,10 @@ def bar(day, close="100", **overrides):
     }
 
 
-def response(records, *, verified=True, evidence="synthetic-contract-A"):
+def response(records):
     return {
         "provider": "synthetic",
         "library_version": "fixture",
-        "contract": {"verified": verified, "evidence": evidence, "basis": "SPLIT_ONLY"},
         "fetched_at": "2024-01-01T00:00:00+00:00",
         "records": records,
         "metadata": {},
@@ -150,8 +140,6 @@ def pending_job(security_id, start="2023-01-03", end="2023-01-05", *, batch_id=N
         s.flush()
         identifier = job.id
         if batch_id is not None:
-            # This price revision belongs to the same manual research; a naked
-            # priority=-100 fixture must not bypass provider demand ownership.
             scope = s.scalar(select(RequestScope).where(
                 RequestScope.batch_id == batch_id, RequestScope.security_id == security_id,
             ))
@@ -168,7 +156,7 @@ def commit_prices(security_id, payload, *, start="2023-01-03", end="2023-01-05",
     results = []
 
     def write(s, current):
-        results.append(persist_prices(s, current, payload, source["sha256"]))
+        results.append(persist_prices(s, current, payload))
         if fail_after:
             s.flush()
             raise RuntimeError("Synthetic failure after complete price write")
@@ -184,20 +172,23 @@ def commit_prices(security_id, payload, *, start="2023-01-03", end="2023-01-05",
     return results[0], source
 
 
-def published(security_id):
+def cached(security_id):
     with session() as s:
-        return latest_dataset(s, security_id)
+        return current_cache(s, security_id)
 
 
-def initial_prices(security_id, *, post_split_close="100"):
+def initial_prices(security_id, *, start="2022-11-01", end=None):
+    """A cache covering research scopes around 2023-01-03..05 (other days are gaps)."""
+    end = end or str(date.today())
     commit_prices(
         security_id,
-        response([bar("2023-01-03"), bar("2023-01-04"), bar("2023-01-05", post_split_close)]),
+        response([bar("2023-01-03"), bar("2023-01-04"), bar("2023-01-05")]),
+        start=start, end=end,
     )
-    return published(security_id).id
+    return cached(security_id).id
 
 
-def test_market_detail_uses_real_split_only_price_range(security_id):
+def test_market_detail_uses_cached_split_only_prices(security_id):
     from iirp.analytics.calendar import sessions
     from iirp.business_models import MarketQuote
     from iirp.lifecycle import market_detail
@@ -220,313 +211,81 @@ def test_market_detail_uses_real_split_only_price_range(security_id):
     assert len(result["items"]) == 60
     assert [row["date"] for row in result["items"]] == [str(day) for day in days[-60:]]
     assert result["data"]["chart_start"] == str(days[-60])
-    assert result["data"]["chart_dataset_id"] == published(security_id).id
+    assert result["data"]["price_cache_id"] == cached(security_id).id
     assert result["data"]["as_of"] == "2023-01-05"
     assert result["data"]["chart_end"] == str(days[-1])
     assert result["data"]["chart_source"] == "synthetic"
     assert "仅拆股调整" in result["data"]["chart_basis"]
 
 
-def test_unverified_contract_preserves_observations_but_cannot_feed_statistics(security_id):
-    result, source = commit_prices(
-        security_id,
-        response([bar("2023-01-03"), bar("2023-01-04"), bar("2023-01-05")], verified=False),
-    )
-    assert not result["eligible"]
-    with session() as s:
-        bars, dataset = price_bars(s, security_id)
-        assert bars == [] and dataset is None
-        assert s.scalar(select(func.count()).select_from(MarketBar)) == 3
-        assert s.get(SourceObject, source["sha256"]) is not None
-        segment = s.scalar(select(CoverageSegment))
-        assert segment.status == "PARTIAL"
-        assert "口径待核对" in segment.details["reason"]
-    research = compute_research(
-        {
-            "kind": "interval",
-            "years": [2023],
-            "current_year": 2024,
-            "start_mmdd": "01-03",
-            "end_mmdd": "01-05",
-        },
-        bars,
-        today=date(2024, 2, 1),
-    )
-    assert research["effective_n"] == 0
+def test_one_response_becomes_the_24_hour_cache_in_one_fenced_transaction(security_id):
+    from iirp.models import now
 
-
-def test_verified_prices_and_source_foreign_key_publish_in_one_fenced_transaction(security_id):
     result, source = commit_prices(
         security_id,
         response([bar("2023-01-03"), bar("2023-01-04", "110"), bar("2023-01-05", "90")]),
     )
-    assert result["eligible"]
+    assert result["cached"]
     with session() as s:
-        bars, dataset = price_bars(s, security_id)
-        assert dataset.status == "PUBLISHED" and dataset.basis == "SPLIT_ONLY"
+        bars, cache = price_bars(s, security_id)
         assert all(row["status"] == "VALID" for row in bars)
-        assert {row.source_hash for row in s.scalars(select(MarketBar))} == {source["sha256"]}
+        assert abs((cache.expires_at - cache.fetched_at).total_seconds() - 24 * 3600) < 1
+        assert cache.fetched_at <= now() < cache.expires_at
         coverage = coverage_for(s, s.get(Security, security_id), date(2023, 1, 3), date(2023, 1, 5))
         assert coverage["status"] == "COMPLETE" and coverage["valid_sessions"] == 3
+        assert coverage["cache_id"] == cache.id and coverage["expires_at"]
 
 
-@pytest.mark.parametrize("phase", ["before_save", "after_save", "before_commit", "after_commit"])
-def test_sigkill_price_publication_is_atomic_and_reuses_saved_source(security_id, tmp_path, phase):
-    import signal
-    import subprocess
-    import sys
-    import time
+def test_a_new_response_replaces_the_cache_but_a_narrower_one_does_not(security_id):
+    commit_prices(security_id, response([bar("2023-01-03"), bar("2023-01-04"), bar("2023-01-05")]))
+    first = cached(security_id).id
+    result, _ = commit_prices(security_id, response([bar("2023-01-04", "101")]),
+                              start="2023-01-04", end="2023-01-04")
+    assert not result["cached"] and result["superseded_by"] == first
+    assert cached(security_id).id == first
+    wider, _ = commit_prices(security_id, response([bar("2023-01-03", "102")]),
+                             start="2023-01-02", end="2023-01-06")
+    assert wider["cached"]
+    with session() as s:
+        assert s.scalar(select(func.count()).select_from(PriceCache)) == 1
+        bars, cache = price_bars(s, security_id)
+        assert cache.id == wider["cache_id"] != first
+        assert [row["close"] for row in bars] == ["102.000000000000"]
+
+
+def test_empty_or_conflicting_responses_do_not_create_a_cache(security_id):
+    result, _ = commit_prices(security_id, response([]))
+    assert not result["cached"] and "空数据" in result["reason"]
+    payload = response([bar("2023-01-03")])
+    payload["metadata"] = {"currency": "EUR"}
+    result, _ = commit_prices(security_id, payload)
+    assert not result["cached"] and "currency" in result["reason"]
+    assert cached(security_id) is None
+
+
+def test_expired_caches_and_their_results_are_deleted_and_research_marked(security_id):
     from datetime import timedelta
 
+    from iirp.business_models import AnalysisResult
     from iirp.models import now
+    from iirp.price_cache import expire_price_cache
+    from iirp.research_freshness import freshness
 
-    payload = response([bar("2023-01-03"), bar("2023-01-04"), bar("2023-01-05")])
-    lease = pending_job(security_id)
-    request_file = tmp_path / "fault-request.json"
-    request_file.write_text(json.dumps({"job_id": lease.id, "payload": payload, "phase": phase}))
-    marker = tmp_path / "reached"
-    script = tmp_path / "fault-child.py"
-    script.write_text("""
-import json,sys,time
-from pathlib import Path
-from iirp.db import session
-from iirp.models import Job
-from iirp.queue import fenced
-from iirp.storage import save_object
-from iirp.market_data import persist_prices
-request=json.loads(Path(sys.argv[1]).read_text())
-def stop_at(phase):
-    if request['phase']==phase:
-        Path(sys.argv[2]).write_text(phase)
-        time.sleep(15)
-with session() as s:
-    job=s.get(Job,request['job_id'])
-stop_at('before_save')
-source=save_object(json.dumps(request['payload'],sort_keys=True).encode())
-stop_at('after_save')
-def write(s,current):
-    persist_prices(s,current,request['payload'],source['sha256'])
-    s.flush()
-    stop_at('before_commit')
-assert fenced(job,source=source,business_write=write,status='SUCCEEDED',done=1)
-stop_at('after_commit')
-""")
-    process = subprocess.Popen(
-        [sys.executable, str(script), str(request_file), str(marker)],
-        env={**os.environ, "IIRP_RUNTIME_DIR": str(tmp_path), "PYTHONPATH": str(ROOT / "backend")},
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-    )
-    try:
-        deadline = time.monotonic() + 10
-        while not marker.exists() and time.monotonic() < deadline and process.poll() is None:
-            time.sleep(0.02)
-        assert marker.exists(), f"child never reached {phase}"
-        process.send_signal(signal.SIGKILL)
-        process.wait(timeout=3)
-        with session() as s, s.begin():
-            count = s.scalar(select(func.count()).select_from(MarketBar))
-            assert count == (3 if phase == "after_commit" else 0)
-            if phase != "after_commit":
-                s.get(Job, lease.id).lease_until = now() - timedelta(seconds=1)
-        source = save_object(json.dumps(payload, sort_keys=True).encode())
-        if phase != "after_commit":
-            recovered = claim({"market_history"})
-            assert recovered.id == lease.id and recovered.lease_token != lease.lease_token
-            assert not fenced(lease, status="SUCCEEDED")
-            assert fenced(
-                recovered,
-                source=source,
-                status="SUCCEEDED",
-                done=1,
-                business_write=lambda s, current: persist_prices(
-                    s, current, payload, source["sha256"]
-                ),
-            )
-        with session() as s:
-            assert s.scalar(select(func.count()).select_from(MarketBar)) == 3
-            assert s.scalar(select(func.count()).select_from(PriceDataset)) == 1
-            assert s.scalar(select(func.count()).select_from(CoverageSegment)) == 1
-            assert s.scalar(select(func.count()).select_from(SourceObject)) == 1
-            assert s.get(Job, lease.id).status == "SUCCEEDED"
-    finally:
-        if process.poll() is None:
-            process.kill()
-            process.wait(timeout=3)
-
-
-def test_quote_identity_refresh_preserves_separate_sec_evidence(security_id):
-    from iirp.market_data import resolve_metadata
-
+    dataset_id = initial_prices(security_id)
+    request, lease = research_lease()
+    from iirp.business_worker import prepare_target
+    target = prepare_target(lease)
+    assert publish_research(lease, compute_research(target["params"], target["bars"], today=date(2024, 2, 1)))
     with session() as s, s.begin():
-        security = s.get(Security, security_id)
-        security.metadata_json = {
-            "verified_fiscal_year_end": "09-26",
-            "sec_identity_confirmed": True,
-        }
-        resolve_metadata(
-            s,
-            security,
-            {
-                "metadata": {
-                    "symbol": "SYNTH",
-                    "quoteType": "EQUITY",
-                    "exchange": "NYQ",
-                    "currency": "USD",
-                }
-            },
-        )
-        assert security.metadata_json["verified_fiscal_year_end"] == "09-26"
-        assert security.metadata_json["sec_identity_confirmed"] is True
-
-
-def test_split_keeps_old_version_readable_until_full_new_basis_is_valid(security_id):
-    old = initial_prices(security_id)
-    result, _ = commit_prices(
-        security_id, response([bar("2023-01-05", "50", splits="2")]), start="2023-01-05"
-    )
-    assert result["rebase"]
-    assert published(security_id).id == old
+        result = s.scalar(select(AnalysisResult).where(AnalysisResult.analysis_id == request["id"]))
+        assert result.expires_at == s.get(PriceCache, dataset_id).expires_at
+        s.get(PriceCache, dataset_id).expires_at = now() - timedelta(seconds=1)
+        result.expires_at = now() - timedelta(seconds=1)
+    assert expire_price_cache() == {"price_caches": 1, "analysis_results": 1}
     with session() as s:
-        pending = s.scalar(select(PriceDataset).where(PriceDataset.status == "BUILDING"))
-        assert pending is not None
-        assert (
-            s.scalar(
-                select(func.count())
-                .select_from(DatasetBar)
-                .where(DatasetBar.dataset_id == pending.id)
-            )
-            == 1
-        )
-    commit_prices(
-        security_id, response([bar("2023-01-03", "50"), bar("2023-01-04", "50")]), end="2023-01-04"
-    )
-    assert published(security_id).id != old
-    with session() as s:
-        bars, _ = price_bars(s, security_id)
-        assert len(bars) == 3 and {Decimal(row["close"]) for row in bars} == {Decimal(50)}
-        old_bars, _ = price_bars(s, security_id, old)
-        assert {Decimal(row["close"]) for row in old_bars} == {Decimal(100)}
-
-
-def test_rebase_date_presence_does_not_publish_invalid_ohlc(security_id):
-    old = initial_prices(security_id)
-    commit_prices(security_id, response([bar("2023-01-05", "50", splits="2")]), start="2023-01-05")
-    commit_prices(
-        security_id,
-        response([bar("2023-01-03", "50"), bar("2023-01-04", "50", low="60")]),
-        end="2023-01-04",
-    )
-    assert published(security_id).id == old, (
-        "All dates present is insufficient when one linked bar is INVALID"
-    )
-    with session() as s:
-        assert s.scalar(select(PriceDataset).where(PriceDataset.status == "BUILDING")) is not None
-    commit_prices(
-        security_id, response([bar("2023-01-04", "50")]), start="2023-01-04", end="2023-01-04"
-    )
-    assert published(security_id).id != old
-
-
-def test_prior_unverified_split_observation_cannot_suppress_verified_rebuild(security_id):
-    old = initial_prices(security_id)
-    commit_prices(
-        security_id,
-        response([bar("2023-01-05", "50", splits="2")], verified=False),
-        start="2023-01-05",
-    )
-    result, _ = commit_prices(
-        security_id, response([bar("2023-01-05", "50", splits="2")]), start="2023-01-05"
-    )
-    assert result["rebase"]
-    assert published(security_id).id == old
-    with session() as s:
-        assert s.scalar(select(PriceDataset).where(PriceDataset.status == "BUILDING")) is not None
-
-
-def test_second_split_resets_pending_adjustment_epoch_before_publication(security_id):
-    old = initial_prices(security_id)
-    commit_prices(security_id, response([bar("2023-01-05", "50", splits="2")]), start="2023-01-05")
-    commit_prices(
-        security_id,
-        response([bar("2023-01-06", "25", splits="2")]),
-        start="2023-01-06",
-        end="2023-01-06",
-    )
-    commit_prices(
-        security_id, response([bar("2023-01-03", "25"), bar("2023-01-04", "25")]), end="2023-01-04"
-    )
-    assert published(security_id).id == old, (
-        "First split's Jan 5 price cannot count toward the second split's version"
-    )
-    commit_prices(
-        security_id,
-        response([bar("2023-01-05", "25", splits="2")]),
-        start="2023-01-05",
-        end="2023-01-05",
-    )
-    assert published(security_id).id != old
-    with session() as s:
-        bars, _ = price_bars(s, security_id)
-        assert len(bars) == 4 and {Decimal(row["close"]) for row in bars} == {Decimal(25)}
-
-
-def test_rebase_accepts_reverified_unchanged_rows_in_new_complete_manifest(security_id):
-    old = initial_prices(security_id)
-    commit_prices(security_id, response([bar("2023-01-05", "100", splits="2")]), start="2023-01-05")
-    commit_prices(
-        security_id,
-        response(
-            [bar("2023-01-03", "60"), bar("2023-01-04", "60"), bar("2023-01-05", "100", splits="2")]
-        ),
-    )
-    assert published(security_id).id != old, (
-        "Revalidated unchanged post-split row must count toward a rebuilt version"
-    )
-    with session() as s:
-        assert len(price_bars(s, security_id)[0]) == 3
-
-
-def test_existing_rebase_rejects_mixing_another_verified_contract(security_id):
-    old = initial_prices(security_id)
-    commit_prices(security_id, response([bar("2023-01-05", "50", splits="2")]), start="2023-01-05")
-    try:
-        commit_prices(
-            security_id,
-            response(
-                [bar("2023-01-03", "50"), bar("2023-01-04", "50")], evidence="synthetic-contract-B"
-            ),
-            end="2023-01-04",
-        )
-    except ValueError:
-        pass  # Rejecting an incompatible response explicitly is also valid.
-    assert published(security_id).id == old, (
-        "One version cannot combine A's split day with B's history"
-    )
-
-
-def test_contract_basis_change_does_not_replace_complete_history_with_recent_fragment(security_id):
-    old = initial_prices(security_id)
-    commit_prices(
-        security_id,
-        response([bar("2023-01-05", "55")], evidence="synthetic-contract-B"),
-        start="2023-01-05",
-    )
-    assert published(security_id).id == old
-
-
-def test_full_revalidation_under_new_contract_can_publish_unchanged_prices(security_id):
-    old = initial_prices(security_id)
-    old_basis = published(security_id).basis_key
-    commit_prices(
-        security_id,
-        response(
-            [bar("2023-01-03"), bar("2023-01-04"), bar("2023-01-05")],
-            evidence="synthetic-contract-B",
-        ),
-    )
-    current = published(security_id)
-    assert current.id != old and current.basis_key != old_basis
+        assert s.scalar(select(func.count()).select_from(PriceCacheBar)) == 0
+        from iirp.business_models import AnalysisRequest
+        assert freshness(s, s.get(AnalysisRequest, request["id"]))["expired"] is True
 
 
 def test_missing_fields_and_missing_sessions_remain_explicit_and_out_of_statistics(security_id):
@@ -557,17 +316,17 @@ def test_missing_fields_and_missing_sessions_remain_explicit_and_out_of_statisti
     assert research["rows"][0]["max_drawdown"] is None
 
 
-def test_duplicate_dates_rollback_first_flushed_row_and_source_reference(security_id):
+def test_duplicate_dates_roll_back_the_whole_response(security_id):
     payload = response([bar("2023-01-03"), bar("2023-01-03", "200")])
     with pytest.raises(ValueError, match="重复"):
         commit_prices(security_id, payload)
     with session() as s:
-        assert s.scalar(select(func.count()).select_from(MarketBar)) == 0
+        assert s.scalar(select(func.count()).select_from(PriceCacheBar)) == 0
         assert s.scalar(select(func.count()).select_from(SourceObject)) == 0
-        assert s.scalar(select(func.count()).select_from(PriceDataset)) == 0
+        assert s.scalar(select(func.count()).select_from(PriceCache)) == 0
 
 
-def test_exception_rolls_back_bars_actions_versions_coverage_and_source_together(security_id):
+def test_exception_rolls_back_cache_and_source_together(security_id):
     with pytest.raises(RuntimeError, match="Synthetic failure"):
         commit_prices(
             security_id,
@@ -575,19 +334,44 @@ def test_exception_rolls_back_bars_actions_versions_coverage_and_source_together
             fail_after=True,
         )
     with session() as s:
-        for model in (
-            MarketBar,
-            BatchJob,
-    CorporateAction,
-            PriceDataset,
-    RequestScope,
-            DatasetBar,
-            CoverageSegment,
-            SourceObject,
-        ):
+        for model in (PriceCache, PriceCacheBar, BatchJob, RequestScope, SourceObject):
             assert s.scalar(select(func.count()).select_from(model)) == 0
         job = s.scalar(select(Job))
         assert job.checkpoint == {} and job.progress_done == 0
+
+
+def test_unexplained_50_percent_jump_is_kept_but_not_valid(security_id):
+    result, _ = commit_prices(
+        security_id, response([bar("2023-01-03"), bar("2023-01-04"), bar("2023-01-05", "150")]))
+    assert result["invalid_dates"] == ["2023-01-05"]
+    with session() as s:
+        bars, _ = price_bars(s, security_id)
+        assert bars[-1]["status"] == "NEEDS_REVIEW" and Decimal(bars[-1]["close"]) == 150
+
+
+def test_quote_identity_refresh_preserves_separate_sec_evidence(security_id):
+    from iirp.market_data import resolve_metadata
+
+    with session() as s, s.begin():
+        security = s.get(Security, security_id)
+        security.metadata_json = {
+            "verified_fiscal_year_end": "09-26",
+            "sec_identity_confirmed": True,
+        }
+        resolve_metadata(
+            s,
+            security,
+            {
+                "metadata": {
+                    "symbol": "SYNTH",
+                    "quoteType": "EQUITY",
+                    "exchange": "NYQ",
+                    "currency": "USD",
+                }
+            },
+        )
+        assert security.metadata_json["verified_fiscal_year_end"] == "09-26"
+        assert security.metadata_json["sec_identity_confirmed"] is True
 
 
 def test_daily_fallback_does_not_pair_price_with_unrelated_metadata_time():
@@ -628,10 +412,10 @@ def test_dated_provider_contract_fixtures_preserve_close_without_double_adjustme
     with session() as s, s.begin():
         s.get(Security, security_id).symbol = symbol
     start, end = payload["records"][0]["date"], payload["records"][-1]["date"]
-    commit_prices(security_id, {**payload, "contract": contract}, start=start, end=end)
+    commit_prices(security_id, payload, start=start, end=end)
     with session() as s:
-        bars, dataset = price_bars(s, security_id)
-        assert dataset is not None and dataset.basis == "SPLIT_ONLY"
+        bars, cache = price_bars(s, security_id)
+        assert cache is not None
     for received, original in zip(bars, payload["records"], strict=True):
         assert abs(Decimal(received["close"]) - Decimal(original["close"])) < Decimal(
             "0.000000000001"
@@ -697,18 +481,6 @@ def test_adapter_preserves_explicit_bounds_and_does_not_enumerate_lazy_metadata(
     assert "tradingPeriods" not in result["metadata"]
 
 
-def test_unexplained_50_percent_revision_keeps_previous_qualified_close(security_id):
-    old = initial_prices(security_id)
-    result, _ = commit_prices(security_id, response([bar("2023-01-05", "150")]), start="2023-01-05")
-    assert published(security_id).id == old
-    assert result["invalid_dates"] == ["2023-01-05"]
-    with session() as s:
-        observation = s.scalar(select(MarketBar).where(MarketBar.close == Decimal(150)))
-        assert observation.status == "NEEDS_REVIEW"
-        bars, _ = price_bars(s, security_id)
-        assert Decimal(bars[-1]["close"]) == 100
-
-
 def research_lease(kind="interval"):
     from iirp.contracts import AnalysisInput
     from iirp.lifecycle import create_analysis, plan_tick
@@ -742,7 +514,7 @@ def publish_research(lease, payload):
     )
 
 
-def test_research_publish_records_exact_price_and_calculation_metadata(security_id):
+def test_research_publish_records_cache_and_calculation_metadata(security_id):
     from iirp.business_models import AnalysisResult
     from iirp.business_worker import prepare_target
 
@@ -760,13 +532,13 @@ def test_research_publish_records_exact_price_and_calculation_metadata(security_
         assert published_result.input_key == lease.target["input_key"]
         assert published_result.inputs["dataset_id"] == dataset_id
         metadata = published_result.data["metadata"]
-        assert metadata["dataset_id"] == metadata["data_version"] == dataset_id
+        assert metadata["dataset_id"] == dataset_id and metadata["price_fetched_at"]
         assert metadata["source"] == "synthetic"
         assert metadata["price_basis"] == "SPLIT_ONLY"
         assert metadata["calculation_version"] == "research-v10-time-source-attribution"
 
 
-def test_stale_research_input_is_not_published_after_new_prices(security_id):
+def test_result_from_a_replaced_cache_is_not_published(security_id):
     from iirp.business_models import AnalysisResult
     from iirp.business_worker import prepare_target
 
@@ -775,8 +547,8 @@ def test_stale_research_input_is_not_published_after_new_prices(security_id):
     target = prepare_target(lease)
     result = compute_research(target["params"], target["bars"], today=date(2024, 2, 1))
     commit_prices(
-        security_id, response([bar("2023-01-04", "110")]), start="2023-01-04", end="2023-01-04",
-        batch_id=request["batch_id"],
+        security_id, response([bar("2023-01-04", "110")]), start="2022-10-01",
+        end=str(date.today()), batch_id=request["batch_id"],
     )
     assert publish_research(lease, result)
     with session() as s:

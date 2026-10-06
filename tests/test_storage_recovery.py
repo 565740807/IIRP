@@ -37,31 +37,11 @@ def test_verified_restore_uses_only_test_namespace(isolated):
     assert report["verification_copy_discarded"] is True
 
 
-def test_scheduled_backup_defaults_to_non_destructive_retention(isolated, monkeypatch):
+def test_each_backup_keeps_only_the_two_newest(isolated):
     backup = isolated.backup
-    previous = backup.backup()
-    monkeypatch.setattr(backup, "_prune_backups", lambda: pytest.fail("default backup must not prune history"))
-    result = backup.managed_backup()
-    assert previous.is_dir() and (previous / "manifest.json").is_file()
-    assert result["retention"]["removed"] == []
-
-
-def test_retention_choice_is_frozen_in_new_maintenance_job(isolated):
-    import uuid
-
-    from iirp.business_models import CollectionStrategy
-    from iirp.maintenance import _maintenance_batch
-    from iirp.models import Job
-    from sqlalchemy import select
-
-    with session() as s, s.begin():
-        policy = s.get(CollectionStrategy, "backup")
-        policy.options = {}
-        _maintenance_batch(s, "backup", "default-" + uuid.uuid4().hex)
-        default_job = s.scalar(select(Job).where(Job.kind == "maintenance_backup"))
-        assert default_job.target["prune_verified_backups"] is False
-        policy.options = {"prune_verified_backups": True}
-        _maintenance_batch(s, "backup", "explicit-" + uuid.uuid4().hex)
-        s.flush()
-        jobs = list(s.scalars(select(Job).where(Job.kind == "maintenance_backup")))
-        assert sorted(job.target["prune_verified_backups"] for job in jobs) == [False, True]
+    first = backup.backup()
+    second = backup.backup()
+    third = backup.backup()
+    assert not first.exists()
+    assert second.is_dir() and third.is_dir()
+    assert [entry[1] for entry in backup.completed_backups()] == [third, second]

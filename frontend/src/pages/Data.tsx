@@ -229,8 +229,6 @@ function CoveragePanel() {
   const [start, setStart] = useState("");
   const [end, setEnd] = useState("");
   const [scope, setScope] = useState("");
-  const notice = useNotice();
-  const invalidate = useInvalidate();
   const q = useQuery({
     queryKey: ["coverage", selected, scope],
     queryFn: () =>
@@ -238,16 +236,10 @@ function CoveragePanel() {
         `/coverage?ticker=${encodeURIComponent(selected)}${scope}`,
       ),
   });
-  const maintain = useMutation({
-    mutationFn: ({ id, enabled }: { id: string; enabled: boolean }) =>
-      api(`/securities/${id}/maintenance?enabled=${enabled}`, "PATCH"),
-    onSuccess: invalidate,
-    onError: (e) => notice({ text: e.message, error: true }),
-  });
   return (
     <section className="panel" id="coverage">
       <div className="section-heading">
-        <h2>覆盖与长期维护</h2>
+        <h2>行情缓存覆盖</h2>
       </div>
       <form
         className="analysis-form"
@@ -262,7 +254,7 @@ function CoveragePanel() {
           <input
             value={ticker}
             onChange={(e) => setTicker(e.target.value)}
-            placeholder="留空查看已维护对象"
+            placeholder="留空查看全部证券"
           />
         </label>
         <label>
@@ -288,8 +280,8 @@ function CoveragePanel() {
         <Loading />
       ) : !q.data?.items.length ? (
         <EmptyState
-          title="尚无正式覆盖记录"
-          description="完成获取与核验后，会按实际交易日和字段显示覆盖。"
+          title="尚无行情缓存"
+          description="行情为 24 小时缓存，分析或交易详情需要时自动获取。"
         />
       ) : (
         <div className="scope-list">
@@ -304,26 +296,6 @@ function CoveragePanel() {
                     )}
                   </strong>
                   <span>{sourceLabel(cov.status)}</span>
-                  {item.security_id && (
-                    <Button
-                      variant="ghost"
-                      busy={maintain.isPending}
-                      onClick={() =>
-                        maintain.mutate({
-                          id: item.security_id,
-                          enabled: !(
-                            item.maintain ??
-                            item.maintained ??
-                            item.active
-                          ),
-                        })
-                      }
-                    >
-                      {(item.maintain ?? item.maintained ?? item.active)
-                        ? "停止长期维护"
-                        : "加入长期维护"}
-                    </Button>
-                  )}
                 </div>
                 <p>
                   {item.price_range && <>行情目标：{facts(item.price_range).target_start_date} → {facts(item.price_range).target_end_date}<br /></>}
@@ -331,7 +303,7 @@ function CoveragePanel() {
                   {display(cov.valid_sessions)} / 应有{" "}
                   {display(cov.expected_sessions)} 个交易日
                 </p>
-                <p>已取得有效行情：{display(cov.first_valid_date)} → {display(cov.last_valid_date)}；数据集生成时间：<Timestamp value={cov.as_of} /></p>
+                <p>已取得有效行情：{display(cov.first_valid_date)} → {display(cov.last_valid_date)}；获取于 <Timestamp value={cov.as_of} />，有效至 <Timestamp value={cov.expires_at} /></p>
                 <p>{display(cov.reasons ?? cov.message)}</p>
                 {cov.missing_dates?.length > 0 && (
                   <details>
@@ -355,10 +327,9 @@ function CoveragePanel() {
   );
 }
 function ImportPanel() {
-  const [kind, setKind] = useState<ImportInput["kind"]>("market");
+  const kind: ImportInput["kind"] = "earnings";
   const [ticker, setTicker] = useState("AAPL");
   const [source, setSource] = useState("");
-  const [basis, setBasis] = useState<ImportInput["price_basis"]>("UNVERIFIED");
   const [csv, setCsv] = useState("");
   const [preview, setPreview] = useState<ImportOutput | null>(null);
   const [error, setError] = useState<Error | null>(null);
@@ -387,8 +358,8 @@ function ImportPanel() {
   return (
     <section className="panel" id="imports">
       <div className="section-heading">
-        <h2>CSV 导入</h2>
-        <span>先预览差异，再确认入库</span>
+        <h2>财报 CSV 导入</h2>
+        <span>先预览差异，再确认入库；行情为 24 小时缓存，不接受 CSV 行情</span>
       </div>
       <form
         className="analysis-form"
@@ -399,23 +370,9 @@ function ImportPanel() {
             ticker,
             csv,
             source_url: source,
-            price_basis: basis,
           });
         }}
       >
-        <label>
-          导入类型
-          <select
-            value={kind}
-            onChange={(e) => {
-              setKind(e.target.value as ImportInput["kind"]);
-              change();
-            }}
-          >
-            <option value="market">历史行情</option>
-            <option value="earnings">财报事件</option>
-          </select>
-        </label>
         <label>
           证券代码
           <input
@@ -440,21 +397,6 @@ function ImportPanel() {
             }}
           />
         </label>
-        {kind === "market" && (
-          <label>
-            价格口径
-            <select
-              value={basis}
-              onChange={(e) => {
-                setBasis(e.target.value as ImportInput["price_basis"]);
-                change();
-              }}
-            >
-              <option value="UNVERIFIED">未核验（保留来源观察）</option>
-              <option value="SPLIT_ONLY">仅拆股调整</option>
-            </select>
-          </label>
-        )}
         <label className="csv-field">
           CSV 文件（最多 5 MB）
           <input
@@ -482,11 +424,7 @@ function ImportPanel() {
               setCsv(e.target.value);
               change();
             }}
-            placeholder={
-              kind === "market"
-                ? "date,open,high,low,close,volume\n2026-08-03,100,102,99,101,100000"
-                : "fiscal_year,fiscal_quarter,announced_date,announced_at,time_precision,source_url"
-            }
+            placeholder="fiscal_year,fiscal_quarter,announced_date,announced_at,time_precision,source_url"
           />
         </label>
         <Button type="submit" busy={mutation.isPending}>

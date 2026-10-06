@@ -21,14 +21,12 @@ from iirp import lifecycle
 from iirp.analytics.calendar import last_completed_session, sessions
 from iirp.business_models import (
     AnalysisRequest,
-    AnalysisResult,
     Batch,
     BatchJob,
     CollectionStrategy,
-    DatasetBar,
     JobDependency,
-    MarketBar,
-    PriceDataset,
+    PriceCache,
+    PriceCacheBar,
     RequestScope,
     Security,
     SourceObservation,
@@ -129,59 +127,73 @@ def seed_security(symbol="AAPL"):
         return row.id
 
 
-def seed_prices(security_id, first, last, dataset_id=None):
-    source = save_object(b"Synthetic lifecycle integration prices; not market evidence")
+WIDE_START = date(2000, 1, 3)
+
+
+def seed_prices(security_id, first, last, dataset_id=None, close=Decimal(100), *, wide=False):
+    """Synthetic 24-hour price cache with bars for [first, last]; extends an existing one.
+
+    ``wide`` makes the cache answer any need since 2000 (other days are gaps),
+    as a real fetch through today would.
+    """
+    completed = last_completed_session()
+    start, through = (WIDE_START, completed) if wide else (first, min(last, completed))
     with session() as s, s.begin():
-        if s.get(SourceObject, source["sha256"]) is None:
-            s.add(SourceObject(**source))
-            s.flush()
-        dataset = s.get(PriceDataset, dataset_id) if dataset_id else None
-        if dataset is None:
-            dataset = PriceDataset(
-                security_id=security_id,
-                basis="SPLIT_ONLY",
-                basis_key="synthetic",
-                status="PUBLISHED",
-                manifest={"synthetic": True},
-                published_at=now(),
+        cache = s.get(PriceCache, dataset_id) if dataset_id else s.scalar(
+            select(PriceCache).where(PriceCache.security_id == security_id))
+        if cache is None:
+            stamp = now()
+            cache = PriceCache(
+                security_id=security_id, start_date=start, end_date=max(last, through),
+                complete_through=through, provider="synthetic",
+                details={"synthetic": True}, fetched_at=stamp,
+                expires_at=stamp + timedelta(hours=24),
             )
-            s.add(dataset)
+            s.add(cache)
             s.flush()
+        cache.start_date, cache.end_date = min(cache.start_date, start), max(cache.end_date, last)
+        cache.complete_through = max(cache.complete_through, through)
         existing = set(
-            s.scalars(select(DatasetBar.session_date).where(DatasetBar.dataset_id == dataset.id))
+            s.scalars(select(PriceCacheBar.session_date).where(PriceCacheBar.cache_id == cache.id))
         )
-        dates = [day for day in sessions(first, last) if day not in existing]
         rows = [
             {
-                "id": str(uuid.uuid4()),
-                "security_id": security_id,
+                "cache_id": cache.id,
                 "session_date": day,
-                "provider": "synthetic",
-                "source_hash": source["sha256"],
-                "record_hash": day.isoformat(),
-                "open": Decimal(100),
-                "high": Decimal(100),
-                "low": Decimal(100),
-                "close": Decimal(100),
+                "open": close,
+                "high": close,
+                "low": close,
+                "close": close,
                 "volume": Decimal(1),
                 "status": "VALID",
             }
-            for day in dates
+            for day in sessions(first, last)
+            if day not in existing
         ]
         if rows:
-            s.execute(insert(MarketBar), rows)
-            s.execute(
-                insert(DatasetBar),
-                [
-                    {
-                        "dataset_id": dataset.id,
-                        "session_date": row["session_date"],
-                        "bar_id": row["id"],
-                    }
-                    for row in rows
-                ],
-            )
-        return dataset.id
+            s.execute(insert(PriceCacheBar), rows)
+        return cache.id
+
+
+def refetch_prices(security_id, first, last, close=Decimal(100), *, wide=True):
+    """Simulate a new fetch: the old cache is replaced by a new one (new id)."""
+    with session() as s, s.begin():
+        old = s.scalar(select(PriceCache).where(PriceCache.security_id == security_id))
+        kept = [] if old is None else [
+            (row.session_date, row.close) for row in s.scalars(
+                select(PriceCacheBar).where(PriceCacheBar.cache_id == old.id))]
+        if old is not None:
+            s.delete(old)
+    identifier = seed_prices(security_id, first, last, close=close, wide=wide)
+    with session() as s, s.begin():
+        present = set(s.scalars(select(PriceCacheBar.session_date).where(
+            PriceCacheBar.cache_id == identifier)))
+        rows = [{"cache_id": identifier, "session_date": day, "open": value, "high": value,
+                 "low": value, "close": value, "volume": Decimal(1), "status": "VALID"}
+                for day, value in kept if day not in present]
+        if rows:
+            s.execute(insert(PriceCacheBar), rows)
+    return identifier
 
 
 def job_ids(batch_id):
@@ -506,70 +518,6 @@ def test_control_job_lock_retry_rolls_back_partial_batch_and_link_changes(monkey
         assert s.get(RequestScope, scope_id).checkpoint == {"ready_events": 3}
 
 
-def test_late_result_for_old_prices_cannot_replace_new_verified_result():
-    security_id = seed_security()
-    old_dataset_id = seed_prices(security_id, date(2023, 1, 3), date(2023, 1, 10))
-    params = AnalysisInput(
-        request_id=str(uuid.uuid4()),
-        tickers=["AAPL"],
-        kind="monthly",
-        historical_years=1,
-        current_year=2024,
-    ).model_dump(mode="json")
-    created = lifecycle.create_analysis(params)
-    lifecycle.plan_tick()
-    with session() as s, s.begin():
-        old_job = s.scalar(
-            select(Job).where(
-                Job.kind == "research_compute", Job.target["dataset_id"].astext == old_dataset_id
-            )
-        )
-        old_key = old_job.target["input_key"]
-        newer = PriceDataset(
-            security_id=security_id,
-            basis="SPLIT_ONLY",
-            basis_key="synthetic-new-version",
-            status="PUBLISHED",
-            manifest={"synthetic": True},
-            published_at=now() + timedelta(seconds=1),
-        )
-        s.add(newer)
-        s.flush()
-        new_dataset_id = newer.id
-    lifecycle.plan_tick()
-    with session() as s, s.begin():
-        new_job = s.scalar(
-            select(Job).where(
-                Job.kind == "research_compute", Job.target["dataset_id"].astext == new_dataset_id
-            )
-        )
-        new_key = new_job.target["input_key"]
-        request = s.get(AnalysisRequest, created["id"])
-        s.add_all(
-            [
-                AnalysisResult(
-                    analysis_id=request.id,
-                    security_id=security_id,
-                    input_key=new_key,
-                    inputs={"dataset_id": new_dataset_id},
-                    data={"marker": "new"},
-                    created_at=now(),
-                ),
-                AnalysisResult(
-                    analysis_id=request.id,
-                    security_id=security_id,
-                    input_key=old_key,
-                    inputs={"dataset_id": old_dataset_id},
-                    data={"marker": "old"},
-                    created_at=now() + timedelta(seconds=5),
-                ),
-            ]
-        )
-    result = lifecycle.get_analysis(created["id"])
-    assert result["results"][0]["input_version"] == new_key
-    assert result["results"][0]["data"]["marker"] == "new"
-
-
 def test_two_manual_batches_share_work_and_pause_keeps_the_other_running():
     seed_security()
     first = lifecycle.create_collection(collection(purpose="monthly"))["batch_id"]
@@ -838,7 +786,7 @@ def test_business_writer_error_rolls_back_source_fact_and_progress():
         assert s.get(Job, lease.id).checkpoint == {}
 
 
-def test_8_to_12_to_3_reuses_complete_dates_and_preserves_long_history():
+def test_8_to_12_to_3_reuses_the_cache_and_fetches_one_wider_range():
     security_id = seed_security()
     first = lifecycle.create_collection(
         collection(start_date=None, end_date=None, historical_years=8)
@@ -846,7 +794,7 @@ def test_8_to_12_to_3_reuses_complete_dates_and_preserves_long_history():
     with session() as s:
         scope = s.scalar(select(RequestScope).where(RequestScope.batch_id == first))
         first_start, last = scope.start_date, scope.end_date
-    dataset_id = seed_prices(security_id, first_start, last)
+    seed_prices(security_id, first_start, last)
     lifecycle.plan_tick()
     assert batch(first).status == "SUCCEEDED"
     assert job_ids(first) == []
@@ -857,53 +805,29 @@ def test_8_to_12_to_3_reuses_complete_dates_and_preserves_long_history():
     with session() as s:
         expansion = s.scalar(select(RequestScope).where(RequestScope.batch_id == expanded))
         jobs = [s.get(Job, identifier) for identifier in job_ids(expanded)]
-        assert jobs and all(
-            date.fromisoformat(job.target["end_date"]) < first_start for job in jobs
-        )
-        expanded_start = expansion.start_date
-    seed_prices(security_id, expanded_start, last, dataset_id)
-    with session() as s, s.begin():
-        for identifier in job_ids(expanded):
-            s.get(Job, identifier).status = "SUCCEEDED"
-    lifecycle.plan_tick()
-    with session() as s:
-        saved_count = s.scalar(select(func.count()).select_from(MarketBar))
+        # One request for the whole wider range plus a month of buffer.
+        assert [job.kind for job in jobs] == ["market_history"]
+        assert date.fromisoformat(jobs[0].target["start_date"]) == expansion.start_date - timedelta(days=31)
+        assert date.fromisoformat(jobs[0].target["end_date"]) >= last
     shrunk = lifecycle.create_collection(
         collection(start_date=None, end_date=None, historical_years=3)
     )["batch_id"]
     lifecycle.plan_tick()
-    assert batch(expanded).status == batch(shrunk).status == "SUCCEEDED"
+    assert batch(shrunk).status == "SUCCEEDED"
     assert job_ids(shrunk) == []
-    with session() as s:
-        assert s.scalar(select(func.count()).select_from(MarketBar)) == saved_count
-        assert s.scalar(select(func.min(MarketBar.session_date))) <= expanded_start + timedelta(
-            days=4
-        )
 
 
-def test_sparse_gaps_do_not_refetch_the_qualified_year_between_them():
+def test_gaps_inside_a_covering_cache_are_not_fetched_again():
     security_id = seed_security()
-    dataset_id = seed_prices(security_id, date(2023, 1, 3), date(2023, 12, 29))
+    cache_id = seed_prices(security_id, date(2023, 1, 3), date(2023, 12, 29))
     with session() as s, s.begin():
         for day in (date(2023, 1, 3), date(2023, 12, 29)):
-            s.delete(s.get(DatasetBar, (dataset_id, day)))
+            s.delete(s.get(PriceCacheBar, (cache_id, day)))
     identifier = lifecycle.create_collection(
         collection(start_date="2023-01-03", end_date="2023-12-29", intent="fill_missing")
     )["batch_id"]
     lifecycle.plan_tick()
-    with session() as s:
-        jobs = [s.get(Job, job_id) for job_id in job_ids(identifier)]
-    requested = {
-        day
-        for job in jobs
-        for day in sessions(
-            date.fromisoformat(job.target["start_date"]),
-            date.fromisoformat(job.target["end_date"]),
-        )
-    }
-    assert {date(2023, 1, 3), date(2023, 12, 29)} <= requested
-    # Permit a small validation overlap, never a year of already-vetted data.
-    assert len(requested) <= 12
+    assert job_ids(identifier) == []
 
 
 def test_recovery_preserves_pause_intent_and_restarts_only_remaining_work():
@@ -925,17 +849,14 @@ def test_recovery_preserves_pause_intent_and_restarts_only_remaining_work():
     assert not fenced(lease, checkpoint={"obsolete": True})
 
 
-def test_paused_history_does_not_consume_all_executable_capacity(monkeypatch):
-    # Force many bounded units only in this capacity fixture. Product requests
-    # no longer split at every year, which has its own performance regression.
-    monkeypatch.setattr("iirp.market_ranges.MAX_REQUEST_DAYS", 366)
+def test_paused_history_does_not_block_another_security():
     seed_security("AAPL")
     seed_security("MSFT")
     first = lifecycle.create_collection(collection(start_date="1990-01-01", end_date="2022-12-31"))[
         "batch_id"
     ]
     lifecycle.plan_tick()
-    assert len(job_ids(first)) == 32
+    assert len(job_ids(first)) == 1
     lifecycle.control_batch(first, "pause")
     second = lifecycle.create_collection(collection(tickers=["MSFT"]))["batch_id"]
     lifecycle.plan_tick()
@@ -1013,7 +934,7 @@ def test_current_schema_matches_head_and_upgrade_preserves_sample_only(lifecycle
     with session() as s:
         assert s.get(Coverage, ("yfinance", "AAPL")).status == "SAMPLE_ONLY"
         assert s.scalar(text("SELECT version_num FROM alembic_version")) == head
-        assert s.scalar(select(func.count()).select_from(MarketBar)) == 0
+        assert s.scalar(select(func.count()).select_from(PriceCache)) == 0
     lifecycle.create_collection(collection())
     with session() as s:
         assert {

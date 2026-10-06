@@ -1631,7 +1631,7 @@ function EventsWorkspace() {
                     )}
                   </p>
                   <p>
-                    <strong>{resultId ? "固定快照" : scopeConflict ? "已有结果 · 更新需选择范围" : "跟随最新"}</strong> ·
+                    {scopeConflict && <><strong>已有结果 · 更新需选择范围</strong> · </>}
                     研究目标截止{" "}
                     {display(facts(analysis.data.params).cutoff_date)}
                     {freshness.latest_completed_session && (
@@ -1642,13 +1642,9 @@ function EventsWorkspace() {
                     )}
                   </p>
                   <p className="muted">
-                    {resultId
-                      ? "此链接与导出固定到选定结果；更新会生成新的分析，保留本快照。"
-                      : scopeConflict
-                        ? "当前保存条件不能直接刷新；请先选择更新范围，原有结果不会改变。"
-                        : "先显示已有结果，后台只补所需缺口；事件事实仍固定于所选资料版本，修订需单独核对。"}
-                    {analysis.data.carried_from &&
-                      " 当前先显示上一版可读结果，新版仍在准备。"}
+                    {scopeConflict
+                      ? "当前保存条件不能直接刷新；请先选择更新范围，原有结果不会改变。"
+                      : "行情为 24 小时缓存：期间重复打开不再下载，过期后打开会自动重新获取；事件事实仍固定于所选资料版本。"}
                   </p>
                   {scopeConflict && (
                     <div className="notice notice-warning" role="status">
@@ -1664,33 +1660,27 @@ function EventsWorkspace() {
                   )}
                   <ResearchVersionActions busy={refreshing}
                     disabled={conditionsDirty || !!activePendingStart || !!scopeConflict}
-                    refreshLabel={resultId ? "以最新数据更新" : "检查最新数据"}
-                    refresh={() => { void refresher.current?.ensure(true); }}
-                    freezeLabel="固定当前结果"
-                    freeze={!resultId && analysis.data.result_id ? () => {
-                      const value = content.data;
-                      if (!value?.result_id) return;
-                      client.setQueryData(researchKeys.events(analysisId, value.result_id), value);
-                      updateParams({ result: value.result_id }, true);
-                    } : undefined}>
+                    refreshLabel="重新获取"
+                    refresh={() => { void refresher.current?.ensure(true); }}>
                     <span role="status" aria-live="polite">
                       {scopeConflict
                         ? "需先选择更新范围，已有结果仍可读。"
                         : refreshing
-                        ? "正在检查所需数据，已有结果仍可读…"
+                        ? "正在重新获取，已有结果仍可读…"
                         : freshness.refresh_checked_at
                           ? `最近检查 ${formatTime(freshness.refresh_checked_at, "America/New_York")}`
                           : "尚无本次更新检查记录"}
                     </span>
                   </ResearchVersionActions>
                   <p className="muted">
-                    数据核验：
-                    {freshness.data_verified_at
-                      ? formatTime(
-                          freshness.data_verified_at,
-                          "America/New_York",
-                        )
-                      : "旧版未记录 / 未知"}{" "}
+                    行情获取于{" "}
+                    {freshness.price_fetched_at
+                      ? formatTime(freshness.price_fetched_at, "America/New_York")
+                      : "—"}
+                    ，有效至{" "}
+                    {freshness.price_expires_at
+                      ? formatTime(freshness.price_expires_at, "America/New_York")
+                      : "—"}{" "}
                     · 盘中报价时间见顶部，不能替代已完成日线。
                   </p>
                   <ErrorNotice
@@ -1734,7 +1724,7 @@ function EventsWorkspace() {
               {analysis.data.result_id && (
                 <div className="analysis-form">
                   <label>
-                    冻结结果版本
+                    结果（24 小时内有效）
                     <select
                       value={resultId}
                       onChange={(e) =>

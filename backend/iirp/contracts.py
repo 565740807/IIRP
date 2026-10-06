@@ -111,8 +111,9 @@ class CoverageView(BaseModel):
     missing_dates: list[str] = Field(default_factory=list)
     status: str = "NOT_FETCHED"
     basis: str = "UNVERIFIED_PROVIDER_RECORDS"
-    dataset_id: str | None = None
+    cache_id: str | None = None
     as_of: str | None = None
+    expires_at: str | None = None
     first_valid_date: str | None = None
     last_valid_date: str | None = None
     reasons: list[str] = Field(default_factory=list)
@@ -203,11 +204,12 @@ class AnalysisItem(BaseModel):
     result_id: str
     input_version: str
     created_at: datetime | None = None
+    # When the prices behind this result were fetched; it expires with them.
     data_published_at: datetime | None = None
+    expires_at: datetime | None = None
     is_current: bool = False
     coverage_basis: str = "unknown"
     result_cutoff: str | None = None
-    carried_from: str | None = None
     coverage: ResearchCoverage | None = None
     data: ResearchResult
 
@@ -217,7 +219,9 @@ class ResearchFreshness(BaseModel):
     latest_id: str
     latest_completed_session: str
     research_cutoff: str | None = None
-    data_verified_at: datetime | None = None
+    price_fetched_at: datetime | None = None
+    price_expires_at: datetime | None = None
+    expired: bool = False
     refresh_checked_at: datetime | None = None
     note: str
 
@@ -294,11 +298,11 @@ class PreferenceOutput(BaseModel):
 
 
 class ImportInput(Strict):
-    kind: Literal["market", "earnings"]
+    # Prices are a 24-hour provider cache (D14); only earnings CSV is imported.
+    kind: Literal["earnings"]
     ticker: str = Field(min_length=1, max_length=20)
     csv: str = Field(min_length=1, max_length=5_000_000)
     source_url: str = Field(min_length=1, max_length=2000)
-    price_basis: Literal["SPLIT_ONLY", "UNVERIFIED"] = "UNVERIFIED"
 
 
 class ImportOutput(BaseModel):

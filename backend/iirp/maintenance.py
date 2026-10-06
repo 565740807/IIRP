@@ -12,22 +12,18 @@ import uuid
 from contextlib import contextmanager
 from datetime import datetime, timedelta
 
-from sqlalchemy import delete, func, select, text
+from sqlalchemy import delete, select, text
 from sqlalchemy.exc import OperationalError
 
-from iirp.analytics.calendar import ET, next_session, previous_session, session_bounds, sessions
+from iirp.analytics.calendar import ET, sessions
 from iirp.business_models import (
-    AnalysisResult,
     Batch,
     BatchJob,
     CollectionStrategy,
-    DatasetBar,
     FeedSession,
     MaintenanceRun,
-    PriceDataset,
     RequestReceipt,
     RequestScope,
-    Security,
 )
 from iirp.config import ROOT, settings
 from iirp.db import session
@@ -37,7 +33,6 @@ from iirp.providers import sec_configured
 
 LOG_BYTES = 5 * 1024**2
 LOG_COPIES = 5
-CACHE_BYTES = 512 * 1024**2
 MAINTENANCE_TIMEOUT = 3600
 BACKUP_MAX_SECONDS = 6 * 3600
 BACKUP_STALL_SECONDS = 15 * 60
@@ -162,65 +157,14 @@ def _cache_bytes(s):
     return s.scalar(text(RESULT_BYTES_SQL))
 
 
-def _cleanup(s, *, cursor="", remaining=None):
-    """Account for published research without evicting reproducible versions.
-
-    A copied frozen URL is not necessarily registered as an export. Therefore
-    age, access time and a finite export lease cannot prove an old version is
-    disposable. Preserve every published result and report capacity pressure.
-    """
-    lock_analysis_references(s)
-    if remaining is None:
-        remaining = _cache_bytes(s)
-    candidates = list(s.scalars(
-        select(AnalysisResult.id).where(AnalysisResult.id > cursor)
-        .order_by(AnalysisResult.id).limit(CLEANUP_PAGE)
-    ))
-    return {
-        "analysis_results_removed": 0,
-        "analysis_bytes_reclaimed": 0,
-        "analysis_bytes_remaining": remaining,
-        "analysis_protected": len(candidates),
-        "cursor": candidates[-1] if candidates else cursor,
-        "done": len(candidates) < CLEANUP_PAGE,
-    }
-
-
 def cleanup(job=None):
+    from iirp.price_cache import expire_price_cache
     from iirp.queue import fenced
 
     with maintenance_lock():
-        details = {
-            "analysis_results_removed": 0,
-            "analysis_bytes_reclaimed": 0,
-            "analysis_protected": 0,
-            "reading_sessions_removed": 0,
-            "research_history_preserved": True,
-            "cache_target_bytes": CACHE_BYTES,
-        }
-        with session() as s:
-            remaining = _cache_bytes(s)
-        cursor = ""
-        while True:
-            page = {}
-
-            def apply(s, _current=None):
-                page.update(_cleanup(s, cursor=cursor, remaining=remaining))
-
-            if job is None:
-                with session() as s, s.begin():
-                    apply(s)
-            elif not fenced(job, acknowledge_control=False, business_write=apply):
-                return None
-            for key in (
-                "analysis_results_removed",
-                "analysis_bytes_reclaimed",
-                "analysis_protected",
-            ):
-                details[key] += page[key]
-            remaining, cursor = page["analysis_bytes_remaining"], page["cursor"]
-            if page["done"]:
-                break
+        # Research results live as long as their price caches (D14); the worker
+        # also runs this every ten minutes.
+        details = {"reading_sessions_removed": 0, **expire_price_cache()}
         while True:
             expired_count = 0
 
@@ -257,9 +201,6 @@ def cleanup(job=None):
             return None
         with session() as s:
             details["analysis_bytes_remaining"] = _cache_bytes(s)
-        details["cache_target_exceeded_by_protected_results"] = (
-            details["analysis_bytes_remaining"] > CACHE_BYTES
-        )
         details["logs"] = rotate_logs()
 
         def finish(s, _current=None):
@@ -289,16 +230,6 @@ def sec_poll_seconds(stamp):
     if not sessions(current.date(), current.date()) or minute < 570:
         return 120
     return 60
-
-
-def market_update_time(stamp, *, following=False):
-    """Actual close +20m, including 13:00 early closes and DST."""
-    current = stamp.astimezone(ET)
-    day = next_session(current.date())
-    candidate = session_bounds(day)[1] + timedelta(minutes=20)
-    if following and candidate <= current:
-        candidate = session_bounds(next_session(day, inclusive=False))[1] + timedelta(minutes=20)
-    return candidate
 
 
 def _has_running(s, key, kind=None):
@@ -364,8 +295,7 @@ def _maintenance_batch(s, policy, request_id):
         s,
         scope,
         "maintenance_backup" if policy == "backup" else "maintenance_clean",
-        {"round": request_id,
-         "prune_verified_backups": bool((s.get(CollectionStrategy, policy).options or {}).get("prune_verified_backups") is True)},
+        {"round": request_id},
         50,
     )
 
@@ -438,101 +368,6 @@ def _sec_schedule(s, policy, current, request_id):
     policy.options = {**policy.options, **options}
 
 
-def _market_schedule(s, policy, current, request_id):
-    from iirp.lifecycle import _create
-
-    # If enabled during the session, keep the completed prior day available but
-    # wait until today's actual close +20m for the next automatic daily update.
-    eligible = previous_session(current.date(), inclusive=True)
-    if session_bounds(eligible)[1] + timedelta(minutes=20) > current:
-        eligible = previous_session(eligible)
-    options = dict(policy.options)
-    if _has_running(s, policy.key, "earnings" if policy.key == "earnings" else "market_history"):
-        policy.next_run_at = current + timedelta(seconds=60)
-        return
-    securities = s.scalars(
-        select(Security)
-        .where((Security.maintain.is_(True)) | (Security.active_until > current))
-        .order_by(Security.symbol)
-    ).all()
-    week = current.strftime("%G-W%V")
-    weekly = policy.key == "market" and options.get("market_revision_week") != week
-    daily = options.get("market_session") != str(eligible)
-    if policy.key == "earnings" or daily or weekly:
-        for index in range(0, len(securities), 20):
-            group = securities[index : index + 20]
-            if policy.key == "earnings":
-                params = {
-                    "kind": "earnings",
-                    "historical_years": 8,
-                    "purpose": "财报候选与公告更新",
-                    "intent": "refresh",
-                }
-            else:
-                params = {
-                    "kind": "market_history",
-                    "start_date": str(eligible - timedelta(days=20)),
-                    "end_date": str(eligible),
-                    "purpose": "自动日线更新",
-                    "intent": "refresh",
-                }
-            _create(
-                s,
-                {
-                    **params,
-                    "request_id": request_id + f":{index}",
-                    "tickers": [sec.symbol for sec in group],
-                },
-                trigger="automatic",
-                policy_key=policy.key,
-            )
-        if policy.key == "market":
-            options["market_session"] = str(eligible)
-            if weekly:
-                # One frozen retained calendar year per security per week. The
-                # cursor cycles through ALL retained history, not a fixed cap.
-                cursors = dict(options.get("revision_cursor", {}))
-                for sec in securities:
-                    bounds = s.execute(
-                        select(func.min(DatasetBar.session_date), func.max(DatasetBar.session_date))
-                        .join(PriceDataset, PriceDataset.id == DatasetBar.dataset_id)
-                        .where(
-                            PriceDataset.security_id == sec.id, PriceDataset.status == "PUBLISHED"
-                        )
-                    ).one()
-                    if not bounds[0]:
-                        continue
-                    year = int(cursors.get(sec.id, bounds[0].year))
-                    if year < bounds[0].year or year > bounds[1].year:
-                        year = bounds[0].year
-                    start = max(bounds[0], datetime(year, 1, 1).date())
-                    end = min(bounds[1], datetime(year, 12, 31).date(), eligible)
-                    _create(
-                        s,
-                        {
-                            "kind": "market_history",
-                            "start_date": str(start),
-                            "end_date": str(end),
-                            "purpose": "已保留价格年度片段周度修订复核",
-                            "intent": "refresh",
-                            "refresh_all": True,
-                            "request_id": request_id + ":revision:" + sec.id,
-                            "tickers": [sec.symbol],
-                        },
-                        trigger="automatic",
-                        policy_key="market",
-                    )
-                    cursors[sec.id] = year + 1 if year < bounds[1].year else bounds[0].year
-                options["revision_cursor"] = cursors
-                options["market_revision_week"] = week
-    policy.options = options
-    policy.next_run_at = (
-        market_update_time(current, following=True)
-        if policy.key == "market"
-        else current + timedelta(days=1)
-    )
-
-
 def schedule_tick():
     from iirp.freshness import ensure_fresh_in_session
     from iirp.lifecycle import defaults
@@ -555,7 +390,9 @@ def schedule_tick():
             if policy.key == "sec":
                 _sec_schedule(s, policy, current, request_id)
             elif policy.key in ("market", "earnings"):
-                _market_schedule(s, policy, current, request_id)
+                # Prices are a 24-hour cache fetched on demand (D14); home quotes
+                # refresh while shown. Nothing is scheduled for these keys.
+                policy.next_run_at = None
             elif policy.key in ("backup", "maintenance"):
                 if not _has_running(s, policy.key):
                     _maintenance_batch(s, policy.key, request_id)
@@ -664,7 +501,6 @@ def execute_maintenance(job, stopping=lambda: False):
             sys.executable,
             str(ROOT / "scripts/backup.py"),
             "managed",
-            *(["--prune-verified-backups"] if job.target.get("prune_verified_backups") is True else []),
             "--job",
             json.dumps(descriptor),
             "--operation",

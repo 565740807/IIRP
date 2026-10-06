@@ -30,13 +30,12 @@ from iirp.business_models import (
     ExportManifest,
     FeedSession,
     MaintenanceRun,
-    PriceDataset,
     RequestScope,
     Security,
 )
 from iirp.config import ROOT, settings
 from iirp.db import engine, session
-from iirp.lifecycle import defaults, research_input_key
+from iirp.lifecycle import defaults
 from iirp.models import Job, Policy, SourceObject, now
 from iirp.queue import claim, control, fenced
 from iirp.storage import save_object
@@ -469,45 +468,18 @@ def synthetic_backup(root, stamp, *, verified=False, corrupt=False, name=None):
     return directory
 
 
-def test_retention_daily_weekly_pin_and_corruption(isolated):
+def test_retention_keeps_only_the_two_newest_complete_backups(isolated):
     backup = isolated.backup
     root = isolated.runtime / "backups"
     stamp = now() - timedelta(hours=1)
-    paths = [synthetic_backup(root, stamp - timedelta(days=i), verified=i == 40) for i in range(45)]
-    same_day = synthetic_backup(root, stamp - timedelta(minutes=20), name="duplicate-day")
-    damaged = synthetic_backup(root, stamp - timedelta(days=46), verified=True, corrupt=True)
+    paths = [synthetic_backup(root, stamp - timedelta(days=i), verified=i == 4) for i in range(6)]
     unknown = root / "unfinished-user-directory"
     unknown.mkdir()
     report = backup.prune_backups()
-    kept = set(directory for _, directory, _ in backup.completed_backups())
-    assert set(paths[:7]) <= kept
-    assert paths[40] in kept
-    assert same_day.name in report["removed"]
-    assert damaged.is_dir() and unknown.is_dir()
-    healthy = [entry for entry in backup.completed_backups() if backup.backup_integrity(entry)]
-    assert len({entry[0].isocalendar()[:2] for entry in healthy}) >= 4
-    assert report["verified_backup"] == paths[40].name
-
-
-@pytest.mark.parametrize("invalid", ["malformed", "future", "naive", "corrupt"])
-def test_retention_without_valid_verification_preserves_all(isolated, invalid):
-    backup = isolated.backup
-    root = isolated.runtime / "backups"
-    stamp = now() - timedelta(days=1)
-    paths = [synthetic_backup(root, stamp - timedelta(days=i)) for i in range(12)]
-    manifest_path = paths[0] / "manifest.json"
-    manifest = json.loads(manifest_path.read_text())
-    manifest["restore_verified_at"] = {
-        "malformed": "yes",
-        "future": (now() + timedelta(days=2)).isoformat(),
-        "naive": stamp.replace(tzinfo=None).isoformat(),
-        "corrupt": now().isoformat(),
-    }[invalid]
-    manifest_path.write_text(json.dumps(manifest))
-    if invalid == "corrupt":
-        (paths[0] / "database.dump").write_bytes(b"bad")
-    assert backup.prune_backups()["removed"] == []
-    assert all(p.exists() for p in paths)
+    assert report["kept"] == sorted([paths[0].name, paths[1].name])
+    assert sorted(report["removed"]) == sorted(path.name for path in paths[2:])
+    assert paths[0].is_dir() and paths[1].is_dir() and unknown.is_dir()
+    assert not any(path.exists() for path in paths[2:])
 
 
 @pytest.mark.parametrize("mutation", ["expired", "token", "version", "pause", "cancel"])
@@ -543,7 +515,7 @@ def test_stale_child_cannot_publish_or_prune(isolated, mutation):
     assert all(p.exists() for p in paths)
 
 
-def seed_results(status="SUCCEEDED", count=4, *, current_key=False):
+def seed_results(status="SUCCEEDED", count=4, *, expires_in=timedelta(hours=12)):
     with session() as s, s.begin():
         security = Security(symbol="SYNTH" + uuid.uuid4().hex[:5].upper(), metadata_json={})
         batch = Batch(
@@ -557,28 +529,20 @@ def seed_results(status="SUCCEEDED", count=4, *, current_key=False):
         s.add_all([security, batch])
         s.flush()
         request = AnalysisRequest(batch_id=batch.id, params={"kind": "monthly", "cutoff_date": "2026-09-22", "historical_years": 8})
-        dataset = PriceDataset(
-            security_id=security.id,
-            status="PUBLISHED",
-            basis="SPLIT_ONLY",
-            basis_key="synthetic",
-            manifest={},
-            published_at=now() - timedelta(days=45),
-        )
-        s.add_all([request, dataset])
+        s.add(request)
         s.flush()
+        s.add(RequestScope(batch_id=batch.id, symbol=security.symbol, security_id=security.id))
         ids = []
         for index in range(count):
             result = AnalysisResult(
                 analysis_id=request.id,
                 security_id=security.id,
-                input_key=research_input_key(request, dataset, [], security)
-                if current_key and index == 0
-                else uuid.uuid4().hex,
-                inputs={"dataset_id": dataset.id},
+                input_key=uuid.uuid4().hex,
+                inputs={},
                 data={"synthetic": "x" * 1000},
-                created_at=now() - timedelta(days=40, minutes=count - index),
-                accessed_at=now() - timedelta(days=40),
+                created_at=now() - timedelta(hours=1, minutes=count - index),
+                accessed_at=now() - timedelta(hours=1),
+                expires_at=now() + expires_in,
             )
             s.add(result)
             s.flush()
@@ -586,22 +550,19 @@ def seed_results(status="SUCCEEDED", count=4, *, current_key=False):
         return ids
 
 
-def test_maintenance_preserves_all_frozen_versions_even_after_export_expiry(isolated, monkeypatch):
-    ids = seed_results(current_key=True)
-    paused = seed_results("PAUSED")
-    active = seed_results("RUNNING")
+def test_maintenance_deletes_only_expired_results_and_marks_their_research(isolated):
+    live = seed_results()
+    expired = seed_results(expires_in=-timedelta(seconds=1))
     with session() as s, s.begin():
-        s.add(ExportManifest(result_ids=[ids[1]], params={}, expires_at=now() - timedelta(days=10)))
+        s.add(ExportManifest(result_ids=[live[1]], params={}, expires_at=now() - timedelta(days=10)))
         s.add(FeedSession(revision_ids=[], filters={}, expires_at=now() - timedelta(seconds=1)))
-    monkeypatch.setattr(maintenance, "CACHE_BYTES", 1)
     details = maintenance.cleanup()["data"]
     with session() as s:
-        remaining = set(s.scalars(select(AnalysisResult.id)))
-        assert remaining == set([*ids, *paused, *active])
+        assert set(s.scalars(select(AnalysisResult.id))) == set(live)
         assert s.scalar(select(func.count()).select_from(FeedSession)) == 0
-    assert details["cache_target_exceeded_by_protected_results"] is True
-    assert details["analysis_results_removed"] == 0
-    assert details["analysis_bytes_reclaimed"] == 0
+        marked = s.scalars(select(RequestScope.checkpoint)).all()
+        assert sum(bool(item.get("results_expired_at")) for item in marked) == 1
+    assert details["analysis_results"] == len(expired)
     assert details["reading_sessions_removed"] == 1
 
 
@@ -669,20 +630,16 @@ def test_export_reference_lock_serializes_cleanup_and_export(isolated):
 
 
 def test_cleanup_observes_pause_between_small_pages(isolated, monkeypatch):
-    ids = seed_results(count=80)
+    with session() as s, s.begin():
+        s.add_all(FeedSession(revision_ids=[], filters={}, expires_at=now() - timedelta(seconds=1))
+                  for _ in range(3))
     job = make_job("maintenance_clean")
-    original = maintenance._cleanup
-    pages = []
-
-    def chunk(*args, **kwargs):
-        result = original(*args, **kwargs)
-        pages.append(result)
-        return result
-
     original_fence = __import__("iirp.queue", fromlist=["fenced"]).fenced
+    pages = []
 
     def fenced(*args, **kwargs):
         ok = original_fence(*args, **kwargs)
+        pages.append(ok)
         if ok and len(pages) == 1:
             with session() as s, s.begin():
                 current = s.get(Job, job.id)
@@ -691,15 +648,10 @@ def test_cleanup_observes_pause_between_small_pages(isolated, monkeypatch):
                 current.status = "PAUSE_REQUESTED"
         return ok
 
-    monkeypatch.setattr(maintenance, "_cleanup", chunk)
     monkeypatch.setattr("iirp.queue.fenced", fenced)
     assert maintenance.cleanup(job) is None
-    assert len(pages) == 1
     with session() as s:
-        assert (
-            s.scalar(select(func.count()).select_from(AnalysisResult))
-            == len(ids)
-        )
+        assert s.scalar(select(func.count()).select_from(FeedSession)) == 2
         assert s.scalar(select(func.count()).select_from(MaintenanceRun)) == 0
         assert s.get(Job, job.id).status == "PAUSE_REQUESTED"
 
@@ -733,21 +685,6 @@ def test_sec_federal_calendar_is_not_exchange_calendar(day, work, stock):
 )
 def test_sec_time_boundaries(value, seconds):
     assert maintenance.sec_poll_seconds(datetime.fromisoformat(value)) == seconds
-
-
-@pytest.mark.parametrize(
-    "value,expected",
-    [
-        ("2026-11-27T12:00:00-05:00", "2026-11-27T13:20:00-05:00"),
-        ("2026-03-06T17:00:00-05:00", "2026-03-09T16:20:00-04:00"),
-        ("2026-10-30T17:00:00-04:00", "2026-11-02T16:20:00-05:00"),
-    ],
-)
-def test_market_early_close_and_dst(value, expected):
-    assert (
-        maintenance.market_update_time(datetime.fromisoformat(value), following=True).isoformat()
-        == expected
-    )
 
 
 def test_disabled_schedules_and_maintenance_have_no_security_side_effect(isolated, monkeypatch):

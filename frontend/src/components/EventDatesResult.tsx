@@ -261,12 +261,12 @@ export function EventDatesResult({
             <div className="button-row">
               {csvUrl && (
                 <a className="button button-secondary" href={csvUrl}>
-                  导出此冻结结果 CSV
+                  导出此结果 CSV
                 </a>
               )}
               {jsonUrl && (
                 <a className="button button-secondary" href={jsonUrl}>
-                  导出此冻结结果 JSON
+                  导出此结果 JSON
                 </a>
               )}
             </div>
@@ -698,7 +698,7 @@ export function EventDatesResult({
                 ? `${chosen.label} · 完整日期观察 D−5…D+5（旧版）`
                 : `${chosen.label} · ${windowLabel}日期观察`
             }
-            provenance={`${windowDefinition} · ${sourceLabel(meta.price_basis)} · 行情截至 ${display(meta.cutoff_date)}\n结果 ${resultId ?? "未记录"} · ${exportIdentity.factVersion}\n行情版本 ${meta.dataset_id ?? meta.data_version ?? "未记录"}\n计算 ${display(meta.calculation_version)} · 日历 ${display(meta.calendar_version)}`}
+            provenance={`${windowDefinition} · ${sourceLabel(meta.price_basis)} · 行情截至 ${display(meta.cutoff_date)}\n结果 ${resultId ?? "未记录"} · ${exportIdentity.factVersion}\n行情获取于 ${display(meta.price_fetched_at ?? meta.price_as_of)}\n计算 ${display(meta.calculation_version)} · 日历 ${display(meta.calendar_version)}`}
             exportNotes={[
               `证券 ${exportIdentity.symbol} · ${display(currentCategory)} · ${windowLabel} · ${windowDefinition}`,
               `历史目标 ${Array.isArray(facts(meta.params).years) ? facts(meta.params).years.join("、") : meta.historical_years ? `${meta.historical_years} 个完整年` : "见研究条件"} · 所选${windowLabel}有效 N=${display(facts(facts(summary?.windows)[metric]).n ?? 0)} · 当前事件 N=${filtered.filter((row) => row.group === "current").length}`,

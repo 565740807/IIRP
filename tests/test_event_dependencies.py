@@ -1,15 +1,14 @@
-"""Bounded input fingerprints retain frozen event results through unrelated updates."""
+"""Event results follow the price cache they used; a refetch is a new input."""
 
 from copy import deepcopy
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal
-from uuid import uuid4
 
 from iirp import event_service as service
-from iirp.business_models import DatasetBar, MarketBar, PriceDataset, Security
+from iirp.business_models import PriceCache, PriceCacheBar, Security
 from iirp.db import session
 from iirp.models import now
-from sqlalchemy import select
+from sqlalchemy import insert, select
 from test_event_service import analysis, plan, saved
 from test_lifecycle import (  # noqa: F401
     clean_lifecycle,
@@ -19,51 +18,46 @@ from test_lifecycle import (  # noqa: F401
 
 
 def revise_dataset(identifier, changed_day=None, *, changed_basis=False):
+    """Simulate a refetch: a new cache (new id) with the same bars, one optionally revised."""
     with session() as s, s.begin():
-        previous = s.get(PriceDataset, identifier)
-        current = PriceDataset(security_id=previous.security_id, basis=previous.basis,
-            basis_key="new-split-basis" if changed_basis else previous.basis_key,
-            status="PUBLISHED", manifest=previous.manifest, published_at=now())
+        previous = s.get(PriceCache, identifier)
+        values = {column: getattr(previous, column) for column in (
+            "security_id", "start_date", "end_date", "complete_through", "provider", "details")}
+        bars = [{column.name: getattr(bar, column.name) for column in PriceCacheBar.__table__.columns}
+                for bar in s.scalars(select(PriceCacheBar).where(PriceCacheBar.cache_id == identifier))]
+        s.delete(previous)
+        s.flush()
+        stamp = now()
+        current = PriceCache(**values, fetched_at=stamp, expires_at=stamp + timedelta(hours=24))
         s.add(current)
         s.flush()
-        for link in s.scalars(select(DatasetBar).where(DatasetBar.dataset_id == previous.id)):
-            bar = s.get(MarketBar, link.bar_id)
-            if link.session_date == changed_day:
-                revised = MarketBar(security_id=bar.security_id, session_date=bar.session_date,
-                    provider=bar.provider, source_hash=bar.source_hash, record_hash=uuid4().hex,
-                    open=Decimal(120), high=Decimal(120), low=Decimal(120), close=Decimal(120),
-                    volume=bar.volume, status="VALID")
-                s.add(revised)
-                s.flush()
-                bar = revised
-            s.add(DatasetBar(dataset_id=current.id, session_date=link.session_date, bar_id=bar.id))
+        for bar in bars:
+            bar["cache_id"] = current.id
+            if bar["session_date"] == changed_day:
+                bar.update(open=Decimal(120), high=Decimal(120), low=Decimal(120), close=Decimal(120))
+        if bars:
+            s.execute(insert(PriceCacheBar), bars)
         return current.id
 
 
-def test_outside_event_window_reuses_result_inside_revision_and_split_basis_invalidate():
+def test_same_cache_reuses_the_result_and_a_refetch_computes_again():
     collection = saved()
     security_id = service.get_set(collection["set_id"])["security"]["id"]
-    original_dataset = seed_prices(security_id, date(2024, 6, 1), date(2024, 7, 1))
+    original_dataset = seed_prices(security_id, date(2024, 6, 1), date(2024, 7, 1), wide=True)
     request = analysis(collection)
     original = service.get_analysis(request["analysis_id"])
     frozen = deepcopy(original["data"])
-    unrelated = revise_dataset(original_dataset, date(2024, 7, 1))
     plan(request["analysis_id"])
-    reused = service.get_analysis(request["analysis_id"])
-    assert reused["result_id"] == original["result_id"]
-    assert reused["data"]["metadata"]["dataset_id"] == original_dataset
+    assert service.get_analysis(request["analysis_id"])["result_id"] == original["result_id"]
     with session() as s, s.begin():
         s.get(Security, security_id).metadata_json = {"unrelated_provider_metadata": "new value"}
     plan(request["analysis_id"])
     assert service.get_analysis(request["analysis_id"])["result_id"] == original["result_id"]
-    relevant = revise_dataset(unrelated, date(2024, 6, 11))
+    revise_dataset(original_dataset, date(2024, 6, 11))
     plan(request["analysis_id"])
     changed = service.get_analysis(request["analysis_id"])
     assert changed["result_id"] != original["result_id"]
     assert changed["data"]["rows"][0]["points"] != original["data"]["rows"][0]["points"]
-    revise_dataset(relevant, changed_basis=True)
-    plan(request["analysis_id"])
-    assert service.get_analysis(request["analysis_id"])["result_id"] != changed["result_id"]
     assert service.get_analysis(request["analysis_id"], original["result_id"])["data"] == frozen
 
 
@@ -88,39 +82,6 @@ def test_event_freshness_is_live_but_export_and_research_inputs_are_fixed(monkey
     assert '"freshness"' not in exported
 
 
-def test_late_carried_result_never_hides_current_or_newer_price_version():
-    from iirp.business_models import AnalysisResult
-
-    collection = saved()
-    security_id = service.get_set(collection["set_id"])["security"]["id"]
-    original_dataset = seed_prices(security_id, date(2024, 6, 1), date(2024, 7, 1))
-    request = analysis(collection)
-    identifier = request["analysis_id"]
-    old = service.get_analysis(identifier)
-    revised_dataset = revise_dataset(original_dataset, date(2024, 6, 11))
-    plan(identifier)
-    new = service.get_analysis(identifier)
-    assert new["result_id"] != old["result_id"]
-    with session() as s, s.begin():
-        original = s.get(AnalysisResult, old["result_id"])
-        carried = AnalysisResult(analysis_id=identifier, security_id=security_id,
-            input_key="carry:" + original.id,
-            inputs={**deepcopy(original.inputs), "carried_from": original.id},
-            data=deepcopy(original.data))
-        s.add(carried)
-        s.flush()
-        carried_id = carried.id
-        # Actual persistence order: no backdating or fabricated timestamps.
-        assert carried.created_at > s.get(AnalysisResult, new["result_id"]).created_at
-    assert service.get_analysis(identifier)["result_id"] == new["result_id"]
-    assert service.get_analysis(identifier, carried_id)["data"] == old["data"]
-    assert service.get_analysis(identifier, old["result_id"])["data"] == old["data"]
-    # An uncomputed newer input leaves no exact match. The actual newer dataset
-    # is still preferable to a later-arriving carry of an earlier dataset.
-    revise_dataset(revised_dataset, date(2024, 6, 12))
-    assert service.get_analysis(identifier)["result_id"] == new["result_id"]
-
-
 def test_event_refresh_http_receipt_accepts_event_dates_and_new_document_is_readable():
     from fastapi import FastAPI
     from fastapi.testclient import TestClient
@@ -129,9 +90,12 @@ def test_event_refresh_http_receipt_accepts_event_dates_and_new_document_is_read
 
     collection = saved()
     security_id = service.get_set(collection["set_id"])["security"]["id"]
-    seed_prices(security_id, date(2024, 6, 1), date(2024, 7, 1))
+    seed_prices(security_id, date(2024, 6, 1), date(2024, 7, 1), wide=True)
     original = analysis(collection)
     original_id = original["analysis_id"]
+    plan(original_id)
+    from iirp import lifecycle
+    lifecycle.plan_tick()  # The analysis has finished before it is fetched again.
     frozen = service.get_analysis(original_id)
     app = FastAPI()
     app.include_router(research_router)
@@ -139,7 +103,9 @@ def test_event_refresh_http_receipt_accepts_event_dates_and_new_document_is_read
     # Both production response models execute here. In particular, a custom
     # event payload must never be validated as a native ResearchResult.
     with TestClient(app, raise_server_exceptions=False) as client:
-        response = client.post(f"/api/v1/analyses/{original_id}/refresh")
+        unchanged = client.post(f"/api/v1/analyses/{original_id}/refresh")
+        assert unchanged.status_code == 202 and unchanged.json()["id"] == original_id
+        response = client.post(f"/api/v1/analyses/{original_id}/refresh?force=true")
         assert response.status_code == 202, response.text
         receipt = response.json()
         assert receipt["id"] != original_id
@@ -147,6 +113,7 @@ def test_event_refresh_http_receipt_accepts_event_dates_and_new_document_is_read
         assert receipt["freshness"]["origin_id"] == original_id
         assert receipt["freshness"]["latest_id"] == receipt["id"]
         assert "results" not in receipt, "refresh returns a typed command receipt"
+        plan(receipt["id"])  # The reused cache answers it without a download.
         viewed = client.get(f"/api/v1/events/analyses/{receipt['id']}")
         assert viewed.status_code == 200, viewed.text
         result = viewed.json()
@@ -160,91 +127,3 @@ def test_event_refresh_http_receipt_accepts_event_dates_and_new_document_is_read
             params={"result_id": frozen["result_id"]})
         assert old.status_code == 200, old.text
         assert old.json()["data"] == frozen["data"]
-
-
-def test_carried_event_exports_use_frozen_conditions_and_ignore_live_task_changes():
-    import csv
-    import io
-    import json
-
-    from iirp.business_models import AnalysisRequest, AnalysisResult, Batch, RequestScope
-
-    collection = saved()
-    security_id = service.get_set(collection["set_id"])["security"]["id"]
-    seed_prices(security_id, date(2024, 6, 1), date(2024, 7, 1))
-    original = analysis(collection, cutoff_date="2024-06-11", date_window="before5")
-    frozen = service.get_analysis(original["analysis_id"])
-    newer = analysis(collection, cutoff_date="2025-01-01", date_window="after5")
-    identifier = newer["analysis_id"]
-    with session() as s, s.begin():
-        source = s.get(AnalysisResult, frozen["result_id"])
-        carried = AnalysisResult(analysis_id=identifier, security_id=security_id,
-            input_key="carry:" + source.id,
-            inputs={**deepcopy(source.inputs), "carried_from": source.id},
-            data=deepcopy(source.data))
-        s.add(carried)
-        s.flush()
-        carried_id = carried.id
-    # The active GET retains the new request's target; only the export freezes
-    # the selected result's parameters, cutoff, and version metadata.
-    active = service.get_analysis(identifier, carried_id)
-    assert active["params"]["cutoff_date"] == "2024-12-31"
-    assert active["params"]["date_window"] == "after5"
-    exported_json = service.export_analysis(identifier, carried_id)
-    exported_csv = service.export_analysis(identifier, carried_id, "csv")
-    exported = json.loads(exported_json)
-    assert exported["params"]["cutoff_date"] == "2024-06-11"
-    assert exported["params"]["date_window"] == "before5"
-    assert exported["result_cutoff"] == "2024-06-11"
-    assert exported["data"] == frozen["data"]
-    assert exported["inputs"]["params"] == exported["params"]
-    assert exported["parameter_basis"] == "result_inputs"
-    assert not {"freshness", "status", "requested_action", "progress"}.intersection(exported)
-    assert [row["id"] for row in exported["results"]] == [carried_id]
-    csv_rows = list(csv.DictReader(io.StringIO(exported_csv)))
-    assert csv_rows
-    for row in csv_rows:
-        assert row["result_id"] == carried_id
-        assert row["cutoff_date"] == "2024-06-11"
-        assert json.loads(row["parameters"]) == exported["params"]
-    with session() as s, s.begin():
-        request = s.get(AnalysisRequest, identifier)
-        batch = s.get(Batch, request.batch_id)
-        batch.status, batch.requested_action = "RUNNING", "pause"
-        scope = s.scalar(select(RequestScope).where(RequestScope.batch_id == batch.id))
-        scope.status, scope.wait_reason = "RUNNING", "Later background progress"
-        scope.checkpoint = {"ready_events": 0, "event_count": 1}
-        selected = s.get(AnalysisResult, carried_id)
-        s.add(AnalysisResult(analysis_id=identifier, security_id=security_id,
-            input_key="next:" + uuid4().hex, inputs=deepcopy(selected.inputs),
-            data=deepcopy(selected.data)))
-    assert service.get_analysis(identifier, carried_id)["status"] == "RUNNING"
-    assert service.export_analysis(identifier, carried_id) == exported_json
-    assert service.export_analysis(identifier, carried_id, "csv") == exported_csv
-
-
-def test_legacy_carried_export_does_not_guess_new_request_parameters():
-    import json
-
-    from iirp.business_models import AnalysisResult
-
-    collection = saved()
-    source_request = analysis(collection, cutoff_date="2024-06-11")
-    frozen = service.get_analysis(source_request["analysis_id"])
-    new_request = analysis(collection, cutoff_date="2025-01-01")
-    with session() as s, s.begin():
-        source = s.get(AnalysisResult, frozen["result_id"])
-        inputs = {key: value for key, value in source.inputs.items() if key != "params"}
-        data = deepcopy(source.data)
-        data["metadata"].pop("params", None)
-        carried = AnalysisResult(analysis_id=new_request["analysis_id"], security_id=source.security_id,
-            input_key="legacy-carry:" + source.id,
-            inputs={**inputs, "carried_from": source.id}, data=data)
-        s.add(carried)
-        s.flush()
-        carried_id = carried.id
-    exported = json.loads(service.export_analysis(new_request["analysis_id"], carried_id))
-    assert exported["params"] == {}
-    assert exported["parameter_basis"] == "unknown"
-    assert exported["result_cutoff"] == "2024-06-11"
-    assert exported["data"] == data

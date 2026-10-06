@@ -119,6 +119,7 @@ def hydrate_response_evidence(payload, observation_metadata=None):
 
 
 DISCOVERY_RETENTION_DAYS = 7
+RESPONSE_RETENTION_HOURS = 24
 
 
 def discovery_expiry():
@@ -128,6 +129,25 @@ def discovery_expiry():
     from iirp.models import now
 
     return now() + timedelta(days=DISCOVERY_RETENTION_DAYS)
+
+
+def response_expiry(kind):
+    """Expiry of a job's response JSON; None keeps it.
+
+    Filing documents are saved separately and stay permanent. Responses can be
+    fetched or computed again: SEC ones are kept a week for diagnosis, price
+    and compute responses as long as the price cache (D14). Earnings evidence
+    is re-parsed from its saved response, so it stays.
+    """
+    from datetime import timedelta
+
+    from iirp.models import now
+
+    if kind == "earnings_evidence":
+        return None
+    if kind.startswith("sec_"):
+        return discovery_expiry()
+    return now() + timedelta(hours=RESPONSE_RETENTION_HOURS)
 
 
 def register_object(s, source):
@@ -167,11 +187,9 @@ def expire_sources(limit=EXPIRY_MAX_PER_TICK):
     from sqlalchemy import delete, select, update
 
     from iirp.business_models import (
-        CorporateAction,
         CoverageSegment,
         FilingVersion,
         ImportPreview,
-        MarketBar,
         SourceObservation,
     )
     from iirp.db import session
@@ -198,7 +216,7 @@ def expire_sources(limit=EXPIRY_MAX_PER_TICK):
                     break
                 hashes = [row.sha256 for row in rows]
                 permanent = set()
-                for model in (FilingVersion, MarketBar, CorporateAction, ImportPreview, Coverage):
+                for model in (FilingVersion, ImportPreview, Coverage):
                     permanent.update(s.scalars(select(model.source_hash).where(model.source_hash.in_(hashes))))
                 if permanent:
                     s.execute(update(SourceObject).where(SourceObject.sha256.in_(permanent))

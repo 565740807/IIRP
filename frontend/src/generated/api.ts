@@ -712,23 +712,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/securities/{security_id}/maintenance": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        /** Maintain */
-        patch: operations["maintain_api_v1_securities__security_id__maintenance_patch"];
-        trace?: never;
-    };
     "/api/v1/amendments/{relation_id}/resolve": {
         parameters: {
             query?: never;
@@ -1093,6 +1076,8 @@ export interface components {
             created_at?: string | null;
             /** Data Published At */
             data_published_at?: string | null;
+            /** Expires At */
+            expires_at?: string | null;
             /**
              * Is Current
              * @default false
@@ -1105,8 +1090,6 @@ export interface components {
             coverage_basis: string;
             /** Result Cutoff */
             result_cutoff?: string | null;
-            /** Carried From */
-            carried_from?: string | null;
             coverage?: components["schemas"]["ResearchCoverage"] | null;
             data: components["schemas"]["ResearchResult"];
         };
@@ -1327,10 +1310,12 @@ export interface components {
              * @default UNVERIFIED_PROVIDER_RECORDS
              */
             basis: string;
-            /** Dataset Id */
-            dataset_id?: string | null;
+            /** Cache Id */
+            cache_id?: string | null;
             /** As Of */
             as_of?: string | null;
+            /** Expires At */
+            expires_at?: string | null;
             /** First Valid Date */
             first_valid_date?: string | null;
             /** Last Valid Date */
@@ -1759,8 +1744,8 @@ export interface components {
             result_id: string | null;
             /** Result Cutoff */
             result_cutoff: string | null;
-            /** Carried From */
-            carried_from: string | null;
+            /** Expires At */
+            expires_at?: string | null;
             /** Data */
             data: {
                 [key: string]: unknown;
@@ -2049,6 +2034,8 @@ export interface components {
             created_at: string;
             /** Dataset Id */
             dataset_id: string | null;
+            /** Expires At */
+            expires_at?: string | null;
         } & {
             [key: string]: unknown;
         };
@@ -2509,21 +2496,15 @@ export interface components {
         ImportInput: {
             /**
              * Kind
-             * @enum {string}
+             * @constant
              */
-            kind: "market" | "earnings";
+            kind: "earnings";
             /** Ticker */
             ticker: string;
             /** Csv */
             csv: string;
             /** Source Url */
             source_url: string;
-            /**
-             * Price Basis
-             * @default UNVERIFIED
-             * @enum {string}
-             */
-            price_basis: "SPLIT_ONLY" | "UNVERIFIED";
         };
         /** ImportOutput */
         ImportOutput: {
@@ -2956,8 +2937,15 @@ export interface components {
             latest_completed_session: string;
             /** Research Cutoff */
             research_cutoff?: string | null;
-            /** Data Verified At */
-            data_verified_at?: string | null;
+            /** Price Fetched At */
+            price_fetched_at?: string | null;
+            /** Price Expires At */
+            price_expires_at?: string | null;
+            /**
+             * Expired
+             * @default false
+             */
+            expired: boolean;
             /** Refresh Checked At */
             refresh_checked_at?: string | null;
             /** Note */
@@ -4382,7 +4370,6 @@ export interface operations {
         parameters: {
             query?: {
                 mapping_version?: number | null;
-                dataset_id?: string | null;
                 cutoff_date?: string | null;
             };
             header?: never;
@@ -4418,7 +4405,6 @@ export interface operations {
             query?: {
                 format?: string;
                 mapping_version?: number | null;
-                dataset_id?: string | null;
                 cutoff_date?: string | null;
             };
             header?: never;
@@ -4626,39 +4612,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["GenericOutput"];
-                };
-            };
-        };
-    };
-    maintain_api_v1_securities__security_id__maintenance_patch: {
-        parameters: {
-            query: {
-                enabled: boolean;
-            };
-            header?: never;
-            path: {
-                security_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["GenericOutput"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

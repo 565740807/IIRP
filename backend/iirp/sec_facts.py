@@ -239,6 +239,8 @@ def persist_discovery(s: Session, job, response: dict, sources: dict[str, str]) 
 
 def _row_data(row, observation, owners) -> dict:
     data = _json(asdict(row))
+    # The original XML stays in the saved filing document (source_objects).
+    data.pop("raw_xml", None)
     category = row.action_category
     kind = {
         "purchase_market_or_private": "公开市场或私人买入",
@@ -392,8 +394,14 @@ def persist_document(s: Session, job, response: dict, sources: dict[str, str]) -
     filing.filing_date = _date(raw.get("filing_date")) or filing.filing_date
     filing.issuer_id, filing.visible = observation.issuer_cik, True
     data = _json(asdict(observation))
+    # The XML itself is the saved filing document referenced in source_objects;
+    # the parsed facts do not keep further copies of it.
+    data.pop("raw_xml", None)
+    for item in data.get("rows", []):
+        item.pop("raw_xml", None)
     data.update(
-        {"source_metadata": raw, "xml_sha256": sha256(xml).hexdigest(), "source_objects": sources}
+        {"source_metadata": {key: value for key, value in raw.items() if key != "xml_payload"},
+         "xml_sha256": sha256(xml).hexdigest(), "source_objects": sources}
     )
     s.add(
         FilingVersion(
@@ -734,7 +742,7 @@ def _event_view(
         {
             key: value
             for key, value in event.data.items()
-            if not compact or key in _LIST_SOURCE_FIELDS
+            if (not compact or key in _LIST_SOURCE_FIELDS) and key != "raw_xml"
         }
     )
     if "ticker" in data:
@@ -1232,6 +1240,12 @@ def transaction_record(s: Session, id: str) -> dict:
         "first_seen_at": filing.first_seen_at.isoformat(),
         "source_url": version.data.get("source_url"),
         "source_hash": version.source_hash,
+        # Original filing documents; read through /api/v1/sources/{sha256}.
+        "source_documents": [
+            {"url": url, "sha256": digest}
+            for url, digest in (version.data.get("source_objects") or {}).items()
+        ],
+        "xml_sha256": version.data.get("xml_sha256"),
         "source_visible": filing.visible,
         "filing_status": filing.status,
         "owner_observations": version.data.get("owners", []),

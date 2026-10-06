@@ -29,7 +29,7 @@ def test_legacy_daily_metadata_time_does_not_prevent_correct_snapshot():
 
 
 def test_fenced_quote_publication_keeps_newer_quote_and_never_writes_research_prices():
-    from iirp.business_models import MarketBar, MarketQuote, PriceDataset
+    from iirp.business_models import MarketQuote, PriceCache
     from iirp.business_worker import _persist
     from iirp.db import session
     from iirp.models import Job
@@ -49,8 +49,7 @@ def test_fenced_quote_publication_keeps_newer_quote_and_never_writes_research_pr
     with session() as s:
         assert s.get(MarketQuote, "^VIX").data["value"] == 120
         assert s.get(Job, job.id).status == "PARTIAL"
-        assert s.scalar(select(func.count()).select_from(PriceDataset)) == 0
-        assert s.scalar(select(func.count()).select_from(MarketBar)) == 0
+        assert s.scalar(select(func.count()).select_from(PriceCache)) == 0
 
 
 from test_lifecycle import clean_lifecycle, lifecycle_database  # noqa: F401, E402

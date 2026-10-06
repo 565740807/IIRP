@@ -27,11 +27,12 @@ from iirp.business_models import (
 from iirp.config import ROOT
 from iirp.db import session
 from iirp.lifecycle import add_job
-from iirp.market_data import persist_prices, price_bars, quote_from_history, resolve_metadata
+from iirp.market_data import quote_from_history, resolve_metadata
 from iirp.models import SourceBudget, now
 from iirp.operation_pool import OperationInterrupted
+from iirp.price_cache import persist_prices, price_bars
 from iirp.queue import ManualPriorityYield, fenced, should_yield_to_manual
-from iirp.storage import discovery_expiry, register_object, save_object
+from iirp.storage import discovery_expiry, register_object, response_expiry, save_object
 
 
 def scope_links(s, job_id):
@@ -80,6 +81,8 @@ def prepare_target(job):
         )
         ranges = research_ranges(params, security.calendar or "XNYS", events)
         bars, dataset = price_bars(s, security.id, job.target["dataset_id"], ranges=ranges)
+        if dataset is None:
+            raise ValueError("行情缓存已过期或已更新，等待按新缓存重新计算")
         from iirp.benchmarks import benchmark_data
         return {"params": params, "bars": bars, "events": events, "dataset_id": dataset.id,
                 "benchmark": benchmark_data(s, job.target.get("benchmark"), ranges=ranges),
@@ -112,9 +115,9 @@ def _persist(s, current, response, sources, source, observation_metadata=None):
     if kind == "market_identity":
         resolve_metadata(s, s.get(Security, current.target["security_id"]), response)
     elif kind == "market_history":
-        result.update(persist_prices(s, current, response, source["sha256"]))
-        if result.get("reason") or result.get("missing_dates"):
-            status, error = "PARTIAL", result.get("reason") or "部分应有交易日未返回，缺口已保存"
+        result.update(persist_prices(s, current, response))
+        if not result["cached"] and not result.get("superseded_by"):
+            status, error = "PARTIAL", result.get("reason") or "行情来源未返回可用数据"
     elif kind == "market_quote":
         quote = quote_from_history(current.target["symbol"], response)
         if quote:
@@ -215,27 +218,6 @@ def _persist(s, current, response, sources, source, observation_metadata=None):
     current.finished_at = now()
     current.lease_token = current.lease_until = None
     current.checkpoint = {**current.checkpoint, "committed_source": source["sha256"]}
-
-
-def split_market_failure(job, response):
-    from iirp.market_ranges import range_failure, split_failed_range
-    if job.kind != "market_history" or not range_failure(response):
-        return False
-    targets = split_failed_range(job.target)
-    if not targets:
-        return False
-    def split(s, current):
-        children = []
-        for scope in scope_links(s, current.id):
-            for target in targets:
-                child = add_job(s, scope, "market_history", target, current.priority)
-                children.append(child.id)
-        current.status, current.finished_at = "SUCCEEDED", now()
-        current.progress_done = 1
-        current.lease_token = current.lease_until = None
-        current.result = {"message": "来源大范围请求失败，已拆分续取；原范围仍待补齐",
-                          "split_children": sorted(set(children)), "split_reason": response.get("error_type")}
-    return fenced(job, business_write=split)
 
 
 def skip_obsolete_compute(job):
@@ -365,8 +347,6 @@ def execute_business(job, stopping=lambda: False, runner=None):
             return
         operation_seconds = time.perf_counter() - operation_started
         if not response.get("ok"):
-            if split_market_failure(job, response):
-                return
             error = response.get("error", "来源未返回可用结果")
             delay = min(
                 3600, max(float(response.get("retry_seconds", 60)), 15 * 2 ** min(job.attempts, 6))
@@ -389,8 +369,8 @@ def execute_business(job, stopping=lambda: False, runner=None):
             return
         data = response["data"]
         storage_started = time.perf_counter()
-        # Discovery list pages, index files and their response JSON can be
-        # fetched again; only filing documents and parsed facts are permanent.
+        # Discovery list pages and index files can be fetched again; filing
+        # documents and parsed facts are permanent. Responses: response_expiry.
         expiry = {"expires_at": discovery_expiry()} if job.kind == "sec_discover" else {}
         sources = {}
         for document in data.get("source_documents", []):
@@ -412,7 +392,7 @@ def execute_business(job, stopping=lambda: False, runner=None):
             sources[filing["document_url"]] = save_object(content, "application/xml")
         from iirp.storage import response_evidence
         payload, observation_metadata = response_evidence(data, sources)
-        source = {**save_object(payload, "application/json"), **expiry}
+        source = {**save_object(payload, "application/json"), "expires_at": response_expiry(job.kind)}
         del payload
         timing = {
             "queue_seconds": max(0, (job.started_at - job.available_at).total_seconds()),
@@ -443,8 +423,6 @@ def execute_business(job, stopping=lambda: False, runner=None):
         fenced(job, status="QUEUED", error="为同通道手动请求让路，完成后自动继续",
                business_write=lambda s, current: setattr(current, "attempts", max(0, current.attempts - 1)))
     except Exception as exc:
-        if isinstance(exc, TimeoutError) and split_market_failure(job, {"error_type": "TimeoutError"}):
-            return
         import logging
 
         from sqlalchemy.exc import OperationalError

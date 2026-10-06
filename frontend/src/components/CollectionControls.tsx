@@ -65,8 +65,7 @@ export function CollectionButton({
 }
 const names: Record<string, string> = {
   sec: "SEC 申报",
-  market: "活跃证券行情",
-  earnings: "财报事件",
+  market: "首页行情报价",
   backup: "每日备份",
   maintenance: "存储维护",
 };
@@ -83,8 +82,10 @@ export function PolicyControl({ full = false }: { full?: boolean }) {
   if (query.isPending) return <Loading label="读取自动更新策略…" />;
   if (query.error)
     return <ErrorNotice error={query.error} retry={query.refetch} />;
+  // Daily prices are a 24-hour cache fetched on demand; nothing to schedule
+  // for earnings (S3 replaces that pipeline).
   const policies =
-    query.data?.items.filter((x) => full || x.key === "sec") ?? [];
+    query.data?.items.filter((x) => (full && x.key !== "earnings") || x.key === "sec") ?? [];
   return (
     <div className={full ? "panel policy-list" : "policy-inline"}>
       {full && (
@@ -133,7 +134,7 @@ export function PolicyControl({ full = false }: { full?: boolean }) {
 export function ScopeNotice() {
   return (
     <p className="notice notice-info">
-      按所选范围持久获取并复用已验证数据；缩小研究范围不会删除历史。来源不足会保留具体缺口。
+      SEC 申报与交易永久保存；行情为 24 小时缓存，期间重复查看不再下载，过期后按需重新获取。来源不足会保留具体缺口。
     </p>
   );
 }

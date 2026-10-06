@@ -1,15 +1,14 @@
-"""Immutable price dependencies bounded to the dates a research result can use.
+"""Price dependencies of a research result: the dates it can use and its cache.
 
-Dataset IDs remain provenance. Revisions outside these ranges do not change
-an effective input; a changed adjustment basis or split manifest always does.
+A price cache never changes during its 24 hours, so its id identifies the
+prices; a refetch is a new cache and therefore a new input.
 """
 from datetime import date
 
-from sqlalchemy import or_, select
+from sqlalchemy import func, or_, select
 
 from iirp.analytics.calendar import previous_session, reaction_session, session_window
-from iirp.business_models import DatasetBar, MarketBar, PriceDataset
-from iirp.market_data import digest
+from iirp.business_models import PriceCache, PriceCacheBar
 
 
 def normalize_ranges(ranges):
@@ -65,32 +64,23 @@ def research_ranges(params, calendar='XNYS', events=()):
 
 
 def dataset_dependency(s, dataset, ranges):
+    """``dataset`` is the PriceCache the result reads."""
     if dataset is None:
-        return {'fingerprint': None, 'basis': None, 'range_count': len(ranges), 'row_count': 0}
+        return {'cache_id': None, 'basis': None, 'range_count': len(ranges), 'row_count': 0}
     ranges = normalize_ranges(ranges)
-    # adj_close includes dividend adjustment and can drift in Yahoo rounding.
-    # It is not an input to our split-only calculations. Keep open because
-    # exact-time earnings use opening gaps; retain complete original revisions.
-    # Equal prices alone cannot establish equivalent source evidence. Keep the
-    # per-bar source identity; unchanged bars retain their original source when
-    # an unrelated date is revised, so outside-range revisions still reuse.
-    rows = s.execute(
-        select(DatasetBar.session_date, MarketBar.open, MarketBar.close, MarketBar.status, MarketBar.reason,
-               MarketBar.provider, MarketBar.source_hash)
-        .join(MarketBar, MarketBar.id == DatasetBar.bar_id)
-        .where(DatasetBar.dataset_id == dataset.id, range_predicate(DatasetBar.session_date, ranges))
-        .order_by(DatasetBar.session_date)
-    ).all()
+    rows = s.scalar(select(func.count()).select_from(PriceCacheBar).where(
+        PriceCacheBar.cache_id == dataset.id, range_predicate(PriceCacheBar.session_date, ranges)))
     return {
-        'fingerprint': digest(['research-price-dependencies-v3-effective-source', dataset.security_id, dataset.basis, dataset.basis_key, dataset.manifest.get('verified_splits'), [(str(a), str(b)) for a, b in ranges], [(str(row.session_date), row.open, row.close, row.status, row.reason, row.provider, row.source_hash) for row in rows]]),
-        'basis': dataset.basis,
+        'cache_id': dataset.id,
+        'fetched_at': dataset.fetched_at.isoformat(),
+        'basis': 'SPLIT_ONLY',
         'range_count': len(ranges),
-        'row_count': len(rows),
+        'row_count': rows,
     }
 
 
 def benchmark_dependency(s, snapshot, ranges):
     if not snapshot:
         return None
-    dataset = s.get(PriceDataset, snapshot['dataset_id']) if snapshot.get('dataset_id') else None
+    dataset = s.get(PriceCache, snapshot['dataset_id']) if snapshot.get('dataset_id') else None
     return {k: v for k, v in snapshot.items() if k != 'dataset_id'} | {'price_dependency': dataset_dependency(s, dataset, ranges)}

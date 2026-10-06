@@ -66,7 +66,7 @@ export function mergeAnalysisResults(
       old?.result_id === item.result_id
         ? (old.is_current === item.is_current && old.coverage_basis === item.coverage_basis &&
             JSON.stringify(old.coverage) === JSON.stringify(item.coverage) &&
-            old.result_cutoff === item.result_cutoff && old.carried_from === item.carried_from
+            old.result_cutoff === item.result_cutoff && old.expires_at === item.expires_at
             ? old : {...item, data: old.data})
         : item,
     );

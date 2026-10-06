@@ -1,35 +1,54 @@
-"""Explicit durable refresh commands; reads never invoke external providers."""
-from sqlalchemy import func, select, text
+"""Price freshness of a research and the refetch command; reads never call providers."""
+from sqlalchemy import select, text
 
-from iirp.business_models import AnalysisRequest, AnalysisResult, Batch, CoverageSegment, Security
+from iirp.business_models import AnalysisRequest, AnalysisResult, Batch, RequestScope
 from iirp.db import session
 from iirp.market_data import digest
 from iirp.models import now
 from iirp.research_tracking import ResearchTrack
 
 
-def freshness(s, request, items):
+def freshness(s, request, items=()):
+    """When the prices behind this research were fetched and when they expire.
+
+    Results expire with the price caches they used (D14). ``expired`` means at
+    least one result has lapsed, so the page should fetch again.
+    """
     from iirp.analytics.calendar import last_completed_session
+
     batch = s.get(Batch, request.batch_id)
     origin = batch.params.get("research_origin_id", request.id)
     track = s.get(ResearchTrack, origin)
-    checked = s.scalar(select(func.max(CoverageSegment.checked_at)).where(
-        CoverageSegment.security_id.in_([item["security_id"] for item in items]))) if items else None
+    stamp = now()
+    rows = s.execute(select(AnalysisResult.expires_at,
+                            AnalysisResult.inputs["price_fetched_at"].astext.label("fetched"))
+                     .where(AnalysisResult.analysis_id == request.id)).all()
+    live = [row for row in rows if row.expires_at is None or row.expires_at > stamp]
+    # The worker deletes lapsed results and marks their scopes.
+    deleted = s.scalar(select(RequestScope.id).where(
+        RequestScope.batch_id == request.batch_id,
+        RequestScope.checkpoint["results_expired_at"].astext.is_not(None)).limit(1))
+    fetched = [row.fetched for row in live if row.fetched]
+    expires = [row.expires_at for row in live if row.expires_at]
     return {"origin_id": origin, "latest_id": track.latest_id if track else request.id,
-        "latest_completed_session": last_completed_session(as_of=now()).isoformat(),
+        "latest_completed_session": last_completed_session(as_of=stamp).isoformat(),
         "research_cutoff": request.params.get("cutoff_date"),
-        "data_verified_at": checked, "refresh_checked_at": track.checked_at if track else None,
-        "note": "盘中报价不等于已完成日线；结果截止日期按每个不可变版本显示。"}
+        "price_fetched_at": min(fetched) if fetched else None,
+        "price_expires_at": min(expires) if expires else None,
+        "expired": len(live) < len(rows) or deleted is not None,
+        "refresh_checked_at": track.checked_at if track else None,
+        "note": "行情为 24 小时缓存：获取后 24 小时内重复查看不再下载，过期后重新获取。"}
 
 
 def refresh_analysis(analysis_id, force=False):
-    from iirp import lifecycle
-    from iirp.analytics.calendar import last_completed_session
-    from iirp.contracts import AnalysisInput
-    from iirp.market_data import latest_dataset
+    """Fetch again: automatically once results expire, or when asked (``force``).
 
-    # Serialize only this research's refresh commands. A crash can leave a new
-    # child request, but its deterministic request_id makes the retry reusable.
+    The new research keeps the same conditions with the latest completed
+    session as its cutoff; caches that still cover it are reused.
+    """
+    from iirp import lifecycle
+    from iirp.contracts import AnalysisInput
+
     with session() as s, s.begin():
         request = s.get(AnalysisRequest, analysis_id)
         if not request:
@@ -44,36 +63,26 @@ def refresh_analysis(analysis_id, force=False):
             track = ResearchTrack(origin_id=origin, latest_id=request.id)
             s.add(track)
         batch = s.get(Batch, request.batch_id)
-        cutoff = last_completed_session(as_of=lifecycle.now()).isoformat()
-        view = lifecycle.analysis_view(s, request)
-        current = bool(view["results"]) and len(view["results"]) == len(view["batch"]["items"]) and all(r["is_current"] and (r.get("coverage") or {}).get("complete") for r in view["results"])
-        if request.params.get("cutoff_date") == cutoff and (current or batch.status in lifecycle.ACTIVE):
+        current = freshness(s, request)
+        # A running fetch answers repeated clicks; otherwise only lapsed results refetch.
+        if batch.status in lifecycle.ACTIVE or (not force and not current["expired"]):
             track.checked_at = now()
             s.flush()
             return lifecycle.analysis_view(s, request)
-        # Dependency keys include facts, calendars, basis and calculation version.
-        keys = []
-        for scope in view["batch"]["items"]:
-            security = s.get(Security, scope.get("security_id")) if scope.get("security_id") else s.scalar(select(Security).where(Security.symbol == scope["symbol"]))
-            dataset = latest_dataset(s, security.id) if security else None
-            if security and dataset:
-                from iirp.business_models import EarningsEvent
-                events = s.scalars(select(EarningsEvent).where(EarningsEvent.security_id == security.id)).all() if request.params["kind"] == "earnings" else []
-                keys.append(lifecycle.research_input_key(request, dataset, events, security))
-        fingerprint = digest([origin, cutoff, keys])
-        if track.fingerprint == fingerprint and not force:
-            track.checked_at = now()
-            return lifecycle.analysis_view(s, request)
         if force:
             import uuid
-            command_id = "follow-latest:" + uuid.uuid4().hex
+            command_id = "refetch:" + uuid.uuid4().hex
         else:
-            command_id = "follow-latest:" + fingerprint
+            # Repeated automatic checks of the same lapsed research reuse one command.
+            command_id = "refetch:" + digest([origin, request.id])
         if request.params["kind"] == "event_dates":
+            from iirp.analytics.calendar import last_completed_session
             from iirp.event_api import EventAnalysisInput
             from iirp.event_service import create_analysis
             values = {key: value for key, value in request.params.items() if key in EventAnalysisInput.model_fields}
-            values.update(request_id=command_id, version=request.params["event_version"], cutoff_date=cutoff, retry_generation=command_id)
+            values.update(request_id=command_id, version=request.params["event_version"],
+                          cutoff_date=last_completed_session(as_of=now()).isoformat(),
+                          retry_generation=command_id)
             created = create_analysis(request.params["event_set_id"], values)
             child_id = created["analysis_id"]
         else:
@@ -86,15 +95,6 @@ def refresh_analysis(analysis_id, force=False):
         child_batch = s.get(Batch, child.batch_id)
         child_batch.params = {**child_batch.params, "research_origin_id": origin}
         child_batch.title = batch.title
-        # Carry each previous readable immutable result until this ticker is
-        # ready. Its data, inputs and cutoff remain the old version in all exports.
-        existing = set(s.scalars(select(AnalysisResult.security_id).where(AnalysisResult.analysis_id == child.id)))
-        for item in view["results"]:
-            if item["security_id"] in existing:
-                continue
-            old = s.get(AnalysisResult, item["result_id"])
-            s.add(AnalysisResult(analysis_id=child.id, security_id=old.security_id,
-                input_key=old.input_key, inputs={**old.inputs, "params": old.inputs.get("params", request.params), "carried_from": old.id}, data=old.data))
-        track.latest_id, track.fingerprint, track.checked_at = child.id, fingerprint, now()
+        track.latest_id, track.fingerprint, track.checked_at = child.id, command_id[-64:], now()
         s.flush()
         return lifecycle.analysis_view(s, child)

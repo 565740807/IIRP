@@ -12,10 +12,10 @@ IIRP 是一个在本机运行的美股投资研究工具，面向电脑浏览器
 
 - **Insider 信息流**：采集 SEC Form 3/4/5，按公司和日期分组；交易日、接受时间和发现时间分开保存，修订按行记录，缺失、未知和已知零分别展示。
 - **公司与人员详情**：按稳定身份查看历史，同名不自动合并，交易详情可回到 SEC 原文。
-- **行情**：指数、期货和个股日线（仅做拆股调整），带数据日期、来源和覆盖记录。
-- **分析中心**：月度分析、跨年区间、财报行情、自定义事件分析；条件显式应用，结果冻结后可导出 JSON/CSV/PNG，重开旧结果不会被新条件替换。
-- **任务与采集控制**：采集、回补和按需历史都是持久任务，可暂停、恢复、取消、重试；浏览器关闭后 worker 继续工作。
-- **备份与恢复**：一致快照备份，并可在随机新库上验证恢复。
+- **行情**：指数、期货和个股日线（仅做拆股调整）。日线是 24 小时缓存：每只股票按所需区间（另加 1 个月余量）一次取完，24 小时内所有分析和交易前后窗口都复用，到期自动删除，再次需要时重新获取；首页报价另有短期缓存。
+- **分析中心**：月度分析、跨年区间、财报行情、自定义事件分析；条件显式应用，结果可导出 JSON/CSV/PNG。结果与所用行情缓存同生命周期：24 小时内重复打开不再下载，过期后打开会自动重新获取。
+- **任务与采集控制**：SEC 采集、回补和行情获取都是持久任务，可暂停、恢复、取消、重试；浏览器关闭后 worker 继续工作。SEC 申报原文与交易数据永久保存。
+- **备份与恢复**：一致快照备份（只保留最近 2 份），并可在随机新库上验证恢复。
 
 金融计算只在后端完成，前端只展示结果。
 
@@ -41,7 +41,7 @@ install -m 600 deploy/.env.example deploy/.env
 
 `deploy/.env` 含私有配置，已被 `.gitignore` 忽略，不要提交。
 
-> **首次启动会立即开始自动更新。** 全新数据库中，SEC 申报和行情两项自动更新策略默认开启（财报、备份、维护默认关闭），行情在 worker 启动后几秒内就会开始请求。**SEC 只有在 `IIRP_SEC_USER_AGENT` 含真实联系邮箱时才会自动运行**：留空、保留模板值（`IIRP contact@example.invalid`）或使用 RFC 2606 保留域名（`example.com/.org/.net`、`*.test`、`*.invalid`、`*.localhost`、`*.example`）时，不向 SEC 发任何请求，页面顶部的更新状态、“数据与任务”的自动更新开关和系统状态面板（以及 `/api/v1/system` 的 `sec_user_agent`）会显示“需配置 SEC User-Agent”。填好后执行 `./iirp restart` 生效。所有 SEC 请求共用一个全局限速（`config/collection-defaults.toml` 的 `sec_requests_per_second`，默认任意 1 秒内最多 2 次）。可在“数据与任务”页按来源关闭自动更新。默认的采集与回补范围在 [`config/collection-defaults.toml`](config/collection-defaults.toml)。
+> **首次启动会立即开始自动更新。** 全新数据库中，SEC 申报和首页行情报价两项自动更新策略默认开启（财报、备份、维护默认关闭），首页打开时即开始请求报价。**SEC 只有在 `IIRP_SEC_USER_AGENT` 含真实联系邮箱时才会自动运行**：留空、保留模板值（`IIRP contact@example.invalid`）或使用 RFC 2606 保留域名（`example.com/.org/.net`、`*.test`、`*.invalid`、`*.localhost`、`*.example`）时，不向 SEC 发任何请求，页面顶部的更新状态、“数据与任务”的自动更新开关和系统状态面板（以及 `/api/v1/system` 的 `sec_user_agent`）会显示“需配置 SEC User-Agent”。填好后执行 `./iirp restart` 生效。所有 SEC 请求共用一个全局限速（`config/collection-defaults.toml` 的 `sec_requests_per_second`，默认任意 1 秒内最多 2 次）。可在“数据与任务”页按来源关闭自动更新。默认的采集与回补范围、行情缓存时长在 [`config/collection-defaults.toml`](config/collection-defaults.toml)。
 
 ## 数据来源与使用条款
 
