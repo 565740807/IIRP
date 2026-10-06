@@ -8388,11 +8388,6 @@ SOFTWARE.
 
 
 ========================================================================
-npm @radix-ui/react-collapsible 1.1.20
-Source: https://registry.npmjs.org/@radix-ui/react-collapsible/-/react-collapsible-1.1.20.tgz
-Archive path: package/LICENSE
-SHA256: 0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138
-========================================================================
 MIT License
 
 Copyright (c) 2022 WorkOS
@@ -16991,11 +16986,6 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 
 ========================================================================
-npm prettier 3.9.6
-Source: https://registry.npmjs.org/prettier/-/prettier-3.9.6.tgz
-Archive path: package/LICENSE
-SHA256: b0f2417199889f1c0d28ec4e0244eacf1a15de5819d61f641dd7d8f45153ac9c
-========================================================================
 Copyright © James Long and contributors
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
@@ -17005,11 +16995,6 @@ The above copyright notice and this permission notice shall be included in all c
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 
-========================================================================
-npm prettier 3.9.6
-Source: https://registry.npmjs.org/prettier/-/prettier-3.9.6.tgz
-Archive path: package/THIRD-PARTY-NOTICES.md
-SHA256: ed5d4b7a970a10f85a80a730a3086cf59bf3dbb0bd3c5aa5f900da1b54fdfcac
 ========================================================================
 # Licenses of bundled dependencies
 

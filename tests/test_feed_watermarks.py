@@ -13,7 +13,6 @@ from alembic.config import Config
 from iirp.business_models import (
     FeedGroupCurrent,
     FeedGroupOrder,
-    FeedManifest,
     FeedRevision,
     FeedSession,
     FeedWatermarkCluster,
@@ -119,9 +118,8 @@ def test_reading_sessions_store_only_a_watermark_and_never_a_manifest():
         first = feed(s, kind="all")
         feed(s, first["session_id"], first["next_cursor"], kind="all")
         feed(s, kind="sell")
-        assert s.scalar(select(func.count()).select_from(FeedManifest)) == 0
         for saved in s.scalars(select(FeedSession)):
-            assert saved.revision_ids == [] and saved.manifest_hash is None
+            assert saved.revision_ids == []
             assert set(saved.filters["watermark"]) <= {"seq", "snapshot", "own"}
             assert len(json.dumps(saved.filters)) < 1000
 

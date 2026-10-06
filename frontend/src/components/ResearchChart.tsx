@@ -39,13 +39,7 @@ echarts.use([
 ]);
 const number = (v: unknown) =>
   v == null || v === "" || !Number.isFinite(Number(v)) ? null : Number(v);
-const observation = (data: Fact, series: Fact) =>
-  data.kind === "earnings" &&
-  rows(data.rows).find(
-    (row) => String(row.event_id) === String(series.sourceKey ?? series.key),
-  )?.precise !== true;
-const seriesLabel = (data: Fact, series: Fact) =>
-  `${String(series.label ?? series.key)}${observation(data, series) ? "（日期观察）" : ""}`;
+const seriesLabel = (series: Fact) => String(series.label ?? series.key);
 
 function ChartDataTable({ groups, price }: { groups: Fact[]; price: boolean }) {
   const [selected, setSelected] = useState<string | null>(null);
@@ -126,9 +120,6 @@ function ChartDataTable({ groups, price }: { groups: Fact[]; price: boolean }) {
                           : number(point.value) == null
                             ? "缺少价格或尚未形成"
                             : "可用"}
-                        {point.observation && (
-                          <small>日期观察，时点尚不满足精确统计条件</small>
-                        )}
                       </td>
                     </tr>
                   ))}
@@ -249,20 +240,16 @@ export function ResearchChart({
           label: title,
           points: cells.map((cell) => ({
             ...cell,
-            label: `${cell.year ?? cell.fiscal_year} · ${cell.month ? `${cell.month}月` : `Q${cell.quarter}`}`,
+            label: `${cell.year} · ${cell.month}月`,
             value: cell.endpoint,
-            observation: data.kind === "earnings" && cell.precise !== true,
           })),
         },
       ]
     : [
         ...series.map((item) => ({
           ...item,
-          label: seriesLabel(data, item),
-          points: rows(item.points).map((point) => ({
-            ...point,
-            observation: observation(data, item),
-          })),
+          label: seriesLabel(item),
+          points: rows(item.points),
         })),
         ...(!data.benchmark && chartSampleLabel(rows(facts(data.summary).path))
           ? [
@@ -357,20 +344,14 @@ export function ResearchChart({
       toolbox: {},
     };
     if (heatmap) {
-      const years = [
-        ...new Set(cells.map((c) => String(c.year ?? c.fiscal_year))),
-      ];
-      const monthly = data.kind !== "earnings";
+      const years = [...new Set(cells.map((c) => String(c.year)))];
       const currentMonth = Number(
         new Intl.DateTimeFormat("en-US", {
           timeZone: "America/New_York",
           month: "numeric",
         }).format(new Date()),
       );
-      const columns = Array.from(
-        { length: monthly ? 12 : 4 },
-        (_, i) => `${monthly ? "" : "Q"}${i + 1}${monthly ? "月" : ""}`,
-      );
+      const columns = Array.from({ length: 12 }, (_, i) => `${i + 1}月`);
       chart.setOption(
         {
           ...base,
@@ -382,7 +363,7 @@ export function ResearchChart({
             axisLabel: {
               interval: 0,
               formatter: (value: string) =>
-                monthly && value === `${currentMonth}月`
+                value === `${currentMonth}月`
                   ? `{current|${value}\n当前}`
                   : value,
               rich: {
@@ -411,27 +392,19 @@ export function ResearchChart({
               type: "heatmap",
               data: cells.map((c) => ({
                 value: [
-                  Number(c.month ?? c.quarter) - 1,
-                  years.indexOf(String(c.year ?? c.fiscal_year)),
+                  Number(c.month) - 1,
+                  years.indexOf(String(c.year)),
                   number(c.endpoint) ?? 0,
                 ],
                 cell: c,
                 itemStyle:
-                  number(c.endpoint) == null
-                    ? { color: "#edf0f4" }
-                    : data.kind === "earnings" && c.precise !== true
-                      ? {
-                          borderColor: "#a67a31",
-                          borderWidth: 1,
-                          borderType: "dashed",
-                        }
-                      : undefined,
+                  number(c.endpoint) == null ? { color: "#edf0f4" } : undefined,
                 label: {
                   show: true,
                   formatter:
                     number(c.endpoint) == null
                       ? sourceLabel(c.status)
-                      : `${percent(number(c.endpoint))}${data.kind === "earnings" && c.precise !== true ? "\n日期观察" : ""}`,
+                      : percent(number(c.endpoint)),
                   color: "#172033",
                   fontSize: 11,
                   width: Math.max(50, (chart.getWidth() - 90) / columns.length - 6),
@@ -445,7 +418,7 @@ export function ResearchChart({
               tooltip: {
                 formatter: (p: { data: { cell: Fact } }) => {
                   const c = p.data.cell;
-                  return `${c.year ?? c.fiscal_year} · ${c.month ? `${c.month}月` : `Q${c.quarter}`}\n${percent(number(c.endpoint))} · ${sourceLabel(c.status)}${data.kind === "earnings" && c.precise !== true ? " · 日期观察，时点待核对" : ""}\n${display(c.actual_start ?? c.announced_date)} → ${display(c.actual_end)}`;
+                  return `${c.year} · ${c.month}月\n${percent(number(c.endpoint))} · ${sourceLabel(c.status)}\n${display(c.actual_start)} → ${display(c.actual_end)}`;
                 },
               },
             },
@@ -471,7 +444,7 @@ export function ResearchChart({
       .filter(Number.isFinite)
       .sort((a, b) => a - b);
     const lines = series.map((s) => ({
-      name: seriesLabel(data, s),
+      name: seriesLabel(s),
       type: "line",
       showSymbol: false,
       connectNulls: false,
@@ -486,8 +459,8 @@ export function ResearchChart({
       }),
       lineStyle: {
         width: s.group === "current" ? 3 : 1.2,
-        opacity: observation(data, s) ? 0.5 : s.group === "current" ? 1 : 0.65,
-        type: observation(data, s) ? "dashed" : "solid",
+        opacity: s.group === "current" ? 1 : 0.65,
+        type: "solid",
       },
       itemStyle: s.group === "current" ? { color: "#2563eb" } : undefined,
     }));
@@ -575,10 +548,10 @@ export function ResearchChart({
             ...median.map((s) => s.name),
             ...series
               .filter((s) => s.group !== "historical")
-              .map((s) => seriesLabel(data, s)),
+              .map((s) => seriesLabel(s)),
             ...series
               .filter((s) => s.group === "historical")
-              .map((s) => seriesLabel(data, s)),
+              .map((s) => seriesLabel(s)),
           ],
           top: headerBottom,
           left: 60,
@@ -587,7 +560,7 @@ export function ResearchChart({
             ...Object.fromEntries(
               series
                 .filter((s) => s.group === "historical")
-                .map((s) => [seriesLabel(data, s), false]),
+                .map((s) => [seriesLabel(s), false]),
             ),
             ...savedSelection,
           },
@@ -777,7 +750,7 @@ export function ResearchChart({
           >
             <div
               ref={el}
-              className={`research-chart ${heatmap ? `heatmap-chart ${data.kind === "earnings" ? "quarter-heatmap" : "monthly-heatmap"}` : ""}`}
+              className={`research-chart ${heatmap ? "heatmap-chart monthly-heatmap" : ""}`}
               role="img"
               aria-label={description}
             />
@@ -786,8 +759,6 @@ export function ResearchChart({
             {heatmap
               ? "灰色单元格表示尚无数值。窄屏可左右滚动查看全部列，键盘聚焦图表区域后可用方向键滚动。"
               : "缺少或尚未形成的价格保留空白，曲线不跨缺口连接。"}
-            {data.kind === "earnings" &&
-              "日期观察以虚线或边框标明，不代表已核对的精确事件。"}
             {!heatmap && (data.benchmark && paired
               ? `当前图仅展示 ${paired.label} 这一个样本的股票、基准及差值，三条曲线不代表三个独立样本。全部历史统计的 N 见上方摘要。`
               : rows(facts(data.summary).path).length > 0 &&

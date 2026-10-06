@@ -1,13 +1,12 @@
-"""Exact raw-source replay with observation-independent content identity."""
+"""Response evidence references saved raw sources; content identity ignores observation time."""
 
 import base64
 import copy
 import hashlib
-import json
 
 import pytest
 from iirp.config import settings
-from iirp.storage import hydrate_response_evidence, response_evidence, save_object
+from iirp.storage import response_evidence, save_object
 
 
 @pytest.fixture
@@ -26,14 +25,12 @@ def test_unchanged_observation_reuses_content_and_changed_price_does_not(runtime
     changed.update(fetched_at="2026-09-21T20:01:00Z", timing={"http_seconds": 9})
     second, later = response_evidence(changed, {})
     assert first == second and observation != later
-    assert hydrate_response_evidence(first, observation) == original
-    assert hydrate_response_evidence(second, later) == changed
     changed["records"][0]["close"] = 124
     assert response_evidence(changed, {})[0] != first
     assert original["fetched_at"] == "2026-09-21T20:00:00Z"
 
 
-def test_raw_document_is_stored_once_and_exactly_replayable(runtime):
+def test_raw_document_is_stored_once_and_referenced(runtime):
     raw = b"<feed><entry>exact source evidence</entry></feed>"
     source = save_object(raw, "application/atom+xml")
     data = {"source_documents": [{"url": "https://www.sec.gov/example", "payload": raw.decode(),
@@ -41,21 +38,15 @@ def test_raw_document_is_stored_once_and_exactly_replayable(runtime):
     payload, _ = response_evidence(data, {"https://www.sec.gov/example": source})
     assert raw not in payload
     assert source["sha256"].encode() in payload
-    assert hydrate_response_evidence(payload) == data
-    path = runtime / source["relative_path"]
-    path.write_bytes(b"corrupt")
-    with pytest.raises(ValueError, match="校验失败"):
-        hydrate_response_evidence(payload)
 
 
-def test_binary_xml_and_legacy_inline_responses(runtime):
+def test_binary_xml_is_referenced_and_mismatch_rejected(runtime):
     raw = b"<ownershipDocument>\xff</ownershipDocument>"
     source = save_object(raw, "application/xml")
     data = {"filing": {"document_url": "https://www.sec.gov/doc.xml",
                         "xml_payload": base64.b64encode(raw).decode(), "xml_encoding": "base64"}}
     payload, _ = response_evidence(data, {"https://www.sec.gov/doc.xml": source})
-    assert hydrate_response_evidence(payload) == data
-    assert hydrate_response_evidence(json.dumps(data).encode()) == data
+    assert raw not in payload and source["sha256"].encode() in payload
     wrong = {**source, "sha256": hashlib.sha256(b"other").hexdigest()}
     with pytest.raises(ValueError, match="不一致"):
         response_evidence(data, {"https://www.sec.gov/doc.xml": wrong})

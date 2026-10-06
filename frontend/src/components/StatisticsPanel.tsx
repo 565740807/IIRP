@@ -8,14 +8,6 @@ const statisticValue = (value: unknown, difference = false) =>
   difference ? percent(value).replace(/%$/, " 个百分点") : percent(value);
 const metricLabel: Record<string, string> = {
   endpoint: "所选窗口涨跌幅",
-  before5: "D−6 至 D−1 · 前5日",
-  day0: "D−1 至 D0 · 当日",
-  after5: "D0 至 D+5 · 后5日",
-  through5: "D−1 至 D+5 · 含当天",
-  "1": "精确反应 · 1交易日",
-  "5": "精确反应 · 5交易日",
-  "20": "精确反应 · 20交易日",
-  "60": "精确反应 · 60交易日",
 };
 export const gapLabel = (value: unknown) =>
   (
@@ -27,21 +19,12 @@ export const gapLabel = (value: unknown) =>
       benchmark_identity_unconfirmed: "基准身份未确认",
       benchmark_not_etf_or_index: "来源未确认是ETF或所选指数",
       benchmark_calendar_or_currency_mismatch: "基准日历或币种不匹配",
-      missing_event: "缺少该财季实际公告",
-      unverified_event_date: "已有资料，日期待核对",
-      unsupported_event_date: "已有资料，日期来源尚未支持",
       user_excluded: "已有资料，已主动排除",
-      outside_requested_years: "已有资料，不在所选年份范围内",
-      unassigned_year: "已有资料，财年归属待核对",
-      unverified_or_nonstandard_fiscal_period:
-        "已有资料，财年财季或财期类型及来源尚未满足常规汇总资格",
       missing_window: "窗口日期未确定",
       unconfirmed_event_time: "公告时刻/财期资格待核对",
-      not_common_fiscal_year: "其他季度同窗口缺少有效样本",
       incomplete_path: "窗口中有价格缺口",
       in_progress: "窗口仍在形成",
       not_yet_formed: "窗口尚未形成",
-      unverified_event: "公告事实待核对",
       available: "有效",
       missing_baseline: "缺少起点收盘价",
     }) as Record<string, string>

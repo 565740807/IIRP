@@ -18,7 +18,6 @@ from sqlalchemy.exc import OperationalError
 from iirp.analytics.calendar import ET, sessions
 from iirp.business_models import (
     Batch,
-    BatchJob,
     CollectionStrategy,
     FeedSession,
     MaintenanceRun,
@@ -27,8 +26,7 @@ from iirp.business_models import (
 )
 from iirp.config import ROOT, settings
 from iirp.db import session
-from iirp.feed_snapshots import cleanup_feed_manifests
-from iirp.models import ACTIVE, Job, now
+from iirp.models import Job, now
 from iirp.providers import sec_configured
 
 LOG_BYTES = 5 * 1024**2
@@ -41,7 +39,6 @@ MAINTENANCE_DB_GRACE_SECONDS = 15
 # bounded separately from the already-acknowledged pause/cancel control path.
 SCRATCH_DATABASE_DROP_SECONDS = 30
 MAINTENANCE_RECOVERY_TIMEOUT = SCRATCH_DATABASE_DROP_SECONDS + 15
-CLEANUP_PAGE = 25
 _LAST_LOG_ROTATION = 0.0
 
 
@@ -189,16 +186,6 @@ def cleanup(job=None):
             details["reading_sessions_removed"] += expired_count
             if not expired_count:
                 break
-        # One bounded page per maintenance run. Reference publication and this
-        # deletion share a transaction lock; a busy publisher defers GC.
-        def reclaim_manifests(s, _current=None):
-            details.update(cleanup_feed_manifests(s))
-
-        if job is None:
-            with session() as s, s.begin():
-                reclaim_manifests(s)
-        elif not fenced(job, acknowledge_control=False, business_write=reclaim_manifests):
-            return None
         with session() as s:
             details["analysis_bytes_remaining"] = _cache_bytes(s)
         details["logs"] = rotate_logs()
@@ -241,31 +228,6 @@ def _has_running(s, key, kind=None):
     if kind:
         query = query.where(Batch.kind == kind)
     return s.scalar(query.limit(1)) is not None
-
-
-def _latest_waiting(s):
-    batches = s.scalars(
-        select(Batch).where(
-            Batch.policy_key == "sec",
-            Batch.kind == "sec_latest",
-            Batch.requested_action.is_(None),
-            Batch.status.in_(("QUEUED", "RUNNING", "RETRY_WAIT")),
-        )
-    ).all()
-    for batch in batches:
-        discovery = s.scalars(
-            select(Job)
-            .join(BatchJob)
-            .join(RequestScope)
-            .where(
-                RequestScope.batch_id == batch.id,
-                Job.kind == "sec_discover",
-                Job.target["mode"].astext == "latest",
-            )
-        ).all()
-        if not discovery or any(job.status in ACTIVE for job in discovery):
-            return True
-    return False
 
 
 def _maintenance_batch(s, policy, request_id):

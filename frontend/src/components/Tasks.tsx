@@ -29,7 +29,7 @@ import {
   useNotice,
 } from "./ui";
 
-export function JobStatusLabel({ job }: { job: Job }) {
+function JobStatusLabel({ job }: { job: Job }) {
   const Icon =
     job.status === "SUCCEEDED"
       ? CheckCircle2
@@ -45,7 +45,7 @@ export function JobStatusLabel({ job }: { job: Job }) {
     </span>
   );
 }
-export function JobActions({ job }: { job: Job }) {
+function JobActions({ job }: { job: Job }) {
   const action = useJobAction();
   const notice = useNotice();
   const execute = (value: "pause" | "resume" | "cancel" | "retry") =>
@@ -111,7 +111,7 @@ export function JobActions({ job }: { job: Job }) {
     </div>
   );
 }
-export function JobDetail({
+function JobDetail({
   job,
   open,
   onClose,

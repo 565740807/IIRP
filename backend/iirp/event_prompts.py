@@ -12,7 +12,6 @@ from iirp.db import session
 from iirp.event_models import PromptTemplate
 from iirp.models import now
 
-LANGUAGES = ("zh", "en")
 MAX_TEXT = 20000
 
 _FORMAT = ('{"events":[{"ticker":"AAPL","date":"2025-10-30","session":"after_close",'

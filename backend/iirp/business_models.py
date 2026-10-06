@@ -244,7 +244,7 @@ class FilingVersion(Base):
     __tablename__ = "filing_version"
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uid)
     accession: Mapped[str] = mapped_column(ForeignKey("filing.accession"), index=True)
-    source_hash: Mapped[str] = mapped_column(ForeignKey("source_object.sha256"))
+    source_hash: Mapped[str] = mapped_column(ForeignKey("source_object.sha256"), index=True)
     parser_version: Mapped[str] = mapped_column(String(32))
     data: Mapped[dict[str, Any]] = mapped_column(JSONB)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
@@ -373,19 +373,10 @@ class FeedGroupOrder(Base):
     )
 
 
-class FeedManifest(Base):
-    __tablename__ = "feed_manifest"
-    sha256: Mapped[str] = mapped_column(String(64), primary_key=True)
-    revision_ids: Mapped[list] = mapped_column(JSONB)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
-    __table_args__ = (Index("ix_feed_manifest_created", created_at, sha256),)
-
-
 class FeedSession(Base):
     __tablename__ = "feed_session"
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uid)
     revision_ids: Mapped[list] = mapped_column(JSONB)
-    manifest_hash: Mapped[str | None] = mapped_column(ForeignKey("feed_manifest.sha256"), index=True)
     filters: Mapped[dict[str, Any]] = mapped_column(JSONB)
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 

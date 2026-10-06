@@ -9,7 +9,7 @@ is shared by graphs, tables and exports; a frontend must not recompute metrics.
 import calendar as gregorian
 from collections import defaultdict
 from datetime import date, datetime, timedelta
-from decimal import Decimal, InvalidOperation, localcontext
+from decimal import Decimal, InvalidOperation
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field
@@ -218,18 +218,6 @@ def plan_scope(params: dict, today: date) -> tuple[date, date]:
     if start > end:
         raise ValueError("The requested range has not started; no price collection is due")
     return start, end
-
-
-def _quantile(values: list[Decimal], quantile: Decimal) -> Decimal | None:
-    if not values:
-        return None
-    values = sorted(values)
-    with localcontext() as context:
-        context.prec = 34
-        position = Decimal(len(values) - 1) * quantile
-        low = int(position)
-        fraction = position - low
-        return values[low] + fraction * (values[min(low + 1, len(values) - 1)] - values[low])
 
 
 def _statistics(values: list[str | None]) -> dict:

@@ -7,7 +7,7 @@ third-party material.
 
 Exact Python and npm versions are in `uv.lock` and `frontend/package-lock.json`. `docs/THIRD_PARTY_INVENTORY.json` enumerates them;
 regenerate it with `python3 scripts/dependency_inventory.py`.
-`docs/THIRD_PARTY_REVIEW.json` records integrity verification of 276 distinct
+`docs/THIRD_PARTY_REVIEW.json` records integrity verification of 274 distinct
 locked distributions (one selected Python artifact per version and all locked
 npm artifacts, including optional platforms). Included upstream LICENSE / NOTICE
 material is retained in `docs/THIRD_PARTY_LICENSE_TEXTS.txt`, with artifact URLs,

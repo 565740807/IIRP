@@ -1,8 +1,8 @@
-import type { components } from "./generated/api";
-import { display, facts, percent, type Fact } from "./api";
-import { useReadingState } from "./researchStorage";
-import { gapLabel } from "./components/StatisticsPanel";
-import "./statistics-evidence.css";
+import type { components } from "../generated/api";
+import { display, facts, percent, type Fact } from "../api";
+import { useReadingState } from "../researchStorage";
+import { gapLabel } from "./StatisticsPanel";
+import "../statistics-evidence.css";
 
 type Distribution = components["schemas"]["Distribution"];
 type Robustness = components["schemas"]["DistributionRobustness"];
@@ -18,14 +18,6 @@ const difference = (value: unknown) =>
   percent(value).replace(/%$/, " 个百分点");
 const metricNames: Record<string, string> = {
   endpoint: "期末价格收益",
-  before5: "前5日 · D−6至D−1",
-  day0: "当日 · D−1至D0",
-  after5: "后5日 · D0至D+5",
-  through5: "含当天 · D−1至D+5",
-  "1": "精确反应1日",
-  "5": "精确反应5日",
-  "20": "精确反应20日",
-  "60": "精确反应60日",
 };
 
 function Sensitivity({
@@ -126,20 +118,10 @@ export function StatisticsPanel({
   const meta = facts(data.metadata);
   const params = facts(meta.params);
   const distributions = (data.distributions ?? []) as Distribution[];
-  const metric =
-    defaultMetric ??
-    (data.kind === "earnings"
-      ? String(params.window ?? 5)
-      : data.kind === "event_dates"
-        ? String(meta.date_window ?? params.date_window ?? "after5")
-        : "endpoint");
+  const metric = defaultMetric ?? "endpoint";
   const selectedGroup =
     group ??
-    (data.kind === "monthly"
-      ? String(params.month ?? "")
-      : data.kind === "earnings"
-        ? `Q${params.quarter ?? 1}`
-        : "");
+(data.kind === "monthly" ? String(params.month ?? "") : "");
   const selected =
     distributions.find(
       (item) => item.metric === metric && item.group === selectedGroup,
@@ -432,10 +414,6 @@ export function StatisticsPanel({
         <p>{proportion.assumptions}</p>
         <p>{proportion.interpretation}</p>
         <p>该研究只描述事件附近的价格变化，不能把窗口内全部涨跌归因于事件。</p>
-        {meta.inclusion_rule != null && (
-          <p>保存的事件纳入范围：{display(meta.inclusion_rule)}</p>
-        )}
-        {meta.keyword_scope_policy && <p>{display(meta.keyword_scope_policy)}</p>}
       </details>
     </section>
   );

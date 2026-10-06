@@ -1544,20 +1544,6 @@
     },
     {
       "ecosystem": "npm",
-      "name": "@radix-ui/react-collapsible",
-      "version": "1.1.20",
-      "license": "MIT",
-      "lock": "frontend/package-lock.json",
-      "distribution_review": {
-        "status": "integrity_and_notice_material_checked",
-        "url": "https://registry.npmjs.org/@radix-ui/react-collapsible/-/react-collapsible-1.1.20.tgz",
-        "sha256": "596b57f4fae1a9372c50c84c1a93df14668a6d268a462b2047d34af61cbbeccf",
-        "integrity_verified": true
-      },
-      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
-    },
-    {
-      "ecosystem": "npm",
       "name": "@radix-ui/react-compose-refs",
       "version": "1.1.5",
       "license": "MIT",
@@ -3428,20 +3414,6 @@
         "status": "integrity_and_notice_material_checked",
         "url": "https://registry.npmjs.org/postcss/-/postcss-8.5.28.tgz",
         "sha256": "f63d6d9bce28989cd083add85af717c0264e44323d35c909ae99ac934e9641a6",
-        "integrity_verified": true
-      },
-      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
-    },
-    {
-      "ecosystem": "npm",
-      "name": "prettier",
-      "version": "3.9.6",
-      "license": "MIT",
-      "lock": "frontend/package-lock.json",
-      "distribution_review": {
-        "status": "integrity_and_notice_material_checked",
-        "url": "https://registry.npmjs.org/prettier/-/prettier-3.9.6.tgz",
-        "sha256": "997da95cf2ae81053cafc79ef122a6e8dc12e3f2c619d57eb1f2e19525fb212f",
         "integrity_verified": true
       },
       "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"

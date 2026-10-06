@@ -2249,26 +2249,6 @@
     },
     {
       "ecosystem": "npm",
-      "name": "@radix-ui/react-collapsible",
-      "version": "1.1.20",
-      "url": "https://registry.npmjs.org/@radix-ui/react-collapsible/-/react-collapsible-1.1.20.tgz",
-      "integrity": "sha512-mcGesGplBnzN2sbvJETzpCNfSMyPnb29q1GRLU+Ib7bJrpIG2ywmRoh2V5VbA2uNvKikKUlVbAPks7JDjz4A8Q==",
-      "sha256": "596b57f4fae1a9372c50c84c1a93df14668a6d268a462b2047d34af61cbbeccf",
-      "bytes": 8318,
-      "integrity_verified": true,
-      "status": "integrity_and_notice_material_checked",
-      "declared_license": "MIT",
-      "license_classifiers": [],
-      "notices": [
-        {
-          "archive_path": "package/LICENSE",
-          "sha256": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138",
-          "bytes": 1063
-        }
-      ]
-    },
-    {
-      "ecosystem": "npm",
       "name": "@radix-ui/react-compose-refs",
       "version": "1.1.5",
       "url": "https://registry.npmjs.org/@radix-ui/react-compose-refs/-/react-compose-refs-1.1.5.tgz",
@@ -4855,31 +4835,6 @@
           "archive_path": "package/LICENSE",
           "sha256": "5be1f3465bba68a626777f984878814aaf35e7ef8e9fd314d469bcf887050fb8",
           "bytes": 1095
-        }
-      ]
-    },
-    {
-      "ecosystem": "npm",
-      "name": "prettier",
-      "version": "3.9.6",
-      "url": "https://registry.npmjs.org/prettier/-/prettier-3.9.6.tgz",
-      "integrity": "sha512-OpN0zzVdiaiAhxpuuj5efpIS4sY9j7bY6uR5mnj5yPzGkdkjNKSJeUThPb60Jw29QuAZgA4o+/iB49kFiaBX6g==",
-      "sha256": "997da95cf2ae81053cafc79ef122a6e8dc12e3f2c619d57eb1f2e19525fb212f",
-      "bytes": 2800155,
-      "integrity_verified": true,
-      "status": "integrity_and_notice_material_checked",
-      "declared_license": "MIT",
-      "license_classifiers": [],
-      "notices": [
-        {
-          "archive_path": "package/LICENSE",
-          "sha256": "b0f2417199889f1c0d28ec4e0244eacf1a15de5819d61f641dd7d8f45153ac9c",
-          "bytes": 1065
-        },
-        {
-          "archive_path": "package/THIRD-PARTY-NOTICES.md",
-          "sha256": "ed5d4b7a970a10f85a80a730a3086cf59bf3dbb0bd3c5aa5f900da1b54fdfcac",
-          "bytes": 362597
         }
       ]
     },

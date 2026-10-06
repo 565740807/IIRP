@@ -12,7 +12,6 @@ from sqlalchemy import (
     String,
     Text,
     literal_column,
-    select,
     text,
 )
 from sqlalchemy.dialects.postgresql import JSONB
@@ -29,11 +28,6 @@ class Base(DeclarativeBase):
 
 ACTIVE = ("QUEUED", "RUNNING", "PAUSE_REQUESTED", "PAUSED", "CANCEL_REQUESTED", "RETRY_WAIT")
 TERMINAL = ("SUCCEEDED", "PARTIAL", "FAILED", "CANCELLED")
-# Partial-index predicate of ix_job_sec_latest_complete (migration 0023).
-SEC_LATEST_COMPLETE = (
-    "kind = 'sec_discover' AND status = 'SUCCEEDED' AND (target ->> 'mode') = 'latest' "
-    "AND (checkpoint['sec_scan'] ->> 'complete') = 'true'"
-)
 
 
 class Job(Base):
@@ -73,11 +67,6 @@ class Job(Base):
         Index("ix_job_kind_status_finished", "kind", "status", "finished_at"),
         Index("ix_job_created_id", created_at.desc(), id.desc()),
         Index(
-            "ix_job_sec_latest_complete",
-            created_at.desc(),
-            postgresql_where=text(SEC_LATEST_COMPLETE),
-        ),
-        Index(
             "ix_job_sec_claim_stamp",
             "kind",
             literal_column("(checkpoint ->> '_queue_sec_claimed_at'::text)").desc(),
@@ -102,23 +91,6 @@ class Job(Base):
             name="ck_job_status",
         ),
     )
-
-
-def latest_complete_sec_scan(before=None):
-    """Newest succeeded latest-feed scan that reached its watermark.
-
-    Its conditions match SEC_LATEST_COMPLETE, so PostgreSQL answers from the
-    partial index even while no scan has completed yet (then nothing matches).
-    """
-    query = select(Job).where(
-        Job.kind == "sec_discover",
-        Job.status == "SUCCEEDED",
-        Job.target["mode"].astext == "latest",
-        Job.checkpoint["sec_scan"]["complete"].astext == "true",
-    )
-    if before is not None:
-        query = query.where(Job.created_at < before)
-    return query.order_by(Job.created_at.desc()).limit(1)
 
 
 class Subscription(Base):

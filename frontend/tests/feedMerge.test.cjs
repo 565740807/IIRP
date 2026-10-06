@@ -3,8 +3,8 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const ts = require('../frontend/node_modules/typescript');
-const file = path.resolve(__dirname, '../frontend/src/feedMerge.ts');
+const ts = require('../node_modules/typescript');
+const file = path.resolve(__dirname, '../src/feedMerge.ts');
 const compiled = ts.transpileModule(fs.readFileSync(file,'utf8'), { compilerOptions: { target:ts.ScriptTarget.ES2022, module:ts.ModuleKind.CommonJS } });
 const loaded = { exports:{} };
 new Function('exports','module',compiled.outputText)(loaded.exports,loaded);
