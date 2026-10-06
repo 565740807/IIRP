@@ -104,7 +104,8 @@ def upgrade():
         bind.execute(sa.text("UPDATE event_set SET events = CAST(:events AS jsonb) WHERE id = :id"),
                      {"id": row.id, "events": json.dumps(_order(events), ensure_ascii=False)})
 
-    # Verified dates of the removed SEC pipeline, one earnings set per ticker.
+    # Read what the removed earnings pipeline left before anything is dropped.
+    hashes = _evidence_hashes(bind)
     found = bind.execute(sa.text("""
         SELECT sec.symbol, e.announced_date, e.announced_at, e.fiscal_year, e.fiscal_quarter
         FROM earnings_event e JOIN security sec ON sec.id = e.security_id
@@ -125,6 +126,13 @@ def upgrade():
             "fiscal_year": row.fiscal_year, "fiscal_quarter": row.fiscal_quarter,
             "note": "SEC 8-K 核对的公布日期" + ("；公布时段未知" if session == "unknown" else ""),
         })
+    op.drop_table("event_set_version")
+    op.drop_table("event_import_preview")
+    op.drop_table("event_command_receipt")
+    op.drop_column("event_set", "security_id")
+    op.drop_column("event_set", "version")
+
+    # Verified dates of the removed SEC pipeline, one earnings set per ticker.
     for symbol, events in by_symbol.items():
         events = _order(events)
         bind.execute(sa.text("""
@@ -134,7 +142,6 @@ def upgrade():
                "events": json.dumps(events, ensure_ascii=False)})
 
     # Source files of the earnings pipeline expire now; the worker deletes them.
-    hashes = _evidence_hashes(bind)
     if hashes:
         bind.execute(sa.text("""
             UPDATE source_object SET expires_at = now()
@@ -179,11 +186,6 @@ def upgrade():
     ):
         op.execute(statement)
 
-    op.drop_table("event_set_version")
-    op.drop_table("event_import_preview")
-    op.drop_table("event_command_receipt")
-    op.drop_column("event_set", "security_id")
-    op.drop_column("event_set", "version")
     op.alter_column("event_set", "events", nullable=False)
     op.drop_table("earnings_event")
     op.drop_table("import_preview")

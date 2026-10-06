@@ -198,3 +198,47 @@ def test_api_validates_saves_and_reports_field_errors():
                             json={"text": "我的模板"}).json()
         assert prompt["text"] == "我的模板" and not prompt["is_default"]
         assert client.get("/api/v1/events/defaults").json()["window_sessions"]["earnings"] == 5
+
+
+def test_migration_converts_saved_sets_and_sec_earnings_dates():
+    from alembic import command
+    from alembic.config import Config
+    from iirp.config import ROOT
+    from iirp.db import engine
+    from sqlalchemy import text as sql
+
+    security = seed_security("AAPL")
+    configuration = Config(str(ROOT / "alembic.ini"))
+    command.downgrade(configuration, "0025")
+    try:
+        old = {"client_event_id": "wwdc", "event_name": "WWDC 2024 keynote", "event_date": "2024-06-10",
+               "event_time": "10:00", "timezone": "America/Los_Angeles", "notes": "官方回顾",
+               "excluded": False}
+        with engine().begin() as connection:
+            values = {"security": security, "events": json.dumps([old, {**old, "excluded": True}])}
+            for statement in (
+                """INSERT INTO event_set (id, security_id, title, kind, version, created_at, updated_at)
+                   VALUES ('set-1', :security, 'WWDC', 'custom', 1, now(), now())""",
+                """INSERT INTO event_import_preview (id, raw_text, content_hash, document, warnings, created_at)
+                   VALUES ('p-1', '{}', 'h', '{}', '[]', now())""",
+                """INSERT INTO event_set_version (id, set_id, version, preview_id, content_hash, document,
+                       events, reviews, revision_note, created_at)
+                   VALUES ('v-1', 'set-1', 1, 'p-1', 'h', '{}', CAST(:events AS jsonb), '[]', '', now())""",
+                """INSERT INTO earnings_event (id, security_id, fiscal_year, fiscal_quarter, announced_date,
+                       announced_at, time_precision, verified, is_estimate, status, evidence, revision, updated_at)
+                   VALUES ('e-1', :security, 2024, 2, '2024-05-02', '2024-05-02T20:30:00+00', 'exact',
+                       true, false, 'DATE_VERIFIED', '[]', 1, now())""",
+            ):
+                connection.execute(sql(statement), values)
+    finally:
+        command.upgrade(configuration, "head")
+    sets = {item["title"]: item for item in event_service.list_sets()["items"]}
+    custom = event_service.get_set(sets["WWDC"]["id"])["events"]
+    # 10:00 Pacific is 13:00 Eastern, during the session; excluded events are not carried over.
+    assert [(e["ticker"], e["date"], e["session"], e["note"]) for e in custom] == [
+        ("AAPL", "2024-06-10", "during", "官方回顾")]
+    earnings_set = next(item for title, item in sets.items() if title.startswith("AAPL 财报日期"))
+    assert earnings_set["kind"] == "earnings"
+    migrated = event_service.get_set(earnings_set["id"])["events"][0]
+    assert (migrated["date"], migrated["session"], migrated["fiscal_quarter"], migrated["reaction_date"]) == (
+        "2024-05-02", "after_close", 2, "2024-05-03")
