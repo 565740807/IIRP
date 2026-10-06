@@ -138,7 +138,13 @@ def scope_range(params):
         # Fiscal years can span prior calendar years; include the explicit
         # current comparison while avoiding an unrelated eight-year scan.
         fiscal_years = [*params["years"], params.get("current_fiscal_year") or year]
-        return date(max(1, min(fiscal_years) - 1), 1, 1), min(end, date(min(9998, max(fiscal_years) + 1), 12, 31))
+        return date(max(1, min(fiscal_years) - 1), 1, 1), end
+    if params["kind"] == "earnings":
+        from dateutil.relativedelta import relativedelta
+
+        # Fixed once: the selected years plus one fiscal year; the price fetch
+        # adds the month of buffer. Discovered quarters are sliced from it.
+        return stamp.astimezone(ET).date() - relativedelta(years=n + 1), end
     return date(year - n - 1, 12, 1), end
 
 
@@ -936,9 +942,8 @@ def _plan_market(s, scope, batch, capacity):
         from iirp.earnings_planner import plan_earnings_discovery
 
         earnings_discovery = plan_earnings_discovery(s, scope, batch, capacity)
-        if not earnings_discovery["price_ready"]:
-            scope.status = "RUNNING" if earnings_discovery["discovery_pending"] else "PARTIAL"
-            scope.wait_reason = earnings_discovery.get("reason")
+        if not earnings_discovery["fetch_prices"]:
+            scope.status, scope.wait_reason = "PARTIAL", earnings_discovery.get("reason")
             return
     from iirp.price_cache import ensure_prices, fetch_state
 
@@ -954,7 +959,10 @@ def _plan_market(s, scope, batch, capacity):
 
         benchmark_reason = plan_benchmark(s, scope, request, scope.start_date, scope.end_date)
     scope.status, scope.wait_reason = status, reason
-    if status == "READY":
+    if status == "READY" and earnings_discovery and not earnings_discovery["price_ready"]:
+        # Prices are cached for the whole range; nothing to compute until an event is found.
+        scope.status = "RUNNING" if earnings_discovery["discovery_pending"] else "PARTIAL"
+    elif status == "READY":
         # Stock results do not wait for a benchmark; a paired result follows.
         benchmark_fetching = any(j.status in ACTIVE and j.kind in ("market_history", "market_identity")
                                  for j in linked_jobs(s, scope.id))

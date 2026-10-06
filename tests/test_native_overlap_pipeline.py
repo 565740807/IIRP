@@ -24,7 +24,7 @@ from test_performance_pipeline import params
 
 def native_published(count=13):
     security = seed_security()
-    seed_prices(security, date(2023, 1, 1), date(2025, 1, 1))
+    seed_prices(security, date(2023, 1, 1), date(2025, 1, 1), wide=True)
     with session() as s, s.begin():
         for i in range(count):
             event(s, type('Identity', (), {'id': security})(), day=str(date(2024, 6, 10) + timedelta(days=i)), year=2024,
