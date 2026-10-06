@@ -18,12 +18,14 @@ from alembic.config import Config
 from fastapi.testclient import TestClient
 from iirp.config import ROOT, settings
 from iirp.db import engine, session
-from iirp.jobs import lifecycle
+from iirp.jobs import batches
 from iirp.jobs.queue import ensure_defaults
 from iirp.models import Base, Batch, CollectionStrategy, RequestScope
 from psycopg import sql
 from sqlalchemy import select, text
 from sqlalchemy.engine import make_url
+
+from tests.clock import set_clock
 
 
 @pytest.fixture(scope="module")
@@ -78,7 +80,7 @@ def fixed_clock(monkeypatch):
     def at(iso):
         stamp = datetime.fromisoformat(iso.replace("Z", "+00:00"))
         assert stamp.tzinfo is not None
-        monkeypatch.setattr(lifecycle, "now", lambda: stamp)
+        set_clock(monkeypatch, lambda: stamp)
         return stamp
 
     at("2026-09-12T16:00:00Z")
@@ -98,7 +100,7 @@ def api(draft_database, fixed_clock, tmp_path, monkeypatch):
         )
     ensure_defaults()
     with session() as s, s.begin():
-        lifecycle.defaults(s)
+        batches.defaults(s)
         for strategy in s.scalars(select(CollectionStrategy)):
             strategy.enabled = False
     monkeypatch.setattr(settings(), "runtime_dir", tmp_path)

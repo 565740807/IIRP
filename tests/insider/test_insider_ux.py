@@ -8,13 +8,9 @@ from alembic.migration import MigrationContext
 from alembic.operations import Operations
 from iirp.config import ROOT
 from iirp.db import session
-from iirp.insider.facts import (
-    _refresh_groups,
-    feed,
-    feed_group,
-    resolve_amendment,
-    transaction_record,
-)
+from iirp.insider.feed import feed, feed_group
+from iirp.insider.records import resolve_amendment, transaction_record
+from iirp.insider.views import _refresh_groups
 from iirp.models import AmendmentRelation, FeedRevision, TransactionEvent
 from sqlalchemy import select
 

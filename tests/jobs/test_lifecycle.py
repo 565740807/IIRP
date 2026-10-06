@@ -17,11 +17,12 @@ from alembic import command
 from alembic.config import Config
 from alembic.script import ScriptDirectory
 from fastapi.testclient import TestClient
+from iirp.analysis import requests
 from iirp.analysis.calendar import last_completed_session, sessions
 from iirp.api.schemas import AnalysisInput, CollectionInput
 from iirp.config import ROOT, settings
 from iirp.db import engine, session
-from iirp.jobs import lifecycle
+from iirp.jobs import batch_views, batches, planner, preferences
 from iirp.jobs.queue import claim, ensure_defaults, fenced, recover
 from iirp.models import (
     AnalysisRequest,
@@ -44,6 +45,8 @@ from iirp.storage.objects import save_object
 from psycopg import sql
 from sqlalchemy import func, insert, select, text
 from sqlalchemy.engine import make_url
+
+from tests.clock import set_clock
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -258,10 +261,10 @@ def test_formal_api_persists_batch_before_202_without_probe_or_network(
 def test_repeated_request_id_is_idempotent_but_conflicting_parameters_are_rejected():
     params = collection()
     with ThreadPoolExecutor(max_workers=4) as pool:
-        result = list(pool.map(lambda _: lifecycle.create_collection(params), range(8)))
+        result = list(pool.map(lambda _: batches.create_collection(params), range(8)))
     assert len({item["batch_id"] for item in result}) == 1
     with pytest.raises(ValueError, match="同一请求标识"):
-        lifecycle.create_collection({**params, "end_date": "2023-02-01"})
+        batches.create_collection({**params, "end_date": "2023-02-01"})
 
 
 def test_analysis_request_replay_keeps_frozen_dates_across_day_change(monkeypatch):
@@ -272,10 +275,10 @@ def test_analysis_request_replay_keeps_frozen_dates_across_day_change(monkeypatc
         historical_years=1,
         current_year=2024,
     ).model_dump(mode="json")
-    monkeypatch.setattr(lifecycle, "now", lambda: datetime(2024, 1, 2, 22, tzinfo=timezone.utc))
-    original = lifecycle.create_analysis(params)
-    monkeypatch.setattr(lifecycle, "now", lambda: datetime(2024, 1, 3, 22, tzinfo=timezone.utc))
-    replay = lifecycle.create_analysis(params)
+    set_clock(monkeypatch, lambda: datetime(2024, 1, 2, 22, tzinfo=timezone.utc))
+    original = requests.create_analysis(params)
+    set_clock(monkeypatch, lambda: datetime(2024, 1, 3, 22, tzinfo=timezone.utc))
+    replay = requests.create_analysis(params)
     assert replay["batch_id"] == original["batch_id"]
     assert replay["batch"]["params"]["end_date"] == "2024-01-02"
 
@@ -285,8 +288,8 @@ def test_planner_does_not_lock_other_batches_or_overwrite_concurrent_control(
     monkeypatch, action, expected
 ):
     security_id = seed_security()
-    older = lifecycle.create_collection({**collection(), "request_id": str(uuid.uuid4())})
-    newer = lifecycle.create_collection(
+    older = batches.create_collection({**collection(), "request_id": str(uuid.uuid4())})
+    newer = batches.create_collection(
         {**collection(), "request_id": str(uuid.uuid4()), "end_date": "2023-03-01"}
     )
     with session() as s, s.begin():
@@ -300,12 +303,12 @@ def test_planner_does_not_lock_other_batches_or_overwrite_concurrent_control(
         assert batch.id == newer["batch_id"]
         # control_batch opens a separate real PostgreSQL connection here. The
         # prior planner locked every candidate batch and timed out at 500 ms.
-        controlled = lifecycle.control_batch(older["batch_id"], action)
+        controlled = batches.control_batch(older["batch_id"], action)
         assert controlled["batch"]["status"] == expected
         scope.status = "READY"
 
-    monkeypatch.setattr(lifecycle, "_plan_market", plan)
-    lifecycle.plan_tick()
+    monkeypatch.setattr(planner, "_plan_market", plan)
+    planner.plan_tick()
     assert planned == [newer["batch_id"]]
     with session() as s:
         older_batch = s.get(Batch, older["batch_id"])
@@ -321,10 +324,10 @@ def test_same_batch_control_retries_rolled_back_lock_conflict_without_weakening_
     from sqlalchemy.exc import OperationalError
 
     seed_security()
-    created = lifecycle.create_collection({**collection(), "request_id": str(uuid.uuid4())})
+    created = batches.create_collection({**collection(), "request_id": str(uuid.uuid4())})
     entered, release = threading.Event(), threading.Event()
     conflicts = []
-    original = lifecycle._control_batch_once
+    original = batches._control_batch_once
 
     def slow_plan(s, scope, batch, capacity):
         entered.set()
@@ -339,19 +342,19 @@ def test_same_batch_control_retries_rolled_back_lock_conflict_without_weakening_
             release.set()  # Release only after a real 500 ms lock conflict.
             raise
 
-    monkeypatch.setattr(lifecycle, "_plan_market", slow_plan)
-    monkeypatch.setattr(lifecycle, "_control_batch_once", control_once)
+    monkeypatch.setattr(planner, "_plan_market", slow_plan)
+    monkeypatch.setattr(batches, "_control_batch_once", control_once)
     with ThreadPoolExecutor(max_workers=1) as pool:
-        planned = pool.submit(lifecycle.plan_tick)
+        planned = pool.submit(planner.plan_tick)
         try:
             assert entered.wait(3)
-            controlled = lifecycle.control_batch(created["batch_id"], action)
+            controlled = batches.control_batch(created["batch_id"], action)
             assert controlled["batch"]["status"] == expected
             assert conflicts == ["55P03"]
         finally:
             release.set()
         planned.result(timeout=3)
-    lifecycle.plan_tick()
+    planner.plan_tick()
     with session() as s:
         batch = s.get(Batch, created["batch_id"])
         assert batch.status == expected and batch.requested_action == action
@@ -383,11 +386,11 @@ def test_planning_rotates_more_than_fifty_waiting_batches_and_prioritizes_contro
         planned.append(batch.id)
         scope.status = "RUNNING"
 
-    monkeypatch.setattr(lifecycle, "_plan_market", waiting)
-    lifecycle.plan_tick()
+    monkeypatch.setattr(planner, "_plan_market", waiting)
+    planner.plan_tick()
     with session() as s:
         assert s.get(Batch, "rotation-63").status == "PAUSED"
-    lifecycle.plan_tick()
+    planner.plan_tick()
     assert set(planned) == {f"rotation-{index}" for index in range(63)}
     with session() as s:
         assert all(batch.last_planned_at for batch in s.scalars(select(Batch)))
@@ -397,8 +400,8 @@ def test_repeated_planner_job_lock_conflict_is_visible_and_does_not_block_other_
     monkeypatch,
 ):
     seed_security()
-    good = lifecycle.create_collection({**collection(), "request_id": str(uuid.uuid4())})
-    bad = lifecycle.create_collection(
+    good = batches.create_collection({**collection(), "request_id": str(uuid.uuid4())})
+    bad = batches.create_collection(
         {**collection(), "request_id": str(uuid.uuid4()), "end_date": "2023-03-01"}
     )
     with session() as s, s.begin():
@@ -417,15 +420,15 @@ def test_repeated_planner_job_lock_conflict_is_visible_and_does_not_block_other_
             s.get(Job, job_id, with_for_update=True)
         scope.status = "READY"
 
-    monkeypatch.setattr(lifecycle, "_plan_market", plan)
+    monkeypatch.setattr(planner, "_plan_market", plan)
     with session() as holder, holder.begin():
         holder.get(Job, job_id, with_for_update=True)
-        lifecycle.plan_tick()
-        lifecycle.plan_tick()
+        planner.plan_tick()
+        planner.plan_tick()
         assert planned.count(bad["batch_id"]) == 1  # Persistent backoff suppresses a hot loop.
         with session() as s, s.begin():
             s.get(Batch, bad["batch_id"]).planning_retry_at = now() - timedelta(seconds=1)
-        lifecycle.plan_tick()
+        planner.plan_tick()
         assert planned.count(bad["batch_id"]) == 2
         assert planned.count(good["batch_id"]) == 1
         with session() as s:
@@ -436,11 +439,11 @@ def test_repeated_planner_job_lock_conflict_is_visible_and_does_not_block_other_
             assert scope.checkpoint["planning_conflict"]["sqlstate"] == "55P03"
             assert "uncommitted_change" not in scope.checkpoint
             assert (
-                "稍后自动重试" in lifecycle.batch_view(s, failed)["items"][0]["progress"]["stage"]
+                "稍后自动重试" in batch_views.batch_view(s, failed)["items"][0]["progress"]["stage"]
             )
     with session() as s, s.begin():
         s.get(Batch, bad["batch_id"]).planning_retry_at = now() - timedelta(seconds=1)
-    lifecycle.plan_tick()
+    planner.plan_tick()
     with session() as s:
         assert s.get(Batch, bad["batch_id"]).status == "SUCCEEDED"
         scope = s.scalar(select(RequestScope).where(RequestScope.batch_id == bad["batch_id"]))
@@ -452,12 +455,12 @@ def test_control_job_lock_retry_rolls_back_partial_batch_and_link_changes(monkey
     from sqlalchemy.exc import OperationalError
 
     seed_security()
-    created = lifecycle.create_collection({**collection(), "request_id": str(uuid.uuid4())})
-    lifecycle.plan_tick()
+    created = batches.create_collection({**collection(), "request_id": str(uuid.uuid4())})
+    planner.plan_tick()
     token = str(uuid.uuid4())
     with session() as s, s.begin():
         scope = s.scalar(select(RequestScope).where(RequestScope.batch_id == created["batch_id"]))
-        job = lifecycle.linked_jobs(s, scope.id)[0]
+        job = batch_views.linked_jobs(s, scope.id)[0]
         scope_id, job_id = scope.id, job.id
         scope.checkpoint = {"ready_events": 3, "planning_conflict": {"sqlstate": "55P03"}}
         job.status, job.lease_token, job.lease_until = (
@@ -465,7 +468,7 @@ def test_control_job_lock_retry_rolls_back_partial_batch_and_link_changes(monkey
             token,
             now() + timedelta(minutes=1),
         )
-    original = lifecycle._control_batch_once
+    original = batches._control_batch_once
     conflicts = []
     with engine().connect() as holder:
         held = holder.begin()
@@ -487,9 +490,9 @@ def test_control_job_lock_retry_rolls_back_partial_batch_and_link_changes(monkey
                 held.rollback()
                 raise
 
-        monkeypatch.setattr(lifecycle, "_control_batch_once", control_once)
+        monkeypatch.setattr(batches, "_control_batch_once", control_once)
         try:
-            lifecycle.control_batch(created["batch_id"], action)
+            batches.control_batch(created["batch_id"], action)
         finally:
             if held.is_active:
                 held.rollback()
@@ -506,17 +509,17 @@ def test_control_job_lock_retry_rolls_back_partial_batch_and_link_changes(monkey
 
 def test_two_manual_batches_share_work_and_pause_keeps_the_other_running():
     seed_security()
-    first = lifecycle.create_collection(collection(purpose="monthly"))["batch_id"]
-    second = lifecycle.create_collection(collection(purpose="interval"))["batch_id"]
+    first = batches.create_collection(collection(purpose="monthly"))["batch_id"]
+    second = batches.create_collection(collection(purpose="interval"))["batch_id"]
     assert first != second
-    lifecycle.plan_tick()
+    planner.plan_tick()
     assert job_ids(first) == job_ids(second) and len(job_ids(first)) == 1
     lease = claim({"market_history"})
     assert lease is not None
-    result = lifecycle.control_batch(first, "pause")
+    result = batches.control_batch(first, "pause")
     assert result["batch"]["status"] == "PAUSED"
     assert fenced(lease, done=1, result={"synthetic": True}, status="SUCCEEDED")
-    lifecycle.plan_tick()
+    planner.plan_tick()
     assert batch(first).status == "PAUSED"
     with session() as s:
         first_scope = s.scalar(select(RequestScope).where(RequestScope.batch_id == first))
@@ -528,30 +531,30 @@ def test_two_manual_batches_share_work_and_pause_keeps_the_other_running():
 def test_automatic_and_two_manual_subscriptions_keep_independent_control():
     seed_security()
     with session() as s, s.begin():
-        automatic, _ = lifecycle._create(
+        automatic, _ = batches._create(
             s, collection(purpose="automatic-update"), trigger="automatic", policy_key="market"
         )
         automatic_id = automatic.id
-    first = lifecycle.create_collection(collection(purpose="monthly"))["batch_id"]
-    second = lifecycle.create_collection(collection(purpose="interval"))["batch_id"]
-    lifecycle.plan_tick()
+    first = batches.create_collection(collection(purpose="monthly"))["batch_id"]
+    second = batches.create_collection(collection(purpose="interval"))["batch_id"]
+    planner.plan_tick()
     assert job_ids(automatic_id) == job_ids(first) == job_ids(second)
     lease = claim({"market_history"})
-    lifecycle.update_strategy("market", False)
+    preferences.update_strategy("market", False)
     assert batch(automatic_id).status == "PAUSED"
-    lifecycle.control_batch(first, "cancel")
+    batches.control_batch(first, "cancel")
     assert fenced(lease, checkpoint={"second_manual_remains": True})
-    lifecycle.control_batch(second, "pause")
+    batches.control_batch(second, "pause")
     assert not fenced(lease, status="SUCCEEDED")
-    lifecycle.plan_tick()
+    planner.plan_tick()
     assert batch(first).status == "CANCELLED"
     assert batch(second).status == "PAUSED"
 
 
 def test_dependency_blocks_claim_until_prerequisite_has_succeeded():
     seed_security()
-    identifier = lifecycle.create_collection(collection())["batch_id"]
-    lifecycle.plan_tick()
+    identifier = batches.create_collection(collection())["batch_id"]
+    planner.plan_tick()
     prerequisite_id = job_ids(identifier)[0]
     with session() as s, s.begin():
         dependent = Job(
@@ -574,40 +577,40 @@ def test_dependency_blocks_claim_until_prerequisite_has_succeeded():
 def test_same_paused_scope_reuses_batch_without_resuming():
     seed_security()
     params = collection()
-    identifier = lifecycle.create_collection(params)["batch_id"]
-    lifecycle.plan_tick()
-    lifecycle.control_batch(identifier, "pause")
-    again = lifecycle.create_collection({**params, "request_id": str(uuid.uuid4())})
+    identifier = batches.create_collection(params)["batch_id"]
+    planner.plan_tick()
+    batches.control_batch(identifier, "pause")
+    again = batches.create_collection({**params, "request_id": str(uuid.uuid4())})
     assert again["batch_id"] == identifier and again["reused"]
     assert again["batch"]["status"] == "PAUSED"
     assert claim({"market_history"}) is None
-    lifecycle.control_batch(identifier, "resume")
+    batches.control_batch(identifier, "resume")
     assert claim({"market_history"}) is not None
 
 
 def test_paused_scope_request_alias_remains_idempotent_after_resume():
     seed_security()
     params = collection()
-    identifier = lifecycle.create_collection(params)["batch_id"]
-    lifecycle.plan_tick()
-    lifecycle.control_batch(identifier, "pause")
+    identifier = batches.create_collection(params)["batch_id"]
+    planner.plan_tick()
+    batches.control_batch(identifier, "pause")
     alias = {**params, "request_id": str(uuid.uuid4())}
-    assert lifecycle.create_collection(alias)["batch_id"] == identifier
-    lifecycle.control_batch(identifier, "resume")
-    assert lifecycle.create_collection(alias)["batch_id"] == identifier
+    assert batches.create_collection(alias)["batch_id"] == identifier
+    batches.control_batch(identifier, "resume")
+    assert batches.create_collection(alias)["batch_id"] == identifier
 
 
 def test_cancel_continue_creates_linked_new_batch_and_retains_cancelled_record():
     seed_security()
-    identifier = lifecycle.create_collection(collection())["batch_id"]
-    lifecycle.plan_tick()
+    identifier = batches.create_collection(collection())["batch_id"]
+    planner.plan_tick()
     old_jobs = job_ids(identifier)
-    lifecycle.control_batch(identifier, "cancel")
+    batches.control_batch(identifier, "cancel")
     assert batch(identifier).status == "CANCELLED"
-    child = lifecycle.control_batch(identifier, "continue_remaining")
+    child = batches.control_batch(identifier, "continue_remaining")
     assert child["batch_id"] != identifier
     assert child["batch"]["parent_id"] == identifier
-    lifecycle.plan_tick()
+    planner.plan_tick()
     assert batch(identifier).status == "CANCELLED"
     assert job_ids(child["batch_id"])
     with session() as s:
@@ -617,10 +620,10 @@ def test_cancel_continue_creates_linked_new_batch_and_retains_cancelled_record()
 @pytest.mark.parametrize("action", ["pause", "cancel"])
 def test_control_fence_rejects_business_writer_and_checkpoint(action):
     seed_security()
-    identifier = lifecycle.create_collection(collection())["batch_id"]
-    lifecycle.plan_tick()
+    identifier = batches.create_collection(collection())["batch_id"]
+    planner.plan_tick()
     lease = claim({"market_history"})
-    lifecycle.control_batch(identifier, action)
+    batches.control_batch(identifier, action)
     called = []
 
     def writer(s, current):
@@ -631,7 +634,7 @@ def test_control_fence_rejects_business_writer_and_checkpoint(action):
         lease, business_write=writer, checkpoint={"illicit": True}, status="SUCCEEDED"
     )
     assert not called
-    lifecycle.plan_tick()
+    planner.plan_tick()
     assert batch(identifier).status == ("PAUSED" if action == "pause" else "CANCELLED")
     with session() as s:
         assert s.get(Job, lease.id).checkpoint == {}
@@ -640,8 +643,8 @@ def test_control_fence_rejects_business_writer_and_checkpoint(action):
 
 def test_expired_reclaimed_worker_cannot_commit_business_facts():
     seed_security()
-    lifecycle.create_collection(collection())
-    lifecycle.plan_tick()
+    batches.create_collection(collection())
+    planner.plan_tick()
     stale = claim({"market_history"})
     with session() as s, s.begin():
         s.get(Job, stale.id).lease_until = now() - timedelta(seconds=1)
@@ -655,8 +658,8 @@ def test_expired_reclaimed_worker_cannot_commit_business_facts():
 
 def test_business_fact_source_reference_and_checkpoint_commit_atomically():
     seed_security()
-    lifecycle.create_collection(collection())
-    lifecycle.plan_tick()
+    batches.create_collection(collection())
+    planner.plan_tick()
     lease = claim({"market_history"})
     source = save_object(b"Synthetic single fenced transaction source")
 
@@ -686,8 +689,8 @@ def test_business_fact_source_reference_and_checkpoint_commit_atomically():
 
 def test_existing_source_is_reused_before_business_foreign_key_flush():
     seed_security()
-    lifecycle.create_collection(collection())
-    lifecycle.plan_tick()
+    batches.create_collection(collection())
+    planner.plan_tick()
     lease = claim({"market_history"})
     source = save_object(b"Already known synthetic source object")
     with session() as s, s.begin():
@@ -713,8 +716,8 @@ def test_fence_rechecks_lease_and_control_after_waiting_for_row_lock(change, mon
     from sqlalchemy import event
 
     seed_security()
-    lifecycle.create_collection(collection())
-    lifecycle.plan_tick()
+    batches.create_collection(collection())
+    planner.plan_tick()
     lease = claim({"market_history"})
     clock = [now()]
     monkeypatch.setattr(queue, "now", lambda: clock[0])
@@ -753,8 +756,8 @@ def test_fence_rechecks_lease_and_control_after_waiting_for_row_lock(change, mon
 
 def test_business_writer_error_rolls_back_source_fact_and_progress():
     seed_security()
-    lifecycle.create_collection(collection())
-    lifecycle.plan_tick()
+    batches.create_collection(collection())
+    planner.plan_tick()
     lease = claim({"market_history"})
     source = save_object(b"Synthetic rollback source")
 
@@ -774,20 +777,20 @@ def test_business_writer_error_rolls_back_source_fact_and_progress():
 
 def test_8_to_12_to_3_reuses_the_cache_and_fetches_one_wider_range():
     security_id = seed_security()
-    first = lifecycle.create_collection(
+    first = batches.create_collection(
         collection(start_date=None, end_date=None, historical_years=8)
     )["batch_id"]
     with session() as s:
         scope = s.scalar(select(RequestScope).where(RequestScope.batch_id == first))
         first_start, last = scope.start_date, scope.end_date
     seed_prices(security_id, first_start, last)
-    lifecycle.plan_tick()
+    planner.plan_tick()
     assert batch(first).status == "SUCCEEDED"
     assert job_ids(first) == []
-    expanded = lifecycle.create_collection(
+    expanded = batches.create_collection(
         collection(start_date=None, end_date=None, historical_years=12)
     )["batch_id"]
-    lifecycle.plan_tick()
+    planner.plan_tick()
     with session() as s:
         expansion = s.scalar(select(RequestScope).where(RequestScope.batch_id == expanded))
         jobs = [s.get(Job, identifier) for identifier in job_ids(expanded)]
@@ -795,10 +798,10 @@ def test_8_to_12_to_3_reuses_the_cache_and_fetches_one_wider_range():
         assert [job.kind for job in jobs] == ["market_history"]
         assert date.fromisoformat(jobs[0].target["start_date"]) == expansion.start_date - timedelta(days=31)
         assert date.fromisoformat(jobs[0].target["end_date"]) >= last
-    shrunk = lifecycle.create_collection(
+    shrunk = batches.create_collection(
         collection(start_date=None, end_date=None, historical_years=3)
     )["batch_id"]
-    lifecycle.plan_tick()
+    planner.plan_tick()
     assert batch(shrunk).status == "SUCCEEDED"
     assert job_ids(shrunk) == []
 
@@ -809,27 +812,27 @@ def test_gaps_inside_a_covering_cache_are_not_fetched_again():
     with session() as s, s.begin():
         for day in (date(2023, 1, 3), date(2023, 12, 29)):
             s.delete(s.get(PriceCacheBar, (cache_id, day)))
-    identifier = lifecycle.create_collection(
+    identifier = batches.create_collection(
         collection(start_date="2023-01-03", end_date="2023-12-29", intent="fill_missing")
     )["batch_id"]
-    lifecycle.plan_tick()
+    planner.plan_tick()
     assert job_ids(identifier) == []
 
 
 def test_recovery_preserves_pause_intent_and_restarts_only_remaining_work():
     seed_security()
-    identifier = lifecycle.create_collection(collection())["batch_id"]
-    lifecycle.plan_tick()
+    identifier = batches.create_collection(collection())["batch_id"]
+    planner.plan_tick()
     lease = claim({"market_history"})
     assert fenced(lease, checkpoint={"downloaded_units": 3})
-    lifecycle.control_batch(identifier, "pause")
+    batches.control_batch(identifier, "pause")
     with session() as s, s.begin():
         s.get(Job, lease.id).lease_until = now() - timedelta(seconds=1)
     with session() as s, s.begin():
         recover(s)
-    lifecycle.plan_tick()
+    planner.plan_tick()
     assert batch(identifier).status == "PAUSED"
-    lifecycle.control_batch(identifier, "resume")
+    batches.control_batch(identifier, "resume")
     fresh = claim({"market_history"})
     assert fresh.checkpoint == {"downloaded_units": 3}
     assert not fenced(lease, checkpoint={"obsolete": True})
@@ -838,14 +841,14 @@ def test_recovery_preserves_pause_intent_and_restarts_only_remaining_work():
 def test_paused_history_does_not_block_another_security():
     seed_security("AAPL")
     seed_security("MSFT")
-    first = lifecycle.create_collection(collection(start_date="1990-01-01", end_date="2022-12-31"))[
+    first = batches.create_collection(collection(start_date="1990-01-01", end_date="2022-12-31"))[
         "batch_id"
     ]
-    lifecycle.plan_tick()
+    planner.plan_tick()
     assert len(job_ids(first)) == 1
-    lifecycle.control_batch(first, "pause")
-    second = lifecycle.create_collection(collection(tickers=["MSFT"]))["batch_id"]
-    lifecycle.plan_tick()
+    batches.control_batch(first, "pause")
+    second = batches.create_collection(collection(tickers=["MSFT"]))["batch_id"]
+    planner.plan_tick()
     assert job_ids(second), "Paused work must not starve independent runnable collection"
 
 
@@ -854,14 +857,14 @@ def test_future_scope_records_waiting_but_does_not_schedule_future_price_downloa
     seed_security()
     completed = last_completed_session()
     future = completed + timedelta(days=20)
-    identifier = lifecycle.create_collection(
+    identifier = batches.create_collection(
         collection(
             start_date=future.isoformat(),
             end_date=(future + timedelta(days=8)).isoformat(),
             intent=intent,
         )
     )["batch_id"]
-    lifecycle.plan_tick()
+    planner.plan_tick()
     with session() as s:
         for identifier in job_ids(identifier):
             job = s.get(Job, identifier)
@@ -870,20 +873,20 @@ def test_future_scope_records_waiting_but_does_not_schedule_future_price_downloa
 
 def test_concurrent_planning_cannot_overwrite_confirmed_pause(monkeypatch):
     seed_security()
-    identifier = lifecycle.create_collection(collection())["batch_id"]
+    identifier = batches.create_collection(collection())["batch_id"]
     entered, proceed = threading.Event(), threading.Event()
-    original = lifecycle._plan_market
+    original = planner._plan_market
 
     def hold_plan(*args, **kwargs):
         entered.set()
         assert proceed.wait(5)
         return original(*args, **kwargs)
 
-    monkeypatch.setattr(lifecycle, "_plan_market", hold_plan)
+    monkeypatch.setattr(planner, "_plan_market", hold_plan)
     with ThreadPoolExecutor(max_workers=2) as pool:
-        planning = pool.submit(lifecycle.plan_tick)
+        planning = pool.submit(planner.plan_tick)
         assert entered.wait(3)
-        control = pool.submit(lifecycle.control_batch, identifier, "pause")
+        control = pool.submit(batches.control_batch, identifier, "pause")
         # Correct row locking may block control until planning finishes. In the
         # vulnerable interleaving control returns before the planner is released.
         try:
@@ -921,7 +924,7 @@ def test_current_schema_matches_head_and_upgrade_preserves_sample_only(lifecycle
         assert s.get(Coverage, ("yfinance", "AAPL")).status == "SAMPLE_ONLY"
         assert s.scalar(text("SELECT version_num FROM alembic_version")) == head
         assert s.scalar(select(func.count()).select_from(PriceCache)) == 0
-    lifecycle.create_collection(collection())
+    batches.create_collection(collection())
     with session() as s:
         assert {
             strategy.key for strategy in s.scalars(select(CollectionStrategy)) if strategy.enabled
@@ -933,9 +936,9 @@ def test_analysis_collects_only_completed_session_at_midnight(monkeypatch):
     # stopping price collection at the preceding completed exchange session.
     import iirp.analysis.calendar as calendar
 
-    monkeypatch.setattr(lifecycle, "now", lambda: datetime(2026, 1, 1, 6, tzinfo=timezone.utc))
+    set_clock(monkeypatch, lambda: datetime(2026, 1, 1, 6, tzinfo=timezone.utc))
     monkeypatch.setattr(calendar, "last_completed_session", lambda **kw: date(2025, 12, 31))
-    result = lifecycle.create_analysis(
+    result = requests.create_analysis(
         AnalysisInput(request_id="midnight", tickers=["SYNTH"], historical_years=3).model_dump(
             mode="json"
         )
@@ -945,12 +948,12 @@ def test_analysis_collects_only_completed_session_at_midnight(monkeypatch):
 
 
 def test_continue_cancelled_analysis_retains_calculation_request():
-    original = lifecycle.create_analysis(
+    original = requests.create_analysis(
         AnalysisInput(request_id="continue-analysis", tickers=["SYNTH"]).model_dump(mode="json")
     )
-    lifecycle.control_batch(original["batch_id"], "cancel")
-    child = lifecycle.control_batch(original["batch_id"], "continue_remaining")
-    again = lifecycle.control_batch(original["batch_id"], "continue_remaining")
+    batches.control_batch(original["batch_id"], "cancel")
+    child = batches.control_batch(original["batch_id"], "continue_remaining")
+    again = batches.control_batch(original["batch_id"], "continue_remaining")
     assert again["batch_id"] == child["batch_id"]
     with session() as s:
         request = s.scalar(
@@ -963,7 +966,7 @@ def test_continue_cancelled_analysis_retains_calculation_request():
 def test_january_cross_year_request_freezes_the_preceding_start_year(monkeypatch):
     import iirp.analysis.calendar as calendar
 
-    monkeypatch.setattr(lifecycle, "now", lambda: datetime(2026, 1, 10, 6, tzinfo=timezone.utc))
+    set_clock(monkeypatch, lambda: datetime(2026, 1, 10, 6, tzinfo=timezone.utc))
     monkeypatch.setattr(calendar, "last_completed_session", lambda **kw: date(2026, 1, 9))
     values = AnalysisInput(
         request_id="cross-new-year",
@@ -973,19 +976,19 @@ def test_january_cross_year_request_freezes_the_preceding_start_year(monkeypatch
         start_mmdd="12-15",
         end_mmdd="01-20",
     ).model_dump(mode="json")
-    created = lifecycle.create_analysis(values)
+    created = requests.create_analysis(values)
     assert created["params"]["current_year"] == 2025
     assert created["batch"]["params"]["start_date"] == "2022-12-15"
-    monkeypatch.setattr(lifecycle, "now", lambda: datetime(2026, 2, 10, 6, tzinfo=timezone.utc))
-    replay = lifecycle.create_analysis(values)
+    set_clock(monkeypatch, lambda: datetime(2026, 2, 10, 6, tzinfo=timezone.utc))
+    replay = requests.create_analysis(values)
     assert replay["id"] == created["id"]
     assert replay["params"]["current_year"] == 2025
 
 
 def test_batch_job_pages_include_only_linked_jobs_without_duplicates(lifecycle_client):
-    identifier = lifecycle.create_collection(collection(tickers=["AAPL", "MSFT"]))["batch_id"]
-    other = lifecycle.create_collection(collection(tickers=["KO"]))["batch_id"]
-    lifecycle.plan_tick()
+    identifier = batches.create_collection(collection(tickers=["AAPL", "MSFT"]))["batch_id"]
+    other = batches.create_collection(collection(tickers=["KO"]))["batch_id"]
+    planner.plan_tick()
     with session() as s, s.begin():
         scopes = s.scalars(select(RequestScope).where(RequestScope.batch_id == identifier)).all()
         shared = s.scalar(select(BatchJob.job_id).where(BatchJob.scope_id == scopes[0].id))
@@ -1046,7 +1049,7 @@ def test_twenty_symbols_keep_eighteen_results_when_one_fails_and_one_needs_revie
     review = seed_security(tickers[19])
     with session() as s, s.begin():
         s.get(Security, review).status = "NEEDS_REVIEW"
-    created = lifecycle.create_analysis(
+    created = requests.create_analysis(
         AnalysisInput(
             request_id="synthetic-20",
             tickers=tickers,
@@ -1057,7 +1060,7 @@ def test_twenty_symbols_keep_eighteen_results_when_one_fails_and_one_needs_revie
             end_mmdd="01-10",
         ).model_dump(mode="json")
     )
-    lifecycle.plan_tick()
+    planner.plan_tick()
     failed = claim({"market_identity"})
     assert failed.target["symbol"] == tickers[18]
     fenced(failed, status="FAILED", error="Synthetic unavailable identity")
@@ -1071,8 +1074,8 @@ def test_twenty_symbols_keep_eighteen_results_when_one_fails_and_one_needs_revie
             source=source,
             business_write=lambda s, current: _persist(s, current, payload, {}, source),
         )
-    lifecycle.plan_tick()
-    result = lifecycle.get_analysis(created["id"])
+    planner.plan_tick()
+    result = requests.get_analysis(created["id"])
     assert result["status"] == "PARTIAL"
     assert [r["symbol"] for r in result["results"]] == tickers[:18]
     assert len({r["result_id"] for r in result["results"]}) == 18

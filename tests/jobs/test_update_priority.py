@@ -5,10 +5,10 @@ from uuid import uuid4
 import pytest
 from iirp.api.schemas import CollectionInput
 from iirp.db import session
-from iirp.insider.facts import _quarter_ranges, plan_sec_scope
-from iirp.jobs import lifecycle
+from iirp.jobs import batch_views, batches, preferences
 from iirp.jobs.queue import claim
 from iirp.models import Batch, CollectionStrategy, Job, RequestScope, SourceBudget, now
+from iirp.sec.planning import _quarter_ranges, plan_sec_scope
 from sqlalchemy import select
 
 from tests.jobs.test_lifecycle import (  # noqa: F401
@@ -22,7 +22,7 @@ from tests.jobs.test_lifecycle import (  # noqa: F401
 def sec_contact_configured(monkeypatch):
     """Scheduling needs a real SEC contact; fetch_sec keeps its own check (CI has none)."""
     monkeypatch.setattr("iirp.jobs.auto_update.sec_configured", lambda: True)
-    monkeypatch.setattr("iirp.storage.maintenance.sec_configured", lambda: True)
+    monkeypatch.setattr("iirp.jobs.schedule.sec_configured", lambda: True)
 
 
 def request(kind, **changes):
@@ -32,8 +32,8 @@ def request(kind, **changes):
 
 
 def test_latest_target_is_today_and_recent_filing_overlap_not_the_history_default():
-    start, end = lifecycle.scope_range(request("sec_latest", history_months=12))
-    assert end == now().astimezone(lifecycle.ET).date()
+    start, end = batches.scope_range(request("sec_latest", history_months=12))
+    assert end == now().astimezone(batches.ET).date()
     assert 1 <= (end - start).days <= 7
 
 
@@ -45,12 +45,12 @@ def test_quarter_scans_do_not_expand_before_selected_boundary():
 
 
 def test_saved_defaults_reach_collection_and_remain_frozen():
-    lifecycle.update_preferences({"historical_years": 8, "history_months": 6, "comparison": "same_progress"})
+    preferences.update_preferences({"historical_years": 8, "history_months": 6, "comparison": "same_progress"})
     values = request("sec_history")
-    result = lifecycle.create_collection(values)
+    result = batches.create_collection(values)
     assert result["batch"]["params"]["history_months"] == 6
-    lifecycle.update_preferences({"historical_years": 8, "history_months": 3, "comparison": "same_progress"})
-    replay = lifecycle.create_collection(values)
+    preferences.update_preferences({"historical_years": 8, "history_months": 3, "comparison": "same_progress"})
+    replay = batches.create_collection(values)
     assert replay["batch_id"] == result["batch_id"]
     assert replay["batch"]["params"]["history_months"] == 6
 
@@ -58,12 +58,12 @@ def test_saved_defaults_reach_collection_and_remain_frozen():
 def test_latest_scope_has_no_discovery_jobs_and_finishes_after_a_complete_poll():
     from iirp.models import SourcePoll
 
-    result = lifecycle.create_collection(request("sec_latest"))
+    result = batches.create_collection(request("sec_latest"))
     with session() as s, s.begin():
         batch = s.get(Batch, result["batch_id"])
         scope = s.scalar(select(RequestScope).where(RequestScope.batch_id == batch.id))
         plan_sec_scope(s, scope, batch, [32], latest_capacity=[8])
-        assert lifecycle.linked_jobs(s, scope.id) == []
+        assert batch_views.linked_jobs(s, scope.id) == []
         assert scope.status != "READY"
         # A poll that closed continuity after this request was made settles it.
         s.add(SourcePoll(source="sec_latest", next_poll_at=now(), last_complete_at=now(), updated_at=now()))
@@ -73,15 +73,15 @@ def test_latest_scope_has_no_discovery_jobs_and_finishes_after_a_complete_poll()
 
 
 def test_latest_document_is_promoted_ahead_of_old_history():
-    old = lifecycle.create_collection(request("sec_history"))
-    latest = lifecycle.create_collection(request("sec_latest"))
+    old = batches.create_collection(request("sec_history"))
+    latest = batches.create_collection(request("sec_latest"))
     with session() as s, s.begin():
         old_scope = s.scalar(select(RequestScope).where(RequestScope.batch_id == old["batch_id"]))
         latest_scope = s.scalar(select(RequestScope).where(RequestScope.batch_id == latest["batch_id"]))
-        historical = lifecycle.add_job(s, old_scope, "sec_document", {"accession": "history"}, 1)
+        historical = batches.add_job(s, old_scope, "sec_document", {"accession": "history"}, 1)
         historical.created_at = now() - timedelta(days=5)
-        shared = lifecycle.add_job(s, old_scope, "sec_document", {"accession": "latest"}, 20)
-        promoted = lifecycle.add_job(s, latest_scope, "sec_document", shared.target, 0)
+        shared = batches.add_job(s, old_scope, "sec_document", {"accession": "latest"}, 20)
+        promoted = batches.add_job(s, latest_scope, "sec_document", shared.target, 0)
         assert promoted.id == shared.id
         assert promoted.priority == 0
         promoted_id = promoted.id
@@ -89,10 +89,10 @@ def test_latest_document_is_promoted_ahead_of_old_history():
 
 
 def test_shared_sec_cooldown_does_not_consume_filing_attempts():
-    result = lifecycle.create_collection(request("sec_latest"))
+    result = batches.create_collection(request("sec_latest"))
     with session() as s, s.begin():
         scope = s.scalar(select(RequestScope).where(RequestScope.batch_id == result["batch_id"]))
-        job = lifecycle.add_job(s, scope, "sec_document", {"accession": "waiting"}, 0)
+        job = batches.add_job(s, scope, "sec_document", {"accession": "waiting"}, 0)
         identifier = job.id
         s.add(SourceBudget(provider="sec", next_allowed_at=now() + timedelta(minutes=15), failures=1))
     assert claim({"sec_document"}) is None
@@ -106,7 +106,7 @@ def test_frontend_freshness_is_coalesced_and_respects_explicit_pause():
     first = ensure_fresh({"reason": "open", "sources": ["sec", "market"]})
     again = ensure_fresh({"reason": "open", "sources": ["sec", "market"]})
     assert first["batch_ids"] and first["batch_ids"] == again["batch_ids"]
-    lifecycle.update_strategy("sec", False)
+    preferences.update_strategy("sec", False)
     third = ensure_fresh({"reason": "open", "sources": ["sec"]})
     assert not third["batch_ids"]
     assert third["sources"]["sec"]["status"] == "paused"
@@ -115,12 +115,12 @@ def test_frontend_freshness_is_coalesced_and_respects_explicit_pause():
 
 
 def test_history_frontier_waits_for_commit_and_honors_pause():
-    from iirp.storage.maintenance import _sec_schedule
+    from iirp.jobs.schedule import _sec_schedule
 
     with session() as s, s.begin():
-        lifecycle.defaults(s)
+        batches.defaults(s)
         policy = s.get(CollectionStrategy, "sec")
-        current = now().astimezone(lifecycle.ET)
+        current = now().astimezone(batches.ET)
         _sec_schedule(s, policy, current, "round-one")
         pending = s.get(Batch, policy.options["history_pending_batch"])
         assert "history_end" not in policy.options
@@ -136,11 +136,11 @@ def test_history_frontier_waits_for_commit_and_honors_pause():
 
 def test_history_off_cancels_automatic_scope_but_preserves_latest_and_manual():
     with session() as s, s.begin():
-        auto, _ = lifecycle._create(s, request("sec_history"), trigger="automatic", policy_key="sec")
+        auto, _ = batches._create(s, request("sec_history"), trigger="automatic", policy_key="sec")
         auto_id = auto.id
-    manual = lifecycle.create_collection(request("sec_history"))
-    latest = lifecycle.create_collection(request("sec_latest"))
-    lifecycle.update_preferences({"automatic_history": False})
+    manual = batches.create_collection(request("sec_history"))
+    latest = batches.create_collection(request("sec_latest"))
+    preferences.update_preferences({"automatic_history": False})
     with session() as s:
         assert s.get(Batch, auto_id).status == "CANCELLED"
         assert s.get(Batch, manual["batch_id"]).status == "QUEUED"
@@ -148,7 +148,7 @@ def test_history_off_cancels_automatic_scope_but_preserves_latest_and_manual():
 
 
 def test_sec_scope_never_turns_into_market_collection_from_a_stale_ticker():
-    result = lifecycle.create_collection(request("sec_history", tickers=["AAPL"]))
+    result = batches.create_collection(request("sec_history", tickers=["AAPL"]))
     with session() as s:
         scopes = list(s.scalars(select(RequestScope).where(RequestScope.batch_id == result["batch_id"])))
         assert len(scopes) == 1 and scopes[0].symbol == "SEC" and scopes[0].security_id is None
@@ -167,14 +167,14 @@ def test_freshness_http_open_and_read_are_distinct(lifecycle_client):  # noqa: F
 
 def test_shared_document_links_have_a_global_per_tick_budget_without_losing_remainder():
     from iirp.models import Filing
-    old = lifecycle.create_collection(request("sec_history"))
-    latest = [lifecycle.create_collection(request("sec_latest")) for _ in range(2)]
+    old = batches.create_collection(request("sec_history"))
+    latest = [batches.create_collection(request("sec_latest")) for _ in range(2)]
     with session() as s, s.begin():
         old_scope = s.scalar(select(RequestScope).where(RequestScope.batch_id == old["batch_id"]))
         for i in range(12):
             accession = f"0000000001-26-{i:06d}"
-            s.add(Filing(accession=accession, form="4", filing_date=now().astimezone(lifecycle.ET).date()))
-            lifecycle.add_job(s, old_scope, "sec_document", {"accession": accession})
+            s.add(Filing(accession=accession, form="4", filing_date=now().astimezone(batches.ET).date()))
+            batches.add_job(s, old_scope, "sec_document", {"accession": accession})
         s.flush()
         link_budget = [5]
         counts = []
@@ -182,7 +182,7 @@ def test_shared_document_links_have_a_global_per_tick_budget_without_losing_rema
             batch = s.get(Batch, item["batch_id"])
             scope = s.scalar(select(RequestScope).where(RequestScope.batch_id == batch.id))
             plan_sec_scope(s, scope, batch, [32], latest_capacity=[8], document_link_capacity=link_budget)
-            counts.append(sum(j.kind == "sec_document" for j in lifecycle.linked_jobs(s, scope.id)))
+            counts.append(sum(j.kind == "sec_document" for j in batch_views.linked_jobs(s, scope.id)))
             assert scope.status != "READY"
         assert counts == [5, 0]
         # Next bounded turn adds every deferred subscription and preserves the demand.
@@ -190,7 +190,7 @@ def test_shared_document_links_have_a_global_per_tick_budget_without_losing_rema
             batch = s.get(Batch, item["batch_id"])
             scope = s.scalar(select(RequestScope).where(RequestScope.batch_id == batch.id))
             plan_sec_scope(s, scope, batch, [32], latest_capacity=[8], document_link_capacity=[100])
-            assert sum(j.kind == "sec_document" for j in lifecycle.linked_jobs(s, scope.id)) == 12
+            assert sum(j.kind == "sec_document" for j in batch_views.linked_jobs(s, scope.id)) == 12
 
 
 def test_unplanned_latest_request_is_reused_after_throttle_period():
@@ -206,12 +206,12 @@ def test_unplanned_latest_request_is_reused_after_throttle_period():
 
 def test_newly_published_filing_overtakes_older_documents_in_the_latest_lane():
     from iirp.models import Filing
-    result = lifecycle.create_collection(request("sec_latest"))
+    result = batches.create_collection(request("sec_latest"))
     with session() as s, s.begin():
         scope = s.scalar(select(RequestScope).where(RequestScope.batch_id == result["batch_id"]))
         for accession, age in [("0000000001-26-000001", 60), ("0000000001-26-000002", 0)]:
             s.add(Filing(accession=accession, form="4", accepted_at=now()-timedelta(minutes=age), filing_date=now().date()))
-            job = lifecycle.add_job(s, scope, "sec_document", {"accession": accession})
+            job = batches.add_job(s, scope, "sec_document", {"accession": accession})
             job.created_at = now()-timedelta(minutes=age)
             if age == 0:
                 newest = job.id

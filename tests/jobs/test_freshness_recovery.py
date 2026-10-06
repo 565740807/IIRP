@@ -2,7 +2,7 @@
 from datetime import timedelta
 
 from iirp.db import session
-from iirp.jobs import lifecycle
+from iirp.jobs import batch_views, batches, planner
 from iirp.jobs.auto_update import ensure_fresh
 from iirp.models import Batch, CollectionStrategy, Job, RequestScope, now
 from sqlalchemy import func, select
@@ -15,12 +15,12 @@ from tests.jobs.test_lifecycle import (  # noqa: F401
 
 
 def finish_market_children(batch_id):
-    lifecycle.plan_tick()
+    planner.plan_tick()
     with session() as s, s.begin():
         batch = s.get(Batch, batch_id)
         batch.created_at = now() - timedelta(minutes=5)
         for scope in s.scalars(select(RequestScope).where(RequestScope.batch_id == batch_id)):
-            for job in lifecycle.linked_jobs(s, scope.id):
+            for job in batch_views.linked_jobs(s, scope.id):
                 job.status, job.finished_at = "SUCCEEDED", now() - timedelta(minutes=2)
         policy = s.get(CollectionStrategy, "market")
         policy.options = {**policy.options, "latest_requested_at": batch.created_at.isoformat()}
@@ -46,7 +46,7 @@ def test_open_shares_live_children_and_pause_remains_explicit():
     for symbol in MARKETS:
         seed_security(symbol)
     first = ensure_fresh({"reason": "open", "sources": ["market"]})
-    lifecycle.plan_tick()
+    planner.plan_tick()
     assert ensure_fresh({"reason": "resume", "sources": ["market"]})["batch_ids"] == first["batch_ids"]
     with session() as s, s.begin():
         policy = s.get(CollectionStrategy, "market")
@@ -82,7 +82,7 @@ def test_periodic_quotes_require_visible_demand_and_only_refresh_due_instruments
 def test_latest_completed_manual_batch_does_not_mask_returned_automatic_demand():
     first = ensure_fresh({"reason": "open", "sources": ["market"]})
     with session() as s, s.begin():
-        batch, _ = lifecycle._create(s, {"kind": "market_quotes", "request_id": "later-manual", "tickers": ["^VIX"]})
+        batch, _ = batches._create(s, {"kind": "market_quotes", "request_id": "later-manual", "tickers": ["^VIX"]})
         batch.status = "SUCCEEDED"
     shared = ensure_fresh({"reason": "resume", "sources": ["market"]})
     assert shared["batch_ids"] == first["batch_ids"]

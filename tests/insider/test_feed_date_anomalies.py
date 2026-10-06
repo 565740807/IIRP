@@ -10,8 +10,9 @@ from alembic.config import Config
 from iirp.config import ROOT
 from iirp.db import engine, session
 from iirp.insider.entities import read_entity_history
-from iirp.insider.facts import feed, feed_group, transaction_record
+from iirp.insider.feed import feed, feed_group
 from iirp.insider.feed_index import SORT_MISSING
+from iirp.insider.records import transaction_record
 from iirp.models import FeedGroupOrder, FeedRevision
 from sqlalchemy import select, text
 

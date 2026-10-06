@@ -4,7 +4,8 @@ import json
 from datetime import datetime
 
 import pytest
-from iirp.sec.sources import (
+from iirp.sec.fetch import run_sec_operation
+from iirp.sec.parse import (
     SecSourceError,
     parse_atom,
     parse_company_tickers,
@@ -12,7 +13,6 @@ from iirp.sec.sources import (
     parse_index,
     parse_submission,
     parse_submissions,
-    run_sec_operation,
     validate_sec_url,
 )
 

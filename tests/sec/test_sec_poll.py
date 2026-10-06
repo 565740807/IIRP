@@ -8,7 +8,7 @@ from urllib.parse import parse_qs, urlsplit
 
 import pytest
 from iirp.db import session
-from iirp.jobs.lifecycle import defaults
+from iirp.jobs.batches import defaults
 from iirp.jobs.operations import ProviderFailure
 from iirp.models import (
     CollectionStrategy,

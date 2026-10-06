@@ -12,11 +12,8 @@ from iirp.analysis.calendar import (
     session_bounds,
     sessions,
 )
-from iirp.analysis.research import (
-    compute_research,
-    plan_scope,
-    transaction_price_context,
-)
+from iirp.analysis.research import compute_research, plan_scope
+from iirp.analysis.transaction_windows import transaction_price_context
 
 
 def bar(day, close="100", opening=None, status="VALID"):

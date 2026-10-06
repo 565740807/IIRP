@@ -4,9 +4,10 @@ from uuid import uuid4
 
 from iirp.api.schemas import CollectionInput
 from iirp.db import session
-from iirp.insider.facts import plan_sec_scope
-from iirp.jobs import lifecycle
+from iirp.jobs import batch_views, batches, planner
+from iirp.market import yahoo
 from iirp.models import Batch, BatchJob, Filing, Job, RequestScope, now
+from iirp.sec.planning import plan_sec_scope
 from sqlalchemy import func, insert, select
 
 from tests.jobs.test_lifecycle import clean_lifecycle, lifecycle_database  # noqa: F401
@@ -18,7 +19,7 @@ def batch_scope(s, kind="sec_latest", trigger="automatic"):
     params = CollectionInput.model_validate({
         "request_id": str(uuid4()), "kind": kind,
     }).model_dump(mode="json")
-    batch, _ = lifecycle._create(s, params, trigger=trigger, policy_key="sec")
+    batch, _ = batches._create(s, params, trigger=trigger, policy_key="sec")
     scope = s.scalar(select(RequestScope).where(RequestScope.batch_id == batch.id))
     return batch, scope
 
@@ -29,7 +30,7 @@ def filings(s, count, *, offset=0):
     for index in range(offset, count + offset):
         filing = Filing(
             accession=f"0000000001-26-{index:06d}", form="4",
-            filing_date=stamp.astimezone(lifecycle.ET).date(),
+            filing_date=stamp.astimezone(batches.ET).date(),
             accepted_at=stamp - timedelta(seconds=index),
             index_url=f"https://www.sec.gov/Archives/edgar/data/1/{index}/ownership.xml",
         )
@@ -57,7 +58,7 @@ def test_thousands_of_discovery_jobs_do_not_starve_newest_documents():
             target = {"mode": "latest", "cursor": str(index), "round": "old"}
             rows.append({
                 "id": str(uuid4()), "kind": "sec_discover", "title": "Synthetic older page",
-                "target": target, "idempotency_key": lifecycle.digest(["sec_discover", target]),
+                "target": target, "idempotency_key": yahoo.digest(["sec_discover", target]),
                 "priority": 0,
             })
         s.execute(insert(Job), rows)
@@ -86,7 +87,7 @@ def test_shared_documents_count_once_and_free_places_resume_remaining_filings():
         second, second_scope = batch_scope(s)
         plan(s, second, second_scope)
         assert {job.id for job in docs(s)} == original
-        assert sum(job.kind == "sec_document" for job in lifecycle.linked_jobs(s, second_scope.id)) == 8
+        assert sum(job.kind == "sec_document" for job in batch_views.linked_jobs(s, second_scope.id)) == 8
         assert second_scope.checkpoint["unscheduled_documents"] == 4
         for job in docs(s)[:3]:
             job.status = "SUCCEEDED"
@@ -104,7 +105,7 @@ def test_sharing_historical_work_consumes_new_latest_allowance_without_duplicati
         discovered = filings(s, 12)
         existing = []
         for filing in discovered[:6]:
-            existing.append(lifecycle.add_job(s, history_scope, "sec_document", {"accession": filing.accession}).id)
+            existing.append(batches.add_job(s, history_scope, "sec_document", {"accession": filing.accession}).id)
         s.flush()
         latest, latest_scope = batch_scope(s)
         plan(s, latest, latest_scope)
@@ -125,7 +126,7 @@ def test_manual_latest_uses_its_reserved_capacity_when_auto_documents_are_full()
         foreground = filings(s, 3)
         manual, manual_scope = batch_scope(s, trigger="manual")
         plan(s, manual, manual_scope, latest=4)
-        jobs = lifecycle.linked_jobs(s, manual_scope.id)
+        jobs = batch_views.linked_jobs(s, manual_scope.id)
         assert {f.accession for f in foreground}.issubset({j.target.get("accession") for j in jobs})
         assert len(docs(s)) == 11
 
@@ -136,7 +137,7 @@ def test_paused_latest_scope_does_not_schedule_or_link_documents():
         filings(s, 2)
         batch.status, batch.requested_action = "PAUSED", "pause"
         plan(s, batch, scope)
-        assert not lifecycle.linked_jobs(s, scope.id)
+        assert not batch_views.linked_jobs(s, scope.id)
         assert not docs(s)
         assert s.get(Batch, batch.id).requested_action == "pause"
 
@@ -165,9 +166,9 @@ def test_a_finished_old_document_gives_its_free_slot_to_the_newest_batch():
     assert fenced(finished, status="SUCCEEDED")
     with session() as s:
         assert s.get(BatchPlanSignal, today_id) is not None
-    lifecycle.plan_job_scopes(finished.id)
+    planner.plan_job_scopes(finished.id)
     with session() as s:
-        today_documents = [job for job in lifecycle.linked_jobs(s, scope_id) if job.kind == "sec_document"]
+        today_documents = [job for job in batch_views.linked_jobs(s, scope_id) if job.kind == "sec_document"]
         assert [job.target["accession"] for job in today_documents] == [newest_accession]
         assert sum(job.status in PENDING for job in docs(s)) == 8
         assert len(docs(s)) == 9

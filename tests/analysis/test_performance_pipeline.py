@@ -3,9 +3,10 @@
 import uuid
 from datetime import date
 
+from iirp.analysis import requests
 from iirp.api.schemas import AnalysisInput
 from iirp.db import session
-from iirp.jobs import lifecycle
+from iirp.jobs import batches, planner
 from iirp.jobs.queue import claim, fenced
 from iirp.models import AnalysisResult, Job
 from iirp.storage.objects import save_object
@@ -45,8 +46,8 @@ def today_et():
 
 def test_contiguous_eight_year_scope_uses_one_download_with_a_month_of_buffer():
     seed_security()
-    lifecycle.create_collection(collection(start_date="2017-12-29", end_date="2026-09-14"))
-    lifecycle.plan_tick()
+    batches.create_collection(collection(start_date="2017-12-29", end_date="2026-09-14"))
+    planner.plan_tick()
     with session() as s:
         jobs = s.scalars(select(Job).where(Job.kind == "market_history")).all()
         assert len(jobs) == 1
@@ -57,8 +58,8 @@ def test_contiguous_eight_year_scope_uses_one_download_with_a_month_of_buffer():
 def test_a_need_outside_the_cache_fetches_the_union_once():
     security = seed_security()
     seed_prices(security, date(2022, 12, 28), date(2022, 12, 29))
-    lifecycle.create_collection(collection(start_date="2022-12-28", end_date="2023-01-05"))
-    lifecycle.plan_tick()
+    batches.create_collection(collection(start_date="2022-12-28", end_date="2023-01-05"))
+    planner.plan_tick()
     with session() as s:
         jobs = s.scalars(select(Job).where(Job.kind == "market_history")).all()
         assert [(j.target["start_date"], j.target["end_date"]) for j in jobs] == [
@@ -69,14 +70,14 @@ def test_a_need_outside_the_cache_fetches_the_union_once():
 def test_refetch_replaces_the_not_started_compute_input():
     security = seed_security()
     first = seed_prices(security, date(2023, 1, 3), date(2023, 1, 5), wide=True)
-    lifecycle.create_analysis(params())
-    lifecycle.plan_tick()
+    requests.create_analysis(params())
+    planner.plan_tick()
     with session() as s:
         initial = s.scalar(select(Job).where(Job.kind == "research_compute"))
         initial_id = initial.id
         assert initial.target["dataset_id"] == first
     latest = refetch_prices(security, date(2023, 1, 6), date(2023, 1, 10))
-    lifecycle.plan_tick()
+    planner.plan_tick()
     with session() as s:
         queued = s.scalars(
             select(Job).where(Job.kind == "research_compute", Job.status == "QUEUED")
@@ -97,20 +98,20 @@ def finish_compute():
     assert fenced(
         job, source=source, business_write=lambda s, j: _persist(s, j, response, {}, source)
     )
-    lifecycle.plan_tick()
+    planner.plan_tick()
 
 
 def test_identical_valid_inputs_reuse_result_without_new_compute_or_download():
     security = seed_security()
     seed_prices(security, date(2022, 12, 1), date(2024, 12, 31), wide=True)
-    original = lifecycle.create_analysis(params())
-    lifecycle.plan_tick()
+    original = requests.create_analysis(params())
+    planner.plan_tick()
     finish_compute()
     with session() as s:
         before = s.scalar(select(func.count()).select_from(Job))
-    reused = lifecycle.create_analysis(params())
+    reused = requests.create_analysis(params())
     assert reused["results"], "already valid result must be included in command response"
-    lifecycle.plan_tick()
+    planner.plan_tick()
     with session() as s:
         assert s.scalar(select(func.count()).select_from(Job)) == before
         assert (
@@ -123,7 +124,7 @@ def test_identical_valid_inputs_reuse_result_without_new_compute_or_download():
         )
     assert (
         reused["results"][0]["data"]["rows"]
-        == lifecycle.get_analysis(original["id"])["results"][0]["data"]["rows"]
+        == requests.get_analysis(original["id"])["results"][0]["data"]["rows"]
     )
 
 
@@ -132,8 +133,8 @@ def test_execution_precheck_skips_obsolete_input_before_preparation(monkeypatch)
 
     security = seed_security()
     seed_prices(security, date(2023, 1, 3), date(2023, 1, 5), wide=True)
-    lifecycle.create_analysis(params())
-    lifecycle.plan_tick()
+    requests.create_analysis(params())
+    planner.plan_tick()
     job = claim({"research_compute"})
     assert job
     refetch_prices(security, date(2023, 1, 6), date(2023, 1, 10))
@@ -150,12 +151,12 @@ def test_execution_precheck_skips_obsolete_input_before_preparation(monkeypatch)
 def test_changed_research_conditions_do_not_reuse_previous_result():
     security = seed_security()
     seed_prices(security, date(2022, 12, 1), date(2024, 12, 31), wide=True)
-    lifecycle.create_analysis(params())
-    lifecycle.plan_tick()
+    requests.create_analysis(params())
+    planner.plan_tick()
     finish_compute()
-    other = lifecycle.create_analysis(params(month=2))
+    other = requests.create_analysis(params(month=2))
     assert not other["results"]
-    lifecycle.plan_tick()
+    planner.plan_tick()
     with session() as s:
         assert (
             s.scalar(
@@ -171,9 +172,9 @@ def test_two_demands_for_the_same_prices_share_one_fetch():
     from iirp.models import BatchJob, RequestScope
 
     seed_security()
-    first = lifecycle.create_collection(collection(start_date="2020-01-01", end_date="2024-12-31"))
-    second = lifecycle.create_collection(collection(start_date="2020-01-01", end_date="2024-12-31"))
-    lifecycle.plan_tick()
+    first = batches.create_collection(collection(start_date="2020-01-01", end_date="2024-12-31"))
+    second = batches.create_collection(collection(start_date="2020-01-01", end_date="2024-12-31"))
+    planner.plan_tick()
     with session() as s:
         jobs = s.scalars(select(Job).where(Job.kind == "market_history")).all()
         assert len(jobs) == 1
@@ -250,12 +251,12 @@ def test_calendar_change_does_not_reuse_legacy_or_current_result():
 
     security = seed_security()
     seed_prices(security, date(2022, 12, 1), date(2024, 12, 31), wide=True)
-    lifecycle.create_analysis(params())
-    lifecycle.plan_tick()
+    requests.create_analysis(params())
+    planner.plan_tick()
     finish_compute()
     with session() as s, s.begin():
         s.get(Security, security).calendar = "XNAS"
-    assert not lifecycle.create_analysis(params())["results"]
+    assert not requests.create_analysis(params())["results"]
 
 
 def test_results_publish_only_for_the_current_stock_and_benchmark_caches():
@@ -265,14 +266,14 @@ def test_results_publish_only_for_the_current_stock_and_benchmark_caches():
 
     stock_id = seed_security()
     stock_data = seed_prices(stock_id, date(2023, 1, 3), date(2023, 1, 5), wide=True)
-    view = lifecycle.create_analysis(params(benchmark="^GSPC"))
+    view = requests.create_analysis(params(benchmark="^GSPC"))
 
     def target_now():
         with session() as s:
             request, stock, data = s.get(AnalysisRequest, view["id"]), s.get(Security, stock_id), s.get(PriceCache, stock_data)
             snapshot = benchmark_snapshot(request.params, stock, s)
             return {"dataset_id": stock_data, "benchmark": snapshot,
-                    "input_key": lifecycle.research_input_key(request, data, stock, snapshot)}
+                    "input_key": planner.research_input_key(request, data, stock, snapshot)}
 
     def publishable(target):
         with session() as s:
@@ -298,11 +299,11 @@ def test_input_facts_and_calculation_version_invalidate_cache(monkeypatch):
 
     security = seed_security()
     seed_prices(security, date(2022, 12, 1), date(2024, 12, 31))
-    lifecycle.create_analysis(params())
-    lifecycle.plan_tick()
+    requests.create_analysis(params())
+    planner.plan_tick()
     finish_compute()
     monkeypatch.setattr(research, "CALCULATION_VERSION", "synthetic-new-calculation-version")
-    assert not lifecycle.create_analysis(params())["results"]
+    assert not requests.create_analysis(params())["results"]
 
 
 def test_shared_quote_demand_stays_attached_after_completion():
@@ -318,7 +319,7 @@ def test_shared_quote_demand_stays_attached_after_completion():
             scope = RequestScope(batch_id=batch.id, symbol="AAPL", security_id=security, start_date=date(2024, 1, 1), end_date=date(2024, 1, 5), checkpoint={})
             s.add(scope)
             s.flush()
-            lifecycle._plan_market(s, scope, batch, [32])
+            planner._plan_market(s, scope, batch, [32])
             scopes.append((scope, batch))
         jobs = s.scalars(select(Job).where(Job.kind == "market_quote")).all()
         assert len(jobs) == 1
@@ -326,7 +327,7 @@ def test_shared_quote_demand_stays_attached_after_completion():
         jobs[0].status = "SUCCEEDED"
         s.flush()
         for scope, batch in scopes:
-            lifecycle._plan_market(s, scope, batch, [32])
+            planner._plan_market(s, scope, batch, [32])
             assert scope.status == "READY"
         assert s.scalar(select(func.count()).select_from(Job).where(Job.kind == "market_quote")) == 1
 

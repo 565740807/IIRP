@@ -96,7 +96,7 @@ def coalesce_compute(s, scope, target):
 def safe_publication(s, request, security, target, latest):
     """Publish only a result computed from the current cache and benchmark."""
     from iirp.analysis.benchmarks import benchmark_snapshot
-    from iirp.jobs.lifecycle import research_input_key
+    from iirp.jobs.planner import research_input_key
 
     if security.status != "VERIFIED" or latest is None or latest.id != target["dataset_id"]:
         return False

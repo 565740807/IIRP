@@ -6,9 +6,10 @@ import json
 import uuid
 from datetime import date
 
+from iirp.analysis import requests
 from iirp.api.schemas import AnalysisInput
 from iirp.db import session
-from iirp.jobs import lifecycle
+from iirp.jobs import planner
 from iirp.jobs.handlers import _persist, prepare_target
 from iirp.jobs.operations import operation
 from iirp.jobs.queue import claim, fenced
@@ -40,7 +41,7 @@ def baseline(symbol="^IXIC", prices=True):
 
 
 def research(**extra):
-    return lifecycle.create_analysis(AnalysisInput(request_id=str(uuid.uuid4()), tickers=["AAPL"], kind="interval", current_year=2024,
+    return requests.create_analysis(AnalysisInput(request_id=str(uuid.uuid4()), tickers=["AAPL"], kind="interval", current_year=2024,
         historical_years=1, start_mmdd="01-03", end_mmdd="01-10", benchmark="^IXIC", **extra).model_dump(mode="json"))
 
 
@@ -66,15 +67,15 @@ def test_benchmark_refetch_rejects_old_worker_and_keeps_earlier_result_readable(
     seed_prices(stock, date(2022, 12, 1), date(2024, 1, 31), wide=True)
     other = baseline()
     created = research()
-    lifecycle.plan_tick()
+    planner.plan_tick()
     first = claim({"research_compute"})
     publish(first)
-    original = lifecycle.get_analysis(created["id"])["results"][0]
+    original = requests.get_analysis(created["id"])["results"][0]
     assert original["is_current"] and original["expires_at"]
     assert claim({"research_compute"}) is None
     # A new benchmark fetch is a new input; the running computation is stale.
     b2 = refetch_prices(other, date(2024, 1, 4), date(2024, 1, 4), close=101)
-    lifecycle.plan_tick()
+    planner.plan_tick()
     second = claim({"research_compute"})
     assert second.target["benchmark"]["dataset_id"] == b2
     prepared = operation("research_compute", prepare_target(second))
@@ -83,15 +84,15 @@ def test_benchmark_refetch_rejects_old_worker_and_keeps_earlier_result_readable(
     assert fenced(second, source=source, business_write=lambda s, j: _persist(s, j, prepared, {}, source))
     with session() as s:
         assert not s.scalar(select(AnalysisResult.id).where(AnalysisResult.input_key == second.target["input_key"]))
-    lifecycle.plan_tick()
+    planner.plan_tick()
     third = claim({"research_compute"})
     assert third.target["benchmark"]["dataset_id"] == b3
     publish(third)
-    current = lifecycle.get_analysis(created["id"])
+    current = requests.get_analysis(created["id"])
     assert current["results"][0]["input_version"] != original["input_version"]
-    earlier = lifecycle.get_analysis(created["id"], original["result_id"])["results"][0]
+    earlier = requests.get_analysis(created["id"], original["result_id"])["results"][0]
     assert earlier["input_version"] == original["input_version"]
-    exported = list(csv.DictReader(io.StringIO(lifecycle.export_analysis(created["id"], original["result_id"]).lstrip("\ufeff"))))
+    exported = list(csv.DictReader(io.StringIO(requests.export_analysis(created["id"], original["result_id"]).lstrip("\ufeff"))))
     assert {r["result_id"] for r in exported} == {original["result_id"]}
     assert "distribution" in {r["record_type"] for r in exported}
     assert json.loads(next(r for r in exported if r["record_type"] == "benchmark")["data"])["dataset_id"] == original["data"]["benchmark"]["dataset_id"]

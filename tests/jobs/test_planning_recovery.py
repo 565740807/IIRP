@@ -4,7 +4,7 @@ from uuid import uuid4
 
 import pytest
 from iirp.db import session
-from iirp.jobs import lifecycle
+from iirp.jobs import batches, planner
 from iirp.jobs.queue import claim, fenced
 from iirp.jobs.signals import signal_batch
 from iirp.models import Batch, BatchPlanSignal, Job, RequestScope, now
@@ -19,8 +19,8 @@ from tests.jobs.test_lifecycle import (  # noqa: F401
 
 def pending_quote():
     seed_security("^VIX")
-    result = lifecycle.create_collection({"kind": "market_quotes", "request_id": str(uuid4()), "tickers": ["^VIX"]})
-    lifecycle.plan_tick()
+    result = batches.create_collection({"kind": "market_quotes", "request_id": str(uuid4()), "tickers": ["^VIX"]})
+    planner.plan_tick()
     return result["batch_id"], claim({"market_quote"})
 
 
@@ -30,13 +30,13 @@ def test_completion_notification_survives_planner_lock_and_process_boundary():
     with session() as s:
         assert s.get(BatchPlanSignal, batch_id)
     with session() as blocker, blocker.begin():
-        lifecycle.advisory(blocker, ["planner_capacity"])
-        lifecycle.plan_job_scopes(job.id)
+        batches.advisory(blocker, ["planner_capacity"])
+        planner.plan_job_scopes(job.id)
     with session() as s:
         assert s.get(BatchPlanSignal, batch_id)
         assert s.get(Batch, batch_id).status == "RUNNING"
     # A fresh planner, without the completing worker's in-memory context, converges.
-    lifecycle.plan_tick()
+    planner.plan_tick()
     with session() as s:
         assert s.get(Batch, batch_id).status == "SUCCEEDED"
         assert s.get(BatchPlanSignal, batch_id) is None
@@ -68,13 +68,13 @@ def test_obsolete_lease_cannot_publish_or_signal():
 def test_new_notification_is_not_deleted_by_older_planning_pass(monkeypatch):
     batch_id, job = pending_quote()
     assert fenced(job, status="SUCCEEDED")
-    original = lifecycle._plan_batch
+    original = planner._plan_batch
     def newer(s, batch, *args):
         with session() as concurrent, concurrent.begin():
             signal_batch(concurrent, batch.id)
         return original(s, batch, *args)
-    monkeypatch.setattr(lifecycle, "_plan_batch", newer)
-    lifecycle.plan_job_scopes(job.id)
+    monkeypatch.setattr(planner, "_plan_batch", newer)
+    planner.plan_job_scopes(job.id)
     with session() as s:
         assert s.get(BatchPlanSignal, batch_id) is not None
         assert s.get(Batch, batch_id).status == "SUCCEEDED"
@@ -90,7 +90,7 @@ def test_fresh_completion_not_stuck_behind_large_old_rotation():
         # Remove creation signals; simulate an already deployed legacy backlog.
         s.execute(delete(BatchPlanSignal))
     assert fenced(job, status="SUCCEEDED")
-    lifecycle.plan_tick(time_budget_seconds=0)
+    planner.plan_tick(time_budget_seconds=0)
     with session() as s:
         assert s.get(Batch, batch_id).status == "SUCCEEDED"
         scope = s.scalar(select(RequestScope).where(RequestScope.batch_id == batch_id))

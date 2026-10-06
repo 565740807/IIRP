@@ -126,7 +126,7 @@ def get_freshness():
 
 def _ensure_sec(s, policy, force, identifiers, selected_batches):
     """One automatic latest demand per New York day; polling is the source row."""
-    from iirp.jobs.lifecycle import _create
+    from iirp.jobs.batches import _create
     from iirp.jobs.signals import signal_batch
     from iirp.sec.poll import PAUSED, request_poll
 
@@ -157,7 +157,7 @@ def _ensure_sec(s, policy, force, identifiers, selected_batches):
 
 def _reconcile_market(s, batch):
     """Cheap status repair; only existing quote jobs, never source requests or controls."""
-    from iirp.jobs.lifecycle import linked_jobs
+    from iirp.jobs.batch_views import linked_jobs
     from iirp.jobs.signals import signal_batch
 
     signal_batch(s, batch.id)
@@ -196,7 +196,8 @@ def _market_periodic_due(s, policy):
 
 
 def ensure_fresh_in_session(s, values):
-    from iirp.jobs.lifecycle import _create, advisory, defaults, digest
+    from iirp.jobs.batches import _create, advisory, defaults
+    from iirp.market.yahoo import digest
 
     # Routine opens need not contend on INSERT ... ON CONFLICT for every policy.
     if s.get(CollectionStrategy, "sec") is None or s.get(CollectionStrategy, "market") is None:

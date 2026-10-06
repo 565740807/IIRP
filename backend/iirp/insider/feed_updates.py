@@ -8,7 +8,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import case, func, select, true
 
 from iirp.db import session
-from iirp.insider.facts import (
+from iirp.insider.feed import (
     _canonical_kind,
     _offset,
     _session,

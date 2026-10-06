@@ -2,8 +2,8 @@
 
 import pytest
 from iirp.api.schemas import AnalysisInput, CollectionInput
-from iirp.insider.facts import _compact_row, _ticker_read_view
 from iirp.insider.tickers import normalized_ticker
+from iirp.insider.views import _compact_row, _ticker_read_view
 from pydantic import ValidationError
 
 

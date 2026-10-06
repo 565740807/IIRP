@@ -188,7 +188,9 @@ def _company_options(kind, identifier, visible):
 
 
 def _immutable_rows(s, references):
-    from iirp.insider.facts import _compact_row, _date, _event_view, _instant, _row_data
+    from iirp.insider.common import _date, _instant
+    from iirp.insider.facts import _row_data
+    from iirp.insider.views import _compact_row, _event_view
 
     if not references:
         return []
@@ -271,16 +273,9 @@ def read_entity_history(
     issuer_id="",
     action="all",
 ):
-    from iirp.insider.facts import (
-        ET,
-        VISIBLE,
-        _canonical_kind,
-        _cik,
-        _date,
-        _json,
-        _offset,
-        _summary,
-    )
+    from iirp.insider.common import ET, VISIBLE, _cik, _date, _json
+    from iirp.insider.feed import _canonical_kind, _offset
+    from iirp.insider.views import _summary
 
     action = _canonical_kind(action)
 

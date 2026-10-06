@@ -6,8 +6,9 @@ from concurrent.futures import ThreadPoolExecutor
 from contextlib import closing
 
 import pytest
+from iirp.analysis import requests
 from iirp.db import session
-from iirp.jobs import lifecycle
+from iirp.jobs import batches, planner
 from iirp.jobs.handlers import execute_business
 from iirp.jobs.operation_pool import OperationPool
 from iirp.jobs.queue import claim
@@ -55,15 +56,15 @@ def test_slow_local_work_does_not_hold_creation_locks(monkeypatch, boundary, rel
             assert release.wait(10), "test did not release the local-work boundary"
 
     if boundary == "response":
-        original = lifecycle.analysis_view
+        original = requests.analysis_view
 
         def view(s, request, *args, **kwargs):
             gate(s, request)
             return original(s, request, *args, **kwargs)
 
-        monkeypatch.setattr(lifecycle, "analysis_view", view)
+        monkeypatch.setattr(requests, "analysis_view", view)
     else:
-        original = lifecycle._plan_compute
+        original = planner._plan_compute
 
         def cache(s, scope, batch, security, *, cache_only=False):
             if cache_only:
@@ -71,15 +72,16 @@ def test_slow_local_work_does_not_hold_creation_locks(monkeypatch, boundary, rel
                 gate(s, request)
             return original(s, scope, batch, security, cache_only=cache_only)
 
-        monkeypatch.setattr(lifecycle, "_plan_compute", cache)
+        monkeypatch.setattr(planner, "_plan_compute", cache)
+        monkeypatch.setattr(requests, "_plan_compute", cache)
 
     with session() as s:
         assert s.scalar(text("SHOW lock_timeout")) == "500ms"
     with ThreadPoolExecutor(2) as pool:
-        first = pool.submit(lifecycle.create_analysis, first_values)
+        first = pool.submit(requests.create_analysis, first_values)
         try:
             assert entered.wait(10)
-            second = pool.submit(lifecycle.create_analysis, following_values).result(timeout=10)
+            second = pool.submit(requests.create_analysis, following_values).result(timeout=10)
             assert not release.is_set(), "following command must finish before releasing local work"
         finally:
             release.set()
@@ -94,19 +96,19 @@ def test_slow_local_work_does_not_hold_creation_locks(monkeypatch, boundary, rel
 
 def complete_cached_result():
     setup("monthly")
-    first = lifecycle.create_analysis(values())
+    first = requests.create_analysis(values())
     plan(first["id"])
     job = claim({"research_compute"})
     assert job is not None
     with closing(OperationPool()) as pool:
         execute_business(job, runner=RealRunner(pool))
-    return lifecycle.get_analysis(first["id"])
+    return requests.get_analysis(first["id"])
 
 
 def test_first_response_still_includes_completed_cache():
     original = complete_cached_result()
     assert original["results"]
-    created = lifecycle.create_analysis(values())
+    created = requests.create_analysis(values())
     assert created["results"]
     assert created["id"] != original["id"]
     assert created["results"][0]["result_id"] != original["results"][0]["result_id"]
@@ -119,7 +121,7 @@ def test_control_around_cache_reuse_is_respected(monkeypatch, action, boundary):
     complete_cached_result()
     entered, release = threading.Event(), threading.Event()
     identifiers = []
-    original = lifecycle._reuse_analysis_cache
+    original = requests._reuse_analysis_cache
 
     def hold(identifier):
         identifiers.append(identifier)
@@ -130,16 +132,16 @@ def test_control_around_cache_reuse_is_respected(monkeypatch, action, boundary):
         if boundary == "before_cache":
             return original(identifier)
 
-    monkeypatch.setattr(lifecycle, "_reuse_analysis_cache", hold)
+    monkeypatch.setattr(requests, "_reuse_analysis_cache", hold)
     with ThreadPoolExecutor(1) as pool:
-        pending = pool.submit(lifecycle.create_analysis, values())
+        pending = pool.submit(requests.create_analysis, values())
         try:
             assert entered.wait(10)
             with session() as s:
                 request = s.get(AnalysisRequest, identifiers[0])
                 batch_id = request.batch_id
                 assert s.get(BatchPlanSignal, batch_id) is not None
-            lifecycle.control_batch(batch_id, action)
+            batches.control_batch(batch_id, action)
         finally:
             release.set()
         created = pending.result(timeout=10)
@@ -154,7 +156,7 @@ def test_control_around_cache_reuse_is_respected(monkeypatch, action, boundary):
 
 def test_busy_batch_defers_cache_without_losing_durable_signal(monkeypatch):
     complete_cached_result()
-    original = lifecycle._reuse_analysis_cache
+    original = requests._reuse_analysis_cache
 
     def held_by_planner(identifier):
         with session() as holder, holder.begin():
@@ -163,11 +165,11 @@ def test_busy_batch_defers_cache_without_losing_durable_signal(monkeypatch):
             original(identifier)
             assert holder.get(BatchPlanSignal, request.batch_id) is not None
 
-    monkeypatch.setattr(lifecycle, "_reuse_analysis_cache", held_by_planner)
-    created = lifecycle.create_analysis(values())
+    monkeypatch.setattr(requests, "_reuse_analysis_cache", held_by_planner)
+    created = requests.create_analysis(values())
     assert not created["results"]
     plan(created["id"])
-    assert lifecycle.get_analysis(created["id"])["results"]
+    assert requests.get_analysis(created["id"])["results"]
 
 
 def test_post_commit_failure_keeps_the_same_recoverable_request(monkeypatch):
@@ -177,16 +179,16 @@ def test_post_commit_failure_keeps_the_same_recoverable_request(monkeypatch):
     def unavailable(_identifier):
         raise RuntimeError("synthetic failure after command commit")
 
-    monkeypatch.setattr(lifecycle, "_reuse_analysis_cache", unavailable)
+    monkeypatch.setattr(requests, "_reuse_analysis_cache", unavailable)
     with pytest.raises(RuntimeError, match="after command commit"):
-        lifecycle.create_analysis(submitted)
+        requests.create_analysis(submitted)
     with session() as s:
         receipt = s.get(RequestReceipt, submitted["request_id"])
         assert receipt is not None
         request = s.scalar(select(AnalysisRequest).where(AnalysisRequest.batch_id == receipt.batch_id))
         identifier, batch_id = request.id, request.batch_id
         assert s.get(BatchPlanSignal, batch_id) is not None
-    replay = lifecycle.create_analysis(submitted)
+    replay = requests.create_analysis(submitted)
     assert replay["id"] == identifier and replay["batch_id"] == batch_id
     with pytest.raises(ValueError, match="同一分析请求标识"):
-        lifecycle.create_analysis({**submitted, "years": [2023]})
+        requests.create_analysis({**submitted, "years": [2023]})

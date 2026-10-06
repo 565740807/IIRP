@@ -4,8 +4,8 @@ from sqlalchemy import func, select
 
 from iirp.config import settings
 from iirp.db import session
+from iirp.jobs.job_views import worker_view
 from iirp.jobs.providers import sec_configured
-from iirp.jobs.queue import worker_view
 from iirp.market.yahoo import MARKETS, source_contract
 from iirp.models import ACTIVE, Issuer, Job, MarketQuote, Owner, Security
 
@@ -52,7 +52,7 @@ def home():
 
 
 def feed(session_id="", cursor="", kind="all", order="transaction"):
-    from iirp.insider.facts import feed as read_feed
+    from iirp.insider.feed import feed as read_feed
     from iirp.insider.feed_updates import pending_feed_metadata
 
     with session() as s, s.begin():

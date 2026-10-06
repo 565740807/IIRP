@@ -15,16 +15,9 @@ from alembic import command
 from alembic.config import Config
 from iirp.config import ROOT, settings
 from iirp.db import engine, session
-from iirp.insider.facts import (
-    entity_history,
-    feed,
-    feed_group,
-    persist_discovery,
-    persist_document,
-    plan_sec_scope,
-    resolve_amendment,
-    transaction_record,
-)
+from iirp.insider.facts import persist_discovery, persist_document
+from iirp.insider.feed import feed, feed_group
+from iirp.insider.records import entity_history, resolve_amendment, transaction_record
 from iirp.models import (
     AmendmentRelation,
     Base,
@@ -42,6 +35,7 @@ from iirp.models import (
     SourceObservation,
     TransactionEvent,
 )
+from iirp.sec.planning import plan_sec_scope
 from psycopg import sql
 from sqlalchemy import func, select, text
 from sqlalchemy.engine import make_url
@@ -622,7 +616,7 @@ def test_refresh_reserves_bounded_recheck_while_first_downloads_advance():
 
 
 def test_facts_reference_the_saved_filing_instead_of_copying_its_xml():
-    from iirp.insider.facts import transaction_record
+    from iirp.insider.records import transaction_record
     from iirp.models import FilingVersion, SourceObject, TransactionEvent
 
     with session() as s, s.begin():

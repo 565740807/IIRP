@@ -1,8 +1,9 @@
 """Research inputs depend on the price cache that answers them (synthetic, real DB)."""
 from datetime import date
 
+from iirp.analysis import requests
 from iirp.db import session
-from iirp.jobs import lifecycle
+from iirp.jobs import planner
 from iirp.models import AnalysisRequest, PriceCache, Security
 
 from tests.analysis.test_performance_pipeline import params
@@ -17,13 +18,13 @@ from tests.jobs.test_lifecycle import (  # noqa: F401
 
 def _key(request_id, cache_id, security_id):
     with session() as s:
-        return lifecycle.research_input_key(s.get(AnalysisRequest, request_id), s.get(PriceCache, cache_id), s.get(Security, security_id))
+        return planner.research_input_key(s.get(AnalysisRequest, request_id), s.get(PriceCache, cache_id), s.get(Security, security_id))
 
 
 def test_same_cache_gives_the_same_input_and_a_refetch_a_new_one():
     security = seed_security()
     old = seed_prices(security, date(2023, 1, 3), date(2023, 1, 5), wide=True)
-    research = lifecycle.create_analysis(params(kind="interval", start_mmdd="01-03", end_mmdd="01-05"))
+    research = requests.create_analysis(params(kind="interval", start_mmdd="01-03", end_mmdd="01-05"))
     before = _key(research["id"], old, security)
     assert _key(research["id"], old, security) == before
     latest = refetch_prices(security, date(2023, 6, 1), date(2023, 6, 2))

@@ -3,7 +3,7 @@ from datetime import timedelta
 
 import pytest
 from iirp.db import session
-from iirp.jobs import lifecycle
+from iirp.jobs import batch_views, batches
 from iirp.models import Batch, BatchJob, Job, RequestScope, now
 
 from tests.jobs.test_lifecycle import clean_lifecycle, lifecycle_database  # noqa: F401
@@ -17,20 +17,20 @@ def test_categories_automatic_history_grouping_and_stable_tie_pagination():
                 trigger="automatic" if i < 10 else "manual", policy_key="market" if i < 10 else None, status="SUCCEEDED", created_at=stamp))
         for status in ("RUNNING", "QUEUED", "RETRY_WAIT", "PAUSED", "FAILED", "PARTIAL", "CANCELLED"):
             s.add(Batch(request_id=status, scope_key=status, kind="market_history", title=status, params={}, status=status, created_at=stamp - timedelta(days=1)))
-    first = lifecycle.list_batches("history")
+    first = batch_views.list_batches("history")
     assert len(first["items"]) == 15 and first["next_cursor"]
-    second = lifecycle.list_batches("history", first["next_cursor"])
-    third = lifecycle.list_batches("history", second["next_cursor"])
+    second = batch_views.list_batches("history", first["next_cursor"])
+    third = batch_views.list_batches("history", second["next_cursor"])
     ids = [row["id"] for page in (first, second, third) for row in page["items"]]
     assert len(ids) == len(set(ids)) == 32  # 30 manual + one automatic group + cancelled.
     grouped = [row for page in (first, second, third) for row in page["items"] if row["trigger"] == "automatic"]
     assert len(grouped) == 1 and grouped[0]["history_count"] == 10
-    assert len(lifecycle.list_batches("history", policy_key="market")["items"]) == 10
+    assert len(batch_views.list_batches("history", policy_key="market")["items"]) == 10
     # A persisted planner RUNNING row without an executing job is waiting.
     assert first["counts"] == {"running": 0, "waiting": 3, "attention": 3, "history": 41}
-    assert {row["status"] for row in lifecycle.list_batches("attention")["items"]} == {"PAUSED", "FAILED", "PARTIAL"}
+    assert {row["status"] for row in batch_views.list_batches("attention")["items"]} == {"PAUSED", "FAILED", "PARTIAL"}
     with pytest.raises(ValueError, match="分页"):
-        lifecycle.list_batches("history", "invalid")
+        batch_views.list_batches("history", "invalid")
 
 
 def test_activity_uses_live_leases_active_shared_links_and_preserves_control_state():
@@ -65,17 +65,17 @@ def test_activity_uses_live_leases_active_shared_links_and_preserves_control_sta
             s.flush()
             if job_name:
                 s.add(BatchJob(scope_id=name, job_id=job_name, active=active))
-    running = lifecycle.list_batches("running")
-    waiting = lifecycle.list_batches("waiting")
+    running = batch_views.list_batches("running")
+    waiting = batch_views.list_batches("waiting")
     assert {row["id"] for row in running["items"]} == {"live-a", "live-b", "control"}
     assert {row["id"] for row in waiting["items"]} == {"detached", "expired", "unfenced", "queued", "retry", "planning"}
     assert running["counts"] == waiting["counts"] == {"running": 3, "waiting": 6, "attention": 0, "history": 0}
     for row in waiting["items"]:
-        detail = lifecycle.get_batch(row["id"])["batch"]
+        detail = batch_views.get_batch(row["id"])["batch"]
         assert row["status"] == detail["status"] == "RUNNING"
         assert row["activity_status"] == detail["activity_status"] == "WAITING"
-    queued = lifecycle.get_batch("queued")["batch"]["items"][0]["progress"]
-    retry = lifecycle.get_batch("retry")["batch"]["items"][0]["progress"]
+    queued = batch_views.get_batch("queued")["batch"]["items"][0]["progress"]
+    retry = batch_views.get_batch("retry")["batch"]["items"][0]["progress"]
     assert queued["stage"] == "等待 Yahoo 通道 · 补齐历史日线"
     assert queued["current_target"] == {"symbol": "ORCL"}
     assert queued["retry_at"] is None
@@ -84,7 +84,7 @@ def test_activity_uses_live_leases_active_shared_links_and_preserves_control_sta
     assert retry["current_target"] == {"symbol": "ORCL"}
     assert retry["retry_at"] == (stamp + timedelta(minutes=1)).isoformat()
     assert retry["activity_status"] == "RETRY_WAIT"
-    detached = lifecycle.get_batch("detached")["batch"]["items"][0]["progress"]
+    detached = batch_views.get_batch("detached")["batch"]["items"][0]["progress"]
     assert detached["stage"] == "等待可执行任务" and not detached["current_target"]
     assert detached["activity_status"] == "WAITING"
     with session() as s:
@@ -107,7 +107,7 @@ def test_scope_targets_live_execution_before_expired_or_detached_shared_jobs():
         s.flush()
         for name in ("expired", "live", "detached"):
             s.add(BatchJob(scope_id="mixed", job_id=name, active=name != "detached"))
-    detail = lifecycle.get_batch("mixed")["batch"]
+    detail = batch_views.get_batch("mixed")["batch"]
     progress = detail["items"][0]["progress"]
     assert detail["activity_status"] == progress["activity_status"] == "RUNNING"
     assert progress["current_target"] == {"symbol": "^GSPC"}
@@ -124,12 +124,12 @@ def test_repeated_automatic_work_groups_within_category_and_opens_stable_individ
                 created_at=stamp))
         s.add(Batch(id="other-category", request_id="other-category", scope_key="other-category", kind="sec_latest",
             title="同计划另一分类", params={}, trigger="automatic", policy_key="sec", status="SUCCEEDED"))
-    grouped = lifecycle.list_batches(category)
+    grouped = batch_views.list_batches(category)
     assert len(grouped["items"]) == 1 and grouped["items"][0]["history_count"] == 34
     assert grouped["counts"][category] == 34
     ids, cursor = [], ""
     while True:
-        page = lifecycle.list_batches(category, cursor, policy_key="sec")
+        page = batch_views.list_batches(category, cursor, policy_key="sec")
         ids.extend(row["id"] for row in page["items"])
         cursor = page["next_cursor"]
         if not cursor:
@@ -143,17 +143,17 @@ def test_personal_drawer_filters_items_and_counts_without_deleting_background():
 
     from iirp.api.schemas import CollectionInput
     from iirp.db import session
-    from iirp.jobs import lifecycle
+    from iirp.jobs import batch_views
     from iirp.models import Batch
     values = CollectionInput.model_validate({"request_id": str(uuid4()), "kind": "sec_latest"}).model_dump(mode="json")
-    manual = lifecycle.create_collection(values)
+    manual = batches.create_collection(values)
     with session() as s, s.begin():
-        auto, _ = lifecycle._create(s, {**values, "request_id": str(uuid4())}, trigger="automatic", policy_key="sec")
+        auto, _ = batches._create(s, {**values, "request_id": str(uuid4())}, trigger="automatic", policy_key="sec")
         auto_id = auto.id
-    personal = lifecycle.list_batches("active", view="personal")
+    personal = batch_views.list_batches("active", view="personal")
     assert [item["id"] for item in personal["items"]] == [manual["batch_id"]]
     assert personal["counts"]["running"] + personal["counts"]["waiting"] == 1
-    complete = lifecycle.list_batches("active")
+    complete = batch_views.list_batches("active")
     assert complete["counts"]["running"] + complete["counts"]["waiting"] == 2
     with session() as s:
         assert s.get(Batch, auto_id) is not None
