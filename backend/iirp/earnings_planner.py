@@ -11,7 +11,6 @@ from zoneinfo import ZoneInfo
 from sqlalchemy import select
 
 from iirp.analytics.calendar import last_completed_session, reaction_session, session_window
-from iirp.analytics.research import plan_scope
 from iirp.business_models import EarningsEvent, Security
 from iirp.earnings_data import event_dict
 from iirp.market_data import digest
@@ -196,6 +195,7 @@ def plan_earnings_discovery(s, scope, batch, capacity: list[int]) -> dict:
 
     if batch.requested_action or batch.status in STOPPED:
         return {
+            "fetch_prices": False,
             "price_ready": False,
             "discovery_pending": False,
             "partial": False,
@@ -204,6 +204,7 @@ def plan_earnings_discovery(s, scope, batch, capacity: list[int]) -> dict:
     security = s.get(Security, scope.security_id)
     if security is None or security.status != "VERIFIED":
         return {
+            "fetch_prices": False,
             "price_ready": False,
             "discovery_pending": False,
             "partial": True,
@@ -297,12 +298,9 @@ def plan_earnings_discovery(s, scope, batch, capacity: list[int]) -> dict:
     if details["unresolved_conflicts"]:
         errors.append("conflicting_release_observations")
     reasons = sorted(set([*errors, *details["reasons"]]))
+    # The price range was fixed when the request was created; finding more
+    # quarters never widens it, so prices are fetched once.
     price_ready = bool(details["selected"])
-    if price_ready:
-        scope.start_date, scope.end_date = plan_scope(
-            {"kind": "earnings", "calendar": security.calendar, "events": details["selected"]},
-            details["cutoff"],
-        )
     state["coverage"] = {
         key: value for key, value in details.items() if key not in {"selected", "cutoff"}
     }
@@ -313,6 +311,7 @@ def plan_earnings_discovery(s, scope, batch, capacity: list[int]) -> dict:
     state["coverage"]["price_ready"] = price_ready
     scope.checkpoint = {**(scope.checkpoint or {}), "earnings": state}
     return {
+        "fetch_prices": True,
         "price_ready": price_ready,
         "discovery_pending": pending,
         "partial": bool(reasons),

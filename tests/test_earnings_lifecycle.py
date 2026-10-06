@@ -17,7 +17,7 @@ from alembic import command
 from alembic.config import Config
 from iirp import earnings_planner
 from iirp.analytics.calendar import reaction_session, session_window
-from iirp.analytics.research import compute_research, plan_scope
+from iirp.analytics.research import compute_research
 from iirp.business_models import Batch, BatchJob, EarningsEvent, Issuer, RequestScope, Security
 from iirp.config import ROOT, settings
 from iirp.db import engine, session
@@ -360,11 +360,12 @@ def test_sec_identity_is_requested_before_issuer_submissions():
 @pytest.mark.parametrize(
     ("fiscal_end", "current", "historical"), [("09-30", 2026, 2025), ("12-31", 2025, 2024)]
 )
-def test_complete_history_is_fiscal_years_and_price_scope_comes_from_actual_events(
+def test_complete_history_is_fiscal_years_and_found_events_keep_the_price_range(
     fiscal_end, current, historical
 ):
     with session() as s, s.begin():
         security, batch, scope = setup(s, fiscal_end=fiscal_end)
+        frozen = (scope.start_date, scope.end_date)
         examples = []
         for quarter, month in enumerate((1, 4, 7, 10), 1):
             examples.append(event(s, security, f"{historical}-{month:02d}-01", historical, quarter))
@@ -374,11 +375,9 @@ def test_complete_history_is_fiscal_years_and_price_scope_comes_from_actual_even
         assert len(result["coverage"]["matrix"]) == 4
         assert all(item["status"] == "VERIFIED" for item in result["coverage"]["matrix"])
         assert result["price_ready"]
-        expected = plan_scope(
-            {"kind": "earnings", "events": [event_dict(item) for item in examples]}, ASOF.date()
-        )
-        assert (scope.start_date, scope.end_date) == expected
-        assert scope.start_date != date(historical - 1, 1, 1)
+        # Prices were fetched once for the range fixed at creation; found
+        # quarters are sliced from it and never move it.
+        assert (scope.start_date, scope.end_date) == frozen
 
 
 def test_duplicate_and_unknown_time_events_cannot_close_fiscal_coverage():
@@ -973,7 +972,7 @@ def test_current_day_before_open_event_keeps_pre_event_prices_and_frozen_cutoff(
         event(s, security, "2025-01-31", 2024, 4, "before_open")
         result = plan_earnings_discovery(s, scope, batch, [0])
         assert result["price_ready"]
-        assert scope.end_date == date(2025, 1, 30)
+        assert scope.end_date == clock.date()
         assert not any(
             window["mature"] for window in result["coverage"]["maturity"][0]["windows"].values()
         )

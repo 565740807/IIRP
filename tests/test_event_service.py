@@ -459,9 +459,12 @@ def test_future_cutoff_never_requests_future_prices():
 
     assert date.fromisoformat(params["cutoff_date"]) <= last_completed_session()
     plan(created["analysis_id"])
+    from iirp.price_cache import _today
+
     with session() as s:
+        # One fetch runs through today (D14); it never asks for a later day.
         assert all(
-            date.fromisoformat(j.target["end_date"]) <= last_completed_session()
+            date.fromisoformat(j.target["end_date"]) <= _today()
             for j in s.scalars(select(Job).where(Job.kind == "market_history"))
         )
 

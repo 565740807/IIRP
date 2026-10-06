@@ -1,7 +1,7 @@
 """Performance regressions with synthetic data, only iirp_v1_test_* databases."""
 
 import uuid
-from datetime import date
+from datetime import date, timedelta
 
 from iirp import lifecycle
 from iirp.business_models import AnalysisResult
@@ -381,3 +381,51 @@ def test_shared_quote_demand_stays_attached_after_completion():
             lifecycle._plan_market(s, scope, batch, [32])
             assert scope.status == "READY"
         assert s.scalar(select(func.count()).select_from(Job).where(Job.kind == "market_quote")) == 1
+
+
+class CountingYahoo:
+    """Stands in for the provider subprocess and records every Yahoo request."""
+
+    def __init__(self):
+        self.calls = []
+
+    def run(self, kind, target, checkpoint):
+        from iirp.analytics.calendar import last_completed_session, sessions
+
+        self.calls.append((kind, target["symbol"], target["start_date"], target["end_date"]))
+        through = min(date.fromisoformat(target["end_date"]), last_completed_session())
+        days = sessions(date.fromisoformat(target["start_date"]), through)
+        records = [{"date": str(day), **dict.fromkeys(("open", "high", "low", "close", "adj_close"), "100"),
+                    "volume": "10", "splits": "0", "dividends": "0"} for day in days]
+        return {"ok": True, "data": {"provider": "synthetic", "library_version": "fixture",
+                "fetched_at": "2024-01-01T00:00:00+00:00", "records": records, "metadata": {}}}
+
+
+def test_one_earnings_analysis_requests_yahoo_once_while_quarters_are_found():
+    from dateutil.relativedelta import relativedelta
+    from iirp.business_models import Security
+    from iirp.business_worker import execute_business
+    from test_earnings_lifecycle import event
+
+    security = seed_security()
+    today = today_et()
+    lifecycle.create_analysis(params(kind="earnings", historical_years=8,
+                                     current_fiscal_year=today.year))
+    yahoo = CountingYahoo()
+    # Discovery keeps finding older quarters; each tick may see a new one.
+    found = [(today.year - 1, 4), (today.year - 4, 2), (today.year - 8, 1)]
+    for year, quarter in [(None, None), *found]:
+        if year:
+            with session() as s, s.begin():
+                event(s, s.get(Security, security), f"{year}-{quarter * 3:02d}-15", year, quarter)
+        lifecycle.plan_tick()
+        job = claim({"market_history"})
+        if job:
+            execute_business(job, runner=yahoo)
+    assert len(yahoo.calls) == 1
+    first = today - relativedelta(years=9) - timedelta(days=31)
+    assert yahoo.calls[0][2:] == (str(first), str(today))
+    with session() as s:
+        assert s.scalar(select(func.count()).select_from(Job).where(Job.kind == "market_history")) == 1
+        # Prices are sliced locally for the quarters found so far.
+        assert s.scalar(select(func.count()).select_from(Job).where(Job.kind == "research_compute"))
