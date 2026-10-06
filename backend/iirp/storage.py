@@ -83,41 +83,6 @@ def response_evidence(data, sources):
     return json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False, default=str).encode(), observation
 
 
-def hydrate_response_evidence(payload, observation_metadata=None):
-    """Replay old inline responses and new referenced responses, verifying every hash."""
-    import base64
-    import json
-
-    envelope = json.loads(payload)
-    if not isinstance(envelope, dict):
-        raise ValueError("来源响应必须为 JSON 对象。")
-    if "_iirp_evidence_format" not in envelope:
-        return envelope
-    if envelope["_iirp_evidence_format"] != "response-v2":
-        raise ValueError("无法识别来源证据格式。")
-    content = envelope["data"]
-
-    def read(reference, encoding):
-        digest = reference["sha256"]
-        if len(digest) != 64 or any(char not in "0123456789abcdef" for char in digest):
-            raise ValueError("来源证据引用哈希无效。")
-        path = settings().runtime_dir / "objects" / digest[:2] / digest
-        raw = path.read_bytes()
-        if len(raw) != reference["byte_size"] or hashlib.sha256(raw).hexdigest() != digest:
-            raise ValueError("来源证据引用校验失败，不能重解析。")
-        return base64.b64encode(raw).decode() if encoding == "base64" else raw.decode("utf-8")
-
-    for document in content.get("source_documents", []):
-        if "payload_ref" in document:
-            document["payload"] = read(document.pop("payload_ref"), document.get("encoding"))
-    filing = content.get("filing") or {}
-    if "xml_payload_ref" in filing:
-        filing["xml_payload"] = read(filing.pop("xml_payload_ref"), filing.get("xml_encoding"))
-    if observation_metadata:
-        content.update({key: observation_metadata[key] for key in ("fetched_at", "timing") if key in observation_metadata})
-    return content
-
-
 DISCOVERY_RETENTION_DAYS = 7
 RESPONSE_RETENTION_HOURS = 24
 

@@ -7,10 +7,9 @@ from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
 from sqlalchemy import case, func, select, true
 
-from iirp.business_models import FeedRevision, Filing, Issuer
+from iirp.business_models import Filing, Issuer
 from iirp.db import session
-from iirp.feed_index import delta, listing, pending
-from iirp.feed_snapshots import session_revision_ids
+from iirp.feed_index import delta, pending
 from iirp.models import Job, now
 from iirp.sec_facts import (
     _canonical_kind,
@@ -18,7 +17,6 @@ from iirp.sec_facts import (
     _session,
     feed_groups,
     feed_watermark,
-    latest_feed_metadata,
     open_feed_session,
 )
 
@@ -117,31 +115,9 @@ def pending_feed_metadata(s, *, preview=False):
     return summary, items
 
 
-def _metadata_for_session(s, saved):
-    revision_ids = session_revision_ids(s, saved)
-    if not revision_ids:
-        return []
-    by_id = {row.id: {"id": row.id, "group_key": row.group_key}
-             for row in s.execute(select(FeedRevision.id, FeedRevision.group_key)
-                                  .where(FeedRevision.id.in_(revision_ids)))}
-    return [by_id[key] for key in revision_ids]
-
-
 def _version(changed, removed):
     identity = [f"{group_key}:{revision_id}" for _, group_key, revision_id in changed]
     return sha256("\n".join(identity + ["-" + key for key in removed]).encode()).hexdigest()
-
-
-def _legacy_changes(s, saved, kind, order, target):
-    """Pre-watermark sessions: compare their frozen manifest with current/target state."""
-    previous = {row["group_key"]: row["id"] for row in _metadata_for_session(s, saved)}
-    if target is None:
-        latest = [(None, row["group_key"], row["id"]) for row in latest_feed_metadata(s, kind, order)]
-    else:
-        latest = listing(s, feed_watermark(target), _canonical_kind(kind), order, limit=None)
-    current = {group_key for _, group_key, _ in latest}
-    changed = [entry for entry in latest if previous.get(entry[1]) != entry[2]]
-    return changed, [key for key in previous if key not in current]
 
 
 def feed_updates(s, session_id, *, include_groups=False, target_session_id="", cursor=""):
@@ -150,8 +126,6 @@ def feed_updates(s, session_id, *, include_groups=False, target_session_id="", c
     base = feed_watermark(saved)
 
     def changes(target):
-        if base is None:
-            return _legacy_changes(s, saved, kind, order, target)
         if target is None:
             return pending(s, base, _canonical_kind(kind), order)
         return delta(s, base, feed_watermark(target), _canonical_kind(kind), order)

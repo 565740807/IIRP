@@ -5,7 +5,7 @@ are explicitly interpreted as America/New_York (the SEC acceptance convention).
 Callers handling another source must convert its timestamp before using it.
 """
 
-from datetime import date, datetime, time, timedelta
+from datetime import date, datetime, timedelta
 from functools import lru_cache
 from importlib.metadata import version
 from zoneinfo import ZoneInfo
@@ -186,7 +186,3 @@ def next_regular_open_after(value: str | datetime, calendar: str = "XNYS") -> da
     if session_bounds(candidate, calendar)[0] <= stamp:
         candidate = next_session(candidate, calendar, inclusive=False)
     return candidate
-
-
-def end_of_day(day: date) -> datetime:
-    return datetime.combine(day, time.max, ET)

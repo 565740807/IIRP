@@ -22,7 +22,7 @@ from iirp.business_models import FeedRevision, FeedSession
 from iirp.config import ROOT, settings
 from iirp.db import engine, session
 from iirp.feed_index import reconcile
-from iirp.sec_facts import feed, feed_group, latest_feed_metadata
+from iirp.sec_facts import feed, feed_group
 from psycopg import sql
 from sqlalchemy import event as sa_event
 from sqlalchemy import func, select, text
@@ -199,7 +199,7 @@ def test_feed_only_materializes_current_page_and_preserves_whole_group_totals():
             saved = s.get(FeedSession, result["session_id"])
             # A reading session is a watermark: no revision list, no manifest.
             assert "rows" not in saved.filters and saved.revision_ids == []
-            assert saved.manifest_hash is None and saved.filters["total_groups"] == GROUPS
+            assert saved.filters["total_groups"] == GROUPS
             detail = feed_group(s, saved.id, group["id"], cursor="20")
             assert len(detail["items"]) == 20 and detail["total"] == 100
             assert not (
@@ -208,15 +208,6 @@ def test_feed_only_materializes_current_page_and_preserves_whole_group_totals():
             )
     finally:
         sa_event.remove(Session, "loaded_as_persistent", record)
-
-
-def test_metadata_filter_does_not_load_revision_payloads():
-    with session() as s:
-        result = latest_feed_metadata(s, "purchase")
-        assert len(result) == GROUPS
-        assert set(result[0]) == {"id", "group_key", "accepted_at"}
-        assert not list(s.identity_map.values())
-        assert latest_feed_metadata(s, "derivative") == []
 
 
 SAMPLES = int(os.environ.get("IIRP_PERFORMANCE_SAMPLES", "100"))

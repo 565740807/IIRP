@@ -24,7 +24,6 @@ from iirp.business_models import (
     AmendmentRelation,
     BatchJob,
     CoverageSegment,
-    FeedGroupOrder,
     FeedRevision,
     FeedSession,
     Filing,
@@ -991,10 +990,9 @@ def _offset(cursor: str) -> int:
 
 
 def _session(s: Session, session_id: str, purpose: str) -> FeedSession:
-    from iirp.feed_snapshots import load_feed_session
-
-    saved = load_feed_session(s, session_id)
-    if saved is None or saved.expires_at < now() or saved.filters.get("purpose") != purpose:
+    saved = s.get(FeedSession, session_id)
+    if (saved is None or saved.expires_at < now() or saved.filters.get("purpose") != purpose
+            or "watermark" not in saved.filters):
         raise ValueError("阅读快照不存在或已过期，请刷新后重新打开。")
     return saved
 
@@ -1022,17 +1020,6 @@ def _group_facets(rows):
     ]
 
 
-def latest_feed_metadata(s: Session, kind="all", order="transaction") -> list[dict]:
-    """Current non-empty revisions in listing order, scalar metadata only."""
-    order_row = FeedGroupOrder
-    statement = (
-        select(order_row.revision_id.label("id"), order_row.group_key, order_row.accepted_at)
-        .where(order_row.kind == _canonical_kind(kind), order_row.sort_order == order)
-        .order_by(order_row.sort_key.desc(), order_row.accepted_at.desc(), order_row.group_key.desc())
-    )
-    return [dict(row) for row in s.execute(statement).mappings()]
-
-
 def open_feed_session(s: Session, kind: str, order: str, **extra) -> FeedSession:
     """A reading session is a watermark plus filters; no revision list is stored."""
     from iirp.feed_index import count, new_watermark
@@ -1050,9 +1037,8 @@ def open_feed_session(s: Session, kind: str, order: str, **extra) -> FeedSession
     return saved
 
 
-def feed_watermark(saved: FeedSession) -> dict | None:
-    """None for sessions frozen as revision manifests before the watermark schema."""
-    return saved.filters.get("watermark")
+def feed_watermark(saved: FeedSession) -> dict:
+    return saved.filters["watermark"]
 
 
 def feed_groups(s: Session, page_ids: list[str], kind: str, order: str) -> list[dict]:
@@ -1100,27 +1086,15 @@ def feed(s: Session, session_id: str = "", cursor: str = "", kind: str = "all", 
         raise ValueError("请选择实际交易日期或最近披露排序")
     if session_id:
         saved = _session(s, session_id, "feed")
-        if "order" not in saved.filters:
-            order = "accepted"  # Preserve pre-upgrade frozen group ordering.
-        if saved.filters.get("kind") != kind or saved.filters.get("order", "accepted") != order:
+        if saved.filters.get("kind") != kind or saved.filters.get("order") != order:
             raise ValueError("筛选已变化，请创建新的阅读快照。")
     else:
         saved = open_feed_session(s, kind, order)
-    watermark = feed_watermark(saved)
-    if watermark is None:
-        # Manifest sessions from before the upgrade stay readable until they expire.
-        from iirp.feed_snapshots import session_revision_ids
-
-        offset = _offset(cursor)
-        revision_ids = session_revision_ids(s, saved)
-        page_ids, total = revision_ids[offset : offset + 20], len(revision_ids)
-        next_cursor = str(offset + 20) if offset + 20 < total else None
-    else:
-        entries = listing(s, watermark, _canonical_kind(kind), order,
-                          after=decode_cursor(cursor) if cursor else None)
-        page = entries[:PAGE_SIZE]
-        page_ids, total = [entry[2] for entry in page], saved.filters["total_groups"]
-        next_cursor = encode_cursor(page[-1][0]) if len(entries) > PAGE_SIZE else None
+    entries = listing(s, feed_watermark(saved), _canonical_kind(kind), order,
+                      after=decode_cursor(cursor) if cursor else None)
+    page = entries[:PAGE_SIZE]
+    page_ids, total = [entry[2] for entry in page], saved.filters["total_groups"]
+    next_cursor = encode_cursor(page[-1][0]) if len(entries) > PAGE_SIZE else None
     groups = feed_groups(s, page_ids, kind, order)
     pending = (
         s.scalar(select(func.count()).select_from(Filing).where(Filing.current_version.is_(None), Filing.visible.is_(True)))
@@ -1161,28 +1135,11 @@ def feed_group(
     saved, offset = _session(s, session_id, "feed"), _offset(cursor.removeprefix("g:"))
     if not 1 <= limit <= 20:
         raise ValueError("每页明细最多 20 条。")
-    watermark = feed_watermark(saved)
-    if watermark is not None:
-        from iirp.feed_index import group_revision, in_listing
+    from iirp.feed_index import group_revision, in_listing
 
-        row = group_revision(s, watermark, group_id)
-        kind, order = _canonical_kind(saved.filters["kind"]), saved.filters.get("order", "accepted")
-        revision = s.get(FeedRevision, row.id) if row is not None and in_listing(row, kind, order) else None
-    else:
-        from iirp.feed_snapshots import session_revision_ids
-
-        visible_ids = set(session_revision_ids(s, saved))
-        revision_id = next(
-            (
-                value
-                for value in s.scalars(
-                    select(FeedRevision.id).where(FeedRevision.group_key == group_id)
-                )
-                if value in visible_ids
-            ),
-            None,
-        )
-        revision = s.get(FeedRevision, revision_id) if revision_id else None
+    row = group_revision(s, feed_watermark(saved), group_id)
+    kind, order = _canonical_kind(saved.filters["kind"]), saved.filters["order"]
+    revision = s.get(FeedRevision, row.id) if row is not None and in_listing(row, kind, order) else None
     if revision is None:
         raise ValueError("本阅读快照中没有该公司组。")
     rows = _ordered_rows([row for row in revision.data["transactions"] if _matches(row, saved.filters["kind"])], saved.filters.get("order", "accepted"))

@@ -5,8 +5,7 @@ import { useEffect, useRef } from "react";
 import type { components } from "./generated/api";
 export type Job = components["schemas"]["JobSummary"];
 export type JobDetail = components["schemas"]["JobDetailView"];
-export type JobsResponse = components["schemas"]["JobsResponse"];
-export type Worker = components["schemas"]["WorkerView"];
+type JobsResponse = components["schemas"]["JobsResponse"];
 export type Batch = components["schemas"]["BatchView"];
 export type CollectionInput = components["schemas"]["CollectionInput"];
 export type CollectionOutput = components["schemas"]["CollectionOutput"];
@@ -28,7 +27,7 @@ export type TransactionSecurityInput =
   components["schemas"]["TransactionSecurityInput"];
 export type RequestIdentity = components["schemas"]["RequestIdentity"];
 export type System = Fact;
-export type ApiFailure = Error & { details?: unknown; status?: number };
+type ApiFailure = Error & { details?: unknown; status?: number };
 export async function api<T>(
   path: string,
   method = "GET",
@@ -98,7 +97,7 @@ export const statusLabels: Record<string, string> = {
   READY: "可用",
   NOT_FETCHED: "尚未获取",
 };
-export const sourceLabels: Record<string, string> = {
+const sourceLabels: Record<string, string> = {
   unassigned_earnings: "财期归属待核对",
   wwdc_keynote: "WWDC 主题演讲",
   developer_keynote: "开发者大会主题演讲",

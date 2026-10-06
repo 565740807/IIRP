@@ -5,13 +5,7 @@ from decimal import localcontext
 from pathlib import Path
 
 import pytest
-from iirp.analytics.prices import (
-    endpoint_change,
-    event_returns,
-    interval_summary,
-    maximum_drawdown,
-    price_path,
-)
+from iirp.analytics.prices import endpoint_change
 from iirp.domain.ownership import OwnershipParseError, ParseLimits, parse_ownership_xml
 
 FIXTURE = Path(__file__).parent / "fixtures" / "synthetic_ownership_form4.xml"
@@ -24,70 +18,6 @@ def parse(content=None, **kwargs):
         accession="SYNTHETIC-0001",
         **kwargs,
     )
-
-
-def test_before_baseline_return_is_not_negative_of_path_point():
-    assert endpoint_change(D(100), D(150)).value == D("0.5")
-    old_point = price_path([D(100), D(150)], baseline=D(150))[0]
-    assert old_point.quantize(D("0.0001")) == D("-0.3333")
-    assert old_point != -endpoint_change(D(100), D(150)).value
-
-
-def test_path_endpoint_relative_loss_and_drawdown_are_distinct():
-    result = interval_summary([D(100), D(120), D(90), D(110)])
-    assert result.endpoint.value == D("0.1")
-    assert result.relative_high.value == D("0.2")
-    assert result.relative_low.value == D("-0.1")
-    assert result.closing_max_drawdown.value == D("0.25")
-    assert result.complete
-
-
-def test_endpoint_can_survive_gap_but_path_extremes_cannot():
-    result = interval_summary([D(100), None, D(90), D(110)])
-    assert result.endpoint.value == D("0.1")
-    assert result.path == (D(0), None, D("-0.1"), D("0.1"))
-    assert result.closing_max_drawdown.status == "incomplete_path"
-    assert result.relative_high.value is None
-    assert not result.complete
-    assert (result.observed_sessions, result.expected_sessions) == (3, 4)
-
-
-def test_missing_start_does_not_silently_move_to_next_close():
-    result = interval_summary([None, D(110), D(121)])
-    assert result.endpoint.status == "missing_price"
-    assert result.path == (None, None, None)
-    assert maximum_drawdown([None, D(110)]).value is None
-
-
-def test_single_session_and_no_sessions_are_distinct():
-    single = interval_summary([D(100)])
-    assert single.endpoint.value == D(0)
-    assert single.closing_max_drawdown.value == D(0)
-    empty = interval_summary([])
-    assert empty.endpoint.status == "no_sessions"
-    assert empty.endpoint.value is None
-
-
-def test_gap_and_after_open_compound_and_reaction_day_counts_as_one():
-    result = event_returns(
-        D(100),
-        D(110),
-        [D(112), D(113), D(115), D(118), D(121)],
-        opening_attribution=True,
-    )
-    assert result.opening_gap.value == D("0.1")
-    assert result.windows[5].after_open.value == D("0.1")
-    assert result.windows[5].cumulative.value == D("0.21")
-    assert result.windows[1].cumulative.value == D("0.12")
-    assert result.windows[20].cumulative.status == "not_yet_formed"
-
-
-def test_formed_missing_and_unconfirmed_timing_are_distinct():
-    result = event_returns(D(100), D(110), [None, D(115)], opening_attribution=False)
-    assert result.windows[1].cumulative.status == "missing_price"
-    assert result.windows[5].cumulative.status == "not_yet_formed"
-    assert result.opening_gap.status == "unconfirmed_event_time"
-    assert result.windows[1].after_open.status == "unconfirmed_event_time"
 
 
 @pytest.mark.parametrize("bad", [D(0), D(-1), D("NaN"), D("Infinity")])

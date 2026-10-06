@@ -50,7 +50,7 @@ import {
   remainingAnalysisProgress,
 } from "../analysisProgress";
 import { researchViewIdentity, captureResearchPublication, canPublishResearch, canStartResearchRefresh } from "../researchPublication";
-import { StatisticsPanel as ResearchEvidence } from "../StatisticsPanel";
+import { StatisticsPanel as ResearchEvidence } from "../components/ResearchEvidence";
 import "../analysis.css";
 const tabs = [
   { id: "monthly", label: "月度分析" },
@@ -1127,7 +1127,6 @@ export function AnalysisPage() {
             <ResearchTable
               key={`${readingKey}:${conditionKey}`}
               data={rows(preciseData.rows)}
-              kind={kind}
             />
             <details className="result-notes">
               <summary>数据口径、来源与排除原因</summary>

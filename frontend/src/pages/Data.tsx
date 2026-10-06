@@ -33,7 +33,7 @@ import {
   Loading,
   useNotice,
 } from "../components/ui";
-export function ProviderList() {
+function ProviderList() {
   const q = useProviders();
   return (
     <section id="sources" className="panel">
