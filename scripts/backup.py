@@ -756,7 +756,17 @@ def _restore_verify(directory, *, discard=False):
     return report
 
 
+def _read_manifest(directory):
+    return json.loads((directory / "manifest.json").read_text())
+
+
 def completed_backups():
+    """Complete backups, newest first, as (completed_at, directory, manifest summary).
+
+    Manifests are read one at a time and their object lists dropped: several
+    large manifests held at once exceeded the web container's memory. Callers
+    needing the objects re-read one manifest with ``_read_manifest``.
+    """
     root = settings().runtime_dir / "backups"
     result = []
     if not root.exists():
@@ -768,9 +778,10 @@ def completed_backups():
         try:
             if (directory / "manifest.json").is_symlink():
                 continue
-            manifest = json.loads((directory / "manifest.json").read_text())
+            manifest = _read_manifest(directory)
             if not isinstance(manifest, dict):
                 continue
+            manifest.pop("objects", None)
             created = datetime.fromisoformat(
                 manifest.get("completed_at", "").replace("Z", "+00:00")
             )
@@ -835,12 +846,13 @@ def _prune_backups():
         removed.append(directory.name)
     # Remove only pool objects no completed backup references. A still-linked
     # orphan is kept; pool cleanup never touches runtime/objects or restores.
-    referenced = {
-        entry["sha256"]
-        for _created, directory, manifest in entries
-        if directory in keep
-        for entry in manifest.get("objects", [])
-    }
+    referenced = set()
+    try:
+        for directory in keep:
+            referenced.update(entry["sha256"] for entry in _read_manifest(directory).get("objects", []))
+    except (OSError, ValueError, KeyError, TypeError, AttributeError):
+        # A kept manifest became unreadable: keep every pool object this time.
+        return {"removed": removed, "kept": sorted(directory.name for directory in keep)}
     pool = settings().runtime_dir / "backups" / "object-pool" / "objects"
     for obj in pool.glob("*/*") if pool.exists() else []:
         if (
@@ -873,8 +885,9 @@ def verified_timestamp(entry):
 
 
 def backup_integrity(entry):
-    _created, directory, manifest = entry
+    _created, directory, _summary = entry
     try:
+        manifest = _read_manifest(directory)
         if digest(directory / "database.dump") != manifest["database_sha256"]:
             return False
         for number, obj in enumerate(ordered_objects(directory, manifest["objects"], "existing_backup"), 1):
