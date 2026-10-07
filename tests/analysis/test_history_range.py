@@ -26,6 +26,7 @@ from sqlalchemy import select, text
 from sqlalchemy.engine import make_url
 
 from tests.clock import set_clock
+from tests.zh import zh
 
 
 @pytest.fixture(scope="module")
@@ -425,7 +426,7 @@ def test_legacy_continue_uses_saved_scope_without_inventing_old_user_target(api,
     assert value["collection_start_date"] == "2017-12-01"
     assert value["collection_end_date"] == "2026-09-11"
     assert value["basis"] == "legacy_scope"
-    assert "旧" in value["explanation"]
+    assert "旧" in zh(value["explanation"])
     assert child["batch"]["items"][0]["coverage"]["start_date"] == "2017-12-01"
     assert child["batch"]["items"][0]["coverage"]["end_date"] == "2026-09-11"
 

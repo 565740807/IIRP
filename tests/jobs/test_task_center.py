@@ -7,6 +7,7 @@ from iirp.jobs import batch_views, batches
 from iirp.models import Batch, BatchJob, Job, RequestScope, now
 
 from tests.jobs.test_lifecycle import clean_lifecycle, lifecycle_database  # noqa: F401
+from tests.zh import zh
 
 
 def test_categories_automatic_history_grouping_and_stable_tie_pagination():
@@ -29,7 +30,7 @@ def test_categories_automatic_history_grouping_and_stable_tie_pagination():
     # A persisted planner RUNNING row without an executing job is waiting.
     assert first["counts"] == {"running": 0, "waiting": 3, "attention": 3, "history": 41}
     assert {row["status"] for row in batch_views.list_batches("attention")["items"]} == {"PAUSED", "FAILED", "PARTIAL"}
-    with pytest.raises(ValueError, match="分页"):
+    with pytest.raises(ValueError, match="batch.offset_invalid"):
         batch_views.list_batches("history", "invalid")
 
 
@@ -76,16 +77,16 @@ def test_activity_uses_live_leases_active_shared_links_and_preserves_control_sta
         assert row["activity_status"] == detail["activity_status"] == "WAITING"
     queued = batch_views.get_batch("queued")["batch"]["items"][0]["progress"]
     retry = batch_views.get_batch("retry")["batch"]["items"][0]["progress"]
-    assert queued["stage"] == "等待 Yahoo 通道 · 补齐历史日线"
+    assert zh(queued["stage"]) == "等待 Yahoo 通道 · 补齐历史日线"
     assert queued["current_target"] == {"symbol": "ORCL"}
     assert queued["retry_at"] is None
     assert queued["activity_status"] == "QUEUED"
-    assert retry["stage"] == "等待来源重试 · 补齐历史日线"
+    assert zh(retry["stage"]) == "等待来源重试 · 补齐历史日线"
     assert retry["current_target"] == {"symbol": "ORCL"}
     assert retry["retry_at"] == (stamp + timedelta(minutes=1)).isoformat()
     assert retry["activity_status"] == "RETRY_WAIT"
     detached = batch_views.get_batch("detached")["batch"]["items"][0]["progress"]
-    assert detached["stage"] == "等待可执行任务" and not detached["current_target"]
+    assert zh(detached["stage"]) == "等待可执行任务" and not detached["current_target"]
     assert detached["activity_status"] == "WAITING"
     with session() as s:
         assert s.get(Batch, "queued").control_version == 7
@@ -111,7 +112,7 @@ def test_scope_targets_live_execution_before_expired_or_detached_shared_jobs():
     progress = detail["items"][0]["progress"]
     assert detail["activity_status"] == progress["activity_status"] == "RUNNING"
     assert progress["current_target"] == {"symbol": "^GSPC"}
-    assert progress["stage"] == "补齐历史日线" and not progress["retry_at"]
+    assert zh(progress["stage"]) == "补齐历史日线" and not progress["retry_at"]
 
 
 @pytest.mark.parametrize("category,status", [("waiting", "RUNNING"), ("attention", "PARTIAL")])

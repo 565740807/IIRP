@@ -85,7 +85,7 @@ def test_missing_immutable_observation_never_falls_back_to_current_mutable_data(
         version = s.scalar(select(FilingVersion))
         version.data = {**version.data, "rows": []}
         s.flush()
-        with pytest.raises(ValueError, match="不可变"):
+        with pytest.raises(ValueError, match="insider.snapshot.row_missing"):
             entity_history(s, "company", "123")
 
 

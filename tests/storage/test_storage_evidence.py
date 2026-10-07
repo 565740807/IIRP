@@ -48,7 +48,7 @@ def test_binary_xml_is_referenced_and_mismatch_rejected(runtime):
     payload, _ = response_evidence(data, {"https://www.sec.gov/doc.xml": source})
     assert raw not in payload and source["sha256"].encode() in payload
     wrong = {**source, "sha256": hashlib.sha256(b"other").hexdigest()}
-    with pytest.raises(ValueError, match="不一致"):
+    with pytest.raises(ValueError, match="storage.reference_mismatch"):
         response_evidence(data, {"https://www.sec.gov/doc.xml": wrong})
 
 

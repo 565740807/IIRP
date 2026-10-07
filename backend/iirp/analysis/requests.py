@@ -11,6 +11,7 @@ from iirp.db import session
 from iirp.jobs.batch_views import batch_view
 from iirp.jobs.batches import ET, _create
 from iirp.jobs.planner import _plan_compute
+from iirp.messages import NotFoundError, UserError
 from iirp.models import (
     AnalysisRequest,
     AnalysisResult,
@@ -42,7 +43,7 @@ def create_analysis(params, *, retry_generation=None):
             if not request or comparable(
                 saved_batch.params.get("analysis_input", request.params)
             ) != comparable(submitted):
-                raise ValueError("同一分析请求标识不能改变参数")
+                raise UserError("analysis.request_id_reused")
             return analysis_view(s, request)
     stamp = now()
     completed = last_completed_session(as_of=stamp)
@@ -93,7 +94,7 @@ def _reuse_analysis_cache(identifier):
     with session() as s, s.begin():
         request = s.get(AnalysisRequest, identifier)
         if request is None:
-            raise LookupError("分析不存在")
+            raise NotFoundError("analysis.not_found")
         batch = s.scalar(
             select(Batch).where(Batch.id == request.batch_id)
             .with_for_update(skip_locked=True, key_share=True)
@@ -131,10 +132,10 @@ def analysis_view(s, request, result_ids=""):
     if result_ids:
         requested = set(result_ids.split(","))
         if not requested.issubset({r.id for r in results}):
-            raise LookupError("所选结果已过期或不属于这项研究；请重新获取")
+            raise NotFoundError("analysis.selected_result_gone")
         results = [r for r in results if r.id in requested]
         if len({r.security_id for r in results}) != len(results):
-            raise ValueError("每只证券请选择一个结果")
+            raise UserError("analysis.one_result_per_security")
     chosen = {}
     for security_id in dict.fromkeys(r.security_id for r in results):
         security = s.get(Security, security_id)
@@ -174,7 +175,7 @@ def analysis_view(s, request, result_ids=""):
 
 def recent_analyses(kind="monthly", ticker=""):
     if kind not in {"monthly", "interval"}:
-        raise ValueError("请选择月度或区间研究")
+        raise UserError("analysis.kind_invalid")
     with session() as s:
         query = (
             select(AnalysisRequest, Batch.status)
@@ -207,7 +208,7 @@ def get_analysis(analysis_id, result_ids=""):
     with session() as s:
         request = s.get(AnalysisRequest, analysis_id)
         if not request:
-            raise LookupError("分析不存在")
+            raise NotFoundError("analysis.not_found")
         return analysis_view(s, request, result_ids)
 
 
@@ -218,7 +219,7 @@ def export_analysis(analysis_id, result_ids="", format="csv"):
         lock_analysis_references(s)
         request = s.get(AnalysisRequest, analysis_id)
         if not request:
-            raise LookupError("分析不存在")
+            raise NotFoundError("analysis.not_found")
         selected_ids = (
             result_ids.split(",")
             if result_ids
@@ -230,7 +231,7 @@ def export_analysis(analysis_id, result_ids="", format="csv"):
             )
         ).all()
         if not results or len(results) != len(set(selected_ids)):
-            raise ValueError("所选结果已不存在或尚未生成")
+            raise UserError("analysis.result_missing")
         s.add(
             ExportManifest(
                 result_ids=selected_ids, params=request.params, expires_at=now() + timedelta(days=7)
@@ -252,7 +253,7 @@ def export_analysis(analysis_id, result_ids="", format="csv"):
                 "results": frozen,
             }, ensure_ascii=False, indent=2)
         if format != "csv":
-            raise ValueError("导出格式须为 csv 或 json")
+            raise UserError("analysis.export_format_invalid")
         stream = io.StringIO()
         writer = csv.writer(stream)
         writer.writerow(

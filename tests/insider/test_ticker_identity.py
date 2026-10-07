@@ -18,7 +18,7 @@ def test_placeholder_is_unknown_with_raw_token_unchanged():
     (AnalysisInput, {"kind": "monthly"}),
 ])
 def test_placeholder_cannot_create_price_request(model, extra):
-    with pytest.raises(ValidationError, match="证券代码"):
+    with pytest.raises(ValidationError, match="input.ticker_"):
         model(request_id="test-only", tickers=["none"], **extra)
 
 

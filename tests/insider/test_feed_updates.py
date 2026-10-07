@@ -13,6 +13,7 @@ from iirp.models import FeedRevision, FeedSession, Filing, Job, TransactionEvent
 from sqlalchemy import func, select
 
 from tests.sec.test_sec_facts import FIXTURE, clean, isolated_database, save  # noqa: F401
+from tests.zh import zh
 
 
 def test_unchanged_check_has_no_card_projection_or_snapshot_write(monkeypatch):
@@ -86,7 +87,7 @@ def test_delta_pages_freeze_and_base_pagination_deduplicates_even_with_late_fact
         assert feed(s, base["session_id"], base["next_cursor"], kind="buy") == original_second
         assert feed_updates(s, first["target_session_id"])["new_count"] == 1
         other = feed(s, kind="sell")
-        with pytest.raises(ValueError, match="不匹配"):
+        with pytest.raises(ValueError, match="feed.delta_snapshot_mismatch"):
             feed_updates(s, other["session_id"], include_groups=True,
                          target_session_id=first["target_session_id"], cursor="20")
 
@@ -132,7 +133,7 @@ def test_pending_total_counts_filings_and_stages_not_five_preview_or_job_attempt
         assert {stage["id"] for stage in summary["stages"]} == {
             "discovered", "waiting_download", "fetching_parsing", "retry_wait", "paused", "failed", "cancelled", "needs_review",
         }
-        assert "含历史回补" in summary["scope"]
+        assert "含历史回补" in zh(summary["scope"])
         checked, preview = pending_feed_metadata(s)
         assert checked["total"] == 8 and preview == []
 
@@ -141,11 +142,11 @@ def test_incremental_cursor_rejects_missing_target_and_expired_baseline():
     with session() as s, s.begin():
         save(s)
         original = feed(s, kind="buy")
-        with pytest.raises(ValueError, match="缺少目标"):
+        with pytest.raises(ValueError, match="feed.delta_target_missing"):
             feed_updates(s, original["session_id"], include_groups=True, cursor="20")
         saved = s.get(FeedSession, original["session_id"])
         saved.expires_at = now() - timedelta(seconds=1)
-        with pytest.raises(ValueError, match="过期"):
+        with pytest.raises(ValueError, match="insider.snapshot.expired"):
             feed_updates(s, saved.id)
 
 

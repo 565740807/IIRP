@@ -17,6 +17,7 @@
 - 测试使用隔离的 `iirp_v1_test_*` 数据库，不访问运行库：`./iirp check` 和 `./iirp test [pytest 参数]` 启动临时 PostgreSQL 容器（tmpfs），不在正式实例的数据库服务器上建库。共享路径改动后重新跑集成测试。
 - 运行配置和密钥（`deploy/.env` 等）被 `.gitignore` 忽略，不要打印或提交。
 - 前端类型从 `docs/openapi.json` 生成；不要在 TypeScript 中重复实现金融计算。
+- 后端返回给用户的文字一律用 `iirp.messages` 的消息代码（`msg`、`UserError`、`NotFoundError`），不写成句的中文或英文；新代码的文字加到 `frontend/src/locales/zh/translation.json`，`tests/test_messages.py` 会检查。
 
 ## 工作方式
 

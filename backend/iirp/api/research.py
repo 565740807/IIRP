@@ -36,6 +36,7 @@ from iirp.jobs import batch_views
 from iirp.jobs import batches as job_batches
 from iirp.jobs import preferences as job_preferences
 from iirp.market import reads as market_reads
+from iirp.messages import msg
 
 router = APIRouter(prefix="/api/v1")
 
@@ -218,12 +219,12 @@ def transaction(transaction_id: str, mapping_version: int | None = None, cutoff_
 @router.get("/transactions/{transaction_id}/export")
 def transaction_export(transaction_id: str, format: str = "json", mapping_version: int | None = None, cutoff_date: date | None = None):
     if format not in {"json", "csv"}:
-        raise HTTPException(422, "交易价格导出格式只支持 JSON 或 CSV")
+        raise HTTPException(422, msg("transaction.export_format_invalid"))
     result = invoke(transactions.transaction_detail, transaction_id, mapping_version, cutoff_date.isoformat() if cutoff_date else None)["data"]
     transaction = result["transaction"]
     context = result["price_context"]
     if not transaction.get("security_id"):
-        raise HTTPException(409, "交易证券尚未核对，不能导出价格分析")
+        raise HTTPException(409, msg("transaction.export_unverified"))
     filename = f"insider-{transaction_id}-mapping-{transaction['mapping_version']}"
     if format == "json":
         body = json.dumps(result, ensure_ascii=False, default=str)

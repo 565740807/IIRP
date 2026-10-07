@@ -7,6 +7,7 @@ from iirp.db import session
 from iirp.jobs.job_views import worker_view
 from iirp.jobs.providers import sec_configured
 from iirp.market.yahoo import MARKETS, source_contract
+from iirp.messages import UserError, msg
 from iirp.models import ACTIVE, Issuer, Job, MarketQuote, Owner, Security
 
 
@@ -36,7 +37,7 @@ def home():
                         "change_percent": None,
                         "as_of": None,
                         "status": failure.status if failure else "NOT_FETCHED",
-                        "reason": failure.error if failure else "尚未获取；点击更新市场行情",
+                        "reason": failure.error if failure else msg("home.quote_not_fetched"),
                     }
                 )
         return {
@@ -47,7 +48,7 @@ def home():
                 select(func.count()).select_from(Job).where(Job.status.in_(ACTIVE))
             ),
             "mode": settings().mode,
-            "notice": "日线与申报按来源逐项保存；历史范围和缺口见数据页。",
+            "notice": msg("home.notice"),
         }
 
 
@@ -72,10 +73,10 @@ def search(q):
     if not q:
         return {
             "items": [],
-            "data": {"message": "输入 ticker、公司名称、人员名称或 CIK，搜索本地已保存数据。"},
+            "data": {"message": msg("search.hint")},
         }
     if len(q) > 100:
-        raise ValueError("搜索关键词最多100个字符")
+        raise UserError("search.too_long", max=100)
     term = "%" + q.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%"
     with session() as s:
         items = []
@@ -113,7 +114,7 @@ def search(q):
                 )
         return {
             "items": items,
-            "data": {"message": "仅查询本地证券和主体；获取历史通过详情页明确提交。"},
+            "data": {"message": msg("search.scope")},
         }
 
 
@@ -123,23 +124,21 @@ def providers():
         "items": [
             {
                 "id": "sec",
-                "name": "SEC 官方",
+                "name": msg("provider.sec.name"),
                 "configured": sec_configured(),
                 "status": "CONFIGURED" if sec_configured() else "NEEDS_CONFIG",
-                "message": "六类申报、原文、索引对账与财报附件。"
-                if sec_configured()
-                else "请在本机配置真实联系邮箱。",
-                "budget": "共享 2 请求/秒、最多 2 个执行单元；历史按缺口续作",
+                "message": msg("provider.sec.configured" if sec_configured()
+                               else "provider.sec.needs_config"),
+                "budget": msg("provider.sec.budget"),
             },
             {
                 "id": "yfinance",
-                "name": "Yahoo 行情与财报候选",
+                "name": msg("provider.yahoo.name"),
                 "configured": True,
                 "status": "AVAILABLE" if contract["verified"] else "UNVERIFIED",
-                "message": "仅拆股 OHLC 合约已通过普通拆股、反向拆股、股息样例；每次入库仍核对日期和价格版本。"
-                if contract["verified"]
-                else "当前依赖版本与已验证口径不一致，需要重新验证。",
-                "budget": "串行下载；默认 8 个完整历史年，可修改；财报候选需要公告核对",
+                "message": msg("provider.yahoo.verified" if contract["verified"]
+                               else "provider.yahoo.unverified"),
+                "budget": msg("provider.yahoo.budget"),
             },
         ],
         "data": {},

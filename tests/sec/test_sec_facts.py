@@ -285,7 +285,7 @@ def test_owner_history_keeps_joint_row_single_and_freezes_filter_scope():
             session_id=result["session_id"],
         )["data"]
         assert continued["items"][0]["id"] != result["items"][0]["id"]
-        with pytest.raises(ValueError, match="条件"):
+        with pytest.raises(ValueError, match="insider.snapshot.filters_changed"):
             entity_history(s, "owner", "789", recent_count=50, session_id=result["session_id"])
 
 

@@ -1,3 +1,4 @@
+import { decodeMessage, localize, tm } from "./i18n";
 import { isFrozenEntityQuery } from "./taskPresentation";
 import { isFrozenResearchQuery, mutableResearchForBatch } from "./queryIdentity";
 import { useMutation, useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
@@ -60,17 +61,17 @@ export async function api<T>(
   if (!response.ok) {
     const detail = (data as { detail?: unknown })?.detail;
     const error = new Error(
-      typeof detail === "string"
-        ? detail
+      typeof detail === "string" || decodeMessage(detail)
+        ? tm(detail)
         : Array.isArray(detail)
-          ? detail.map((x) => x.msg ?? "输入无效").join("；")
+          ? detail.map((x) => (x.msg ? tm(x.msg) : "输入无效")).join("；")
           : `请求失败（${response.status}），请检查输入后重试。`,
     ) as ApiFailure;
     error.details = detail;
     error.status = response.status;
     throw error;
   }
-  return data as T;
+  return localize(data) as T;
 }
 export const requestId = () => crypto.randomUUID();
 export const activeStatuses = [

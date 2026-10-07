@@ -7,9 +7,10 @@ from sqlalchemy import select
 from sqlalchemy.orm import object_session
 
 from iirp.market.cache import current_cache, price_bars
+from iirp.messages import UserError, msg
 from iirp.models import Security
 
-INDEXES = {"^GSPC": "标普 500", "^IXIC": "纳斯达克综合"}
+INDEXES = {"^GSPC": msg("market.name.GSPC"), "^IXIC": msg("market.name.IXIC")}
 
 
 def validate_benchmark(symbol):
@@ -17,7 +18,7 @@ def validate_benchmark(symbol):
         return None
     symbol = symbol.strip().upper()
     if symbol not in INDEXES and not re.fullmatch(r"[A-Z][A-Z0-9.\-]{0,19}", symbol):
-        raise ValueError("请选择标普500、纳斯达克综合，或输入待核对的行业ETF代码")
+        raise UserError("benchmark.invalid")
     return symbol
 
 
@@ -77,14 +78,14 @@ def plan_benchmark(s, scope, request, start, end):
         s.flush()
     if security.status in {"PENDING", "VERIFIED_MARKET"}:
         job = add_job(s, scope, "market_identity", {"symbol": symbol, "security_id": security.id, "benchmark_contract": 1})
-        job.title = f"正在核对 {INDEXES.get(symbol, symbol)} 基准身份"
-        return job.error or "基准身份正在核对；股票结果可先阅读"
+        job.title = msg("job.title.benchmark_identity", name=INDEXES.get(symbol, symbol))
+        return job.error or msg("benchmark.identity_pending")
     snapshot = benchmark_snapshot(request.params, s.get(Security, scope.security_id), s)
     if snapshot["status"] not in {"available", "benchmark_prices_pending"}:
-        return "所选基准的证券类型、币种或交易日历未匹配；请更换ETF或核对来源，股票结果保留"
+        return msg("benchmark.mismatch")
     ensured = ensure_prices(s, scope, security, start, end,
-                            title=f"正在获取 {INDEXES.get(symbol, symbol)} 基准行情")
+                            title=msg("job.title.benchmark_prices", name=INDEXES.get(symbol, symbol)))
     status, reason = fetch_state(ensured)
     if status == "READY":
         return None
-    return reason or "基准行情正在获取；股票结果可先阅读"
+    return reason or msg("benchmark.prices_pending")

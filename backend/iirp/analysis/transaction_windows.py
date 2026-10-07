@@ -12,6 +12,7 @@ from iirp.analysis.calendar import (
     session_window,
 )
 from iirp.analysis.research import CALCULATION_VERSION, _bars_by_date, _point, _price, _ratio, _text
+from iirp.messages import msg
 
 
 def transaction_price_context(
@@ -77,7 +78,7 @@ def transaction_price_context(
 
     left = {
         **context(transaction),
-        "title": "交易日收盘前后股价",
+        "title": msg("window.title.transaction"),
         "original_date": original.isoformat(),
         "observation_anchor": transaction.isoformat(),
         "non_session_transaction": transaction != original,
@@ -94,7 +95,8 @@ def transaction_price_context(
             **observation,
             **reaction,
             "price_status": observation["status"],
-            "title": "披露日期观察" if date_only_acceptance else "披露前最后收盘归零",
+            "title": msg("window.title.disclosure_date" if date_only_acceptance
+                         else "window.title.disclosure"),
             "opening_gap": _ratio(
                 _price(index, baseline, cutoff), _price(index, reaction_day, cutoff, "open")
             )
@@ -106,7 +108,7 @@ def transaction_price_context(
         days = session_window(starting, 0, 4, calendar)
         opening = _price(index, starting, cutoff, "open")
         next_open = {
-            "title": "从公开后下一次常规开盘观察",
+            "title": msg("window.title.next_open"),
             "start_date": starting.isoformat(),
             "opening_price": _text(opening),
             "day_1": _ratio(opening, _price(index, days[0], cutoff)),

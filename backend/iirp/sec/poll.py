@@ -23,6 +23,7 @@ from sqlalchemy import select, update
 from sqlalchemy.dialects.postgresql import insert
 
 from iirp.db import session
+from iirp.messages import msg
 from iirp.models import Batch, CollectionStrategy, SourcePoll, now
 
 SOURCE = "sec_latest"
@@ -268,7 +269,7 @@ def poll_once(stopping=lambda: False, fetch=None):
         result, error, retry = {}, str(exc), max(60.0, float(exc.retry_seconds))
     except Exception as exc:
         logging.exception("sec latest poll failed type=%s", type(exc).__name__)
-        result, error, retry = {}, f"轮询失败（{type(exc).__name__}）", 60.0
+        result, error, retry = {}, msg("sec.poll_failed", error=type(exc).__name__), 60.0
     stamp = now()
     with session() as s, s.begin():
         row = s.get(SourcePoll, SOURCE, with_for_update=True)

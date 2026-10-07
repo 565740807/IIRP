@@ -5,7 +5,8 @@ from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
 from iirp.insider.common import VISIBLE, _group_date, _json
-from iirp.insider.views import _event_view, _refresh_groups, _with_filing_owners
+from iirp.insider.views import _event_view, _legacy_labels, _refresh_groups, _with_filing_owners
+from iirp.messages import UserError, msg
 from iirp.models import (
     AmendmentRelation,
     Filing,
@@ -39,7 +40,7 @@ def entity_history(
 def transaction_record(s: Session, id: str) -> dict:
     event = s.get(TransactionEvent, id)
     if event is None:
-        raise ValueError("该交易尚未在本地保存。")
+        raise UserError("insider.transaction_not_saved")
     filing, version = s.get(Filing, event.accession), s.get(FilingVersion, event.version_id)
     relations = list(
         s.scalars(
@@ -72,7 +73,7 @@ def transaction_record(s: Session, id: str) -> dict:
                 "action": relation.action,
                 "original_event_id": relation.original_event_id,
                 "amended_event_id": relation.amended_event_id,
-                "evidence": relation.evidence,
+                "evidence": _legacy_labels(relation.evidence),
             }
             for relation in relations
         ],
@@ -81,7 +82,7 @@ def transaction_record(s: Session, id: str) -> dict:
             for security in securities
         ],
         "security_id": None,
-        "security_notice": "须确认交易证券或衍生品标的与具体股类的对应关系。",
+        "security_notice": msg("insider.security_notice"),
     }
 
 
@@ -101,23 +102,23 @@ def resolve_amendment(
     }
     chosen = aliases.get(action.lower(), action.upper())
     if chosen not in {"ADD", "REPLACE", "UNCHANGED", "REMOVE"}:
-        raise ValueError("请选择新增、替换、未变化或撤回。")
+        raise UserError("insider.amendment.action_invalid")
     if isinstance(evidence, str):
         evidence = {"note": evidence}
     if (
         not isinstance(evidence, dict)
         or not str(evidence.get("note", evidence.get("description", ""))).strip()
     ):
-        raise ValueError("请保存逐行核对的依据说明。")
+        raise UserError("insider.amendment.evidence_missing")
     relation = s.scalar(
         select(AmendmentRelation).where(AmendmentRelation.id == relation_id).with_for_update()
     )
     if relation is None:
-        raise ValueError("待核对修订关系不存在。")
+        raise UserError("insider.amendment.not_found")
     if relation.action not in {"UNCONFIRMED", "UNCONFIRMED_DUPLICATE"}:
         if relation.action == chosen and relation.original_event_id == original_event_id:
             return {"id": relation.id, "action": relation.action, "reused": True}
-        raise ValueError("该修订已经有明确结论，不能覆盖已有核对证据。")
+        raise UserError("insider.amendment.already_resolved")
     amended = s.get(TransactionEvent, relation.amended_event_id)
     if amended:
         s.scalar(select(Issuer).where(Issuer.id == amended.issuer_id).with_for_update())
@@ -135,14 +136,14 @@ def resolve_amendment(
     amended = locked.get(relation.amended_event_id)
     original = locked.get(original_event_id)
     if not amended or (chosen != "ADD" and not original):
-        raise ValueError("该操作需要指定有效的原交易行。")
+        raise UserError("insider.amendment.original_required")
     if original and (
         original.id == amended.id
         or original.issuer_id != amended.issuer_id
         or original.status not in VISIBLE
         or not set(original.owner_ids) & set(amended.owner_ids)
     ):
-        raise ValueError("原行必须是同发行人且具有共同申报主体的现行交易。")
+        raise UserError("insider.amendment.original_invalid")
     changed = {(amended.issuer_id, _group_date(amended))}
     if original:
         changed.add((original.issuer_id, _group_date(original)))

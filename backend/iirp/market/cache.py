@@ -14,6 +14,7 @@ from decimal import Decimal
 from sqlalchemy import delete, func, select, text, update
 from sqlalchemy.dialects.postgresql import insert
 
+from iirp.messages import UserError, msg
 from iirp.models import (
     ACTIVE,
     AnalysisRequest,
@@ -25,6 +26,9 @@ from iirp.models import (
     Security,
     now,
 )
+
+# Bar problems listed in a job error; the cache details keep the dates.
+REASON_LIMIT = 20
 
 
 def _defaults():
@@ -94,7 +98,7 @@ def coverage_for(s, security, start, end, *, cache_id=None):
             "start_date": str(start),
             "end_date": str(end),
             "status": "IDENTITY_PENDING",
-            "reasons": ["证券股类、币种或交易日历待核对"],
+            "reasons": [msg("market.identity_pending")],
         }
     expected = sessions(start, end, security.calendar)
     bars, cache = price_bars(s, security.id, cache_id, ranges=[(start, end)])
@@ -174,7 +178,7 @@ def fetch_state(ensured):
         return "READY", None
     if job.status in ACTIVE:
         return "RUNNING", None
-    return "PARTIAL", job.error or "行情来源未返回可用数据，可重试"
+    return "PARTIAL", job.error or msg("market.no_data_retry")
 
 
 def persist_prices(s, job, response):
@@ -194,17 +198,17 @@ def persist_prices(s, job, response):
     provider = response.get("provider", "yfinance")
     conflicts = price_identity_conflicts(s, security, response, provider)
     if conflicts:
-        return {"records": 0, "cached": False, "reason": "；".join(conflicts)}
+        return {"records": 0, "cached": False, "reason": msg("common.items", items=conflicts)}
     records = {}
     for record in response.get("records", []):
         day = date.fromisoformat(record["date"])
         if not start <= day <= end:
             continue
         if day in records:
-            raise ValueError("来源同一交易日重复，整块保留待核对")
+            raise UserError("market.duplicate_session")
         records[day] = record
     if not records:
-        return {"records": 0, "cached": False, "reason": "来源返回空数据；无法据此判断未上市或无交易"}
+        return {"records": 0, "cached": False, "reason": msg("market.empty_response")}
     completed = last_completed_session(calendar=calendar)
     expected = set(sessions(start, min(end, completed), calendar))
     calendar_days = sessions(previous_session(start, calendar), end, calendar)
@@ -213,20 +217,20 @@ def persist_prices(s, job, response):
     for day, record in sorted(records.items()):
         values, status, reason = validate_bar(record, security, completed)
         if day not in expected and day <= completed:
-            status, reason = "INVALID", "来源日期不属于证券交易日历"
+            status, reason = "INVALID", msg("market.bar.not_session")
         actions = {field: number(record.get(field)) for field in ("dividends", "splits")}
         if any(value is not None and value < 0 for value in actions.values()):
-            status, reason = "NEEDS_REVIEW", "公司行动数值不合法，原价格保留待核对"
+            status, reason = "NEEDS_REVIEW", msg("market.bar.bad_action")
         if status == "VALID" and security.instrument in ("EQUITY", "ETF"):
             prior_close = closes.get(predecessors.get(day))
             split_boundary = actions["splits"] not in (None, Decimal(0), Decimal(1))
             if prior_close and not split_boundary and abs(values["close"] / prior_close - 1) >= Decimal("0.5"):
-                status, reason = "NEEDS_REVIEW", "相邻交易日收盘变化达到 50%，保留原值待核对"
+                status, reason = "NEEDS_REVIEW", msg("market.bar.jump")
         if status == "VALID":
             closes[day] = values["close"]
             valid.add(day)
         if reason and status != "UNCONFIRMED":
-            reasons.append(f"{day}：{reason}")
+            reasons.append(msg("market.bar.dated", day=day, reason=reason))
         rows.append({"session_date": day, **values, **actions, "status": status, "reason": reason})
     missing = sorted(str(day) for day in expected - set(records))
     invalid = sorted(str(day) for day in expected & set(records) - valid)
@@ -234,12 +238,15 @@ def persist_prices(s, job, response):
     if (existing is not None and existing.expires_at > now()
             and not (start <= existing.start_date and end >= existing.end_date)):
         return {"records": len(records), "cached": False, "superseded_by": existing.id,
-                "message": "已有覆盖更宽区间的缓存，本次结果未替换"}
+                "message": msg("market.cache_superseded")}
     if existing is not None:
         s.delete(existing)
         s.flush()
     fetched = now()
-    reason = "；".join(dict.fromkeys(reasons))
+    reasons = list(dict.fromkeys(reasons))
+    if len(reasons) > REASON_LIMIT:
+        reasons = [*reasons[:REASON_LIMIT], msg("common.more", count=len(reasons) - REASON_LIMIT)]
+    reason = msg("common.items", items=reasons) if reasons else ""
     cache = PriceCache(
         security_id=security.id, start_date=start, end_date=end, complete_through=completed,
         provider=provider, fetched_at=fetched, expires_at=fetched + timedelta(hours=CACHE_HOURS),

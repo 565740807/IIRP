@@ -1040,6 +1040,13 @@
     },
     {
       "ecosystem": "npm",
+      "name": "@babel/runtime",
+      "version": "7.29.7",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json"
+    },
+    {
+      "ecosystem": "npm",
       "name": "@babel/template",
       "version": "7.29.7",
       "license": "MIT",
@@ -2944,6 +2951,13 @@
     },
     {
       "ecosystem": "npm",
+      "name": "html-parse-stringify",
+      "version": "4.0.1",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json"
+    },
+    {
+      "ecosystem": "npm",
       "name": "https-proxy-agent",
       "version": "7.0.6",
       "license": "MIT",
@@ -2955,6 +2969,13 @@
         "integrity_verified": true
       },
       "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "i18next",
+      "version": "26.4.2",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json"
     },
     {
       "ecosystem": "npm",
@@ -3448,6 +3469,13 @@
     },
     {
       "ecosystem": "npm",
+      "name": "react-i18next",
+      "version": "17.0.16",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json"
+    },
+    {
+      "ecosystem": "npm",
       "name": "react-refresh",
       "version": "0.18.0",
       "license": "MIT",
@@ -3767,6 +3795,13 @@
         "integrity_verified": true
       },
       "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "use-sync-external-store",
+      "version": "1.7.0",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json"
     },
     {
       "ecosystem": "npm",

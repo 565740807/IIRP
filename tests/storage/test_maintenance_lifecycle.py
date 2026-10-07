@@ -249,7 +249,7 @@ def test_many_source_backup_journals_one_owned_namespace_and_preserves_pool(isol
 def test_manual_verify_uses_shared_lock_and_managed_does_not_relock(isolated):
     backup = isolated.backup
     directory = backup.backup()
-    with maintenance.maintenance_lock(), pytest.raises(ValueError, match="正在进行"):
+    with maintenance.maintenance_lock(), pytest.raises(ValueError, match="maintenance.busy"):
         backup.restore_verify(directory)
     result = backup.managed_backup()
     assert result["verified"] is True
@@ -707,7 +707,7 @@ def test_disabled_schedules_and_maintenance_have_no_security_side_effect(isolate
         assert s.scalar(select(func.count()).select_from(Batch)) == 1
         assert s.scalar(select(func.count()).select_from(Security)) == 0
         assert s.scalar(select(func.count()).select_from(Job)) == 1
-        assert s.scalar(select(RequestScope.symbol)) == "维护"
+        assert s.scalar(select(RequestScope.symbol)) == "maintenance"
 
 
 def test_sec_sleep_coalesces_slots_and_completed_latest_is_not_starved(isolated, monkeypatch):

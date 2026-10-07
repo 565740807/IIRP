@@ -78,7 +78,7 @@ python3 scripts/bench_reads.py --base-url http://127.0.0.1:18092 --ids-from ../b
 2. **启动前**在副本库中关闭全部采集策略、暂停未完成任务和批次（与 `restore-verify` 相同的处理），并且只启动 `postgres` 与 `web`（`docker compose … up -d web`），**不启动 worker**，副本不得访问 SEC 或行情来源。
 3. 在副本上跑 `./iirp check` 时把 `IIRP_DB_NAME` 设成一个不存在的 `iirp_v1_test_*` 名字：测试只在自建库中运行，误用配置库也只会连接失败，不会清空副本。
 
-已知问题（2026-10-04 实测）：`./iirp backup` 在机械硬盘和 768MiB 的 PostgreSQL 上，`SELECT … FROM source_object ORDER BY sha256`（约 65 万行）超过 5 分钟语句超时而失败（QueryCanceled），最近一次成功的备份停在 2026-09-28。此时可用只读 `pg_dump` 导出数据库（约 1GB、5 分钟）做演练，但它不含来源原文，不能替代完整备份。2026-10-05 升级到 PG 2GiB 并消除 worker 对 job 表的反复全表扫描（迁移 0023）后，正式实例 `./iirp backup` 58 分钟成功，该查询不到 1 分钟。`restore-verify` 需要的空闲空间约为 2×数据库 + 全部原文 + 每个文件 4KB + 10GB 保留（当时约 53GB），在机械硬盘上约 3 小时；自 S1 起验证通过后副本自动删除。2026-10-06 S2 清理后（数据库约 1.1GB、原文约 10.9 万个/1.4GB）备份约 5 分钟、恢复验证约 8 分钟。已知问题：备份后的保留步骤会同时载入全部备份清单，旧备份较多且清单很大时会超出 web 容器内存（10-06 实测 11 份、约 700MB JSON 时被 OOM 终止，备份本身已完整）；现在只保留少量小清单，不再触发，改为逐份读取的修复归 S4。验证耗时可能超过终端会话，可在 web 容器内分离运行：`docker exec -d iirp2-web-1 sh -c 'python scripts/backup.py verify 备份目录 > /app/runtime/logs/restore-verify.log 2>&1'`。
+已知问题（2026-10-04 实测）：`./iirp backup` 在机械硬盘和 768MiB 的 PostgreSQL 上，`SELECT … FROM source_object ORDER BY sha256`（约 65 万行）超过 5 分钟语句超时而失败（QueryCanceled），最近一次成功的备份停在 2026-09-28。此时可用只读 `pg_dump` 导出数据库（约 1GB、5 分钟）做演练，但它不含来源原文，不能替代完整备份。2026-10-05 升级到 PG 2GiB 并消除 worker 对 job 表的反复全表扫描（迁移 0023）后，正式实例 `./iirp backup` 58 分钟成功，该查询不到 1 分钟。`restore-verify` 需要的空闲空间约为 2×数据库 + 全部原文 + 每个文件 4KB + 10GB 保留（当时约 53GB），在机械硬盘上约 3 小时；自 S1 起验证通过后副本自动删除。2026-10-06 S2 清理后（数据库约 1.1GB、原文约 10.9 万个/1.4GB）备份约 5 分钟、恢复验证约 8 分钟。已知问题：备份后的保留步骤会同时载入全部备份清单，旧备份较多且清单很大时会超出 web 容器内存（10-06 实测 11 份、约 700MB JSON 时被 OOM 终止，备份本身已完整）；S4 起保留步骤逐份读取清单，不再同时载入全部清单。验证耗时可能超过终端会话，可在 web 容器内分离运行：`docker exec -d iirp2-web-1 sh -c 'python scripts/backup.py verify 备份目录 > /app/runtime/logs/restore-verify.log 2>&1'`。
 
 ### 升级到迁移 0020–0023（P2-A）
 
@@ -93,12 +93,19 @@ python3 scripts/bench_reads.py --base-url http://127.0.0.1:18092 --ids-from ../b
 
 ### 升级到迁移 0025（S2）
 
-- 0025 新建 `price_cache`、`price_cache_bar`，给 `analysis_result` 加 `expires_at`（用目录内默认值，不重写已有行；旧结果随即视为过期，由 worker 删除），删除 `security.maintain`、`active_until`，清掉行情/财报策略的定时字段。旧的版本化价格表（`price_dataset_version`、`market_bar_revision`、`dataset_bar`、`corporate_action`）不再读写，`migrations/env.py` 暂不比对它们；它们的数据已在 2026-10-06 的清理中清空，表本身在 S4 删除。迁移只改结构和小表，先停 worker，用一次性容器执行。
+- 0025 新建 `price_cache`、`price_cache_bar`，给 `analysis_result` 加 `expires_at`（用目录内默认值，不重写已有行；旧结果随即视为过期，由 worker 删除），删除 `security.maintain`、`active_until`，清掉行情/财报策略的定时字段。旧的版本化价格表（`price_dataset_version`、`market_bar_revision`、`dataset_bar`、`corporate_action`）不再读写，它们的数据已在 2026-10-06 的清理中清空，表本身由 0027（S4）删除。迁移只改结构和小表，先停 worker，用一次性容器执行。
 - 升级后打开旧研究会自动重新获取行情（结果已过期）。
 
 ### 升级到迁移 0026（S3）
 
 - 0026 把每个已保存事件集的当前版本转成新的简短格式（排除项与无日期的事件不转），把原 SEC 8-K 自动核对得到的财报日期（`earnings_event`）按股票各存成一个财报事件集，新建 `prompt_template`；删除事件集版本、导入预览与命令回执表、`earnings_event`、财报 CSV 导入表 `import_preview` 和 `earnings` 自动策略；旧的财报与事件分析（结果本就 24 小时过期）及其批次、财报证据与候选任务一并删除；财报证据来源文件标为到期，由 worker 连同文件删除。迁移前停 worker，用一次性容器执行；不支持回退（回退用升级前的备份）。
+
+### 升级到迁移 0028（S4）
+
+- 0027 删除已不再读写的结构：四张旧的版本化价格表（数据已在 S2 清空）、`feed_manifest` 与 `feed_session.manifest_hash`（连同升级前的旧阅读会话）、旧的 latest 扫描部分索引；给 `filing_version.source_hash` 建索引（约 5.4 万行，数秒）。
+- 0028 把 `job`、`batch`、`event_set` 的 `title` 从 `varchar(160/200)` 改为 `text`：生成的标题现在是消息代码（见架构说明“界面文字”），可能超过原长度；PostgreSQL 中这一改动不重写表。
+- 两个迁移都只改结构，先停 worker，用一次性容器执行；不支持回退（回退用升级前的备份）。Compose 的入口改为 `iirp.api.app:app` 与 `python -m iirp.jobs.worker`，必须用新的 compose 重建 web 和 worker。
+- 升级前写入的任务标题、报错和行情说明仍是中文原文，照原样显示；新写入的都是消息代码。
 
 ## 验证
 

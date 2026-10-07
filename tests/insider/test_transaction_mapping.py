@@ -41,7 +41,7 @@ def test_mapping_revision_is_a_candidate_review_with_prior_version_available():
     with session() as s:
         persisted = s.get(TransactionEvent, event_id)
         assert {k:v for k,v in persisted.data.items() if k != "security_mapping"} == original
-    with pytest.raises(LookupError, match="版本不存在"):
+    with pytest.raises(LookupError, match="transaction.mapping_version_missing"):
         transaction_detail(event_id, mapping_version=3)
 
 
@@ -49,7 +49,7 @@ def test_mapping_rejects_unbound_issuer_even_with_matching_ticker():
     event_id, security_id, _ = _seed()
     with session() as s, s.begin():
         s.get(Security, security_id).issuer_id = None
-    with pytest.raises(ValueError, match="同一发行人"):
+    with pytest.raises(ValueError, match="transaction.security_choice_invalid"):
         map_transaction_security(event_id, {"security_id": security_id, "evidence": "synthetic ticker match only"})
 
 
@@ -58,7 +58,7 @@ def test_mapping_requires_a_valid_identifier_and_exact_common_stock():
     with session() as s, s.begin():
         ident = s.scalar(select(SecurityIdentifier).where(SecurityIdentifier.security_id == security_id))
         ident.valid_to = date(2026, 1, 31)
-    with pytest.raises(ValueError, match="有效的证券标识符"):
+    with pytest.raises(ValueError, match="transaction.identifier_missing"):
         map_transaction_security(event_id, {"security_id": security_id, "evidence": "synthetic evidence"})
 
 
@@ -67,7 +67,7 @@ def test_export_freezes_mapping_version():
 
     from iirp.api.research import transaction_export
     event_id, security_id, _ = _seed()
-    with pytest.raises(Exception, match="尚未核对"):
+    with pytest.raises(Exception, match="transaction.export_unverified"):
         transaction_export(event_id)
     map_transaction_security(event_id, {"security_id": security_id, "evidence": "synthetic SEC source and issuer class"})
     result = transaction_export(event_id, format="json")

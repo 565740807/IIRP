@@ -21,6 +21,7 @@ from sqlalchemy import column as sql_column
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.types import DateTime
 
+from iirp.messages import UserError
 from iirp.models import (
     XID8,
     FeedGroupCurrent,
@@ -241,16 +242,16 @@ def encode_cursor(key):
 
 def decode_cursor(cursor):
     if not cursor.startswith(CURSOR_PREFIX) or len(cursor) > 300:
-        raise ValueError("分页游标无效。")
+        raise UserError("common.cursor_invalid")
     body = cursor[len(CURSOR_PREFIX):]
     try:
         sort_key, accepted_at, group_key = json.loads(
             base64.urlsafe_b64decode(body + "=" * (-len(body) % 4)))
         key = (datetime.fromisoformat(sort_key), datetime.fromisoformat(accepted_at), str(group_key))
     except (ValueError, TypeError):
-        raise ValueError("分页游标无效。") from None
+        raise UserError("common.cursor_invalid") from None
     if key[0].tzinfo is None or key[1].tzinfo is None:
-        raise ValueError("分页游标无效。")
+        raise UserError("common.cursor_invalid")
     return key
 
 

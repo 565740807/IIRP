@@ -47,6 +47,7 @@ from sqlalchemy import func, insert, select, text
 from sqlalchemy.engine import make_url
 
 from tests.clock import set_clock
+from tests.zh import zh
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -263,7 +264,7 @@ def test_repeated_request_id_is_idempotent_but_conflicting_parameters_are_reject
     with ThreadPoolExecutor(max_workers=4) as pool:
         result = list(pool.map(lambda _: batches.create_collection(params), range(8)))
     assert len({item["batch_id"] for item in result}) == 1
-    with pytest.raises(ValueError, match="同一请求标识"):
+    with pytest.raises(ValueError, match="common.request_id_reused"):
         batches.create_collection({**params, "end_date": "2023-02-01"})
 
 
@@ -439,7 +440,7 @@ def test_repeated_planner_job_lock_conflict_is_visible_and_does_not_block_other_
             assert scope.checkpoint["planning_conflict"]["sqlstate"] == "55P03"
             assert "uncommitted_change" not in scope.checkpoint
             assert (
-                "稍后自动重试" in batch_views.batch_view(s, failed)["items"][0]["progress"]["stage"]
+                "稍后自动重试" in zh(batch_views.batch_view(s, failed)["items"][0]["progress"]["stage"])
             )
     with session() as s, s.begin():
         s.get(Batch, bad["batch_id"]).planning_retry_at = now() - timedelta(seconds=1)

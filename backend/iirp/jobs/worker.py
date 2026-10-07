@@ -19,6 +19,7 @@ from iirp.db import session
 from iirp.jobs.ownership import OwnershipLost, WorkerOwnership, previous_leases_drained
 from iirp.jobs.profiles import development_budget
 from iirp.jobs.queue import claim, ensure_defaults, fenced, heartbeat, tick
+from iirp.messages import msg
 from iirp.models import SourceBudget, now
 from iirp.storage.objects import save_object
 
@@ -53,7 +54,7 @@ def run_probe(job, stopping=lambda: STOP):
         fenced(
             job,
             status="RETRY_WAIT",
-            error="来源处于冷却期，任务等待后再验证。",
+            error=msg("probe.cooldown"),
             retry_seconds=delay,
         )
         return
@@ -75,10 +76,10 @@ def run_probe(job, stopping=lambda: STOP):
                     return
                 heartbeat(WORKER_ID)
                 if time.monotonic() - started > development_budget().provider_deadline_seconds:
-                    raise TimeoutError("来源验证超过 25 秒操作期限。")
+                    raise TimeoutError("source probe exceeded its time limit")
                 time.sleep(0.5)
             if proc.returncode != 0:
-                raise RuntimeError(f"来源子进程异常退出（{proc.returncode}）。")
+                raise RuntimeError(f"source probe subprocess exited {proc.returncode}")
             output.seek(0)
             response = json.loads(output.read(7 * 1024**2))
         finally:
@@ -141,14 +142,14 @@ def execute(job, stopping=lambda: STOP):
             fenced(
                 job,
                 status="SUCCEEDED",
-                result={"message": "8 个合成测试检查点已提交；不是市场或 Insider 数据。"},
+                result={"message": msg("probe.fixture_done")},
             )
         else:
             run_probe(job, stopping)
     except Exception as exc:
         logging.exception("job failed id=%s type=%s", job.id, type(exc).__name__)
         fenced(
-            job, status="FAILED", error=f"任务中断（{type(exc).__name__}），请检查本地运行日志。"
+            job, status="FAILED", error=msg("job.interrupted", error=type(exc).__name__)
         )
 
 

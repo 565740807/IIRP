@@ -15,6 +15,7 @@ from iirp.models import AmendmentRelation, FeedRevision, TransactionEvent
 from sqlalchemy import select
 
 from tests.sec.test_sec_facts import FIXTURE, clean, isolated_database, save  # noqa: F401
+from tests.zh import zh
 
 
 def test_filter_scope_counts_dates_filing_roles_and_joint_totals_match():
@@ -59,7 +60,7 @@ def test_transaction_sort_happens_before_group_and_detail_pagination_and_freezes
         assert feed(s, kind="buy")["groups"][0]["accepted_date"] == "2026-09-01"
         assert feed(s, kind="buy", order="accepted")["groups"][0]["accepted_date"] == "2026-09-08"
         assert feed(s, first["session_id"], kind="buy")["groups"] == first["groups"]
-        with pytest.raises(ValueError, match="筛选"):
+        with pytest.raises(ValueError, match="feed.filters_changed"):
             feed(s, first["session_id"], kind="buy", order="accepted")
 
 
@@ -81,7 +82,7 @@ def test_unconfirmed_amendment_has_reported_values_but_no_confirmed_total():
         assert result["summary"][0]["reported_value_review_rows"] == 1
         assert result["summary"][0]["missing_source_value_rows"] == 0
         assert result["transactions"][0]["price"] == "8.50"
-        assert "源申报数值" in result["transactions"][0]["summary_exclusion_reason"]
+        assert "源申报数值" in zh(result["transactions"][0]["summary_exclusion_reason"])
 
 
 def test_legacy_transaction_detail_reads_roles_from_its_filing_without_admitting_amendment():
@@ -97,10 +98,10 @@ def test_legacy_transaction_detail_reads_roles_from_its_filing_without_admitting
         original_data = dict(event.data)
         record = transaction_record(s, event.id)
         director = next(owner for owner in record["owners"] if owner["id"] == "0000000456")
-        assert director["roles"] == ["董事"]
+        assert [zh(role) for role in director["roles"]] == ["董事"]
         assert director["entity_type"] == "person"
         assert record["shares"] == "1185" and record["price"] == "8.50"
-        assert "源申报数值暂未计入确认汇总" in record["summary_exclusion_reason"]
+        assert "源申报数值暂未计入确认汇总" in zh(record["summary_exclusion_reason"])
         assert record["amount"] is None and record["eligible_for_totals"] is False
         assert event.status == "NEEDS_REVIEW" and event.data == original_data
 

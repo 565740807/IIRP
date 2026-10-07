@@ -5,10 +5,12 @@ from copy import deepcopy
 import pytest
 from iirp.db import session
 from iirp.insider.entities import read_entity_history
+from iirp.messages import msg
 from iirp.models import FeedSession, Issuer, TransactionEvent
 from sqlalchemy import select
 
 from tests.sec.test_sec_facts import FIXTURE, clean, isolated_database, save  # noqa: F401
+from tests.zh import zh
 
 
 def save_company(
@@ -87,7 +89,7 @@ def test_filtered_snapshot_freezes_rows_names_and_companies_and_rejects_changed_
             == expected["data"]["companies"]
         )
         assert second["data"]["summary"] == expected["data"]["summary"]
-        with pytest.raises(ValueError, match="历史条件"):
+        with pytest.raises(ValueError, match="insider.snapshot.filters_changed"):
             read_entity_history(s, "owner", "456", issuer_id="123", cursor=snapshot + ":0")
 
 
@@ -150,8 +152,8 @@ def test_immutable_entity_amendment_rows_explain_exclusion_and_keep_reported_val
         row = result["items"][0]
         assert row["shares"] == "100000" and row["price"] == "25.25"
         assert row["amount"] is None and row["eligible_for_totals"] is False
-        assert "源申报数值暂未计入确认汇总" in row["summary_exclusion_reason"]
-        assert row["owners"][0]["roles"] == ["董事"]
+        assert "源申报数值暂未计入确认汇总" in zh(row["summary_exclusion_reason"])
+        assert [zh(role) for role in row["owners"][0]["roles"]] == ["董事"]
         frozen = deepcopy(row)
         event.status = "CURRENT"
         s.flush()
@@ -169,8 +171,8 @@ def test_person_history_roles_belong_to_each_original_filing_owner_and_company()
             save(s, xml=xml, accession=f"{issuer:010}-26-0000{day[-2:]}")
         result = read_entity_history(s, "person", "456", "2026-08-01", "2026-08-03", action="buy")
         own = [next(owner for owner in row["owners"] if owner["id"] == "0000000456")["roles"] for row in result["items"]]
-        assert own == [["董事"], ["CTO"], ["CFO"]]
-        assert all(next(owner for owner in row["owners"] if owner["id"] == "0000000789")["roles"] == ["持股超过10%"] for row in result["items"])
+        assert [[zh(role) for role in roles] for roles in own] == [["董事"], ["CTO"], ["CFO"]]
+        assert all(next(owner for owner in row["owners"] if owner["id"] == "0000000789")["roles"] == [msg("insider.role.ten_percent_owner")] for row in result["items"])
         assert [row["issuer_id"] for row in result["items"]] == ["0000000654", "0000000321", "0000000321"]
 
 
@@ -212,7 +214,7 @@ def test_legacy_person_snapshot_labels_joint_scope_and_keeps_frozen_totals():
         save_company(s, 123, suffix=3)
         restored = read_entity_history(s, "person", "456", action="buy", limit=1, cursor=old["data"]["next_cursor"])
         assert restored["data"]["summary_owner_scope"] == "legacy_joint_subjects"
-        assert "人数含联合申报主体" in restored["data"]["summary_note"]
+        assert "人数含联合申报主体" in zh(restored["data"]["summary_note"])
         assert restored["data"]["summary"] == company["data"]["summary"]
         assert restored["data"]["total"] == 2
         fresh = read_entity_history(s, "person", "456", action="buy")

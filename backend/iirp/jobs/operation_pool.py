@@ -11,6 +11,7 @@ import time
 from pathlib import Path
 
 from iirp.config import ROOT
+from iirp.messages import UserError
 
 
 class OperationInterrupted(Exception):
@@ -73,7 +74,7 @@ class OperationChild:
             {"kind": kind, "target": target}, ensure_ascii=False, default=str
         ).encode()
         if len(payload) > 16 * 1024**2:
-            raise ValueError("操作输入超过16MiB预算")
+            raise UserError("source.input_too_large")
         source.write_bytes(payload)
         self.proc.stdin.write(
             (json.dumps({"input": str(source), "output": str(result)}) + "\n").encode()
@@ -85,12 +86,12 @@ class OperationChild:
                 if not checkpoint():
                     raise OperationInterrupted
                 if self.proc.poll() is not None:
-                    raise RuntimeError(f"操作子进程退出 {self.proc.returncode}")
+                    raise RuntimeError(f"operation subprocess exited {self.proc.returncode}")
                 if time.monotonic() - started > deadline:
-                    raise TimeoutError("操作单元超过期限")
+                    raise TimeoutError("operation unit exceeded its time limit")
                 time.sleep(0.1)
             if result.stat().st_size > 80 * 1024**2:
-                raise ValueError("操作输出超过80MiB预算")
+                raise UserError("source.output_too_large")
             response = json.loads(result.read_bytes())
             self.completed += 1
             return response

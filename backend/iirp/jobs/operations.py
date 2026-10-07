@@ -15,6 +15,7 @@ from sqlalchemy.dialects.postgresql import insert
 from iirp.config import settings
 from iirp.db import session
 from iirp.market.yahoo import fetch_market, plain
+from iirp.messages import UserError, msg
 from iirp.models import SourceBudget, now
 
 
@@ -46,7 +47,7 @@ def sec_request_interval():
 
     rate = float(profiles()["normal_usage"]["sec_requests_per_second"])
     if not 0 < rate <= 10:
-        raise ValueError("sec_requests_per_second 必须在 (0, 10] 内（SEC 上限每秒 10 次）")
+        raise ValueError("sec_requests_per_second must be in (0, 10]; SEC allows at most 10 per second")
     return (1 + 2 * SEC_SLOT_GRACE) / rate
 
 
@@ -69,7 +70,7 @@ def reserve_sec():
                 budget.next_allowed_at = slot + interval
                 return slot
             if wait > 2:
-                raise ProviderFailure("SEC 共享来源冷却中", wait, source_wait=True)
+                raise ProviderFailure(msg("source.sec.cooldown"), wait, source_wait=True)
         time.sleep(max(0.01, wait - SEC_SLOT_LEAD))
 
 
@@ -83,7 +84,7 @@ def wait_for_sec_slot():
         # A late start could bunch with the next caller's slot; take a fresh one.
         if (now() - slot).total_seconds() <= SEC_SLOT_GRACE:
             return
-    raise ProviderFailure("SEC 请求时隙连续过期，稍后重试", 60, source_wait=True)
+    raise ProviderFailure(msg("source.sec.slots_stale"), 60, source_wait=True)
 
 
 def fetch_sec(url):
@@ -93,7 +94,7 @@ def fetch_sec(url):
     from iirp.jobs.providers import sec_configured
 
     if not sec_configured():
-        raise ProviderFailure("SEC 联系信息未配置", 900)
+        raise ProviderFailure(msg("source.sec.not_configured"), 900)
     with httpx.Client(timeout=httpx.Timeout(15, connect=5), follow_redirects=False) as client:
         # Build everything first so the request starts right at its reserved slot.
         request = client.build_request(
@@ -122,7 +123,8 @@ def fetch_sec(url):
                     )
                     budget.failures += 1
                 raise ProviderFailure(
-                    f"SEC HTTP {response.status_code}，共享冷却", retry, response.status_code, source_wait=True
+                    msg("source.sec.http_cooldown", status=response.status_code), retry, response.status_code,
+                    source_wait=True
                 )
             response.raise_for_status()
             chunks = []
@@ -130,7 +132,7 @@ def fetch_sec(url):
             for chunk in response.iter_bytes():
                 size += len(chunk)
                 if size > 64 * 1024**2:
-                    raise ProviderFailure("SEC 单文件超过 64 MiB 操作预算，需拆分清单", 900)
+                    raise ProviderFailure(msg("source.sec.file_too_large"), 900)
                 chunks.append(chunk)
         finally:
             response.close()
@@ -156,7 +158,7 @@ def operation(kind, target):
         )
         result["metadata"]["dependencies"] = target.get("dependency_manifest")
         return result
-    raise ValueError("未知工作类型")
+    raise ValueError(f"unknown operation kind {kind!r}")
 
 
 def run_request(request):
@@ -168,7 +170,7 @@ def run_request(request):
         output = {
             "ok": False,
             "error": str(exc) if isinstance(exc, (ProviderFailure, ValueError))
-            else f"来源操作失败（{type(exc).__name__}）",
+            else msg("source.operation_failed", error=type(exc).__name__),
             "retry_seconds": getattr(exc, "retry_seconds", 60),
             "error_type": type(exc).__name__,
             "status_code": getattr(exc, "status_code", None),
@@ -197,11 +199,11 @@ def main():
             try:
                 source, dest = Path(command["input"]), Path(command["output"])
                 if source.stat().st_size > 16 * 1024**2:
-                    raise ValueError("操作输入超过16MiB预算")
+                    raise UserError("source.input_too_large")
                 output = run_request(json.loads(source.read_bytes()))
                 data = json.dumps(output, ensure_ascii=False, allow_nan=False).encode()
                 if len(data) > 80 * 1024**2:
-                    data = json.dumps({"ok": False, "error": "来源响应超过80MiB预算",
+                    data = json.dumps({"ok": False, "error": msg("source.output_too_large"),
                                        "error_type": "RequestTooLarge"}).encode()
                 temporary = dest.with_suffix(".tmp")
                 temporary.write_bytes(data)

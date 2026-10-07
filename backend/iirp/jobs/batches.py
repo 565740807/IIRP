@@ -12,6 +12,7 @@ from sqlalchemy.exc import OperationalError
 from iirp.db import session
 from iirp.jobs.batch_views import batch_view, linked_jobs
 from iirp.market.yahoo import MARKETS, digest
+from iirp.messages import NotFoundError, UserError, msg
 from iirp.models import (
     ACTIVE,
     AnalysisRequest,
@@ -105,7 +106,7 @@ def scope_range(params):
     n = params.get("historical_years") or product_preferences()["historical_years"]
     year = stamp.astimezone(ET).year
     if year - n < 2:
-        raise ValueError("历史年数超出日期可表达范围；请选择合法起点")
+        raise UserError("price_range.years_out_of_range")
     if params["kind"] == "sec_latest":
         from iirp.sec.planning import _sec_recent_days
 
@@ -137,12 +138,12 @@ def _create(s, params, *, trigger="manual", policy_key=None, parent_id=None):
     receipt = s.get(RequestReceipt, request_id)
     if receipt:
         if receipt.scope_key != key:
-            raise ValueError("同一请求标识不能改成不同参数")
+            raise UserError("common.request_id_reused")
         return s.get(Batch, receipt.batch_id), True
     existing = s.scalar(select(Batch).where(Batch.request_id == request_id))
     if existing:
         if existing.scope_key != key:
-            raise ValueError("同一请求标识不能改成不同参数")
+            raise UserError("common.request_id_reused")
         return existing, True
     advisory(s, ["scope", key])
     paused = s.scalar(
@@ -176,13 +177,14 @@ def _create(s, params, *, trigger="manual", policy_key=None, parent_id=None):
         scope_key=key,
         kind=kind,
         title=(
-            "更新最新 Insider"
+            msg("batch.title.sec_latest")
             if kind == "sec_latest"
-            else f"Insider 历史回补 · {start}—{end}"
+            else msg("batch.title.sec_history", start=start, end=end)
             if kind == "sec_history"
-            else "更新市场行情"
+            else msg("batch.title.market_quotes")
             if kind == "market_quotes"
-            else f"{', '.join(symbols[:3])}{' 等' if len(symbols) > 3 else ''}：{params.get('purpose', kind)}"
+            else msg("batch.title.symbols_more" if len(symbols) > 3 else "batch.title.symbols",
+                     symbols=", ".join(symbols[:3]), purpose=params.get("purpose", kind))
         ),
         params=frozen,
         trigger=trigger,
@@ -224,7 +226,7 @@ def create_collection(params):
             defaults(s)
             policy = s.get(CollectionStrategy, "market", with_for_update=True)
             if not policy.enabled:
-                raise ValueError("行情自动更新策略已关闭")
+                raise UserError("batch.market_policy_off")
             hold = s.scalar(
                 select(Batch)
                 .where(
@@ -293,7 +295,8 @@ def add_job(s, scope, kind, target, priority=10, *, reuse_completed=True):
     if not job:
         job = Job(
             kind=kind,
-            title=f"{scope.symbol}：{kind}",
+            title=msg("job.title.default", kind=kind,
+                      symbol=msg("scope.maintenance") if scope.symbol == "maintenance" else scope.symbol),
             target=target,
             idempotency_key=key,
             priority=priority,
@@ -356,11 +359,11 @@ def _control_batch_once(batch_id, action):
     with session() as s, s.begin():
         batch = s.get(Batch, batch_id, with_for_update=True)
         if not batch:
-            raise LookupError("批次不存在")
+            raise NotFoundError("batch.not_found")
         scopes = s.scalars(select(RequestScope).where(RequestScope.batch_id == batch.id)).all()
         if action == "continue_remaining":
             if batch.status != "CANCELLED":
-                raise ValueError("只有已取消批次才能创建关联续作批次")
+                raise UserError("batch.continue_cancelled_only")
             child = s.scalar(
                 select(Batch)
                 .where(Batch.parent_id == batch.id, Batch.status != "CANCELLED")
@@ -383,7 +386,7 @@ def _control_batch_once(batch_id, action):
                 from iirp.analysis.history_range import price_range
                 continued["price_range"] = price_range(continued, batch.created_at, collection=(
                     date.fromisoformat(continued["start_date"]), date.fromisoformat(continued["end_date"])))
-                continued["price_range"].update(basis="legacy_scope", explanation="续作原批次已保存范围；旧版未单独记录用户目标与计算缓冲。")
+                continued["price_range"].update(basis="legacy_scope", explanation=msg("price_range.legacy_scope"))
             child, reused = _create(s, continued, parent_id=batch.id)
             original = s.scalar(select(AnalysisRequest).where(AnalysisRequest.batch_id == batch.id))
             if original:
@@ -423,7 +426,7 @@ def _control_batch_once(batch_id, action):
                 batch.status = "PAUSED" if action == "pause" else "CANCELLED"
         elif action == "resume":
             if batch.status != "PAUSED":
-                raise ValueError("请等待批次实际暂停后再继续")
+                raise UserError("batch.wait_for_pause")
             batch.status, batch.requested_action = "QUEUED", None
             batch.control_version += 1
             for scope in scopes:
@@ -435,7 +438,7 @@ def _control_batch_once(batch_id, action):
                         job.lease_token = job.lease_until = None
         elif action == "retry_failed":
             if batch.status not in ("PARTIAL", "FAILED"):
-                raise ValueError("只重试失败或部分完成批次")
+                raise UserError("batch.retry_failed_only")
             batch.status, batch.requested_action = "QUEUED", None
             for scope in scopes:
                 scope.status, scope.wait_reason = "QUEUED", None
@@ -460,7 +463,7 @@ def _control_batch_once(batch_id, action):
                             job.available_at, job.attempts = now(), 0
                             job.control_version += 1
         else:
-            raise ValueError("未知批次动作")
+            raise UserError("batch.action_invalid")
         if action in ("pause", "cancel", "resume", "retry_failed"):
             batch.planning_retry_at = None
         batch.updated_at = now()
@@ -493,6 +496,6 @@ def cleanup_cache():
             "data": {
                 "batch_id": existing.id,
                 "status": existing.status,
-                "message": "已保存缓存清理批次；可在任务中查看和控制",
+                "message": msg("batch.cleanup_saved"),
             },
         }

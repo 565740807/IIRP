@@ -190,5 +190,5 @@ def test_post_commit_failure_keeps_the_same_recoverable_request(monkeypatch):
         assert s.get(BatchPlanSignal, batch_id) is not None
     replay = requests.create_analysis(submitted)
     assert replay["id"] == identifier and replay["batch_id"] == batch_id
-    with pytest.raises(ValueError, match="同一分析请求标识"):
+    with pytest.raises(ValueError, match="analysis.request_id_reused"):
         requests.create_analysis({**submitted, "years": [2023]})

@@ -17,6 +17,7 @@ from sqlalchemy.exc import OperationalError
 
 from iirp.config import ROOT, settings
 from iirp.db import session
+from iirp.messages import UserError
 from iirp.models import (
     FeedSession,
     Job,
@@ -120,7 +121,7 @@ def maintenance_lock():
         try:
             fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except BlockingIOError:
-            raise ValueError("备份、恢复或清理正在进行，稍后重试") from None
+            raise UserError("maintenance.busy") from None
         yield
 
 
@@ -343,7 +344,8 @@ def execute_maintenance(job, stopping=lambda: False):
                 if not valid:
                     return None
                 if maintenance_timeout(started, operation_id if job.kind == "maintenance_backup" else None):
-                    raise TimeoutError("维护超过进度停滞或总时限；已保留已完成备份和未完成范围")
+                    raise TimeoutError("maintenance stalled or exceeded its total time limit; "
+                                       "completed backups and the unfinished range are kept")
                 time.sleep(0.5)
             if proc.returncode:
                 if stopping() or not fenced(job, acknowledge_control=False):
@@ -359,7 +361,8 @@ def execute_maintenance(job, stopping=lambda: False):
                 errors.seek(0)
                 failure.write_bytes(errors.read(65536))
                 raise RuntimeError(
-                    "定时备份或恢复核对失败，未执行未验证备份清理；操作 " + operation_id
+                    "scheduled backup or restore check failed; unverified backups were not pruned; "
+                    "operation " + operation_id
                 )
             output.seek(0)
             lines = output.read(2 * 1024**2).decode().strip().splitlines()
@@ -415,7 +418,8 @@ def execute_maintenance(job, stopping=lambda: False):
                     failure.parent.mkdir(parents=True, exist_ok=True)
                     failure.write_bytes(recovery.stderr[-65536:])
                     raise RuntimeError(
-                        "维护子进程已停止；本轮临时资源回收失败，操作 " + operation_id
+                        "maintenance child stopped; cleaning up its temporary resources failed; "
+                        "operation " + operation_id
                     )
             fenced(job)
         if job.kind == "maintenance_clean":

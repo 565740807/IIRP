@@ -8,6 +8,7 @@ from sqlalchemy import select
 from iirp.analysis.calendar import ET, sessions
 from iirp.db import session
 from iirp.jobs.providers import sec_configured
+from iirp.messages import msg
 from iirp.models import (
     Batch,
     CollectionStrategy,
@@ -52,7 +53,7 @@ def _maintenance_batch(s, policy, request_id):
 
     params = {
         "kind": "maintenance",
-        "purpose": "每日一致备份" if policy == "backup" else "派生缓存与日志维护",
+        "purpose": msg("maintenance.purpose.backup" if policy == "backup" else "maintenance.purpose.clean"),
     }
     key = digest(params)
     batch = Batch(
@@ -67,7 +68,7 @@ def _maintenance_batch(s, policy, request_id):
     s.add(batch)
     s.flush()
     s.add(RequestReceipt(request_id=request_id, batch_id=batch.id, scope_key=key))
-    scope = RequestScope(batch_id=batch.id, symbol="维护")
+    scope = RequestScope(batch_id=batch.id, symbol="maintenance")
     s.add(scope)
     s.flush()
     add_job(
@@ -137,7 +138,7 @@ def _sec_schedule(s, policy, current, request_id):
     if due and start <= target_end:
         batch, _ = _create(s, {
             "kind": "sec_history", "request_id": request_id + ":history",
-            "purpose": "有界历史回补" if intent == "fetch" else "范围内周度核对",
+            "purpose": msg("sec.purpose.history" if intent == "fetch" else "sec.purpose.weekly"),
             "start_date": str(start), "end_date": str(target_end),
             "history_months": preferences["history_months"], "intent": intent,
         }, trigger="automatic", policy_key="sec")

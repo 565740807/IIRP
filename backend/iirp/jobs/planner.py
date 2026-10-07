@@ -12,6 +12,7 @@ from iirp.jobs.batch_views import linked_jobs
 from iirp.jobs.batches import BUSINESS_KINDS, add_job, defaults
 from iirp.market.cache import coverage_for, current_cache
 from iirp.market.yahoo import digest
+from iirp.messages import msg
 from iirp.models import (
     ACTIVE,
     AnalysisRequest,
@@ -55,7 +56,7 @@ def _plan_market(s, scope, batch, capacity):
         scope.wait_reason = job.error
         return
     if security.status != "VERIFIED":
-        scope.status, scope.wait_reason = "PARTIAL", "证券身份或交易日历需核对；其他证券继续"
+        scope.status, scope.wait_reason = "PARTIAL", msg("scope.identity_review_others")
         return
     from iirp.market.cache import ensure_prices, fetch_state
 
@@ -96,7 +97,7 @@ def _plan_compute(s, scope, batch, security, *, cache_only=False):
     from iirp.analysis.pipeline import coalesce_compute, effective_input_params, reuse_result
     from iirp.analysis.shared_compute import lock_input
     if not lock_input(s, "research_compute", security.id, input_key):
-        scope.status, scope.wait_reason = "QUEUED", "等待相同输入共享计算的规划完成"
+        scope.status, scope.wait_reason = "QUEUED", msg("scope.waiting_shared_compute")
         return False
 
     if reuse_result(s, request, security, dataset, benchmark, input_key):

@@ -10,6 +10,7 @@ from pydantic import BaseModel, Field
 
 from iirp.analysis.calendar import sessions
 from iirp.analysis.prices import endpoint_change
+from iirp.messages import msg
 
 
 class DistributionStatistics(BaseModel):
@@ -35,8 +36,8 @@ class ProportionUncertainty(BaseModel):
     upper: str | None = None
     method: Literal["wilson_score"] = "wilson_score"
     confidence_level: str = "0.95"
-    assumptions: str = "独立、上涨概率恒定、样本事先确定的二项观察；平盘计入非上涨。金融样本的相关性、市场变化及事后筛选可能违反假设。"
-    interpretation: str = "条件成立时的历史上涨比例估计区间，不是未来上涨概率或收益预测区间。"
+    assumptions: str = msg("method.proportion.assumptions")
+    interpretation: str = msg("method.proportion.interpretation")
 
 
 class LeaveOneOutPoint(BaseModel):
@@ -58,7 +59,7 @@ class LeaveOneOutSensitivity(BaseModel):
     median_max: str | None = None
     max_abs_mean_change: str | None = None
     influential_sample_keys: list[str] = Field(default_factory=list)
-    interpretation: str = "每次去掉一个实际年度或事件后重算；检查单样本影响，不是样本外验证，也不增加独立样本。"
+    interpretation: str = msg("method.leave_one_out.interpretation")
 
 
 class HistoricalSegment(BaseModel):
@@ -73,7 +74,7 @@ class HistoricalSegments(BaseModel):
     boundary_year: int | None = None
     earlier: HistoricalSegment
     later: HistoricalSegment
-    interpretation: str = "按目标历史年份跨度中点固定分段；目标未登记时用全部候选历史年。边界不依收益或缺失后有效N选择；描述性比较，不是显著性或样本外检验。"
+    interpretation: str = msg("method.segments.interpretation")
 
 
 class OverlappingSamples(BaseModel):
@@ -98,14 +99,14 @@ class DistributionRobustness(BaseModel):
 
 
 class ResearchMethodology(BaseModel):
-    price_basis: str = "仅拆股调整的价格收益，不含现金股息再投资。"
+    price_basis: str = msg("method.price_basis")
     baseline_rule: str
     sample_unit: Literal["annual_sample", "event_sample"]
-    path_n_rule: str = "路径每个位置的N是该位置有效样本数，可与完整窗口或配对样本N不同；当前年与未完整窗口不混入完整历史分布。"
-    drawdown_rule: str = "最大回撤取实际基准至终点的完整日收盘路径，表示正数的峰值到后续低点损失；不含全部盘中路径，不代表可实现的止损价格。"
-    benchmark_rule: str = "股票自身N与同日期配对N分列；基准缺失不改动股票N。相对基准为逐样本简单收益差，不是风险调整alpha。"
+    path_n_rule: str = msg("method.path_n_rule")
+    drawdown_rule: str = msg("method.drawdown_rule")
+    benchmark_rule: str = msg("method.benchmark_rule")
     exploration_scope: str
-    interpretation: str = "箱体和分位带描述这些实际历史样本，不是未来预测区间；均值、排名、上涨次数或单一N阈值均不能证明可交易规律。"
+    interpretation: str = msg("method.interpretation")
 
 
 class Distribution(BaseModel):
@@ -228,7 +229,7 @@ def robustness(samples: list[dict], *, target_years: list[int], candidate_years:
     for earlier in (True, False):
         selected = [item for item in samples if item["year"] is not None and boundary is not None
                     and (item["year"] <= boundary) == earlier]
-        segment_rows.append(HistoricalSegment(label="较早历史" if earlier else "较近历史",
+        segment_rows.append(HistoricalSegment(label=msg("method.segment.earlier" if earlier else "method.segment.later"),
             target_years=[year for year in years if (year <= boundary) == earlier],
             sample_keys=[item["key"] for item in selected],
             statistics=statistics([item[value_key] for item in selected])))
@@ -246,13 +247,13 @@ def robustness(samples: list[dict], *, target_years: list[int], candidate_years:
                                                start_date=start, end_date=min(end, other_end)))
         heappush(active, (end, key))
     year_counts = Counter(str(item["year"]) for item in samples if item["year"] is not None)
-    warnings = ["历史样本有限；均值和比例需结合实际点、敏感性、缺口及研究选择过程解读。"]
+    warnings = [msg("method.warning.limited")]
     if n < 2:
-        warnings.append("有效样本不足以比较去掉一个样本后的结果；不推断稳定性。")
+        warnings.append(msg("method.warning.too_few"))
     if overlaps:
-        warnings.append("存在重叠价格窗口，事件不是独立重复试验；Wilson区间的独立性假设未经满足。")
+        warnings.append(msg("method.warning.overlap"))
     if any(count > 1 for count in year_counts.values()):
-        warnings.append("同一年包含多个事件；事件样本N不等于独立年度N。")
+        warnings.append(msg("method.warning.same_year"))
     return DistributionRobustness(sample_unit=sample_unit, n=n, sample_keys=[item["key"] for item in samples],
         proportion=proportion, leave_one_out=sensitivity,
         historical_segments=HistoricalSegments(policy="target_year_midpoint" if target_years else "candidate_year_midpoint",
@@ -264,10 +265,10 @@ def robustness(samples: list[dict], *, target_years: list[int], candidate_years:
 
 def methodology(kind: str) -> dict:
     baseline = {
-        "monthly": "完整月度从上月最后交易日收盘到本月最后有效收盘；当前年/同期进度另列。",
-        "interval": "区间从窗口内首个交易日收盘到所示终点收盘；不包含首日开盘至收盘，和月度前收基准不同。",
+        "monthly": msg("method.baseline.monthly"),
+        "interval": msg("method.baseline.interval"),
     }[kind]
-    scope = "每个ticker比较12个完整历史月份；月份排名、年份排除和反复选择窗口均属探索性筛选，最优月份不代表可靠信号。" if kind == "monthly" else "在所选ticker、年份及日期/事件窗口内描述历史；反复调整窗口和事后挑选事件会产生选择偏差，需先明确纳入规则。"
+    scope = msg("method.scope.monthly" if kind == "monthly" else "method.scope.other")
     return ResearchMethodology(baseline_rule=baseline, sample_unit="annual_sample" if kind in {"monthly", "interval"} else "event_sample", exploration_scope=scope).model_dump()
 
 
@@ -340,7 +341,7 @@ def add_distributions(result: dict, benchmark: dict | None = None) -> dict:
         for row in data:
             group = str(row["month"]) if kind == "monthly" else "interval"
             eligible = row.get("eligible", row["group"] == "historical" and row["complete"] and row["period_ended"])
-            label = f"{group}月 · 完整历史月" if kind == "monthly" else "所选区间"
+            label = msg("method.label.month", month=int(group)) if kind == "monthly" else msg("method.label.interval")
             sample(row, "endpoint", group, label, row["endpoint"], eligible, row["baseline_date"], row["actual_end"], row["status"])
     output = []
     for key, group in groups.items():
@@ -363,7 +364,7 @@ def add_distributions(result: dict, benchmark: dict | None = None) -> dict:
                 candidate_years=[x["year"] for x in historical if x["year"] is not None],
                 sample_unit="paired_sample", value_key="difference") if benchmark else None,
             closing_max_drawdown=statistics([x["max_drawdown"] for x in valid]),
-            empty_reason=None if valid else "没有同时满足历史归属、事实核对和完整价格窗口的样本；请查看覆盖缺口。").model_dump())
+            empty_reason=None if valid else msg("method.empty")).model_dump())
     result["distributions"] = output
     if kind == "monthly":
         result["monthly_rankings"] = monthly_rankings(output)

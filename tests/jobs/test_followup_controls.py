@@ -16,6 +16,7 @@ from tests.jobs.test_lifecycle import (
     lifecycle_client,
     lifecycle_database,
 )
+from tests.zh import zh
 
 __all__ = ["clean_lifecycle", "lifecycle_client", "lifecycle_database"]
 
@@ -66,8 +67,8 @@ def test_planning_backoff_control_response_and_reread(monkeypatch, lifecycle_cli
         assert view["items"][0]["jobs_done"] == 1
         progress = view["items"][0]["progress"]
         assert progress["activity_status"] == expected
-        assert ("暂停" if action == "pause" else "取消") in progress["stage"]
-        assert "自动重试" not in progress["stage"]
+        assert ("暂停" if action == "pause" else "取消") in zh(progress["stage"])
+        assert "自动重试" not in zh(progress["stage"])
         assert progress["retry_at"] is None
         assert progress["planning_error"]["type"] == "ValueError"
     with session() as s:
@@ -80,7 +81,7 @@ def test_planning_backoff_control_response_and_reread(monkeypatch, lifecycle_cli
         assert resumed.status_code == 200
         for view in (resumed.json()["batch"], read_batch(lifecycle_client, identifier)):
             progress = view["items"][0]["progress"]
-            assert "自动重试" not in progress["stage"] and "暂停" not in progress["stage"]
+            assert "自动重试" not in zh(progress["stage"]) and "暂停" not in zh(progress["stage"])
             assert progress["retry_at"] is None
             assert progress["activity_status"] == ("RUNNING" if other else "WAITING")
         planner.plan_tick()
@@ -98,9 +99,9 @@ def test_explicit_retry_replaces_historical_planning_schedule(monkeypatch, lifec
     assert response.status_code == 200
     for view in (response.json()["batch"], read_batch(lifecycle_client, identifier)):
         progress = view["items"][0]["progress"]
-        assert "自动重试" not in progress["stage"] and progress["retry_at"] is None
+        assert "自动重试" not in zh(progress["stage"]) and progress["retry_at"] is None
         assert progress["planning_error"]["type"] == "ValueError"
     fail_planning(monkeypatch)
     progress = read_batch(lifecycle_client, identifier)["items"][0]["progress"]
-    assert "自动重试" in progress["stage"] and progress["retry_at"]
+    assert "自动重试" in zh(progress["stage"]) and progress["retry_at"]
     assert progress["planning_error"]["attempts"] == 2

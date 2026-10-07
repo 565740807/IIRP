@@ -132,7 +132,7 @@ def test_cursor_round_trip_and_rejection():
         key = decode_cursor(first["next_cursor"])
         assert encode_cursor(key) == first["next_cursor"]
         for bad in ("20", "k1.!!", "k1." + "A" * 400):
-            with pytest.raises(ValueError, match="游标"):
+            with pytest.raises(ValueError, match="common.cursor_invalid"):
                 feed(s, first["session_id"], bad, kind="buy")
 
 

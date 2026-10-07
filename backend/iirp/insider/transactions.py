@@ -8,6 +8,7 @@ from iirp.db import session
 from iirp.jobs.batch_views import batch_view
 from iirp.jobs.batches import ET, _create, resolve_defaults, scope_range
 from iirp.market.cache import cache_facts, price_bars
+from iirp.messages import NotFoundError, UserError, msg
 from iirp.models import (
     Batch,
     RequestReceipt,
@@ -96,10 +97,10 @@ def transaction_detail(transaction_id, mapping_version=None, cutoff_date=None):
         latest_version = int(latest_mapping.get("version", 1)) if latest_mapping else None
         if mapping_version is not None:
             if not isinstance(mapping_version, int) or mapping_version < 1:
-                raise ValueError("证券对应关系版本须为正整数")
+                raise UserError("transaction.mapping_version_invalid")
             selected = next((item for item in history if int(item.get("version", 1)) == mapping_version), None)
             if selected is None:
-                raise LookupError("证券对应关系版本不存在")
+                raise NotFoundError("transaction.mapping_version_missing")
             mapping = selected
         else:
             mapping = latest_mapping
@@ -107,7 +108,7 @@ def transaction_detail(transaction_id, mapping_version=None, cutoff_date=None):
         record["mapping_version"] = int(mapping.get("version", 1)) if mapping else None
         record["mapping_latest_version"] = latest_version
         sec = s.get(Security, mapping.get("security_id")) if mapping else None
-        context = {"status": "IDENTITY_PENDING", "reason": "交易对应证券尚未核对"}
+        context = {"status": "IDENTITY_PENDING", "reason": msg("transaction.security_unverified")}
         if sec and sec.status == "VERIFIED" and sec.issuer_id == event.issuer_id:
             record["security_id"] = sec.id
             record["security_mapping"] = mapping
@@ -141,19 +142,19 @@ def map_transaction_security(transaction_id, values):
         event = s.get(TransactionEvent, transaction_id, with_for_update=True)
         sec = s.get(Security, values["security_id"], with_for_update=True)
         if not event or not sec:
-            raise LookupError("交易或证券不存在")
+            raise NotFoundError("transaction.or_security_missing")
         if sec.status != "VERIFIED" or sec.issuer_id != event.issuer_id:
-            raise ValueError("只能选择已核对身份、且属于同一发行人的具体证券")
+            raise UserError("transaction.security_choice_invalid")
         record = transaction_record(s, transaction_id)
         if not event.transaction_date:
-            raise ValueError("原申报交易日期未知，不能核对证券有效期")
+            raise UserError("transaction.date_unknown")
         if (
             record.get("table") != "I"
             or str(record.get("security_title", "")).strip().casefold() != "common stock"
         ):
-            raise ValueError("这条记录并非已明确的普通股；须先核对标的股类或衍生品关系")
+            raise UserError("transaction.not_common_stock")
         if sec.instrument != "EQUITY" or record.get("ticker") != sec.symbol:
-            raise ValueError("申报普通股、证券类别和 ticker 不一致，不能建立对应关系")
+            raise UserError("transaction.class_mismatch")
         identifier = s.scalar(
             select(SecurityIdentifier).where(
                 SecurityIdentifier.security_id == sec.id,
@@ -166,7 +167,7 @@ def map_transaction_security(transaction_id, values):
             ).limit(1)
         )
         if identifier is None:
-            raise ValueError("交易当日没有有效的证券标识符记录，请先核对历史有效期")
+            raise UserError("transaction.identifier_missing")
         previous = event.data.get("security_mapping")
         if not (
             previous
@@ -204,16 +205,16 @@ def transaction_window(transaction_id, request_id):
     with session() as s, s.begin():
         event = s.get(TransactionEvent, transaction_id)
         if not event:
-            raise LookupError("交易不存在")
+            raise NotFoundError("transaction.not_found")
         sec = (
             s.get(Security, event.data.get("security_mapping", {}).get("security_id"))
             if event.data.get("security_mapping")
             else None
         )
         if not sec or sec.status != "VERIFIED" or sec.issuer_id != event.issuer_id:
-            raise ValueError("先核对具体股类或衍生品标的证券")
+            raise UserError("transaction.security_first")
         if not event.transaction_date or not event.accepted_at:
-            raise ValueError("交易日期或真实 SEC 接受时间缺失，需先补原文")
+            raise UserError("transaction.dates_missing")
         receipt = s.get(RequestReceipt, request_id)
         existing = (
             s.get(Batch, receipt.batch_id) if receipt else
@@ -223,7 +224,7 @@ def transaction_window(transaction_id, request_id):
             if (existing.kind != "market_history"
                     or existing.params.get("purpose") != "insider_window"
                     or existing.params.get("transaction_id") != transaction_id):
-                raise ValueError("同一请求标识不能改成不同参数")
+                raise UserError("common.request_id_reused")
             # Replay the accepted scope, including legacy conservative buffers.
             # A new request may use today's planner without rewriting user history.
             return {"batch_id": existing.id, "reused": True, "batch": batch_view(s, existing)}

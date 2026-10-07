@@ -24,6 +24,7 @@ from tests.jobs.test_lifecycle import (  # noqa: F401
     lifecycle_database,
     seed_security,
 )
+from tests.zh import zh
 
 HEADERS = {"x-iirp-client": "web"}
 
@@ -194,7 +195,7 @@ def test_api_validates_saves_and_reports_field_errors():
         assert good["valid"] and good["events"][0]["reaction_date"] == "2024-05-03"
         rejected = client.post("/api/v1/events/sets", headers=HEADERS,
                                json={"kind": "earnings", "text": text(earnings(session="night"))})
-        assert rejected.status_code == 422 and "第 1 条 session" in rejected.json()["detail"]
+        assert rejected.status_code == 422 and "第 1 条 session" in zh(rejected.json()["detail"])
         saved = client.post("/api/v1/events/sets", headers=HEADERS,
                             json={"kind": "custom", "text": text({"ticker": "AAPL", "date": "2024-06-10",
                                   "session": "during", "name": "WWDC 2024"})})

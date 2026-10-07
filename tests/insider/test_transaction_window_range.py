@@ -82,5 +82,5 @@ def test_request_identity_cannot_replay_another_transaction():
     second = _mapped_event("2026-09-15", "2026-09-17T18:30:24-04:00")
     request_id = str(uuid4())
     transaction_window(first, request_id)
-    with pytest.raises(ValueError, match="同一请求标识"):
+    with pytest.raises(ValueError, match="common.request_id_reused"):
         transaction_window(second, request_id)
