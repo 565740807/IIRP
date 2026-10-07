@@ -23,6 +23,7 @@ from iirp.sec.parse import (
     _filing_urls,
     _form,
     _instant,
+    _json,
     _local,
     _merge_entries,
     _text,
@@ -494,15 +495,17 @@ def _entity(target: dict, transport: _Transport) -> dict:
         entries += parse_submissions(transport.get(file["url"], "application/json"), cik=cik)["entries"]
     selected = [entry for entry in entries if start <= entry["filing_date"] <= end]
     data = _json(payload)
-    return _result(
-        transport,
-        entries=selected,
-        complete=len(older) <= ENTITY_OLDER_FILES,
-        reason="entity_submissions_read",
-        coverage_scope="entity_ownership_filings",
-        entity={"cik": cik, "name": data.get("name"), "tickers": list(data.get("tickers") or [])[:5],
-                "entity_type": data.get("entityType")},
-    )
+    return {
+        **_result(
+            transport,
+            entries=selected,
+            complete=len(older) <= ENTITY_OLDER_FILES,
+            reason="entity_submissions_read",
+            coverage_scope="entity_ownership_filings",
+        ),
+        "entity": {"cik": cik, "name": data.get("name"), "tickers": list(data.get("tickers") or [])[:5],
+                   "entity_type": data.get("entityType")},
+    }
 
 
 def _lookup(target: dict, transport: _Transport) -> dict:

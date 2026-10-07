@@ -4,7 +4,7 @@ import base64
 import json
 from datetime import datetime
 
-from sqlalchemy import case, func, select, tuple_
+from sqlalchemy import and_, case, func, or_, select, text, tuple_
 
 from iirp.db import session
 from iirp.market.cache import coverage_for
@@ -202,7 +202,15 @@ def batch_view(s, batch, *, activity_status=None):
     }
 
 
-def list_batches(category="all", cursor="", policy_key="", view="all"):
+KIND_GROUPS = {
+    "sec": ("sec_latest", "sec_history", "sec_filing", "sec_entity"),
+    "prices": ("market_history", "market_quotes"),
+    "events": ("event_dates",),
+    "maintenance": ("maintenance",),
+}
+
+
+def list_batches(category="all", cursor="", policy_key="", view="all", kind="all"):
     from sqlalchemy import case
 
     states = {
@@ -216,12 +224,24 @@ def list_batches(category="all", cursor="", policy_key="", view="all"):
         raise UserError("batch.view_invalid")
     if category not in {"all", *states}:
         raise UserError("batch.category_invalid")
+    if kind != "all" and kind not in KIND_GROUPS:
+        raise UserError("batch.category_invalid")
     with session() as s:
         activity = _batch_activity_status()
         visible = Batch.trigger == "manual" if view == "personal" else True
+        if kind != "all":
+            visible = and_(visible, Batch.kind.in_(KIND_GROUPS[kind]))
+        # Unfinished work left untouched for a week is history, not something to act on.
+        recent = Batch.updated_at > func.now() - text("interval '7 days'")
+        def in_category(name):
+            if name == "attention":
+                return and_(activity.in_(states["attention"]), recent)
+            if name == "history":
+                return or_(activity.in_(states["history"]), and_(activity.in_(states["attention"]), ~recent))
+            return activity.in_(states[name])
         counts = {
-            key: s.scalar(select(func.count()).select_from(Batch).where(visible, activity.in_(values)))
-            for key, values in states.items() if key != "active"
+            key: s.scalar(select(func.count()).select_from(Batch).where(visible, in_category(key)))
+            for key in states if key != "active"
         }
         key = (
             case(
@@ -245,7 +265,7 @@ def list_batches(category="all", cursor="", policy_key="", view="all"):
         )
         ranking = ranking.where(visible)
         if category != "all":
-            ranking = ranking.where(activity.in_(states[category]))
+            ranking = ranking.where(in_category(category))
         if policy_key:
             ranking = ranking.where(Batch.policy_key == policy_key)
         ranking = ranking.subquery()

@@ -31,7 +31,7 @@ function useMyBatches(category: string, enabled = true) {
 }
 
 /** Controls a batch offers in its state (same rules as the Data page). */
-function actions(status: string): Action[] {
+export function actions(status: string): Action[] {
   return [
     ...(["QUEUED", "RUNNING", "RETRY_WAIT", "WAITING"].includes(status) ? ["pause" as const] : []),
     ...(status === "PAUSED" ? ["resume" as const] : []),
@@ -40,7 +40,7 @@ function actions(status: string): Action[] {
   ];
 }
 
-function resultHref(batch: Batch) {
+export function resultHref(batch: Batch) {
   if (!batch.analysis_id) return null;
   const purpose = batch.kind === "event_dates"
     ? batch.params.event_kind === "earnings" ? "earnings" : "events"

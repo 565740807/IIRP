@@ -393,6 +393,10 @@ from iirp.api.insider import router as insider_router  # noqa: E402
 
 app.include_router(insider_router)
 
+from iirp.api.health import router as health_router  # noqa: E402
+
+app.include_router(health_router)
+
 DIST = ROOT / "frontend/dist"
 if (DIST / "assets").exists():
     app.mount("/assets", StaticFiles(directory=DIST / "assets"), name="assets")

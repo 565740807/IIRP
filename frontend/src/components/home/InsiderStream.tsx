@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
@@ -22,7 +22,9 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { FeedCard } from "./FeedCard";
+import { useInsiderN, useTradeWindows } from "@/lib/windows";
+import { NControl } from "@/components/insider/NControl";
+import { CARD_COLUMNS, FeedCard, FeedWindows, LINE_COLUMNS } from "./FeedCard";
 
 const FILTERS = ["focus", "buy", "sell", "derivative", "other", "all"] as const;
 type Filter = (typeof FILTERS)[number];
@@ -184,6 +186,14 @@ export function InsiderStream() {
   }, [queryClient, update, loadingMore, filter, order]);
 
   const groups = data?.groups ?? [];
+  // Before/after-n of every loaded line, read from the 24-hour price cache.
+  const { n } = useInsiderN();
+  const keys = useMemo(
+    () => groups.flatMap((group) => group.trader_groups.map((trader) => ({ ticker: group.ticker, date: trader.transaction_date, issuer_id: group.issuer_id }))),
+    [groups],
+  );
+  const windows = useTradeWindows(keys, n, visible);
+  const shared = useMemo(() => ({ windows, n }), [windows, n]);
   const list = useRef<HTMLDivElement>(null);
   const [offset, setOffset] = useState(0);
   useLayoutEffect(() => {
@@ -191,9 +201,9 @@ export function InsiderStream() {
   }, [stream.isPending]);
   const virtual = useWindowVirtualizer({
     count: groups.length,
-    estimateSize: () => 104,
-    overscan: 6,
-    gap: 8,
+    estimateSize: () => 34,
+    overscan: 10,
+    gap: 4,
     scrollMargin: offset,
     getItemKey: (index) => groups[index].id,
   });
@@ -227,8 +237,8 @@ export function InsiderStream() {
     }, { replace: true });
 
   return (
-    <section aria-labelledby="insider-heading" className="mt-6">
-      <div className="mb-3 flex flex-wrap items-center gap-x-4 gap-y-2">
+    <section aria-labelledby="insider-heading" className="mt-4">
+      <div className="mb-2 flex flex-wrap items-center gap-x-4 gap-y-2">
         <h2 id="insider-heading" className="text-base font-semibold">{t("ui.feed.title")}</h2>
         {data && (
           <span className="text-xs text-muted-foreground tabular-nums">
@@ -237,7 +247,8 @@ export function InsiderStream() {
             ) : t("ui.feed.as_of", { time: formatEt(data.asOf) })}
           </span>
         )}
-        <div className="ml-auto flex items-center gap-2">
+        <div className="ml-auto flex flex-wrap items-center gap-2">
+          <NControl />
           <ToggleGroup type="single" size="sm" variant="outline" spacing={0} value={filter} aria-label={t("ui.feed.filter_label")}
             onValueChange={(value) => value && choose("filter", value)}>
             {FILTERS.map((item) => (
@@ -271,19 +282,33 @@ export function InsiderStream() {
       </AnimatePresence>
 
       {stream.error && <p className="text-sm text-destructive">{stream.error.message}</p>}
+      <div className={cn(CARD_COLUMNS, "border-l-[3px] border-transparent px-3 pb-1 text-[11px] font-medium text-muted-foreground")} aria-hidden>
+        <span>{t("ui.feed.column.company")}</span>
+        <span className={LINE_COLUMNS}>
+          <span>{t("ui.feed.column.insider")}</span>
+          <span>{t("ui.feed.column.action")}</span>
+          <span className="text-right">{t("ui.feed.column.shares")}</span>
+          <span className="text-right">{t("ui.feed.column.amount")}</span>
+          <span className="text-right">{t("ui.feed.column.traded")}</span>
+          <span className="text-right" title={t("ui.window.before_head_long", { n })}>{t("ui.window.before_head", { n })}</span>
+          <span className="text-right" title={t("ui.window.after_head_long", { n })}>{t("ui.window.after_head", { n })}</span>
+        </span>
+        <span className="text-right">{t("ui.feed.column.filed")}</span>
+      </div>
       {stream.isPending ? (
-        <div className="space-y-2" aria-busy>
-          {Array.from({ length: 6 }, (_, index) => (
-            <div key={index} className="rounded-lg border bg-card px-4 py-3">
-              <Skeleton className="h-4 w-64" />
-              <Skeleton className="mt-2.5 h-3.5 w-full max-w-xl" />
-              <Skeleton className="mt-1.5 h-3.5 w-80" />
+        <div className="space-y-1" aria-busy>
+          {Array.from({ length: 12 }, (_, index) => (
+            <div key={index} className={cn(CARD_COLUMNS, "rounded-md border bg-card px-3 py-2")}>
+              <Skeleton className="h-3.5 w-40" />
+              <Skeleton className="h-3.5 w-full max-w-xl" />
+              <Skeleton className="ml-auto h-3.5 w-16" />
             </div>
           ))}
         </div>
       ) : !groups.length ? (
         <p className="rounded-lg border bg-card px-4 py-10 text-center text-sm text-muted-foreground">{t("ui.feed.empty")}</p>
       ) : (
+        <FeedWindows.Provider value={shared}>
         <div ref={list} className="relative" style={{ height: virtual.getTotalSize() }} data-testid="feed-list">
           {items.map((item) => {
             const group = groups[item.index];
@@ -307,6 +332,7 @@ export function InsiderStream() {
             );
           })}
         </div>
+        </FeedWindows.Provider>
       )}
       {groups.length > 0 && (
         <div className="flex h-12 items-center justify-center text-xs text-muted-foreground">

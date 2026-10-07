@@ -13,9 +13,14 @@ function toNumber(value: unknown): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
-export function formatNumber(value: unknown, digits = 2) {
+/** Intl locale of a language code, or of the current language. */
+function intl(language?: string) {
+  return language ? (language === "zh" ? "zh-CN" : "en-US") : locale();
+}
+
+export function formatNumber(value: unknown, digits = 2, language?: string) {
   const n = toNumber(value);
-  return n === null ? "—" : new Intl.NumberFormat(locale(), { maximumFractionDigits: digits }).format(n);
+  return n === null ? "—" : new Intl.NumberFormat(intl(language), { maximumFractionDigits: digits }).format(n);
 }
 
 /** 20,678,630 → "20.68M" (en) / "2,068万" (zh); small counts stay exact. */
@@ -27,11 +32,11 @@ export function formatCompact(value: unknown) {
 }
 
 /** A dollar amount, compact above 10,000; sign only when asked for. */
-export function formatMoney(value: unknown, { signed = false, currency }: { signed?: boolean; currency?: string | null } = {}) {
+export function formatMoney(value: unknown, { signed = false, currency, language }: { signed?: boolean; currency?: string | null; language?: string } = {}) {
   const n = toNumber(value);
   if (n === null) return "—";
   const absolute = Math.abs(n);
-  const text = new Intl.NumberFormat(locale(), {
+  const text = new Intl.NumberFormat(intl(language), {
     style: "currency",
     currency: currency || "USD",
     currencyDisplay: "narrowSymbol",
@@ -76,7 +81,7 @@ export function formatDayRange(days: readonly string[]) {
 }
 
 /** An instant in US Eastern time with the zone named: "Oct 6, 8:53 PM ET". */
-export function formatEt(value: string | null | undefined, { date = true }: { date?: boolean } = {}) {
+export function formatEt(value: string | null | undefined, { date = true, zone = true }: { date?: boolean; zone?: boolean } = {}) {
   if (!value) return "—";
   const instant = new Date(value);
   if (Number.isNaN(instant.getTime())) return value;
@@ -84,7 +89,7 @@ export function formatEt(value: string | null | undefined, { date = true }: { da
     ...(date ? { month: "short", day: "numeric" } : {}),
     hour: "numeric", minute: "2-digit", hour12: i18n.language !== "zh", timeZone: ET,
   }).format(instant);
-  return `${text} ${i18n.t("ui.time.et")}`;
+  return zone ? `${text} ${i18n.t("ui.time.et")}` : text;
 }
 
 /** The same instant in the reader's own time zone, for tooltips. */
@@ -106,4 +111,29 @@ export function formatAgo(value: string | null | undefined, now = Date.now()) {
   if (abs < 3600) return format.format(Math.round(seconds / 60), "minute");
   if (abs < 86400) return format.format(Math.round(seconds / 3600), "hour");
   return format.format(Math.round(seconds / 86400), "day");
+}
+
+/** A ratio from the server (0.0123) as a signed percent: "+1.23%". */
+export function formatSignedRatio(value: unknown, digits = 1) {
+  const n = toNumber(value);
+  if (n === null) return "—";
+  const text = new Intl.NumberFormat(locale(), { minimumFractionDigits: digits, maximumFractionDigits: digits }).format(Math.abs(n * 100));
+  const zero = Number(text.replace(/[^0-9]/g, "")) === 0;
+  return `${zero ? "" : n > 0 ? "+" : n < 0 ? MINUS : ""}${text}%`;
+}
+
+/** Text color class of a signed value: blue up, orange down (never red/green). */
+export function directionClass(value: unknown) {
+  const n = toNumber(value);
+  return n === null || n === 0 ? "" : n > 0 ? "text-up" : "text-down";
+}
+
+/** A per-share price with cents (up to 4 decimals for sub-dollar prices). */
+export function formatPrice(value: unknown, currency?: string | null, language?: string) {
+  const n = toNumber(value);
+  if (n === null) return "—";
+  return new Intl.NumberFormat(intl(language), {
+    style: "currency", currency: currency || "USD", currencyDisplay: "narrowSymbol",
+    minimumFractionDigits: 2, maximumFractionDigits: Math.abs(n) < 1 ? 4 : 2,
+  }).format(n);
 }

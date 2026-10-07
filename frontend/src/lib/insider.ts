@@ -50,3 +50,30 @@ export function readableCase(text: string) {
 export function rolesText(owner: Pick<InsiderOwner, "roles">) {
   return owner.roles.map((role) => readableCase(tm(role))).join(" · ");
 }
+
+type Row = Pick<components["schemas"]["InsiderTransaction"], "table" | "code" | "kind">;
+
+/** "Gift (G)", "Open-market sale (S)": the SEC code in plain words plus the code. */
+export function actionLabel(row: Row, t: (key: string, options?: Record<string, unknown>) => string) {
+  const code = (row.code ?? "").toUpperCase();
+  const name = t(codeKey(row), { defaultValue: tm(row.kind) });
+  const text = /^[A-Z]$/.test(code) ? t("ui.code.with_code", { action: name, code }) : name;
+  return row.table === "II" ? t("ui.feed.derivative", { action: text }) : text;
+}
+
+/** Direction of a row on the page: purchases blue, sales orange, the rest neutral. */
+export function sideClass(row: Pick<TradeSummary, "table" | "code">) {
+  const direction = side(row);
+  return direction === "buy" ? "text-up" : direction === "sell" ? "text-down" : "";
+}
+
+const PLAIN = new Set(["P", "S", "A", "F", "G", "M", "X", "O", "C", "D", "J", "W"]);
+
+/** Translation key of the plain-language sentence for a row (code and A/D direction). */
+export function plainKey(row: Pick<components["schemas"]["InsiderTransaction"], "code" | "direction" | "shares">) {
+  const code = (row.code ?? "").toUpperCase();
+  const direction = row.direction === "D" ? "D" : "A";
+  if (!code) return "ui.plain.holding";
+  const group = ["X", "O"].includes(code) ? "M" : code;
+  return PLAIN.has(group) ? `ui.plain.${group}.${direction}` : `ui.plain.other.${direction}`;
+}
