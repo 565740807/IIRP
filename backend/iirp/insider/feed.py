@@ -18,6 +18,7 @@ from iirp.insider.views import (
     _trader_key,
     _with_filing_owners,
 )
+from iirp.messages import UserError, msg
 from iirp.models import (
     FeedRevision,
     FeedSession,
@@ -31,7 +32,7 @@ def _offset(cursor: str) -> int:
     if not cursor:
         return 0
     if not cursor.isascii() or not cursor.isdigit():
-        raise ValueError("分页游标无效。")
+        raise UserError("common.cursor_invalid")
     return int(cursor)
 
 
@@ -39,7 +40,7 @@ def _session(s: Session, session_id: str, purpose: str) -> FeedSession:
     saved = s.get(FeedSession, session_id)
     if (saved is None or saved.expires_at < now() or saved.filters.get("purpose") != purpose
             or "watermark" not in saved.filters):
-        raise ValueError("阅读快照不存在或已过期，请刷新后重新打开。")
+        raise UserError("insider.snapshot.expired")
     return saved
 
 
@@ -121,11 +122,11 @@ def feed(s: Session, session_id: str = "", cursor: str = "", kind: str = "all", 
 
     _matches({}, kind)
     if order not in {"transaction", "accepted"}:
-        raise ValueError("请选择实际交易日期或最近披露排序")
+        raise UserError("feed.order_invalid")
     if session_id:
         saved = _session(s, session_id, "feed")
         if saved.filters.get("kind") != kind or saved.filters.get("order") != order:
-            raise ValueError("筛选已变化，请创建新的阅读快照。")
+            raise UserError("feed.filters_changed")
     else:
         saved = open_feed_session(s, kind, order)
     entries = listing(s, feed_watermark(saved), _canonical_kind(kind), order,
@@ -162,7 +163,7 @@ def feed(s: Session, session_id: str = "", cursor: str = "", kind: str = "all", 
             "status": "LOCAL_OBSERVATIONS",
             "pending_filings": pending,
             "missing_acceptance_rows": untimed,
-            "message": "展示本地已解析记录；具体历史范围以索引核对和剩余缺口为准。",
+            "message": msg("feed.scope"),
         },
     }
 
@@ -172,14 +173,14 @@ def feed_group(
 ) -> dict:
     saved, offset = _session(s, session_id, "feed"), _offset(cursor.removeprefix("g:"))
     if not 1 <= limit <= 20:
-        raise ValueError("每页明细最多 20 条。")
+        raise UserError("feed.page_too_large", max=20)
     from iirp.insider.feed_index import group_revision, in_listing
 
     row = group_revision(s, feed_watermark(saved), group_id)
     kind, order = _canonical_kind(saved.filters["kind"]), saved.filters["order"]
     revision = s.get(FeedRevision, row.id) if row is not None and in_listing(row, kind, order) else None
     if revision is None:
-        raise ValueError("本阅读快照中没有该公司组。")
+        raise UserError("feed.group_missing")
     rows = _ordered_rows([row for row in revision.data["transactions"] if _matches(row, saved.filters["kind"])], saved.filters.get("order", "accepted"))
     if trader_key:
         rows = [row for row in rows if _trader_key(row) == trader_key]

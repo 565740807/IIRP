@@ -3,6 +3,7 @@ from sqlalchemy import select, text
 
 from iirp.db import session
 from iirp.market.yahoo import digest
+from iirp.messages import NotFoundError, msg
 from iirp.models import AnalysisRequest, AnalysisResult, Batch, RequestScope, ResearchTrack, now
 
 
@@ -35,7 +36,7 @@ def freshness(s, request, items=()):
         "price_expires_at": min(expires) if expires else None,
         "expired": len(live) < len(rows) or deleted is not None,
         "refresh_checked_at": track.checked_at if track else None,
-        "note": "行情为 24 小时缓存：获取后 24 小时内重复查看不再下载，过期后重新获取。"}
+        "note": msg("freshness.cache_note")}
 
 
 def refresh_analysis(analysis_id, force=False):
@@ -51,7 +52,7 @@ def refresh_analysis(analysis_id, force=False):
     with session() as s, s.begin():
         request = s.get(AnalysisRequest, analysis_id)
         if not request:
-            raise LookupError("分析不存在")
+            raise NotFoundError("analysis.not_found")
         source_batch = s.get(Batch, request.batch_id)
         origin = source_batch.params.get("research_origin_id", request.id)
         s.execute(text("SELECT pg_advisory_xact_lock(hashtext(:key))"), {"key": "research-refresh:" + origin})

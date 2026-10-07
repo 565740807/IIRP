@@ -6,6 +6,7 @@ import psycopg
 from sqlalchemy.engine import make_url
 
 from iirp.config import settings
+from iirp.messages import msg
 
 
 def system_database_state():
@@ -30,7 +31,8 @@ def system_database_state():
         return (
             {"online": bool(last_seen and last_seen > datetime.now(timezone.utc) - timedelta(seconds=15)),
              "last_seen": last_seen, "error": None},
-            migration or "未知",
+            migration or msg("common.unknown"),
         )
     except psycopg.Error:
-        return {"online": None, "last_seen": None, "error": "数据库状态读取超时或失败"}, "未知"
+        return ({"online": None, "last_seen": None, "error": msg("system.database_state_failed")},
+                msg("common.unknown"))

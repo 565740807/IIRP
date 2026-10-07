@@ -5,22 +5,23 @@ import tempfile
 from pathlib import Path
 
 from iirp.config import settings
+from iirp.messages import UserError, msg
 
 
 def save_object(payload: bytes, media_type="application/json"):
     if not payload or len(payload) > 128 * 1024**2:
-        raise ValueError("来源对象必须在 1 字节至 128 MiB 内；较大清单应按范围分块。")
+        raise UserError("storage.object_size")
     root = settings().runtime_dir
     root.mkdir(parents=True, exist_ok=True)
     if shutil.disk_usage(root).free < settings().min_free_bytes:
-        raise OSError("可用空间不足 10 GiB，已停止新增采集。")
+        raise OSError(msg("storage.disk_low"))
     digest = hashlib.sha256(payload).hexdigest()
     rel = f"objects/{digest[:2]}/{digest}"
     final = root / rel
     final.parent.mkdir(parents=True, exist_ok=True)
     if final.exists():
         if hashlib.sha256(final.read_bytes()).hexdigest() != digest:
-            raise OSError("来源对象哈希不一致，需要核对存储。")
+            raise OSError(msg("storage.hash_mismatch"))
     else:
         fd, tmp = tempfile.mkstemp(prefix=".pending-", dir=final.parent)
         try:
@@ -68,7 +69,7 @@ def response_evidence(data, sources):
         source = sources.get(url)
         if (not source or source["sha256"] != hashlib.sha256(raw).hexdigest()
                 or source["byte_size"] != len(raw)):
-            raise ValueError("来源内容引用与已保存原文不一致，不能发布证据。")
+            raise UserError("storage.reference_mismatch")
         return {key: source[key] for key in ("sha256", "byte_size")}
 
     for document in content.get("source_documents", []):

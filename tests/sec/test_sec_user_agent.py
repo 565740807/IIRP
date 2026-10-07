@@ -21,6 +21,7 @@ from iirp.models import Batch, CollectionStrategy, now
 from sqlalchemy import func, select
 
 from tests.jobs.test_lifecycle import clean_lifecycle, lifecycle_database  # noqa: F401
+from tests.zh import zh
 
 REAL = "IIRP research desk ops@iirp-research.dev"
 
@@ -109,7 +110,7 @@ def test_first_start_without_contact_keeps_policy_on_but_sends_nothing(user_agen
         assert s.get(CollectionStrategy, "market").enabled
     assert automatic_sec_batches() == 0
     assert state["sources"]["sec"]["status"] == "needs_config"
-    assert state["sources"]["sec"]["stage"] == "需配置 SEC User-Agent"
+    assert zh(state["sources"]["sec"]["stage"]) == "需配置 SEC User-Agent"
     with pytest.raises(operations.ProviderFailure):
         operations.fetch_sec("https://www.sec.gov/cgi-bin/browse-edgar?action=getcurrent")
     assert sec_requests == []
@@ -118,12 +119,12 @@ def test_first_start_without_contact_keeps_policy_on_but_sends_nothing(user_agen
     client = TestClient(app)
     system = client.get("/api/v1/system").json()["sec_user_agent"]
     assert system["configured"] is False and system["status"] == "NEEDS_CONFIG"
-    assert "需配置 SEC User-Agent" in system["message"]
+    assert "需配置 SEC User-Agent" in zh(system["message"])
     sec = next(p for p in client.get("/api/v1/collection-policy").json()["items"] if p["key"] == "sec")
-    assert sec["enabled"] is True and "需配置 SEC User-Agent" in sec["blocked_reason"]
+    assert sec["enabled"] is True and "需配置 SEC User-Agent" in zh(sec["blocked_reason"])
     refused = client.post("/api/v1/collections", json={"request_id": "manual-sec", "kind": "sec_latest"},
                           headers={"X-IIRP-Client": "web"})
-    assert refused.status_code == 409 and "需配置 SEC User-Agent" in refused.json()["detail"]
+    assert refused.status_code == 409 and "需配置 SEC User-Agent" in zh(refused.json()["detail"])
 
 
 def test_first_start_with_real_contact_schedules_sec(user_agent):

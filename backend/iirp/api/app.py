@@ -5,6 +5,8 @@ from typing import Any, Literal
 from urllib.parse import urlsplit
 
 from fastapi import FastAPI, HTTPException, Query, Request
+from fastapi.exception_handlers import http_exception_handler, request_validation_exception_handler
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ConfigDict, Field
@@ -19,6 +21,7 @@ from iirp.db import session
 from iirp.jobs.job_views import job_view, list_jobs, policy_view
 from iirp.jobs.providers import sec_configured, sec_user_agent_state
 from iirp.jobs.queue import control, create_job, ensure_defaults, update_policy
+from iirp.messages import UserError, decode, msg
 from iirp.models import Coverage, Job, Policy, SourceObject
 
 
@@ -120,13 +123,13 @@ async def same_origin(request: Request, call_next):
     if request.method in ("POST", "PATCH", "PUT", "DELETE"):
         origin = request.headers.get("origin")
         if request.headers.get("x-iirp-client") not in ("web", "cli"):
-            return JSONResponse({"detail": "缺少本地客户端标识。"}, status_code=403)
+            return JSONResponse({"detail": decode(msg("http.client_header_missing"))}, status_code=403)
         if origin:
             parsed = urlsplit(origin)
             if parsed.scheme not in ("http", "https") or parsed.netloc != request.headers.get(
                 "host"
             ):
-                return JSONResponse({"detail": "只允许同源操作。"}, status_code=403)
+                return JSONResponse({"detail": decode(msg("http.same_origin_only"))}, status_code=403)
         from iirp.api.limits import request_limit
 
         limit = request_limit(request.url.path)
@@ -134,7 +137,7 @@ async def same_origin(request: Request, call_next):
         def too_large(size):
             return JSONResponse(
                 {
-                    "detail": f"本次请求至少 {size:,} 字节，当前接口最多 {limit:,} 字节（含 JSON 包装与转义）。资料未保存；请检查是否重复粘贴，原文可继续修改后重试。",
+                    "detail": decode(msg("http.request_too_large", size=size, limit=limit)),
                     "request_bytes": size,
                     "limit_bytes": limit,
                 },
@@ -144,7 +147,7 @@ async def same_origin(request: Request, call_next):
         try:
             declared = int(request.headers.get("content-length", "0") or 0)
         except ValueError:
-            return JSONResponse({"detail": "请求长度格式无效，请重新发送。"}, status_code=400)
+            return JSONResponse({"detail": decode(msg("http.content_length_invalid"))}, status_code=400)
         if declared > limit:
             return too_large(declared)
         chunks, received = [], 0
@@ -171,18 +174,39 @@ async def same_origin(request: Request, call_next):
 async def db_error(_request, _exc):
     if getattr(getattr(_exc, "orig", None), "sqlstate", None) == "57014":
         return JSONResponse(
-            {"detail": "数据库响应超时，本次操作尚未确认。已保存研究仍保留，请稍后重试。", "code": "database_timeout"},
+            {"detail": decode(msg("http.database_timeout")), "code": "database_timeout"},
             status_code=503, headers={"Retry-After": "3"},
         )
     if getattr(getattr(_exc, "orig", None), "sqlstate", None) in {"55P03", "40001", "40P01"}:
         return JSONResponse(
-            {"detail": "数据正在提交，本次操作尚未确认。请稍后重试；已保存研究与任务状态保留。"},
+            {"detail": decode(msg("http.database_busy"))},
             status_code=503,
             headers={"Retry-After": "1"},
         )
     return JSONResponse(
-        {"detail": "数据库暂不可用；操作尚未确认，请恢复连接后重试。"}, status_code=503
+        {"detail": decode(msg("http.database_unavailable"))}, status_code=503
     )
+
+
+@app.exception_handler(HTTPException)
+async def message_error(request, exc):
+    """Errors raised with an encoded message return it as an object in ``detail``."""
+    message = decode(exc.detail)
+    if message is None:
+        return await http_exception_handler(request, exc)
+    return JSONResponse({"detail": message}, status_code=exc.status_code, headers=exc.headers)
+
+
+@app.exception_handler(RequestValidationError)
+async def message_validation_error(request, exc):
+    """A validator's UserError replaces pydantic's English text with its message."""
+    errors = []
+    for error in exc.errors():
+        cause = (error.get("ctx") or {}).get("error")
+        if isinstance(cause, UserError):
+            error = {**error, "msg": decode(str(cause)), "ctx": {}}
+        errors.append(error)
+    return await request_validation_exception_handler(request, RequestValidationError(errors))
 
 
 @app.get("/health/live")
@@ -204,7 +228,7 @@ def ready():
         return {"status": "ready", "migration": revision}
     except (SQLAlchemyError, ValueError):
         return JSONResponse(
-            {"status": "not_ready", "reason": "数据库或迁移版本未就绪。"}, status_code=503
+            {"status": "not_ready", "reason": "database or migration revision not ready"}, status_code=503
         )
 
 
@@ -217,9 +241,9 @@ def get_policy():
 @app.patch("/api/v1/diagnostics/policy", response_model=PolicyView)
 def patch_policy(body: PolicyRequest):
     if body.sec_enabled and not sec_configured():
-        raise HTTPException(409, "请先在本地配置含真实联系邮箱的 SEC User-Agent。")
+        raise HTTPException(409, msg("sec.user_agent_required"))
     if body.sec_enabled and settings().mode != "development":
-        raise HTTPException(409, "正式采集调度将在 P2 接入；P1 不以测试采样代替真实采集。")
+        raise HTTPException(409, msg("diagnostics.development_only"))
     return policy_view(update_policy(body.sec_enabled))
 
 
@@ -236,16 +260,16 @@ def get_job(job_id: str):
     with session() as s:
         job = s.get(Job, job_id)
         if job is None:
-            raise HTTPException(404, "任务不存在。")
+            raise HTTPException(404, msg("job.not_found"))
         return {**job_view(job), "target": job.target}
 
 
 @app.post("/api/v1/diagnostics/collections", status_code=202, response_model=CollectionResponse)
 def collection(body: CollectionRequest):
     if body.kind == "sec_probe" and not sec_configured():
-        raise HTTPException(409, "SEC 联系邮箱尚未配置。")
+        raise HTTPException(409, msg("sec.contact_missing"))
     if settings().mode != "development":
-        raise HTTPException(409, "测试采样仅在开发模式可用；正式采集在 P2 接入。")
+        raise HTTPException(409, msg("diagnostics.sample_development_only"))
     target = {"ticker": body.ticker.upper()} if body.kind == "market_probe" else {}
     try:
         job, reused = create_job(body.kind, target)
@@ -281,67 +305,6 @@ def feed(session_id: str = "", cursor: str = "", type: str = "all", order: str =
         raise HTTPException(409, str(exc)) from exc
 
 
-@app.get("/api/v1/demo")
-def demo():
-    return {
-        "label": "合成测试样例 · 非真实交易",
-        "groups": [
-            {
-                "id": "demo-acme",
-                "company": "示例科技（合成）",
-                "ticker": "DEMO",
-                "accepted_at": "2026-09-04T21:12:00Z",
-                "transaction_dates": "2026-09-02—2026-09-03",
-                "owners": 2,
-                "filings": 2,
-                "transactions": [
-                    {
-                        "id": "demo-t1",
-                        "owner": "Example Owner A",
-                        "code": "P",
-                        "kind": "普通股买入",
-                        "shares": 1000,
-                        "price": 20,
-                        "transaction_date": "2026-09-02",
-                        "accepted_at": "2026-09-04T21:12:00Z",
-                    },
-                    {
-                        "id": "demo-t2",
-                        "owner": "Example Owner B",
-                        "code": "M",
-                        "kind": "衍生品行权",
-                        "shares": 500,
-                        "price": None,
-                        "transaction_date": "2026-09-03",
-                        "accepted_at": "2026-09-04T20:40:00Z",
-                    },
-                ],
-            },
-            {
-                "id": "demo-north",
-                "company": "示例工业（合成）",
-                "ticker": "TEST",
-                "accepted_at": "2026-09-04T19:30:00Z",
-                "transaction_dates": "2026-09-01",
-                "owners": 1,
-                "filings": 1,
-                "transactions": [
-                    {
-                        "id": "demo-t3",
-                        "owner": "Example Owner C",
-                        "code": "S",
-                        "kind": "普通股卖出",
-                        "shares": 2000,
-                        "price": 12.5,
-                        "transaction_date": "2026-09-01",
-                        "accepted_at": "2026-09-04T19:30:00Z",
-                    }
-                ],
-            },
-        ],
-    }
-
-
 @app.get("/api/v1/providers", response_model=GenericOutput)
 def providers():
     from iirp.api.reads import providers
@@ -368,7 +331,7 @@ def coverage():
                 }
                 for row in rows
             ],
-            "notice": "这是测试来源能力记录。样本成功不等于正式历史覆盖完整。",
+            "notice": msg("diagnostics.coverage_notice"),
         }
 
 
@@ -382,7 +345,7 @@ def system():
         "mode": settings().mode,
         "worker": worker,
         "migration": migration,
-        "automatic_collection_scope": "最新数据优先；历史默认 3 个月可修改，各来源可独立暂停",
+        "automatic_collection_scope": msg("system.collection_scope"),
         "sec_user_agent": sec_user_agent_state(),
         "storage": __import__("iirp.storage.maintenance", fromlist=["storage_state"]).storage_state(),
     }
@@ -406,14 +369,14 @@ def search(q: str = ""):
 @app.get("/api/v1/sources/{digest}")
 def source(digest: str):
     if not re.fullmatch(r"[a-f0-9]{64}", digest):
-        raise HTTPException(404, "来源不存在。")
+        raise HTTPException(404, msg("source.not_found"))
     with session() as s:
         row = s.get(SourceObject, digest)
         if not row:
-            raise HTTPException(404, "来源不存在。")
+            raise HTTPException(404, msg("source.not_found"))
         path = settings().runtime_dir / row.relative_path
         if not path.is_file():
-            raise HTTPException(503, "来源文件缺失，需要恢复核对。")
+            raise HTTPException(503, msg("source.file_missing"))
         return FileResponse(path, media_type="application/octet-stream", filename=digest)
 
 
@@ -437,7 +400,7 @@ if (DIST / "assets").exists():
 @app.get("/{path:path}", include_in_schema=False)
 def spa(path: str):
     if path.startswith(("api/", "health/", "assets/")):
-        raise HTTPException(404, "接口不存在。")
+        raise HTTPException(404, msg("http.not_found"))
     if not (DIST / "index.html").is_file():
-        return JSONResponse({"detail": "前端尚未构建，请运行 npm run build。"}, status_code=503)
+        return JSONResponse({"detail": decode(msg("http.frontend_not_built"))}, status_code=503)
     return FileResponse(DIST / "index.html", headers={"Cache-Control": "no-cache"})

@@ -13,15 +13,13 @@ from defusedxml import ElementTree
 
 from iirp.config import settings
 from iirp.jobs.profiles import development_budget
+from iirp.messages import UserError, msg
 
 SEC_URL = f"https://www.sec.gov/cgi-bin/browse-edgar?action=getcurrent&owner=only&count={development_budget().sec_items_per_page}&start=0&output=atom"
 
 # The placeholder shipped in deploy/.env.example; a test keeps the two in sync.
 SEC_TEMPLATE_USER_AGENTS = frozenset({"IIRP contact@example.invalid"})
-SEC_USER_AGENT_HINT = (
-    "需配置 SEC User-Agent：在 deploy/.env 把 IIRP_SEC_USER_AGENT 设为含真实联系邮箱的值，"
-    "然后重启服务。未配置时不向 SEC 发请求。"
-)
+SEC_USER_AGENT_HINT = msg("sec.user_agent_hint")
 
 # RFC 2606 names (and subdomains) can never reach a real mailbox.
 RESERVED_TLDS = frozenset({"test", "invalid", "localhost", "example"})
@@ -53,7 +51,7 @@ def sec_user_agent_state():
     return {
         "configured": configured,
         "status": "CONFIGURED" if configured else "NEEDS_CONFIG",
-        "message": "SEC User-Agent 已配置，自动更新可访问 SEC。" if configured else SEC_USER_AGENT_HINT,
+        "message": msg("sec.user_agent_configured") if configured else SEC_USER_AGENT_HINT,
     }
 
 
@@ -72,19 +70,19 @@ def sec_probe():
                 retry_seconds = int(retry_after) if retry_after.isdigit() else 900
                 return {
                     "ok": False,
-                    "message": f"SEC 返回 HTTP {response.status_code}；已保留来源缺口。",
+                    "message": msg("probe.sec_http", status=response.status_code),
                     "cooldown": max(900, retry_seconds),
                 }
             chunks, size = [], 0
             for chunk in response.iter_bytes():
                 size += len(chunk)
                 if size > 5 * 1024**2:
-                    raise ValueError("SEC 样本超过 5 MiB 测试预算。")
+                    raise UserError("probe.sec_too_large")
                 chunks.append(chunk)
     payload = b"".join(chunks)
     tree = ElementTree.fromstring(payload, forbid_dtd=True)
     if tree.tag != "{http://www.w3.org/2005/Atom}feed":
-        raise ValueError("SEC 响应不是预期 Atom 文档。")
+        raise UserError("probe.sec_not_atom")
     ns = {"a": "http://www.w3.org/2005/Atom"}
     entries = [
         {
@@ -96,7 +94,7 @@ def sec_probe():
     ]
     return {
         "ok": True,
-        "message": f"已读取 {len(entries)} 条 SEC 发现入口样本；尚未下载交易 XML，也不代表历史覆盖。",
+        "message": msg("probe.sec_ok", count=len(entries)),
         "payload": payload.decode("utf-8"),
         "media_type": "application/atom+xml",
         "entries": entries,
@@ -107,7 +105,7 @@ def sec_probe():
 
 def market_probe(ticker):
     if not re.fullmatch(r"[A-Z0-9^][A-Z0-9.^=-]{0,14}", ticker):
-        raise ValueError("无效证券标识。")
+        raise UserError("probe.ticker_invalid")
     import yfinance as yf
 
     # Third-party caches are project-local and not source evidence.
@@ -123,7 +121,7 @@ def market_probe(ticker):
         raise_errors=True,
     )
     if frame.empty:
-        return {"ok": False, "message": f"{ticker} 未返回日线；不能认定该证券不存在或没有交易。"}
+        return {"ok": False, "message": msg("probe.market_empty", ticker=ticker)}
     records = json.loads(frame.reset_index().to_json(orient="records", date_format="iso"))
     data = {
         "provider": "yfinance",
@@ -140,11 +138,11 @@ def market_probe(ticker):
         "records": records,
         "price_basis": "UNVERIFIED_PROVIDER_RECORDS",
         "eligible_for_analysis": False,
-        "note": "采集返回记录，非供应商原始 HTTP；仅拆股口径与日线完整性尚未核验。",
+        "note": msg("probe.market_note"),
     }
     return {
         "ok": True,
-        "message": f"{ticker} 已取得 {len(records)} 条日线样本；拆股、股息与完整覆盖待 P2/P3 核验。",
+        "message": msg("probe.market_ok", ticker=ticker, count=len(records)),
         "payload": json.dumps(data, ensure_ascii=False),
         "media_type": "application/json",
         "record_count": len(records),
@@ -163,7 +161,7 @@ if __name__ == "__main__":
     except Exception as exc:
         result = {
             "ok": False,
-            "message": f"来源验证失败（{type(exc).__name__}）；已有数据保留。",
+            "message": msg("probe.failed", error=type(exc).__name__),
             "cooldown": 900,
         }
     print(json.dumps(result, ensure_ascii=False))

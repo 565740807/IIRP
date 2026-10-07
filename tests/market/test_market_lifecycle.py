@@ -33,6 +33,8 @@ from psycopg import sql
 from sqlalchemy import func, select, text
 from sqlalchemy.engine import make_url
 
+from tests.zh import zh
+
 
 @pytest.fixture(scope="module", autouse=True)
 def market_database():
@@ -217,7 +219,7 @@ def test_market_detail_uses_cached_split_only_prices(security_id):
     assert result["data"]["as_of"] == "2023-01-05"
     assert result["data"]["chart_end"] == str(days[-1])
     assert result["data"]["chart_source"] == "synthetic"
-    assert "仅拆股调整" in result["data"]["chart_basis"]
+    assert "仅拆股调整" in zh(result["data"]["chart_basis"])
 
 
 def test_one_response_becomes_the_24_hour_cache_in_one_fenced_transaction(security_id):
@@ -257,7 +259,7 @@ def test_a_new_response_replaces_the_cache_but_a_narrower_one_does_not(security_
 
 def test_empty_or_conflicting_responses_do_not_create_a_cache(security_id):
     result, _ = commit_prices(security_id, response([]))
-    assert not result["cached"] and "空数据" in result["reason"]
+    assert not result["cached"] and "空数据" in zh(result["reason"])
     payload = response([bar("2023-01-03")])
     payload["metadata"] = {"currency": "EUR"}
     result, _ = commit_prices(security_id, payload)
@@ -319,7 +321,7 @@ def test_missing_fields_and_missing_sessions_remain_explicit_and_out_of_statisti
 
 def test_duplicate_dates_roll_back_the_whole_response(security_id):
     payload = response([bar("2023-01-03"), bar("2023-01-03", "200")])
-    with pytest.raises(ValueError, match="重复"):
+    with pytest.raises(ValueError, match="market.duplicate_session"):
         commit_prices(security_id, payload)
     with session() as s:
         assert s.scalar(select(func.count()).select_from(PriceCacheBar)) == 0
@@ -561,4 +563,4 @@ def test_result_from_a_replaced_cache_is_not_published(security_id):
             )
             == 0
         )
-        assert "未发布" in s.get(Job, lease.id).result["message"]
+        assert "未发布" in zh(s.get(Job, lease.id).result["message"])

@@ -21,6 +21,7 @@ from sqlalchemy import func, select, text
 
 from iirp.config import settings
 from iirp.db import session
+from iirp.messages import msg
 from iirp.models import MaintenanceRun, SourceObject
 from iirp.storage.capacity import capacity_sufficient, temporary_bytes
 
@@ -195,10 +196,7 @@ def _collect(cached_backups=None):
     totals["restore_estimated_temporary_bytes"] = temporary_bytes(
         "restore", totals["database"], totals["bytes"], totals["objects"]
     )
-    totals["estimate_scope"] = (
-        "原文大小取自来源记录，备份取自各自清单（共享原文池按最新清单估算），数据库取自 PostgreSQL；"
-        "目录实际占用以精确核对为准。备份估算假设对象池均未复用，恢复执行以选定清单重算"
-    )
+    totals["estimate_scope"] = msg("storage.estimate_scope")
     totals["segment_seconds"] = durations
     totals["total_seconds"] = round(time.monotonic() - started, 3)
     return totals, backup_cache

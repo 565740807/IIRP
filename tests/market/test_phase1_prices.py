@@ -15,6 +15,7 @@ from tests.market.test_market_lifecycle import (  # noqa: F401
 from tests.market.test_market_lifecycle import (
     security_id as security_fixture,
 )
+from tests.zh import zh
 
 security_id = security_fixture
 
@@ -28,7 +29,7 @@ def test_explicit_identity_conflict_keeps_the_previous_cache(security_id, metada
     payload = response([bar("2023-01-03", "99"), bar("2023-01-04", "99"), bar("2023-01-05", "99")])
     payload["metadata"] = metadata
     result, source = commit_prices(security_id, payload)
-    assert not result["cached"] and "冲突" in result["reason"]
+    assert not result["cached"] and "冲突" in zh(result["reason"])
     assert cached(security_id).id == old.id
     with session() as s:
         assert s.get(SourceObject, source["sha256"])
@@ -69,4 +70,4 @@ def test_currency_unit_case_is_not_a_legal_alias(security_id):
     payload["metadata"] = {"currency": "GBp"}
     result, _ = commit_prices(security_id, payload)
     assert not result["cached"]
-    assert "冲突" in result["reason"]
+    assert "冲突" in zh(result["reason"])

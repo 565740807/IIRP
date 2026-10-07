@@ -9,9 +9,19 @@ from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
-from iirp.insider.common import PARSER_VERSION, VISIBLE, _date, _group_date, _instant, _json, _uid
+from iirp.insider.common import (
+    PARSER_VERSION,
+    VISIBLE,
+    _date,
+    _group_date,
+    _instant,
+    _json,
+    _uid,
+    transaction_kind,
+)
 from iirp.insider.tickers import normalized_ticker
 from iirp.insider.views import _refresh_groups
+from iirp.messages import UserError, msg
 from iirp.models import (
     AmendmentRelation,
     CoverageSegment,
@@ -67,7 +77,7 @@ def persist_discovery(s: Session, job, response: dict, sources: dict[str, str]) 
     needed, changed = [], set()
     for entry in response.get("entries", []):
         if entry.get("form") not in OWNERSHIP_FORMS:
-            raise ValueError("非 Ownership 表格不能进入交易事实链路。")
+            raise ValueError("only ownership forms enter the transaction fact chain")
         accession = entry["accession"]
         s.execute(
             insert(Filing)
@@ -83,7 +93,7 @@ def persist_discovery(s: Session, job, response: dict, sources: dict[str, str]) 
         )
         filing = s.scalar(select(Filing).where(Filing.accession == accession).with_for_update())
         if filing.form != entry["form"]:
-            raise ValueError("同一 accession 的表格类型冲突，需核对来源。")
+            raise UserError("sec.form_conflict")
         if filing.current_version is None:
             filing.accepted_at = filing.accepted_at or _instant(entry.get("accepted_at"))
             filing.filing_date = filing.filing_date or _date(entry.get("filing_date"))
@@ -153,17 +163,7 @@ def _row_data(row, observation, owners) -> dict:
     # The original XML stays in the saved filing document (source_objects).
     data.pop("raw_xml", None)
     category = row.action_category
-    kind = {
-        "purchase_market_or_private": "公开市场或私人买入",
-        "sale_market_or_private": "公开市场或私人卖出",
-        "grant_or_award": "授予或奖励",
-        "tax_or_exercise_price_withholding": "税款或行权价代扣",
-        "exercise_or_conversion": "行权或转换",
-        "needs_review": "交易含义待核对",
-        "other": "其他交易行为",
-    }.get(category, category)
-    if row.table == "II":
-        kind = "衍生品 · " + kind
+    kind = transaction_kind(category, row.table)
     data.update(
         {
             "kind": kind,
@@ -201,7 +201,9 @@ def _fingerprint(data: dict, owner_ids: list[str], *, economic=False) -> str:
         value = {
             key: value
             for key, value in data.items()
-            if key not in {"raw_xml", "source_row_index", "owner_names", "owner_relationships", "issuer_name", "form"}
+            # kind is a display label derived from action_category and table.
+            if key not in {"raw_xml", "source_row_index", "owner_names", "owner_relationships",
+                           "issuer_name", "form", "kind"}
         }
     return sha256(
         json.dumps([value, sorted(owner_ids)], sort_keys=True, ensure_ascii=False).encode()
@@ -212,21 +214,21 @@ def persist_document(s: Session, job, response: dict, sources: dict[str, str]) -
     """Publish valid observations and row facts inside the caller's fenced commit."""
     raw = response.get("filing")
     if not raw:
-        raise ValueError("原文尚未验证，不能生成交易事实。")
+        raise UserError("sec.document_unverified")
     xml = (
         raw["xml_payload"].encode("utf-8")
         if raw.get("xml_encoding", "utf8") == "utf8"
         else base64.b64decode(raw["xml_payload"], validate=True)
     )
     if raw.get("xml_sha256") and sha256(xml).hexdigest() != raw["xml_sha256"]:
-        raise ValueError("Ownership 原文字节与来源哈希不一致。")
+        raise UserError("sec.document_hash_mismatch")
     observation = parse_ownership_xml(
         xml, source_kind="sec", accession=raw["accession"], source_url=raw["document_url"]
     )
     if not observation.issuer_cik:
-        raise ValueError("原文发行人 CIK 缺失，保存证据后等待核对。")
+        raise UserError("sec.issuer_cik_missing")
     if observation.form_type != raw["form"]:
-        raise ValueError("原文表格类型与来源元数据不一致。")
+        raise UserError("sec.form_metadata_mismatch")
     # A header correction can change acceptance time while XML is unchanged.
     # Prefer the complete submission, or the index that proved fallback timing,
     # so these changes create a new immutable observation version as well.
@@ -245,7 +247,7 @@ def persist_document(s: Session, job, response: dict, sources: dict[str, str]) -
         )
     source_hash = source_hash or sources.get(raw["document_url"])
     if source_hash is None:
-        raise ValueError("缺少包含本份 Ownership 原文的已保存来源对象。")
+        raise UserError("sec.source_object_missing")
     for url, digest in sources.items():
         _observation(
             s,
@@ -424,7 +426,7 @@ def persist_document(s: Session, job, response: dict, sources: dict[str, str]) -
                     evidence={
                         "candidate_event_ids": plausible,
                         "source_url": raw["document_url"],
-                        "reason": "修订范围需逐行核对；不因同日期或行位置自动替换。",
+                        "reason": msg("insider.amendment.needs_row_review"),
                     },
                 )
             )
@@ -457,7 +459,7 @@ def persist_document(s: Session, job, response: dict, sources: dict[str, str]) -
                         amended_event_id=event.id,
                         action="UNCONFIRMED_DUPLICATE",
                         evidence={
-                            "reason": "不同 accession 的相似行仅标可能重复，未静默合并。",
+                            "reason": msg("insider.amendment.possible_duplicate"),
                             "source_url": raw["document_url"],
                         },
                     )

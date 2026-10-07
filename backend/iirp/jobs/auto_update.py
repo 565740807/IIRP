@@ -7,6 +7,7 @@ from sqlalchemy import case, func, select, text
 
 from iirp.db import session
 from iirp.jobs.providers import SEC_USER_AGENT_HINT, sec_configured
+from iirp.messages import UserError, msg
 from iirp.models import (
     ACTIVE,
     Batch,
@@ -20,12 +21,11 @@ from iirp.models import (
 )
 
 SOURCE_KIND = {"sec": "sec_latest", "market": "market_quotes"}
-STAGES = {
-    "sec_discover": "检查申报索引", "sec_document": "下载并解析申报",
-    "sec_identity": "核对公司身份", "market_identity": "核对证券",
-    "market_quote": "获取最新市场报价", "market_history": "补齐历史日线",
-    "research_compute": "计算研究结果",
-}
+LATEST_PURPOSE = msg("freshness.purpose")
+STAGES = {kind: msg("stage." + kind) for kind in (
+    "sec_discover", "sec_document", "sec_identity", "market_identity", "market_quote",
+    "market_history", "research_compute")}
+STAGE_OTHER = msg("stage.other")
 
 
 def source_status(s, source, batch_id=None):
@@ -93,21 +93,23 @@ def source_status(s, source, batch_id=None):
         "last_checked_at": checked.isoformat() if checked else None,
         "retry_at": budget.next_allowed_at.isoformat() if waiting else None,
         "batch_id": batch.id if batch else None,
-        "stage": "需配置 SEC User-Agent" if needs_config else "自动更新已暂停" if paused else
-            STAGES.get(executing.kind, "处理数据") if executing else
-            "检查最新申报" if polling else
-            "等待来源恢复" if waiting else
-            ("等待 SEC 通道" if source == "sec" else "等待 Yahoo 通道") if pending else
-            "正在安排最新数据检查" if queued else
-            "本轮已检查，等待下次检查" if status == "checked" else
-            "本轮有缺口，可查看任务重试" if status == "error" else "准备更新",
+        "stage": msg("freshness.stage.needs_config") if needs_config
+            else msg("freshness.stage.paused") if paused
+            else STAGES.get(executing.kind, STAGE_OTHER) if executing
+            else msg("freshness.stage.polling") if polling
+            else msg("freshness.stage.waiting_source") if waiting
+            else msg("freshness.stage.waiting_channel", source="SEC" if source == "sec" else "Yahoo") if pending
+            else msg("freshness.stage.queued") if queued
+            else msg("freshness.stage.checked") if status == "checked"
+            else msg("freshness.stage.error") if status == "error"
+            else msg("freshness.stage.ready"),
         "discovered": discovered, "published": published,
         "pending_count": max(0, discovered - published) if source == "sec" else active_count,
         "data_as_of": data_as_of.isoformat() if hasattr(data_as_of, "isoformat") else data_as_of,
         "source_time": quote_time,
         "error": SEC_USER_AGENT_HINT if needs_config else error,
         "progress": [{
-            "job_id": j.id, "stage": STAGES.get(j.kind, "处理数据"),
+            "job_id": j.id, "stage": STAGES.get(j.kind, STAGE_OTHER),
             "status": j.status, "target": {k: v for k, v in j.target.items() if k in (
                 "symbol", "accession", "form", "start_date", "end_date", "accepted_at", "filing_date", "mode", "issuer_name"
             )}, "last_progress_at": j.finished_at.isoformat() if j.finished_at else None,
@@ -133,7 +135,7 @@ def _ensure_sec(s, policy, force, identifiers, selected_batches):
     day = now().astimezone(ZoneInfo("America/New_York")).date()
     if force:
         batch, _ = _create(s, {"kind": "sec_latest", "request_id": "fresh:sec:" + str(uuid4()),
-                              "purpose": "最新数据检查", "intent": "fetch"},
+                              "purpose": LATEST_PURPOSE, "intent": "fetch"},
                            trigger="manual", policy_key="sec")
     else:
         batch = s.scalar(select(Batch).where(Batch.kind == "sec_latest", Batch.trigger == "automatic")
@@ -144,7 +146,7 @@ def _ensure_sec(s, policy, force, identifiers, selected_batches):
         if (batch is None or batch.status == "CANCELLED"
                 or batch.created_at.astimezone(ZoneInfo("America/New_York")).date() < day):
             batch, _ = _create(s, {"kind": "sec_latest", "request_id": "fresh:sec:" + str(uuid4()),
-                                  "purpose": "最新数据检查", "intent": "fetch"},
+                                  "purpose": LATEST_PURPOSE, "intent": "fetch"},
                                trigger="automatic", policy_key="sec")
         elif batch.status not in ("QUEUED", "RUNNING", "RETRY_WAIT"):
             batch.status, batch.updated_at = "RUNNING", now()
@@ -209,7 +211,7 @@ def ensure_fresh_in_session(s, values):
     for source in values.get("sources", list(SOURCE_KIND)):
         market_symbols = None
         if source not in SOURCE_KIND:
-            raise ValueError("未知更新来源")
+            raise UserError("freshness.source_invalid")
         if values.get("force"):
             advisory(s, ["freshness", source])
         elif not s.scalar(text("SELECT pg_try_advisory_xact_lock(:key)"),
@@ -276,7 +278,7 @@ def ensure_fresh_in_session(s, values):
         batch, _ = _create(s, {
             **({"tickers": market_symbols} if market_symbols else {}),
             "kind": SOURCE_KIND[source], "request_id": "fresh:" + source + ":" + str(uuid4()),
-            "purpose": "最新数据检查", "intent": "refresh",
+            "purpose": LATEST_PURPOSE, "intent": "refresh",
         }, trigger="manual" if values.get("force") else "automatic", policy_key=source)
         identifiers.append(batch.id)
         selected_batches[source] = batch.id

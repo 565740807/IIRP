@@ -1,6 +1,8 @@
 """Never publish a delayed older response over a newer quoted observation."""
 from datetime import datetime
 
+from iirp.messages import msg
+
 
 def _time(value):
     try:
@@ -22,5 +24,5 @@ def merge_quote(previous, incoming):
     if older or fallback or older_daily:
         return {**previous, "last_checked_at": incoming.get("fetched_at"),
                 "next_refresh_at": incoming.get("next_refresh_at"),
-                "refresh_notice": "来源返回较旧或缺少时间的报价，保留最后有效值"}, True
+                "refresh_notice": msg("quote.retained")}, True
     return {**incoming, "last_checked_at": incoming.get("fetched_at")}, False

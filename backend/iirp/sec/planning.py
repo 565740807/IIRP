@@ -6,6 +6,7 @@ from sqlalchemy import Date, func, or_, select
 from sqlalchemy.orm import Session
 
 from iirp.insider.common import ET, _cik, _date, _json
+from iirp.messages import msg
 from iirp.models import (
     ACTIVE,
     BatchJob,
@@ -71,7 +72,7 @@ def plan_sec_scope(
     }:
         return
     if not isinstance(capacity, list) or len(capacity) != 1 or type(capacity[0]) is not int:
-        raise ValueError("SEC 调度容量须为单项整数列表。")
+        raise ValueError("SEC capacity must be a one-item integer list")
     s.flush()
     jobs = list(
         s.scalars(
@@ -83,7 +84,7 @@ def plan_sec_scope(
     by_key = {job.idempotency_key: job for job in jobs}
     started, endpoint = scope.start_date, scope.end_date
     if not started or not endpoint:
-        raise ValueError("SEC 批次必须具有冻结的起止日期。")
+        raise ValueError("an SEC batch needs frozen start and end dates")
     scan_start = max(started, _date((scope.checkpoint or {}).get("scan_start_date")) or started)
     initial_latest = batch.kind == "sec_latest"
     if initial_latest:
@@ -354,7 +355,7 @@ def plan_sec_scope(
     elif unscheduled_scans or unscheduled_documents:
         scope.status, scope.wait_reason = (
             "QUEUED",
-            "继续处理剩余清单与原文；队列容量仅控制执行节奏。",
+            msg("sec.scope.continuing"),
         )
     elif initial_latest and batch.trigger == "automatic" and endpoint == now().astimezone(ET).date():
         # Today's demand stays open for the next poll; tomorrow it settles.
@@ -364,7 +365,7 @@ def plan_sec_scope(
         scope.status = "PARTIAL"
         scope.wait_reason = next(
             (job.error for job in relevant_failures if job.error),
-            "发现、原文或索引范围仍有缺口，可重试失败项。",
+            msg("sec.scope.gaps"),
         )
     else:
         scope.status, scope.wait_reason = "READY", None

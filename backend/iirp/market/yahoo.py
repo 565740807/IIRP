@@ -14,13 +14,14 @@ from importlib.metadata import version
 from sqlalchemy import select
 
 from iirp.config import ROOT, settings
+from iirp.messages import UserError, msg
 from iirp.models import SecurityIdentifier, now
 
 MARKETS = {
-    "^GSPC": "标普 500",
-    "^IXIC": "纳斯达克综合",
-    "^DJI": "道琼斯",
-    "GC=F": "黄金期货",
+    "^GSPC": msg("market.name.GSPC"),
+    "^IXIC": msg("market.name.IXIC"),
+    "^DJI": msg("market.name.DJI"),
+    "GC=F": msg("market.name.GC"),
     "^VIX": "VIX",
 }
 
@@ -60,7 +61,7 @@ def plain(value):
 def source_contract():
     path = ROOT / "config/provider-contracts.json"
     if not path.exists():
-        return {"verified": False, "reason": "Yahoo 仅拆股价格口径待核对"}
+        return {"verified": False, "reason": msg("market.contract_unverified")}
     contract = json.loads(path.read_text())["yfinance"]
     return {
         **contract,
@@ -103,7 +104,7 @@ def fetch_market(kind, target):
             or not metadata.get("quoteType")
             or not metadata.get("currency")
         ):
-            raise ValueError("来源未提供足够证券身份字段，需核对股类、币种和交易所")
+            raise UserError("market.identity_fields_missing")
         return {
             "metadata": metadata,
             "symbol": symbol,
@@ -185,7 +186,7 @@ def fetch_market(kind, target):
         "metadata": metadata,
         "fetched_at": now().isoformat(),
         "contract": source_contract(),
-        "source_kind": "采集返回记录",
+        "source_kind": "adapter_records",
         # The publisher additionally checks complete exchange-session coverage.
         # Missing action columns are unknown, never an implicit zero.
         "actions_complete": "Stock Splits" in frame.columns,
@@ -246,18 +247,18 @@ def validate_bar(row, security, completed):
         k: number(row.get(k)) for k in ("open", "high", "low", "close", "adj_close", "volume")
     }
     if day > completed:
-        return values, "UNCONFIRMED", "当日尚未完成或未来会话"
+        return values, "UNCONFIRMED", msg("market.bar.unconfirmed")
     o, h, low, c = (values[k] for k in ("open", "high", "low", "close"))
     if any(x is None for x in (o, h, low, c)):
-        return values, "MISSING_FIELDS", "缺少 OHLC 必需字段"
+        return values, "MISSING_FIELDS", msg("market.bar.missing_fields")
     if security.instrument in ("EQUITY", "ETF") and min(o, h, low, c) <= 0:
-        return values, "INVALID", "股票/ETF 价格必须为正"
+        return values, "INVALID", msg("market.bar.not_positive")
     if (
         h < max(o, low, c)
         or low > min(o, h, c)
         or (values["volume"] is not None and values["volume"] < 0)
     ):
-        return values, "INVALID", "OHLC 关系或成交量不合法"
+        return values, "INVALID", msg("market.bar.inconsistent")
     return values, "VALID", None
 
 
@@ -295,7 +296,7 @@ def price_identity_conflicts(s, security, response, provider):
             continue
         mismatch = actual not in aliases if field == "symbol" else actual != expected
         if mismatch:
-            conflicts.append(f"来源 {field}={actual} 与已核对证券 {expected} 冲突")
+            conflicts.append(msg("market.identity_conflict", field=field, actual=actual, expected=expected))
     return conflicts
 
 

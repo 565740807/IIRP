@@ -23,6 +23,7 @@ from tests.jobs.test_lifecycle import (  # Reuse the independently named disposa
     collection,
     lifecycle_database,
 )
+from tests.zh import zh
 
 # pytest discovers imported fixtures; explicit aliases keep lint and intent clear.
 __all__ = ["lifecycle_database", "clean_lifecycle"]
@@ -68,7 +69,7 @@ def test_batch_failure_rolls_back_backs_off_and_other_job_publishes(monkeypatch,
         progress = batch_views.batch_view(s, failed)["items"][0]["progress"]
         assert progress["planning_error"]["attempts"] == 1
         assert progress["retry_at"] == failed.planning_retry_at.isoformat()
-        assert ("执行期限" if failure == "timeout" else "数据或规则异常") in progress["stage"]
+        assert ("执行期限" if failure == "timeout" else "数据或规则异常") in zh(progress["stage"])
         assert s.get(Batch, good).last_planned_at
     assert attempted == [bad]
     job = claim({"market_identity"})

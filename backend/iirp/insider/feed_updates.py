@@ -17,6 +17,7 @@ from iirp.insider.feed import (
     open_feed_session,
 )
 from iirp.insider.feed_index import delta, pending
+from iirp.messages import UserError, msg
 from iirp.models import Filing, Issuer, Job, now
 
 router = APIRouter()
@@ -36,20 +37,10 @@ class FeedUpdatesOutput(BaseModel):
     pending_filings: list[dict[str, Any]] = Field(default_factory=list)
 
 
-PENDING_SCOPE = "本地已发现且可见、尚无解析版本的全部申报，含历史回补；不受交易行为筛选影响"
-STAGE_LABELS = {
-    "discovered": "已发现，等待安排原文获取",
-    "waiting_download": "等待 SEC 通道获取原文",
-    "fetching_parsing": "正在获取并解析原文",
-    "waiting_recovery": "上次原文执行已中断，等待恢复",
-    "pause_requested": "等待确认暂停原文任务",
-    "cancel_requested": "等待确认取消原文任务",
-    "retry_wait": "来源重试等待中",
-    "paused": "已暂停原文获取",
-    "failed": "原文获取或解析失败，需处理",
-    "cancelled": "原文任务已取消，申报仍未解析",
-    "needs_review": "原文任务已结束，仍需核对解析结果",
-}
+PENDING_SCOPE = msg("feed.pending.scope")
+STAGE_LABELS = {key: msg("feed.pending.stage." + key) for key in (
+    "discovered", "waiting_download", "fetching_parsing", "waiting_recovery", "pause_requested",
+    "cancel_requested", "retry_wait", "paused", "failed", "cancelled", "needs_review")}
 
 
 def _pending_statement():
@@ -131,13 +122,13 @@ def feed_updates(s, session_id, *, include_groups=False, target_session_id="", c
 
     if target_session_id:
         if not include_groups:
-            raise ValueError("增量分页需要读取更新内容。")
+            raise UserError("feed.delta_needs_groups")
         target = _session(s, target_session_id, "feed")
         if target.filters.get("delta_from") != saved.id:
-            raise ValueError("更新游标与原阅读快照不匹配。")
+            raise UserError("feed.delta_snapshot_mismatch")
     else:
         if cursor:
-            raise ValueError("增量分页缺少目标快照。")
+            raise UserError("feed.delta_target_missing")
         target = None
     changed, removed = changes(target)
     offset = _offset(cursor)

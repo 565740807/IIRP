@@ -35,6 +35,8 @@ from sqlalchemy import func, select, text
 from sqlalchemy.engine import make_url
 from sqlalchemy.exc import OperationalError
 
+from tests.zh import zh
+
 
 @pytest.fixture(scope="module", autouse=True)
 def isolated_database():
@@ -398,7 +400,7 @@ def test_atomic_object_dedup_and_corruption_detection():
         == a["sha256"]
     )
     (settings().runtime_dir / a["relative_path"]).write_bytes(b"corrupted")
-    with pytest.raises(OSError, match="哈希"):
+    with pytest.raises(OSError, match="storage.hash_mismatch"):
         save_object(b'{"fixture":1}')
 
 
@@ -437,11 +439,9 @@ def test_origin_host_validation_and_no_secret_in_api(client):
     assert client.get("/api/no-such-route").status_code == 404
 
 
-def test_live_feed_is_separate_from_demo(client):
+def test_empty_feed_and_home_before_any_collection(client):
     assert client.get("/api/v1/feed").json()["groups"] == []
     assert client.get("/api/v1/home").json()["market"][0]["value"] is None
-    assert "合成" in client.get("/api/v1/demo").json()["label"]
-    assert client.get("/api/v1/feed").json()["groups"] == []
 
 
 def wait_until(predicate, seconds=15):
@@ -537,7 +537,7 @@ def test_cancel_manual_subscription_keeps_shared_automatic_work():
     lease = claim()
     response = control(job.id, "cancel")
     assert response.status == "RUNNING"
-    assert "公共工作继续" in response.checkpoint["control_notice"]
+    assert "公共工作继续" in zh(response.checkpoint["control_notice"])
     assert fenced(lease, done=1)
     with session() as s:
         assert not s.get(Subscription, (job.id, "manual")).active
@@ -610,7 +610,7 @@ def test_database_unavailable_is_not_reported_as_success(client):
                 "/api/v1/diagnostics/collections", json={"kind": "fixture_check"}
             )
             assert response.status_code == 503
-            assert "操作尚未确认" in response.json()["detail"]
+            assert "操作尚未确认" in zh(response.json()["detail"])
         finally:
             engine().dispose()
             engine.cache_clear()

@@ -9,6 +9,7 @@ from iirp.models import Batch, Job, RequestScope, SourcePoll, now
 from sqlalchemy import func, select
 
 from tests.jobs.test_lifecycle import clean_lifecycle, lifecycle_database  # noqa: F401
+from tests.zh import zh
 
 
 @pytest.fixture(autouse=True)
@@ -81,7 +82,7 @@ def test_polling_lease_shows_checking_and_last_success_is_the_check_time():
         s.flush()
         running = source_status(s, "sec")
         assert running["status"] == "checking"
-        assert running["stage"] == "检查最新申报"
+        assert zh(running["stage"]) == "检查最新申报"
         assert running["last_checked_at"] == row.last_success_at.isoformat()
 
 

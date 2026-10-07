@@ -25,6 +25,7 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import JSONB, JSONPATH, aggregate_order_by
 
 from iirp.insider.tickers import normalized_ticker
+from iirp.messages import UserError, msg
 from iirp.models import (
     FeedSession,
     Filing,
@@ -215,7 +216,7 @@ def _immutable_rows(s, references):
     for identifier, version_id, row_key, status, replaces_id in references:
         version = versions.get(version_id)
         if not version:
-            raise ValueError("阅读版本引用的原始观察缺失，请核对来源存储。")
+            raise UserError("insider.snapshot.observation_missing")
         source_row = next(
             (
                 row
@@ -226,7 +227,7 @@ def _immutable_rows(s, references):
             None,
         )
         if source_row is None:
-            raise ValueError("阅读版本缺少不可变交易行，请重新解析该份原文。")
+            raise UserError("insider.snapshot.row_missing")
         row = OwnershipRow(
             **{field.name: source_row.get(field.name) for field in fields(OwnershipRow)}
         )
@@ -286,10 +287,10 @@ def read_entity_history(
     if cursor and ":" in cursor:
         embedded, cursor = cursor.split(":", 1)
         if session_id and session_id != embedded:
-            raise ValueError("分页游标与阅读快照不一致。")
+            raise UserError("insider.snapshot.cursor_mismatch")
         session_id = embedded
     if kind not in {"company", "issuer", "owner", "person"}:
-        raise ValueError("请选择公司或申报主体。")
+        raise UserError("insider.entity_kind_invalid")
     identifier = _cik(identifier)
     issuer_id = _cik(issuer_id) if issuer_id else None
     if not 1 <= limit <= 100 or date_basis not in {
@@ -297,12 +298,12 @@ def read_entity_history(
         "accepted_at",
         "accepted_date",
     }:
-        raise ValueError("历史页大小或时间口径无效。")
+        raise UserError("insider.history_params_invalid")
     start, end = _date(start), _date(end)
     if start and end and start > end:
-        raise ValueError("开始日期不能晚于结束日期。")
+        raise UserError("common.start_after_end")
     if recent_count is not None and (type(recent_count) is not int or recent_count < 1):
-        raise ValueError("最近条数必须是正整数。")
+        raise UserError("insider.recent_count_invalid")
     filters = {
         "purpose": "entity",
         "kind": kind,
@@ -335,9 +336,9 @@ def read_entity_history(
                         "requested_count": recent_count,
                         "observed_count": 0,
                         "complete": False,
-                        "message": "本地尚无该主体的解析历史。",
+                        "message": msg("insider.history_empty"),
                     },
-                    "message": "本地尚无该主体的解析历史。",
+                    "message": msg("insider.history_empty"),
                 },
             }
         ticker = (
@@ -477,10 +478,10 @@ def read_entity_history(
         select(FeedSession.filters, FeedSession.expires_at).where(FeedSession.id == session_id)
     ).first()
     if not saved or saved.expires_at < now() or saved.filters.get("purpose") != "entity":
-        raise ValueError("阅读快照不存在或已过期，请刷新后重新打开。")
+        raise UserError("insider.snapshot.expired")
     metadata = saved.filters
     if any(metadata.get(key, "all" if key == "action" else None) != value for key, value in filters.items()):
-        raise ValueError("历史条件已经变化，请创建新的阅读快照。")
+        raise UserError("insider.snapshot.filters_changed")
     if metadata.get("schema") == "entity-index-v1":
         # SQL slices before returning data: never transfer the full ID index.
         references = s.scalar(
@@ -527,7 +528,7 @@ def read_entity_history(
             "next_cursor": f"{session_id}:{offset + limit}" if offset + limit < total else None,
             "summary": summary,
             "summary_owner_scope": metadata.get("summary_owner_scope", "legacy_joint_subjects" if kind in {"owner", "person"} else "all_filing_owners"),
-            "summary_note": "此保留阅读的人数含联合申报主体；重新应用本地筛选可查看仅此主体的摘要。" if kind in {"owner", "person"} and not metadata.get("summary_owner_scope") else None,
+            "summary_note": msg("insider.summary_joint_owners") if kind in {"owner", "person"} and not metadata.get("summary_owner_scope") else None,
             "transaction_start": metadata.get("transaction_start"),
             "transaction_end": metadata.get("transaction_end"),
             "filings": metadata.get("filings"),
@@ -540,7 +541,7 @@ def read_entity_history(
                 "requested_count": recent_count,
                 "observed_count": total,
                 "complete": False,
-                "message": "已有记录可查看；全市场索引、原文和修订仍需按目标范围核对。",
+                "message": msg("insider.history_local"),
             },
         },
     }

@@ -6,6 +6,7 @@ fence subscribers at publication; the ordinary job lease fences the worker.
 from sqlalchemy import func, select, text
 
 from iirp.market.yahoo import digest
+from iirp.messages import msg
 from iirp.models import (
     ACTIVE,
     AnalysisRequest,
@@ -131,7 +132,7 @@ def publish(s, job, response):
             # copy per subscriber in the Session's pending INSERT collection.
             s.flush()
             s.expunge(row)
-    return {'message': '已发布共享计算结果' if published else '输入已修订，此次旧版本计算未发布',
+    return {'message': msg('compute.published' if published else 'compute.superseded'),
             'result_id': published[0]['result_id'] if published else None,
             'subscribers': published}
 
@@ -168,7 +169,7 @@ def publish_native(s, request, scope, target, response):
         'calculation_version': CALCULATION_VERSION}}
     row = AnalysisResult(analysis_id=request.id, security_id=security.id, input_key=target['input_key'],
         inputs={'dataset_id': original.id, 'calculation_version': CALCULATION_VERSION,
-            'params': request.params, 'source': '24 小时行情缓存',
+            'params': request.params, 'source': msg('market.source_cache'),
             'price_fetched_at': original.fetched_at.isoformat(),
             'benchmark': target.get('benchmark'), 'coverage': frozen_coverage(s, request, security, original),
             'dependencies': response.get('metadata', {}).get('dependencies')},

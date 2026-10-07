@@ -8,6 +8,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from iirp.analysis.research import ResearchResult
 from iirp.insider.tickers import normalized_ticker
+from iirp.messages import UserError
 
 
 class Strict(BaseModel):
@@ -36,23 +37,23 @@ class CollectionInput(Strict):
     def validate_scope(self):
         self.tickers = list(dict.fromkeys(x.strip().upper() for x in self.tickers if x.strip()))
         if any(not normalized_ticker(x) or not re.fullmatch(r"[A-Z0-9^][A-Z0-9.^=\-]{0,19}", x) for x in self.tickers):
-            raise ValueError("证券代码格式不合法")
+            raise UserError("input.ticker_invalid")
         if self.kind == "market_history" and not self.tickers:
-            raise ValueError("请选择至少一个证券")
+            raise UserError("input.ticker_required")
         if self.kind == "sec_filing":
             from iirp.sec.parse import validate_sec_url
 
             if not self.filing_url:
-                raise ValueError("请提供 SEC 完整申报 txt 地址")
+                raise UserError("input.filing_url_required")
             validate_sec_url(self.filing_url)
             if not re.search(r"/\d{10}-\d{2}-\d{6}\.txt$", self.filing_url):
-                raise ValueError("请提供以 accession.txt 结尾的完整申报地址")
+                raise UserError("input.filing_url_accession")
         elif self.filing_url:
-            raise ValueError("只有指定申报类型接受完整申报地址")
+            raise UserError("input.filing_url_unexpected")
         if bool(self.start_date) != bool(self.end_date):
-            raise ValueError("起止日期需要一起提供")
+            raise UserError("common.dates_together")
         if self.start_date and self.start_date > self.end_date:
-            raise ValueError("开始日期不能晚于结束日期")
+            raise UserError("common.start_after_end")
         return self
 
 
@@ -82,13 +83,13 @@ class AnalysisInput(Strict):
         if not self.tickers or any(
             not normalized_ticker(x) or not re.fullmatch(r"[A-Z0-9^][A-Z0-9.^=\-]{0,19}", x) for x in self.tickers
         ):
-            raise ValueError("请输入有效证券代码")
+            raise UserError("input.ticker_enter_valid")
         for x in (self.start_mmdd, self.end_mmdd):
             date.fromisoformat("2000-" + x)
         if self.years is not None and not self.years:
-            raise ValueError("至少选择一个历史年份")
+            raise UserError("input.years_required")
         if any(y < 1 or y > 9998 for y in [*(self.years or []), *self.excluded_years]):
-            raise ValueError("年份超出日期支持范围")
+            raise UserError("input.years_out_of_range")
         return self
 
 
@@ -146,7 +147,7 @@ class PriceRangeInput(Strict):
     @model_validator(mode="after")
     def dates(self):
         if bool(self.start_date) != bool(self.end_date):
-            raise ValueError("起止日期需要一起提供")
+            raise UserError("common.dates_together")
         return self
 
 

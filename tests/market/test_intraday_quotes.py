@@ -5,6 +5,8 @@ from datetime import datetime, timezone
 import pytest
 from iirp.market.yahoo import quote_from_history
 
+from tests.zh import zh
+
 
 def snapshot(*, symbol="^GSPC", fetched="2026-09-16T15:00:00+00:00",
              quoted="2026-09-16T14:59:00+00:00", price=110, periods=True):
@@ -89,7 +91,7 @@ def test_futures_cross_midnight_uses_own_provider_session_and_trading_day():
     assert quote["market_open"] is True and quote["status"] == "DELAYED"
     assert quote["as_of"] == "2026-09-17"
     assert quote["previous_close"] == "109" and quote["baseline_date"] == "2026-09-16"
-    assert "期货" in quote["instrument"] and quote["unit"] == "美元/盎司"
+    assert "期货" in zh(quote["instrument"]) and zh(quote["unit"]) == "美元/盎司"
 
 
 def test_vix_provider_session_can_be_active_after_stock_close():
@@ -211,7 +213,7 @@ def test_missing_real_exchange_session_does_not_use_older_close_as_daily_change(
     assert quote["baseline_gap_date"] == "2026-09-22"
     assert quote["last_available_close_date"] == "2026-09-21"
     assert quote["previous_close"] is quote["change_percent"] is None
-    assert "无法计算单日变化" in quote["baseline"]
+    assert "无法计算单日变化" in zh(quote["baseline"])
 
 
 def test_weekend_is_not_a_missing_exchange_session():

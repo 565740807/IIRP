@@ -21,6 +21,7 @@ from iirp.jobs.operation_pool import OperationInterrupted
 from iirp.jobs.queue import ManualPriorityYield, fenced, should_yield_to_manual
 from iirp.market.cache import persist_prices, price_bars
 from iirp.market.yahoo import quote_from_history, resolve_metadata
+from iirp.messages import UserError, msg
 from iirp.models import (
     AnalysisRequest,
     BatchJob,
@@ -60,7 +61,7 @@ def prepare_target(job):
         ranges = research_ranges(params, security.calendar or "XNYS")
         bars, dataset = price_bars(s, security.id, job.target["dataset_id"], ranges=ranges)
         if dataset is None:
-            raise ValueError("行情缓存已过期或已更新，等待按新缓存重新计算")
+            raise UserError("job.cache_replaced")
         from iirp.analysis.benchmarks import benchmark_data
         return {"params": params, "bars": bars, "dataset_id": dataset.id,
                 "benchmark": benchmark_data(s, job.target.get("benchmark"), ranges=ranges),
@@ -71,7 +72,7 @@ def prepare_target(job):
 
 def _persist(s, current, response, sources, source, observation_metadata=None):
     kind = current.kind
-    result = {"message": "已保存来源与业务结果", "source_hash": source["sha256"]}
+    result = {"message": msg("job.saved"), "source_hash": source["sha256"]}
     status = "SUCCEEDED"
     error = None
     for item in sources.values():
@@ -95,7 +96,7 @@ def _persist(s, current, response, sources, source, observation_metadata=None):
     elif kind == "market_history":
         result.update(persist_prices(s, current, response))
         if not result["cached"] and not result.get("superseded_by"):
-            status, error = "PARTIAL", result.get("reason") or "行情来源未返回可用数据"
+            status, error = "PARTIAL", result.get("reason") or msg("market.no_data")
     elif kind == "market_quote":
         quote = quote_from_history(current.target["symbol"], response)
         if quote:
@@ -110,7 +111,7 @@ def _persist(s, current, response, sources, source, observation_metadata=None):
             else:
                 s.add(MarketQuote(symbol=current.target["symbol"], data=quote))
         else:
-            status, error = "PARTIAL", "行情来源未返回可用报价，保留最后可用值"
+            status, error = "PARTIAL", msg("market.no_quote")
     elif kind == "sec_discover":
         from iirp.insider.facts import persist_discovery
 
@@ -135,19 +136,21 @@ def _persist(s, current, response, sources, source, observation_metadata=None):
                     s, scope, "sec_discover", {**current.target, "cursor": cursor}, current.priority
                 )
         if not scan.get("complete") and not cursor:
-            status, error = "PARTIAL", f"发现范围未闭合：{scan.get('reason', '需继续核对')}"
+            status, error = "PARTIAL", msg("sec.discovery_open",
+                                             reason=scan.get("reason") or msg("sec.needs_more_checks"))
         elif scan.get("reason") in (
             "index_not_ready",
             "repeated_page",
             "source_gap",
             "source_unavailable",
         ):
-            status, error = "PARTIAL", f"清单缺口：{scan['reason']}"
+            status, error = "PARTIAL", msg("sec.index_gap", reason=scan["reason"])
     elif kind == "sec_document":
         from iirp.insider.facts import persist_document
 
         if not response.get("filing"):
-            status, error = "PARTIAL", str(response.get("scan", {}).get("reason", "申报原文未取得"))
+            status, error = "PARTIAL", str(response.get("scan", {}).get("reason")
+                                           or msg("sec.document_missing"))
         else:
             persist_document(s, current, response, source_hashes)
             filing = s.get(Filing, current.target["accession"])
@@ -197,7 +200,7 @@ def skip_obsolete_compute(job):
             current.status, current.finished_at = "SUCCEEDED", now()
             current.progress_done = 1
             current.lease_token = current.lease_until = None
-            current.result = {"message": "已复用相同输入结果或输入已修订，等待最新计算",
+            current.result = {"message": msg("job.compute_skipped"),
                               "skipped_before_compute": True}
             skipped.append(True)
     return not fenced(job, business_write=check) or bool(skipped)
@@ -221,7 +224,7 @@ def execute_business(job, stopping=lambda: False, runner=None):
                 budget = s.get(SourceBudget, "yfinance", with_for_update=True)
                 delay = (budget.next_allowed_at - now()).total_seconds()
             if delay > 0:
-                fenced(job, status="RETRY_WAIT", error="Yahoo 共享冷却中", retry_seconds=delay,
+                fenced(job, status="RETRY_WAIT", error=msg("source.yahoo.cooldown"), retry_seconds=delay,
                        business_write=lambda s, current: setattr(current, "attempts", max(0, current.attempts - 1)))
                 return
         if job.kind == "research_compute" and skip_obsolete_compute(job):
@@ -271,10 +274,10 @@ def execute_business(job, stopping=lambda: False, runner=None):
                         if should_yield_to_manual(job):
                             raise ManualPriorityYield
                         if time.monotonic() - started > 110:
-                            raise TimeoutError("来源单元超过期限")
+                            raise TimeoutError("source unit exceeded its time limit")
                         time.sleep(0.5)
                     if proc.returncode != 0:
-                        raise RuntimeError(f"来源子进程退出 {proc.returncode}")
+                        raise RuntimeError(f"source subprocess exited {proc.returncode}")
                     output.seek(0)
                     payload = output.read(80 * 1024**2)
                     response = json.loads(payload)
@@ -291,7 +294,7 @@ def execute_business(job, stopping=lambda: False, runner=None):
             return
         operation_seconds = time.perf_counter() - operation_started
         if not response.get("ok"):
-            error = response.get("error", "来源未返回可用结果")
+            error = response.get("error") or msg("source.no_result")
             delay = min(
                 3600, max(float(response.get("retry_seconds", 60)), 15 * 2 ** min(job.attempts, 6))
             ) + random.uniform(0, 3)
@@ -364,7 +367,7 @@ def execute_business(job, stopping=lambda: False, runner=None):
     except ManualPriorityYield:
         # The source child has been terminated by finally before releasing its
         # lease. Keep committed checkpoints and all subscriptions for resumption.
-        fenced(job, status="QUEUED", error="为同通道手动请求让路，完成后自动继续",
+        fenced(job, status="QUEUED", error=msg("job.yield_to_manual"),
                business_write=lambda s, current: setattr(current, "attempts", max(0, current.attempts - 1)))
     except Exception as exc:
         import logging
@@ -377,8 +380,8 @@ def execute_business(job, stopping=lambda: False, runner=None):
             job,
             status="RETRY_WAIT" if transient else "FAILED",
             retry_seconds=5 if transient else 0,
-            error="数据库提交暂时繁忙，5 秒后重试；已保存数据保留" if transient else
+            error=msg("job.database_busy") if transient else
                 str(exc) if isinstance(exc, ValueError) else
-                f"工作单元失败（{type(exc).__name__}）；已保存数据保留，可重试此项",
+                msg("job.unit_failed", error=type(exc).__name__),
             business_write=(lambda s, current: setattr(current, "attempts", max(0, current.attempts - 1))) if transient else None,
         )

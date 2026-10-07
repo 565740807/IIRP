@@ -5,6 +5,7 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from iirp.analysis.calendar import last_completed_session, previous_session
 from iirp.market.yahoo import MARKETS, number
+from iirp.messages import msg
 
 
 def _timestamp(value):
@@ -82,7 +83,7 @@ def quote_from_snapshot(symbol, response):
     market_open = bool(active) if periods and fetched else None
     selected = active or (upcoming[0] if upcoming else max(periods, key=lambda p: p["end"], default=None))
     session = ({**selected, "start": selected["start"].isoformat(),
-                "end": selected["end"].isoformat(), "basis": "供应商返回交易时段"}
+                "end": selected["end"].isoformat(), "basis": msg("quote.session_basis")}
                if selected else None)
     next_refresh = None
     if fetched:
@@ -106,25 +107,24 @@ def quote_from_snapshot(symbol, response):
         age = max(0, (fetched - quoted).total_seconds())
         stale = market_open is True and (age > 20 * 60 or quoted < active["start"])
         status = "STALE" if stale else "CLOSED" if market_open is False else "DELAYED"
-        delay = ("来源报价尚未跟上当前时段，保留旧值" if stale else
-                 "最近收盘/休市报价（供应商时段）" if market_open is False else
-                 "供应商延迟报价，未提供确切延迟时长")
+        delay = msg("quote.delay.stale" if stale else
+                    "quote.delay.closed" if market_open is False else "quote.delay.delayed")
         quote_kind = "provider_snapshot"
     else:
         latest = records[-1]
         trading_day, value = latest["date"], number(latest["close"])
         prior = records[-2] if len(records) > 1 else None
-        status, delay, quote_kind = "DAILY", "最近日线；未取得可配对的当前报价和来源时间", "daily_fallback"
+        status, delay, quote_kind = "DAILY", msg("quote.delay.daily"), "daily_fallback"
     last_available_date = prior["date"] if prior else None
     expected_prior = previous_session(date.fromisoformat(trading_day)).isoformat() if symbol in {"^GSPC", "^IXIC", "^DJI", "^VIX"} else None
     gap = expected_prior is not None and last_available_date != expected_prior
     previous = number(prior["close"]) if prior and not gap else None
     baseline = (
-        f"前一交易日 {expected_prior} 收盘缺失，无法计算单日变化；最近可用收盘 {last_available_date or '无'}"
-        if gap else "供应商前一已返回日线收盘" if previous is not None else "缺少对应前收，暂不计算涨跌"
+        msg("quote.baseline.gap", expected=expected_prior,
+            last=last_available_date or msg("common.none")) if gap
+        else msg("quote.baseline.previous_futures" if symbol == "GC=F" else "quote.baseline.previous")
+        if previous is not None else msg("quote.baseline.missing")
     )
-    if symbol == "GC=F" and previous is not None:
-        baseline += "（期货供应商口径，非已核验结算价）"
     return {
         "symbol": symbol,
         "name": MARKETS.get(symbol, symbol),
@@ -145,8 +145,8 @@ def quote_from_snapshot(symbol, response):
         "market_open": market_open,
         "session": session,
         "next_refresh_at": next_refresh.isoformat() if next_refresh else None,
-        "unit": "美元/盎司" if symbol == "GC=F" else "指数点",
-        "instrument": "黄金连续期货（供应商口径）" if symbol == "GC=F" else "指数",
+        "unit": msg("quote.unit.usd_per_ounce" if symbol == "GC=F" else "quote.unit.index_points"),
+        "instrument": msg("quote.instrument.gold_futures" if symbol == "GC=F" else "quote.instrument.index"),
         "exchange_timezone": meta.get("exchangeTimezoneName"),
         "records": records,
         "fetched_at": response.get("fetched_at"),

@@ -5,6 +5,8 @@ from types import SimpleNamespace
 from iirp.api.app import db_error
 from sqlalchemy.exc import OperationalError
 
+from tests.zh import zh
+
 
 def test_statement_timeout_does_not_claim_database_connection_is_lost():
     response = asyncio.run(db_error(None, OperationalError("redacted", {}, SimpleNamespace(sqlstate="57014"))))
@@ -12,5 +14,5 @@ def test_statement_timeout_does_not_claim_database_connection_is_lost():
     assert response.headers["retry-after"] == "3"
     message = json.loads(response.body)
     assert message["code"] == "database_timeout"
-    assert "响应超时" in message["detail"]
-    assert "恢复连接" not in message["detail"]
+    assert "响应超时" in zh(message["detail"])
+    assert "恢复连接" not in zh(message["detail"])

@@ -358,22 +358,6 @@
         }
       }
     },
-    "/api/v1/demo": {
-      "get": {
-        "summary": "Demo",
-        "operationId": "demo_api_v1_demo_get",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        }
-      }
-    },
     "/api/v1/providers": {
       "get": {
         "summary": "Providers",
@@ -5557,7 +5541,7 @@
           "interpretation": {
             "type": "string",
             "title": "Interpretation",
-            "default": "按目标历史年份跨度中点固定分段；目标未登记时用全部候选历史年。边界不依收益或缺失后有效N选择；描述性比较，不是显著性或样本外检验。"
+            "default": "{\"code\":\"method.segments.interpretation\",\"params\":{}}"
           }
         },
         "type": "object",
@@ -6210,7 +6194,7 @@
           "interpretation": {
             "type": "string",
             "title": "Interpretation",
-            "default": "每次去掉一个实际年度或事件后重算；检查单样本影响，不是样本外验证，也不增加独立样本。"
+            "default": "{\"code\":\"method.leave_one_out.interpretation\",\"params\":{}}"
           }
         },
         "type": "object",
@@ -6609,12 +6593,12 @@
           "assumptions": {
             "type": "string",
             "title": "Assumptions",
-            "default": "独立、上涨概率恒定、样本事先确定的二项观察；平盘计入非上涨。金融样本的相关性、市场变化及事后筛选可能违反假设。"
+            "default": "{\"code\":\"method.proportion.assumptions\",\"params\":{}}"
           },
           "interpretation": {
             "type": "string",
             "title": "Interpretation",
-            "default": "条件成立时的历史上涨比例估计区间，不是未来上涨概率或收益预测区间。"
+            "default": "{\"code\":\"method.proportion.interpretation\",\"params\":{}}"
           }
         },
         "type": "object",
@@ -6976,7 +6960,7 @@
           "price_basis": {
             "type": "string",
             "title": "Price Basis",
-            "default": "仅拆股调整的价格收益，不含现金股息再投资。"
+            "default": "{\"code\":\"method.price_basis\",\"params\":{}}"
           },
           "baseline_rule": {
             "type": "string",
@@ -6993,17 +6977,17 @@
           "path_n_rule": {
             "type": "string",
             "title": "Path N Rule",
-            "default": "路径每个位置的N是该位置有效样本数，可与完整窗口或配对样本N不同；当前年与未完整窗口不混入完整历史分布。"
+            "default": "{\"code\":\"method.path_n_rule\",\"params\":{}}"
           },
           "drawdown_rule": {
             "type": "string",
             "title": "Drawdown Rule",
-            "default": "最大回撤取实际基准至终点的完整日收盘路径，表示正数的峰值到后续低点损失；不含全部盘中路径，不代表可实现的止损价格。"
+            "default": "{\"code\":\"method.drawdown_rule\",\"params\":{}}"
           },
           "benchmark_rule": {
             "type": "string",
             "title": "Benchmark Rule",
-            "default": "股票自身N与同日期配对N分列；基准缺失不改动股票N。相对基准为逐样本简单收益差，不是风险调整alpha。"
+            "default": "{\"code\":\"method.benchmark_rule\",\"params\":{}}"
           },
           "exploration_scope": {
             "type": "string",
@@ -7012,7 +6996,7 @@
           "interpretation": {
             "type": "string",
             "title": "Interpretation",
-            "default": "箱体和分位带描述这些实际历史样本，不是未来预测区间；均值、排名、上涨次数或单一N阈值均不能证明可交易规律。"
+            "default": "{\"code\":\"method.interpretation\",\"params\":{}}"
           }
         },
         "type": "object",

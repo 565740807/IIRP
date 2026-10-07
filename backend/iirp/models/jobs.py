@@ -28,7 +28,7 @@ class Job(Base):
     __tablename__ = "job"
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     kind: Mapped[str] = mapped_column(String(32))
-    title: Mapped[str] = mapped_column(String(160))
+    title: Mapped[str] = mapped_column(Text)
     target: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
     idempotency_key: Mapped[str] = mapped_column(String(64))
     status: Mapped[str] = mapped_column(String(24), default="QUEUED")
@@ -115,7 +115,7 @@ class Batch(Base):
     request_id: Mapped[str] = mapped_column(String(128), unique=True)
     scope_key: Mapped[str] = mapped_column(String(64), index=True)
     kind: Mapped[str] = mapped_column(String(32))
-    title: Mapped[str] = mapped_column(String(200))
+    title: Mapped[str] = mapped_column(Text)
     params: Mapped[dict[str, Any]] = mapped_column(JSONB)
     trigger: Mapped[str] = mapped_column(String(16), default="manual")
     policy_key: Mapped[str | None] = mapped_column(String(32))

@@ -14,6 +14,7 @@ from sqlalchemy.orm import aliased
 
 from iirp.db import session
 from iirp.jobs.profiles import development_budget
+from iirp.messages import NotFoundError, UserError, msg
 from iirp.models import (
     ACTIVE,
     TERMINAL,
@@ -27,9 +28,9 @@ from iirp.models import (
 )
 
 TITLES = {
-    "fixture_check": "本地任务与存储验证",
-    "market_probe": "行情来源小样验证",
-    "sec_probe": "SEC 来源小样验证",
+    "fixture_check": msg("job.title.fixture_check"),
+    "market_probe": msg("job.title.market_probe"),
+    "sec_probe": msg("job.title.sec_probe"),
 }
 
 
@@ -52,7 +53,7 @@ def enqueue(s, kind, target, trigger="manual"):
     reused = job is not None
     if job is None:
         if s.scalar(select(func.count()).select_from(Job).where(Job.status.in_(ACTIVE))) >= 50:
-            raise ValueError("队列已满（50 项），请先处理现有任务。")
+            raise UserError("job.queue_full", max=50)
         job = Job(
             kind=kind,
             title=TITLES[kind],
@@ -104,7 +105,7 @@ def control(job_id, action):
     with session() as s, s.begin():
         key = s.scalar(select(Job.idempotency_key).where(Job.id == job_id))
         if key is None:
-            raise LookupError("任务不存在。")
+            raise NotFoundError("job.not_found")
         s.execute(text("SELECT pg_advisory_xact_lock(:key)"), {"key": int(key[:15], 16)})
         job = s.get(Job, job_id, with_for_update=True)
         if action == "pause":
@@ -122,7 +123,7 @@ def control(job_id, action):
                 if automatic and automatic.active:
                     job.checkpoint = {
                         **job.checkpoint,
-                        "control_notice": "手动需求已取消；仍有自动需求，公共工作继续。",
+                        "control_notice": msg("job.manual_cancelled_shared"),
                     }
                     job.trigger = "automatic"
                     job.updated_at = now()
@@ -137,7 +138,7 @@ def control(job_id, action):
             if job.status in ("QUEUED", "RUNNING"):
                 return job
             if job.status != "PAUSED":
-                raise ValueError("请等待任务确认暂停后再恢复。")
+                raise UserError("job.wait_for_pause")
             job.requested_action = None
             job.status = "QUEUED"
             job.lease_token = job.lease_until = None
@@ -155,7 +156,7 @@ def control(job_id, action):
             if job.status in ("QUEUED", "RUNNING", "RETRY_WAIT"):
                 return job
             if job.status not in ("FAILED", "PARTIAL"):
-                raise ValueError("只有失败或部分完成的任务可以重试。")
+                raise UserError("job.retry_failed_only")
             # A newer active equivalent may exist; reuse it instead of violating uniqueness.
             equivalent = s.scalar(
                 select(Job).where(
@@ -173,7 +174,7 @@ def control(job_id, action):
             job.attempts = 0
             job.available_at, job.finished_at = now(), None
         else:
-            raise ValueError("未知控制动作。")
+            raise UserError("job.action_invalid")
         job.control_version += 1
         job.updated_at = now()
         return job

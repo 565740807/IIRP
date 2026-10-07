@@ -2,7 +2,10 @@ from datetime import datetime, timezone
 from unittest.mock import patch
 
 import psycopg
+from iirp.messages import msg
 from iirp.storage.status import system_database_state
+
+from tests.zh import zh
 
 
 class _Cursor:
@@ -42,5 +45,5 @@ def test_system_database_state_is_bounded_and_fresh():
 def test_system_database_failure_is_unknown_not_offline():
     with patch("iirp.storage.status.psycopg.connect", side_effect=psycopg.OperationalError("unavailable")):
         worker, migration = system_database_state()
-    assert worker == {"online": None, "last_seen": None, "error": "数据库状态读取超时或失败"}
-    assert migration == "未知"
+    assert worker == {"online": None, "last_seen": None, "error": msg("system.database_state_failed")}
+    assert zh(migration) == "未知"

@@ -86,7 +86,7 @@ class EventSet(Base):
     __tablename__ = "event_set"
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uid)
     kind: Mapped[str] = mapped_column(String(16))
-    title: Mapped[str] = mapped_column(String(200))
+    title: Mapped[str] = mapped_column(Text)
     # Normalized items of iirp.events.input, sorted by date.
     events: Mapped[list] = mapped_column(JSONB)
     request_id: Mapped[str | None] = mapped_column(String(128), unique=True)

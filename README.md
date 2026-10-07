@@ -58,7 +58,7 @@ install -m 600 deploy/.env.example deploy/.env
 | [决策记录](docs/DECISIONS.md) | 已做出的产品与技术决策 |
 | [运行手册](docs/RUNBOOK.zh-CN.md) | 日常操作、备份与恢复、升级、验证 |
 | [安装说明](deploy/README.zh-CN.md) | Compose 部署与配置 |
-| [接口约定](docs/API_CONTRACT.md) 与 [OpenAPI](docs/openapi.json) | 后端接口 |
+| [OpenAPI](docs/openapi.json) | 后端接口（由应用导出，`./iirp check` 校验一致） |
 | [改进计划](docs/IMPROVEMENT_PLAN.zh-CN.md) | 当前问题、阶段计划与进度 |
 | [第三方声明](THIRD_PARTY_NOTICES.md) | 依赖清单与许可材料 |
 | [AGENTS.md](AGENTS.md) | 开发约定（含 AI 编码助手使用的说明） |

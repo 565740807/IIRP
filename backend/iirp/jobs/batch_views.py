@@ -8,6 +8,7 @@ from sqlalchemy import case, func, select, tuple_
 
 from iirp.db import session
 from iirp.market.cache import coverage_for
+from iirp.messages import NotFoundError, UserError, msg
 from iirp.models import (
     ACTIVE,
     AnalysisRequest,
@@ -28,7 +29,7 @@ def linked_jobs(s, scope_id):
 
 def scope_progress(scope, jobs, *, active_job_ids=None, planning_error=None,
                    planning_retry_at=None, batch_status=None):
-    from iirp.jobs.auto_update import STAGES
+    from iirp.jobs.auto_update import STAGE_OTHER, STAGES
 
     stamp = now()
 
@@ -46,29 +47,29 @@ def scope_progress(scope, jobs, *, active_job_ids=None, planning_error=None,
         key=lambda j: (not executing(j), j.priority, j.created_at),
     )
     job = active[0] if active else None
-    stage = STAGES.get(job.kind, "处理数据") if job else None
+    stage = STAGES.get(job.kind, STAGE_OTHER) if job else None
     if job and not executing(job):
         source = ("SEC" if job.kind in {"sec_discover", "sec_document", "sec_identity"}
                   else "Yahoo" if job.kind in {"market_identity", "market_history", "market_quote"}
-                  else "本地计算")
-        prefix = "等待来源重试" if job.status == "RETRY_WAIT" else f"等待 {source} 通道"
-        stage = f"{prefix} · {stage.removeprefix('正在')}"
+                  else msg("stage.source.local"))
+        stage = (msg("stage.waiting_retry", stage=stage) if job.status == "RETRY_WAIT"
+                 else msg("stage.waiting_channel", source=source, stage=stage))
     progress_times = [j.finished_at for j in jobs if j.finished_at and j.status == "SUCCEEDED"]
     checkpoint = scope.checkpoint or {}
     planning_error = planning_error or checkpoint.get("planning_conflict")
     # Diagnostics survive control actions, but only the durable planner schedule
     # authorizes a retry. A shared job's activity belongs to its active demands.
     control_stage = {
-        "PAUSE_REQUESTED": "正在暂停此批次；等待执行中的专属任务停止，已完成结果可读",
-        "CANCEL_REQUESTED": "正在取消此批次；等待执行中的专属任务停止，已完成结果保留",
-        "PAUSED": "此批次已暂停；已完成结果可读，可恢复剩余工作",
-        "CANCELLED": "此批次已取消；已完成结果保留",
+        "PAUSE_REQUESTED": msg("batch.control.pause_requested"),
+        "CANCEL_REQUESTED": msg("batch.control.cancel_requested"),
+        "PAUSED": msg("batch.control.paused"),
+        "CANCELLED": msg("batch.control.cancelled"),
     }.get(batch_status)
     retry_at = planning_retry_at.isoformat() if planning_retry_at and not control_stage else None
     planning_reason = (
-        "批次规划超过数据库执行期限" if planning_error and planning_error.get("sqlstate") == "57014"
-        else "批次规划遇到并发更新" if planning_error and planning_error.get("sqlstate") in {"55P03", "40001", "40P01"}
-        else "批次规划数据或规则异常" if planning_error
+        "batch.planning.timeout" if planning_error and planning_error.get("sqlstate") == "57014"
+        else "batch.planning.conflict" if planning_error and planning_error.get("sqlstate") in {"55P03", "40001", "40P01"}
+        else "batch.planning.error" if planning_error
         else None
     )
     activity_status = scope.status
@@ -80,13 +81,13 @@ def scope_progress(scope, jobs, *, active_job_ids=None, planning_error=None,
         )
     return {
         "activity_status": batch_status if control_stage else activity_status,
-        "stage": control_stage or (f"{planning_reason}，稍后自动重试；已完成结果可读"
+        "stage": control_stage or (msg(planning_reason)
         if planning_error and retry_at
         else stage
         if job
-        else "范围已处理"
+        else msg("batch.scope_done")
         if scope.status == "READY"
-        else scope.wait_reason or "等待可执行任务"),
+        else scope.wait_reason or msg("batch.waiting_jobs")),
         "current_target": {
             k: v
             for k, v in job.target.items()
@@ -159,7 +160,7 @@ def batch_view(s, batch, *, activity_status=None):
         items.append(
             {
                 "id": scope.id,
-                "symbol": scope.symbol,
+                "symbol": msg("scope.maintenance") if scope.symbol == "maintenance" else scope.symbol,
                 "security_id": scope.security_id,
                 "status": scope.status,
                 "wait_reason": scope.wait_reason,
@@ -212,9 +213,9 @@ def list_batches(category="all", cursor="", policy_key="", view="all"):
         "history": ["SUCCEEDED", "CANCELLED"],
     }
     if view not in {"all", "personal"}:
-        raise ValueError("任务视图无效")
+        raise UserError("batch.view_invalid")
     if category not in {"all", *states}:
-        raise ValueError("任务分类无效")
+        raise UserError("batch.category_invalid")
     with session() as s:
         activity = _batch_activity_status()
         visible = Batch.trigger == "manual" if view == "personal" else True
@@ -260,7 +261,7 @@ def list_batches(category="all", cursor="", policy_key="", view="all"):
                 if boundary.tzinfo is None or not isinstance(identifier, str):
                     raise ValueError
             except (ValueError, TypeError, UnicodeError) as exc:
-                raise ValueError("任务分页位置无效") from exc
+                raise UserError("batch.offset_invalid") from exc
             query = query.where(tuple_(Batch.created_at, Batch.id) < tuple_(boundary, identifier))
         limit = 50 if category == "all" else 15
         records = s.execute(
@@ -286,7 +287,7 @@ def get_batch(batch_id):
     with session() as s:
         batch = s.get(Batch, batch_id)
         if not batch:
-            raise LookupError("批次不存在")
+            raise NotFoundError("batch.not_found")
         return {"batch_id": batch.id, "reused": True, "batch": batch_view(s, batch)}
 
 
@@ -294,10 +295,10 @@ def batch_jobs(batch_id, cursor="", limit=50):
     from iirp.jobs.job_views import job_view
 
     if not 1 <= limit <= 100:
-        raise ValueError("每页任务数须在1至100之间")
+        raise UserError("batch.limit_invalid", min=1, max=100)
     with session() as s:
         if not s.get(Batch, batch_id):
-            raise LookupError("批次不存在")
+            raise NotFoundError("batch.not_found")
         linked = select(BatchJob.job_id).join(RequestScope).where(RequestScope.batch_id == batch_id)
         query = select(Job).where(Job.id.in_(linked))
         if cursor:
@@ -307,7 +308,7 @@ def batch_jobs(batch_id, cursor="", limit=50):
                 if boundary.tzinfo is None or not isinstance(identifier, str):
                     raise ValueError
             except (ValueError, TypeError, UnicodeError) as exc:
-                raise ValueError("任务分页位置无效") from exc
+                raise UserError("batch.offset_invalid") from exc
             query = query.where(tuple_(Job.created_at, Job.id) > tuple_(boundary, identifier))
         rows = s.scalars(query.order_by(Job.created_at, Job.id).limit(limit + 1)).all()
         next_cursor = ""

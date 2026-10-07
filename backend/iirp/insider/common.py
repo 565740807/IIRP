@@ -8,6 +8,7 @@ from zoneinfo import ZoneInfo
 
 from sqlalchemy import DateTime, cast, func
 
+from iirp.messages import UserError, msg
 from iirp.models import (
     TransactionEvent,
 )
@@ -47,7 +48,7 @@ def _instant(value) -> datetime | None:
         return None
     parsed = datetime.fromisoformat(value) if isinstance(value, str) else value
     if not isinstance(parsed, datetime) or parsed.tzinfo is None:
-        raise ValueError("接受时间必须包含真实时间和时区。")
+        raise ValueError("acceptance time must carry a real time and time zone")
     return parsed
 
 
@@ -57,7 +58,16 @@ def _date(value) -> date | None:
     return date.fromisoformat(value) if isinstance(value, str) else value
 
 
-DATE_ANOMALY_LABEL = "日期异常、待核对"
+DATE_ANOMALY_LABEL = msg("insider.date_anomaly")
+ACTION_CATEGORIES = ("purchase_market_or_private", "sale_market_or_private", "grant_or_award",
+                     "tax_or_exercise_price_withholding", "exercise_or_conversion",
+                     "needs_review", "other")
+
+
+def transaction_kind(category, table) -> str:
+    """Display label of a row: its action category, marked when it is a derivative."""
+    kind = msg("insider.action." + category) if category in ACTION_CATEGORIES else category
+    return msg("insider.kind.derivative", kind=kind) if table == "II" else kind
 
 
 def _accepted_day(value) -> str | None:
@@ -89,7 +99,7 @@ def _cik(value: str) -> str:
         or not 1 <= len(value) <= 10
         or int(value) == 0
     ):
-        raise ValueError("CIK 必须是 1 至 10 位数字。")
+        raise UserError("insider.cik_invalid")
     return value.zfill(10)
 
 

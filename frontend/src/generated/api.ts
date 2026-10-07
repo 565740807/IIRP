@@ -158,23 +158,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/demo": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Demo */
-        get: operations["demo_api_v1_demo_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v1/providers": {
         parameters: {
             query?: never;
@@ -1856,7 +1839,7 @@ export interface components {
             later: components["schemas"]["HistoricalSegment"];
             /**
              * Interpretation
-             * @default 按目标历史年份跨度中点固定分段；目标未登记时用全部候选历史年。边界不依收益或缺失后有效N选择；描述性比较，不是显著性或样本外检验。
+             * @default {"code":"method.segments.interpretation","params":{}}
              */
             interpretation: string;
         };
@@ -2070,7 +2053,7 @@ export interface components {
             influential_sample_keys?: string[];
             /**
              * Interpretation
-             * @default 每次去掉一个实际年度或事件后重算；检查单样本影响，不是样本外验证，也不增加独立样本。
+             * @default {"code":"method.leave_one_out.interpretation","params":{}}
              */
             interpretation: string;
         };
@@ -2215,12 +2198,12 @@ export interface components {
             confidence_level: string;
             /**
              * Assumptions
-             * @default 独立、上涨概率恒定、样本事先确定的二项观察；平盘计入非上涨。金融样本的相关性、市场变化及事后筛选可能违反假设。
+             * @default {"code":"method.proportion.assumptions","params":{}}
              */
             assumptions: string;
             /**
              * Interpretation
-             * @default 条件成立时的历史上涨比例估计区间，不是未来上涨概率或收益预测区间。
+             * @default {"code":"method.proportion.interpretation","params":{}}
              */
             interpretation: string;
         };
@@ -2342,7 +2325,7 @@ export interface components {
         ResearchMethodology: {
             /**
              * Price Basis
-             * @default 仅拆股调整的价格收益，不含现金股息再投资。
+             * @default {"code":"method.price_basis","params":{}}
              */
             price_basis: string;
             /** Baseline Rule */
@@ -2354,24 +2337,24 @@ export interface components {
             sample_unit: "annual_sample" | "event_sample";
             /**
              * Path N Rule
-             * @default 路径每个位置的N是该位置有效样本数，可与完整窗口或配对样本N不同；当前年与未完整窗口不混入完整历史分布。
+             * @default {"code":"method.path_n_rule","params":{}}
              */
             path_n_rule: string;
             /**
              * Drawdown Rule
-             * @default 最大回撤取实际基准至终点的完整日收盘路径，表示正数的峰值到后续低点损失；不含全部盘中路径，不代表可实现的止损价格。
+             * @default {"code":"method.drawdown_rule","params":{}}
              */
             drawdown_rule: string;
             /**
              * Benchmark Rule
-             * @default 股票自身N与同日期配对N分列；基准缺失不改动股票N。相对基准为逐样本简单收益差，不是风险调整alpha。
+             * @default {"code":"method.benchmark_rule","params":{}}
              */
             benchmark_rule: string;
             /** Exploration Scope */
             exploration_scope: string;
             /**
              * Interpretation
-             * @default 箱体和分位带描述这些实际历史样本，不是未来预测区间；均值、排名、上涨次数或单一N阈值均不能证明可交易规律。
+             * @default {"code":"method.interpretation","params":{}}
              */
             interpretation: string;
         };
@@ -2854,26 +2837,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    demo_api_v1_demo_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
                 };
             };
         };

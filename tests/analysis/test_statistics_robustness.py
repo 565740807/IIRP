@@ -7,6 +7,7 @@ from iirp.analysis.distributions import Distribution, add_distributions
 from iirp.analysis.research import compute_research
 
 from tests.analysis.test_research import history as price_history
+from tests.zh import zh
 
 
 def direct(values, years=None, target=None):
@@ -38,7 +39,7 @@ def test_hand_computed_leave_one_out_and_single_outlier_influence():
     assert abs(Decimal(sensitivity["mean_max"]) - Decimal(1) / 3) < Decimal("1e-27")
     assert sensitivity["influential_sample_keys"] == ["2021"]
     assert Decimal(sensitivity["max_abs_mean_change"]) == Decimal(".225")
-    assert "不是样本外" in sensitivity["interpretation"]
+    assert "不是样本外" in zh(sensitivity["interpretation"])
 
 
 @pytest.mark.parametrize("values,lower,upper", [
@@ -53,7 +54,7 @@ def test_wilson_matches_independent_normal_reference(values, lower, upper):
     assert abs(Decimal(result["lower"]) - Decimal(lower)) < Decimal("1e-14")
     assert abs(Decimal(result["upper"]) - Decimal(upper)) < Decimal("1e-14")
     assert result["flat"] == values.count("0")
-    assert "独立" in result["assumptions"] and "不是未来" in result["interpretation"]
+    assert "独立" in zh(result["assumptions"]) and "不是未来" in zh(result["interpretation"])
 
 
 def test_empty_and_single_samples_do_not_invent_stability_or_zero_returns():
@@ -86,8 +87,8 @@ def test_monthly_and_interval_baseline_and_drawdown_are_independently_reproducib
     assert Decimal(monthly["rows"][0]["endpoint"]) == Decimal(".21")
     assert Decimal(interval["rows"][0]["endpoint"]) == Decimal(".1")
     assert Decimal(monthly["distributions"][0]["closing_max_drawdown"]["max"]) == Decimal(".25")
-    assert "上月最后" in monthly["metadata"]["methodology"]["baseline_rule"]
-    assert "首个交易日收盘" in interval["metadata"]["methodology"]["baseline_rule"]
+    assert "上月最后" in zh(monthly["metadata"]["methodology"]["baseline_rule"])
+    assert "首个交易日收盘" in zh(interval["metadata"]["methodology"]["baseline_rule"])
 
 
 def test_old_distribution_remains_readable_without_inventing_robustness():

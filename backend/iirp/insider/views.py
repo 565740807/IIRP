@@ -17,8 +17,10 @@ from iirp.insider.common import (
     _instant,
     _json,
     _sort_transaction_date,
+    transaction_kind,
 )
 from iirp.insider.tickers import normalized_ticker
+from iirp.messages import UserError, msg
 from iirp.models import (
     FeedRevision,
     Filing,
@@ -71,8 +73,44 @@ _LIST_FIELDS = _LIST_SOURCE_FIELDS | {
 }
 
 
+# Labels that stored rows and group revisions carried before message codes.
+_LEGACY_LABELS = {
+    "董事": msg("insider.role.director"),
+    "高管": msg("insider.role.officer"),
+    "持股超过10%": msg("insider.role.ten_percent_owner"),
+    "主体身份待核对": msg("insider.owner_pending"),
+    "修订更新": msg("insider.kind.amendment_update"),
+    "日期异常、待核对": msg("insider.date_anomaly"),
+    "修订关系待确认，源申报数值暂未计入确认汇总": msg("insider.exclusion.needs_review"),
+    "历史交易修订通知，金额在原交易组计入": msg("insider.exclusion.amendment_update"),
+    "已由修订版本替代，不计入当前确认汇总": msg("insider.exclusion.superseded"),
+    "已确认重复，不重复计入汇总": msg("insider.exclusion.duplicate"),
+    "申报交易已撤回，不计入确认汇总": msg("insider.exclusion.withdrawn"),
+    "修订范围需逐行核对；不因同日期或行位置自动替换。": msg("insider.amendment.needs_row_review"),
+    "不同 accession 的相似行仅标可能重复，未静默合并。": msg("insider.amendment.possible_duplicate"),
+    **{label: transaction_kind(category, table) for table in ("I", "II") for category, label in {
+        "purchase_market_or_private": "公开市场或私人买入",
+        "sale_market_or_private": "公开市场或私人卖出",
+        "grant_or_award": "授予或奖励",
+        "tax_or_exercise_price_withholding": "税款或行权价代扣",
+        "exercise_or_conversion": "行权或转换",
+        "needs_review": "交易含义待核对",
+        "other": "其他交易行为",
+    }.items() for label in [label if table == "I" else "衍生品 · " + label]},
+}
+
+
+def _legacy_labels(value):
+    if isinstance(value, dict):
+        return {key: _legacy_labels(child) for key, child in value.items()}
+    if isinstance(value, list):
+        return [_legacy_labels(child) for child in value]
+    return _LEGACY_LABELS.get(value, value) if isinstance(value, str) else value
+
+
 def _ticker_read_view(data):
     """Normalize old immutable revision payloads without rewriting source history."""
+    data = _legacy_labels(data)
     if "ticker" in data:
         raw = data.get("issuer_ticker_raw", data["ticker"])
         data["ticker"] = normalized_ticker(data["ticker"])
@@ -100,11 +138,11 @@ def _owner_view(identifier, relationship, name=None):
         return str(relationship.get(key, "")).lower() in {"1", "true"}
     roles = []
     if truth("is_director"):
-        roles.append("董事")
+        roles.append(msg("insider.role.director"))
     if truth("is_officer"):
-        roles.append(relationship.get("officer_title") or "高管")
+        roles.append(relationship.get("officer_title") or msg("insider.role.officer"))
     if truth("is_ten_percent_owner"):
-        roles.append("持股超过10%")
+        roles.append(msg("insider.role.ten_percent_owner"))
     if truth("is_other") and relationship.get("other_text"):
         roles.append(relationship["other_text"])
     # SEC role flags are evidence; names never determine a person's/entity's type.
@@ -117,13 +155,13 @@ def _owner_view(identifier, relationship, name=None):
 
 def _summary_exclusion_reason(status, *, amendment_update=False):
     if status == "NEEDS_REVIEW":
-        return "修订关系待确认，源申报数值暂未计入确认汇总"
+        return msg("insider.exclusion.needs_review")
     if amendment_update:
-        return "历史交易修订通知，金额在原交易组计入"
+        return msg("insider.exclusion.amendment_update")
     return {
-        "SUPERSEDED": "已由修订版本替代，不计入当前确认汇总",
-        "DUPLICATE_CONFIRMED": "已确认重复，不重复计入汇总",
-        "WITHDRAWN": "申报交易已撤回，不计入确认汇总",
+        "SUPERSEDED": msg("insider.exclusion.superseded"),
+        "DUPLICATE_CONFIRMED": msg("insider.exclusion.duplicate"),
+        "WITHDRAWN": msg("insider.exclusion.withdrawn"),
     }.get(status)
 
 
@@ -186,6 +224,8 @@ def _event_view(
             if (not compact or key in _LIST_SOURCE_FIELDS) and key != "raw_xml"
         }
     )
+    if "kind" in data:
+        data["kind"] = _legacy_labels(data["kind"])
     if "ticker" in data:
         data["issuer_ticker_raw"] = data.get("issuer_ticker_raw", data["ticker"])
         data["ticker"] = normalized_ticker(data["ticker"])
@@ -215,7 +255,7 @@ def _event_view(
         "owner": "、".join(
             data.get("owner_names", {}).get(owner_id) or owner_id for owner_id in event.owner_ids
         )
-        or "主体身份待核对",
+        or msg("insider.owner_pending"),
         "price": price,
         "known_amount": amount,
         "amount": amount,
@@ -243,7 +283,7 @@ def _matches(row: dict, kind: str) -> bool:
         return row.get("table") == "II"
     if kind == "other":
         return row.get("table") != "II" and row.get("code") not in {"P", "S"}
-    raise ValueError("不支持的交易筛选。")
+    raise UserError("insider.filter_invalid")
 
 
 def _summary(rows: list[dict]) -> list[dict]:
@@ -358,7 +398,7 @@ def _refresh_groups(s: Session, groups: set[tuple[str, date | None]]) -> None:
                 "is_amendment_update": True,
                 "group_accepted_at": event.accepted_at.isoformat(),
                 "group_accession": event.accession,
-                "kind": "修订更新",
+                "kind": msg("insider.kind.amendment_update"),
                 "known_amount": None,
                 "amount": None,
                 "eligible_for_totals": False,

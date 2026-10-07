@@ -19,6 +19,7 @@ from tests.jobs.test_lifecycle import (  # noqa: F401
     seed_prices,
     seed_security,
 )
+from tests.zh import zh
 
 
 @pytest.mark.parametrize("blocker", ["identity_mismatch", "failed_history"])
@@ -57,7 +58,7 @@ def test_shared_stock_result_preserves_benchmark_failure_and_retry(blocker):
                 "证券类型、币种或交易日历" if blocker == "identity_mismatch"
                 else "synthetic benchmark failure"
             )
-            assert expected in (scope.wait_reason or "")
+            assert expected in zh(scope.wait_reason or "")
 
     # Repair only synthetic local facts, then exercise the normal explicit
     # retry path. Never execute a provider to satisfy this test's benchmark.

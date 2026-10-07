@@ -5,6 +5,7 @@ from sqlalchemy import select
 
 from iirp.db import session
 from iirp.jobs.batches import control_batch, defaults, product_preferences
+from iirp.messages import NotFoundError
 from iirp.models import (
     Batch,
     CollectionStrategy,
@@ -79,7 +80,7 @@ def update_strategy(key, enabled):
         defaults(s)
         p = s.get(CollectionStrategy, key, with_for_update=True)
         if not p:
-            raise LookupError("策略不存在")
+            raise NotFoundError("preference.not_found")
         p.enabled = enabled
         p.options = {**p.options, "user_controlled": True}
         p.version += 1

@@ -5,15 +5,14 @@ from datetime import datetime, timedelta
 from sqlalchemy import func, select, tuple_
 
 from iirp.db import session
+from iirp.messages import UserError, decode, msg
 from iirp.models import (
     Job,
     WorkerHeartbeat,
     now,
 )
 
-SCOPE = (
-    "仅限开发测试：小样验证调度。正式使用保留完整新增发现、三个月回补与按需八年行情规则，P2 接入。"
-)
+SCOPE = msg("diagnostics.policy_scope")
 
 
 def job_view(job):
@@ -69,15 +68,16 @@ def list_jobs(limit=20, cursor=""):
         try:
             created = datetime.fromisoformat(stamp)
         except ValueError:
-            raise ValueError("任务分页游标无效。") from None
+            raise UserError("job.cursor_invalid") from None
         if not identifier or created.tzinfo is None:
-            raise ValueError("任务分页游标无效。")
+            raise UserError("job.cursor_invalid")
         query = query.where(tuple_(Job.created_at, Job.id) < tuple_(created, identifier))
     with session() as s:
         rows = [dict(row) for row in s.execute(query).mappings()]
         items = rows[:limit]
         for item in items:
-            if item["error"] and len(item["error"]) > SUMMARY_ERROR_CHARS:
+            # Messages are bounded; only free text from older rows is cut.
+            if item["error"] and len(item["error"]) > SUMMARY_ERROR_CHARS and not decode(item["error"]):
                 item["error"] = item["error"][:SUMMARY_ERROR_CHARS] + "…"
         return {
             "items": items,
