@@ -20,7 +20,7 @@ import {
   sourceLabel,
   type Fact,
 } from "../api";
-import { Button, EmptyState } from "./ui";
+import { Button, EmptyState } from "./common";
 import { useReadingState } from "../researchStorage";
 import { chartExportContext } from "../chartExportContext";
 import { chartSampleLabel } from "../chartSampleLabel";

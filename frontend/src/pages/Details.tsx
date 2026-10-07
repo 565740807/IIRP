@@ -21,7 +21,7 @@ import {
   type GenericOutput,
   type Fact,
 } from "../api";
-import { DateAnomaly, TradeSummary, TransactionTable } from "../components/Feed";
+import { DateAnomaly, TradeSummary, TransactionTable } from "../components/TransactionTable";
 import { ResearchChart } from "../components/ResearchChart";
 import { BatchPanel } from "../components/Batches";
 import { useResearchBatch } from "../researchQueries";
@@ -36,7 +36,7 @@ import {
   ErrorNotice,
   Loading,
   useNotice,
-} from "../components/ui";
+} from "../components/common";
 
 function ReturnLink() {
   const location = useLocation();

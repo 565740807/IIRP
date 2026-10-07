@@ -9,6 +9,12 @@ from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import Response
 
 from iirp.analysis import requests as analysis_requests
+from iirp.api.insider_schemas import (
+    EntityHistoryOutput,
+    FeedGroupOutput,
+    FeedUpdatesOutput,
+    TransactionDetailOutput,
+)
 from iirp.api.schemas import (
     AnalysisInput,
     AnalysisOutput,
@@ -17,7 +23,6 @@ from iirp.api.schemas import (
     BatchesOutput,
     CollectionInput,
     CollectionOutput,
-    FeedGroupOutput,
     FreshnessInput,
     FreshnessOutput,
     GenericOutput,
@@ -39,6 +44,25 @@ from iirp.market import reads as market_reads
 from iirp.messages import msg
 
 router = APIRouter(prefix="/api/v1")
+
+
+@router.get("/feed/updates", response_model=FeedUpdatesOutput)
+def feed_updates(
+    session_id: str = Query(min_length=1, max_length=36),
+    include_groups: bool = False,
+    target_session_id: str = Query(default="", max_length=36),
+    cursor: str = Query(default="", max_length=12),
+):
+    """Count changes since a reading watermark, or read one bounded delta page."""
+    from iirp.db import session
+    from iirp.insider.feed_updates import feed_updates as read_updates
+
+    try:
+        with session() as s, s.begin():
+            return read_updates(s, session_id, include_groups=include_groups,
+                                target_session_id=target_session_id, cursor=cursor)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
 
 
 @router.get("/feed/groups/{group_id}", response_model=FeedGroupOutput)
@@ -161,7 +185,7 @@ def coverage(ticker: str = "", security_id: str = "", start_date: str = "", end_
     return invoke(market_reads.get_coverage, ticker, security_id, start_date, end_date)
 
 
-@router.get("/companies/{entity_id}", response_model=GenericOutput)
+@router.get("/companies/{entity_id}", response_model=EntityHistoryOutput)
 def company(
     entity_id: str,
     start_date: str = "",
@@ -185,7 +209,7 @@ def company(
     )
 
 
-@router.get("/people/{entity_id}", response_model=GenericOutput)
+@router.get("/people/{entity_id}", response_model=EntityHistoryOutput)
 def person(
     entity_id: str,
     issuer_id: str = "",
@@ -211,7 +235,7 @@ def person(
     )
 
 
-@router.get("/transactions/{transaction_id}", response_model=GenericOutput)
+@router.get("/transactions/{transaction_id}", response_model=TransactionDetailOutput)
 def transaction(transaction_id: str, mapping_version: int | None = None, cutoff_date: date | None = None):
     return invoke(transactions.transaction_detail, transaction_id, mapping_version, cutoff_date.isoformat() if cutoff_date else None)
 

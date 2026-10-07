@@ -1,0 +1,324 @@
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useSearchParams } from "react-router-dom";
+import { useTranslation } from "react-i18next";
+import { useWindowVirtualizer } from "@tanstack/react-virtual";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { ArrowUp, LoaderCircle } from "lucide-react";
+import { client, unwrap, ApiError } from "@/lib/api-client";
+import {
+  appendPage,
+  applyDelta,
+  canApplyInPlace,
+  freshMark,
+  type FeedGroup,
+  type FeedOrder,
+  type FeedStream,
+} from "@/lib/feedStream";
+import { readFeedWithRetry } from "@/feedRecovery";
+import { formatEt } from "@/lib/format";
+import { usePageVisible, useRefreshIntervals } from "@/lib/refresh";
+import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { FeedCard } from "./FeedCard";
+
+const FILTERS = ["focus", "buy", "sell", "derivative", "other", "all"] as const;
+type Filter = (typeof FILTERS)[number];
+
+function streamKey(filter: Filter, order: FeedOrder) {
+  return ["feed-stream", filter, order] as const;
+}
+
+/** Reads every delta page between the list's watermark and a new one. */
+async function readDelta(latest: string, current: () => boolean) {
+  const groups: FeedGroup[] = [];
+  let removed: string[] = [];
+  let target = "";
+  let cursor = "";
+  do {
+    const page = await readFeedWithRetry(
+      () =>
+        unwrap(client.GET("/api/v1/feed/updates", {
+          params: { query: { session_id: latest, include_groups: true, ...(target ? { target_session_id: target } : {}), ...(cursor ? { cursor } : {}) } },
+        })),
+      current,
+    );
+    if (!page) return null;
+    target = page.target_session_id;
+    cursor = page.next_cursor ?? "";
+    groups.push(...page.groups);
+    if (page.removed_ids.length) removed = page.removed_ids;
+  } while (cursor);
+  return { groups, removed, target };
+}
+
+/**
+ * The home waterfall. At the top, newly published filings drop in at once;
+ * while the reader is further down nothing moves and a "new trades" pill
+ * waits. Scrolling down loads older groups of the same reading session.
+ */
+export function InsiderStream() {
+  const { t } = useTranslation();
+  const queryClient = useQueryClient();
+  const [params, setParams] = useSearchParams();
+  const filter = (FILTERS as readonly string[]).includes(params.get("filter") ?? "") ? (params.get("filter") as Filter) : "focus";
+  const order: FeedOrder = params.get("order") === "transaction" ? "transaction" : "accepted";
+  const key = streamKey(filter, order);
+  const visible = usePageVisible();
+  const intervals = useRefreshIntervals();
+  const reduceMotion = useReducedMotion();
+
+  // The list lives in the query cache, so returning to the page shows it at once.
+  const stream = useQuery({
+    queryKey: key,
+    queryFn: async (): Promise<FeedStream> => {
+      const page = await unwrap(client.GET("/api/v1/feed", { params: { query: { type: filter, order } } }));
+      return {
+        session: page.session_id, latest: page.session_id, order, groups: page.groups,
+        nextCursor: page.next_cursor, asOf: page.as_of, fresh: {}, dropped: [],
+      };
+    },
+    staleTime: Infinity,
+    gcTime: 30 * 60_000,
+    refetchOnWindowFocus: false,
+  });
+  const data = stream.data;
+  const update = useCallback(
+    (change: (current: FeedStream) => FeedStream) => queryClient.setQueryData<FeedStream>(key, (current) => (current ? change(current) : current)),
+    [queryClient, filter, order],
+  );
+
+  // How many groups changed since the list's watermark (local read only).
+  const updates = useQuery({
+    queryKey: ["feed-updates", data?.latest],
+    queryFn: () => unwrap(client.GET("/api/v1/feed/updates", { params: { query: { session_id: data!.latest } } })),
+    enabled: !!data?.latest,
+    refetchInterval: visible ? intervals.feed_poll_seconds * 1000 : false,
+    refetchOnWindowFocus: false,
+  });
+  // A reading session expires after 12 hours: start a new one.
+  useEffect(() => {
+    if (updates.error instanceof ApiError && [400, 409].includes(updates.error.status))
+      void queryClient.resetQueries({ queryKey: key });
+  }, [updates.error]);
+  const pending = updates.data?.new_count ?? 0;
+
+  const [atTop, setAtTop] = useState(true);
+  useEffect(() => {
+    const onScroll = () => setAtTop(canApplyInPlace(window.scrollY, false));
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
+  const applying = useRef(false);
+  const [merging, setMerging] = useState(false);
+  const scope = useRef(0);
+  useEffect(() => {
+    scope.current += 1;
+  }, [filter, order]);
+  const apply = useCallback(async () => {
+    const current = queryClient.getQueryData<FeedStream>(key);
+    if (!current || applying.current) return;
+    applying.current = true;
+    setMerging(true);
+    const started = scope.current;
+    try {
+      const delta = await readDelta(current.latest, () => scope.current === started);
+      if (!delta || scope.current !== started) return;
+      update((latest) => applyDelta(latest, delta.groups, delta.removed, delta.target).stream);
+      queryClient.setQueryData(["feed-updates", delta.target], { ...updates.data, new_count: 0 });
+    } catch {
+      // The pill stays; the next poll tries again.
+    } finally {
+      applying.current = false;
+      setMerging(false);
+    }
+  }, [queryClient, update, filter, order]);
+
+  // At the top (and nothing selected), new filings drop in without asking.
+  useEffect(() => {
+    if (!pending || !visible || !atTop || applying.current) return;
+    if (window.getSelection()?.toString()) return;
+    void apply();
+  }, [pending, visible, atTop, apply, updates.dataUpdatedAt]);
+
+  // The pill returns to the top first; the new cards then drop in there.
+  const showNew = async () => {
+    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    await new Promise<void>((resolve) => {
+      if (window.scrollY === 0) return resolve();
+      const done = () => {
+        window.removeEventListener("scrollend", done);
+        window.clearTimeout(timer);
+        resolve();
+      };
+      const timer = window.setTimeout(done, 700);
+      window.addEventListener("scrollend", done);
+      window.scrollTo({ top: 0, behavior: reduced ? "auto" : "smooth" });
+    });
+    window.scrollTo({ top: 0 });
+    await apply();
+  };
+
+  // Older pages of the same session when the end of the list comes near.
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [moreError, setMoreError] = useState<Error | null>(null);
+  const loadMore = useCallback(async () => {
+    const current = queryClient.getQueryData<FeedStream>(key);
+    if (!current?.nextCursor || loadingMore) return;
+    setLoadingMore(true);
+    setMoreError(null);
+    try {
+      const page = await unwrap(client.GET("/api/v1/feed", {
+        params: { query: { session_id: current.session, cursor: current.nextCursor, type: filter, order } },
+      }));
+      update((latest) => appendPage(latest, page.groups, page.next_cursor));
+    } catch (error) {
+      setMoreError(error as Error);
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [queryClient, update, loadingMore, filter, order]);
+
+  const groups = data?.groups ?? [];
+  const list = useRef<HTMLDivElement>(null);
+  const [offset, setOffset] = useState(0);
+  useLayoutEffect(() => {
+    setOffset(list.current ? list.current.getBoundingClientRect().top + window.scrollY : 0);
+  }, [stream.isPending]);
+  const virtual = useWindowVirtualizer({
+    count: groups.length,
+    estimateSize: () => 104,
+    overscan: 6,
+    gap: 8,
+    scrollMargin: offset,
+    getItemKey: (index) => groups[index].id,
+  });
+  const items = virtual.getVirtualItems();
+  const last = items.at(-1)?.index ?? -1;
+  useEffect(() => {
+    if (data?.nextCursor && !moreError && last >= groups.length - 5) void loadMore();
+  }, [last, groups.length, data?.nextCursor, moreError, loadMore]);
+
+  // Cards glide to their new places for a moment after a merge.
+  const [gliding, setGliding] = useState(false);
+  const previousLength = useRef(groups.length);
+  useEffect(() => {
+    if (groups.length === previousLength.current) return;
+    previousLength.current = groups.length;
+    setGliding(true);
+    const timer = window.setTimeout(() => setGliding(false), 400);
+    return () => window.clearTimeout(timer);
+  }, [groups.length]);
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 3000);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  const choose = (name: "filter" | "order", value: string) =>
+    setParams((previous) => {
+      const next = new URLSearchParams(previous);
+      next.set(name, value);
+      return next;
+    }, { replace: true });
+
+  return (
+    <section aria-labelledby="insider-heading" className="mt-6">
+      <div className="mb-3 flex flex-wrap items-center gap-x-4 gap-y-2">
+        <h2 id="insider-heading" className="text-base font-semibold">{t("ui.feed.title")}</h2>
+        {data && (
+          <span className="text-xs text-muted-foreground tabular-nums">
+            {merging ? (
+              <span className="inline-flex items-center gap-1"><LoaderCircle className="size-3 motion-safe:animate-spin" />{t("ui.feed.merging")}</span>
+            ) : t("ui.feed.as_of", { time: formatEt(data.asOf) })}
+          </span>
+        )}
+        <div className="ml-auto flex items-center gap-2">
+          <ToggleGroup type="single" size="sm" variant="outline" spacing={0} value={filter} aria-label={t("ui.feed.filter_label")}
+            onValueChange={(value) => value && choose("filter", value)}>
+            {FILTERS.map((item) => (
+              <ToggleGroupItem key={item} value={item} className="px-2.5">{t(`ui.feed.filter.${item}`)}</ToggleGroupItem>
+            ))}
+          </ToggleGroup>
+          <ToggleGroup type="single" size="sm" variant="outline" spacing={0} value={order} aria-label={t("ui.feed.order_label")}
+            onValueChange={(value) => value && choose("order", value)}>
+            <ToggleGroupItem value="accepted" className="px-2.5">{t("ui.feed.order.accepted")}</ToggleGroupItem>
+            <ToggleGroupItem value="transaction" className="px-2.5">{t("ui.feed.order.transaction")}</ToggleGroupItem>
+          </ToggleGroup>
+        </div>
+      </div>
+
+      <AnimatePresence>
+        {pending > 0 && !atTop && (
+          <motion.div
+            key="pill"
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.2 }}
+            className="pointer-events-none sticky top-16 z-20 flex h-0 justify-center"
+          >
+            <Button size="sm" onClick={showNew} className="pointer-events-auto rounded-full shadow-md" data-testid="new-trades">
+              <ArrowUp />
+              {t("ui.feed.new_trades", { count: pending })}
+            </Button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {stream.error && <p className="text-sm text-destructive">{stream.error.message}</p>}
+      {stream.isPending ? (
+        <div className="space-y-2" aria-busy>
+          {Array.from({ length: 6 }, (_, index) => (
+            <div key={index} className="rounded-lg border bg-card px-4 py-3">
+              <Skeleton className="h-4 w-64" />
+              <Skeleton className="mt-2.5 h-3.5 w-full max-w-xl" />
+              <Skeleton className="mt-1.5 h-3.5 w-80" />
+            </div>
+          ))}
+        </div>
+      ) : !groups.length ? (
+        <p className="rounded-lg border bg-card px-4 py-10 text-center text-sm text-muted-foreground">{t("ui.feed.empty")}</p>
+      ) : (
+        <div ref={list} className="relative" style={{ height: virtual.getTotalSize() }} data-testid="feed-list">
+          {items.map((item) => {
+            const group = groups[item.index];
+            const mark = data ? freshMark(data, group.id, now) : null;
+            return (
+              <div
+                key={item.key}
+                data-index={item.index}
+                ref={virtual.measureElement}
+                className={cn("absolute inset-x-0 top-0", gliding && "transition-transform duration-300 ease-out")}
+                style={{ transform: `translateY(${item.start - virtual.options.scrollMargin}px)` }}
+              >
+                <motion.div
+                  initial={mark === "new" ? (reduceMotion ? { opacity: 0 } : { opacity: 0, y: -24 }) : false}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.28, ease: "easeOut", delay: mark === "new" ? Math.min(item.index, 8) * 0.05 : 0 }}
+                >
+                  <FeedCard group={group} mark={mark} />
+                </motion.div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+      {groups.length > 0 && (
+        <div className="flex h-12 items-center justify-center text-xs text-muted-foreground">
+          {loadingMore ? (
+            <span className="inline-flex items-center gap-1.5"><LoaderCircle className="size-3.5 motion-safe:animate-spin" />{t("ui.feed.loading_more")}</span>
+          ) : moreError ? (
+            <Button variant="ghost" size="sm" onClick={() => void loadMore()}>{t("ui.feed.retry_more")}</Button>
+          ) : !data?.nextCursor ? (
+            t("ui.feed.end")
+          ) : null}
+        </div>
+      )}
+    </section>
+  );
+}

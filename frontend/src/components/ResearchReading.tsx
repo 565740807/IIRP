@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Button, ErrorNotice, Loading } from "./ui";
+import { Button, ErrorNotice, Loading } from "./common";
 
 /** Read failures never hide an already readable, explicitly identified result. */
 export function ResearchReadStatus({ error, retry, pending, label, taskError, retryTask }: {

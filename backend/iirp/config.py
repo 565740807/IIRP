@@ -1,3 +1,4 @@
+import tomllib
 from functools import lru_cache
 from pathlib import Path
 
@@ -20,3 +21,10 @@ class Settings(BaseSettings):
 @lru_cache
 def settings() -> Settings:
     return Settings()
+
+
+@lru_cache
+def refresh() -> dict:
+    """Refresh cadence (D22) from config/refresh.toml."""
+    with (ROOT / "config/refresh.toml").open("rb") as source:
+        return tomllib.load(source)

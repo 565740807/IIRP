@@ -32,7 +32,7 @@ import {
   ErrorNotice,
   Loading,
   useNotice,
-} from "../components/ui";
+} from "../components/common";
 function ProviderList() {
   const q = useProviders();
   return (

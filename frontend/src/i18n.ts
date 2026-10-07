@@ -1,5 +1,6 @@
 import i18n from "i18next";
 import { initReactI18next } from "react-i18next";
+import en from "./locales/en/translation.json";
 import zh from "./locales/zh/translation.json";
 
 /**
@@ -9,10 +10,25 @@ import zh from "./locales/zh/translation.json";
  */
 export type Message = { code: string; params?: Record<string, unknown> };
 
+export const LANGUAGES = ["en", "zh"] as const;
+export type Language = (typeof LANGUAGES)[number];
+const STORAGE_KEY = "iirp.language";
+
+/** English on first open (D17); the reader's choice is kept in this browser. */
+function savedLanguage(): Language {
+  try {
+    const value = localStorage.getItem(STORAGE_KEY);
+    if (value === "en" || value === "zh") return value;
+  } catch {
+    /* Storage can be blocked; English is the default. */
+  }
+  return "en";
+}
+
 void i18n.use(initReactI18next).init({
-  resources: { zh: { translation: zh } },
-  lng: "zh",
-  fallbackLng: "zh",
+  resources: { en: { translation: en }, zh: { translation: zh } },
+  lng: savedLanguage(),
+  fallbackLng: "en",
   // Resources are bundled, so translations are ready before the first render.
   initAsync: false,
   // Codes are flat keys such as "market.bar.jump".
@@ -28,6 +44,27 @@ for (const [name, separator] of [
   i18n.services.formatter?.add(name, (value: unknown) =>
     Array.isArray(value) ? value.join(i18n.t(separator)) : String(value ?? ""),
   );
+}
+
+function applyDocumentLanguage(language: string) {
+  if (typeof document !== "undefined")
+    document.documentElement.lang = language === "zh" ? "zh-CN" : "en";
+}
+applyDocumentLanguage(i18n.language);
+i18n.on("languageChanged", applyDocumentLanguage);
+
+export function setLanguage(language: Language) {
+  try {
+    localStorage.setItem(STORAGE_KEY, language);
+  } catch {
+    /* The switch still applies to this tab. */
+  }
+  return i18n.changeLanguage(language);
+}
+
+/** Intl locale for numbers and dates in the current language. */
+export function locale() {
+  return i18n.language === "zh" ? "zh-CN" : "en-US";
 }
 
 function isMessage(value: unknown): value is Message {

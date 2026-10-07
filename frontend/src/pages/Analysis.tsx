@@ -27,7 +27,7 @@ import {
   EmptyState,
   ErrorNotice,
   useNotice,
-} from "../components/ui";
+} from "../components/common";
 import { ResearchChart } from "../components/ResearchChart";
 import { ResearchTable } from "../components/ResearchTable";
 import { comparableResults } from "../comparableResults";

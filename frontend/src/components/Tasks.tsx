@@ -27,7 +27,7 @@ import {
   Loading,
   Modal,
   useNotice,
-} from "./ui";
+} from "./common";
 
 function JobStatusLabel({ job }: { job: Job }) {
   const Icon =
