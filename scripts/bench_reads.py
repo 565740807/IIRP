@@ -2,6 +2,9 @@
 
 Measures home, the Insider feed (first page and pages 2/3 for all, buy and sell
 filters), the task list, company and person history and a transaction detail.
+The company and person pages are also measured as the browser loads them:
+six months of history, the before/after-5 windows of its rows and the cached
+daily bars of its ticker (``*_page`` adds the three request times).
 Requests run strictly one at a time with a pause in between, so the benchmark
 never becomes a load test. Results are JSON: p50 (median), p95 (nearest rank),
 max and response bytes per endpoint.
@@ -25,7 +28,7 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 MAX_RUNS = 20
@@ -103,6 +106,28 @@ def feed_pages(client, kind, prefix):
     return first
 
 
+def entity_page(client, kind, identifier):
+    """The requests of one company/person page; records their summed time as ``<kind>_page``."""
+    today = datetime.now(timezone.utc).date()
+    start = (today.replace(day=1) - timedelta(days=150)).isoformat()
+    before = {name: len(values) for name, values in client.samples.items()}
+    path = f"/api/v1/{'companies' if kind == 'company' else 'people'}/{identifier}"
+    history = client.get(f"{kind}_page_history", path, {"start_date": start, "end_date": today.isoformat(), "limit": 200})
+    rows = ((history or {}).get("data") or {}).get("items") or []
+    items = ",".join(sorted({f"{row['ticker']}|{row['transaction_date']}|{row['issuer_id']}" for row in rows
+                             if row.get("ticker") and row.get("transaction_date") and not row.get("date_anomaly")}))
+    if items:
+        client.get(f"{kind}_page_windows", "/api/v1/insider/windows", {"items": items, "n": 5})
+    tickers = sorted({row["ticker"] for row in rows if row.get("ticker")})
+    if tickers:
+        client.get(f"{kind}_page_bars", "/api/v1/insider/bars", {"ticker": tickers[0], "start_date": start})
+    added = [values[before.get(name, 0):] for name, values in client.samples.items() if name.startswith(f"{kind}_page_")]
+    total = sum(sample["ms"] for group in added for sample in group)
+    ok = all(sample["status"] == 200 for group in added for sample in group)
+    client.samples.setdefault(f"{kind}_page", []).append({"status": 200 if ok else "error", "ms": round(total, 2),
+                                                          "bytes": sum(sample["bytes"] for group in added for sample in group)})
+
+
 def summarize(samples):
     ok = [x for x in samples if x["status"] == 200]
     errors = {}
@@ -175,8 +200,10 @@ def main():
                 totals["jobs_items"] = len(jobs.get("items", []))
         if "company" in only and ids.get("company"):
             client.get("company_history", f"/api/v1/companies/{ids['company']}")
+            entity_page(client, "company", ids["company"])
         if "person" in only and ids.get("person"):
             client.get("person_history", f"/api/v1/people/{ids['person']}")
+            entity_page(client, "person", ids["person"])
         if "transaction" in only and ids.get("transaction"):
             client.get("transaction_detail", f"/api/v1/transactions/{ids['transaction']}")
         print(f"run {run + 1}/{args.runs} done", file=sys.stderr)

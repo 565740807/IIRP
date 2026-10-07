@@ -58,12 +58,12 @@ docs/            本文、决策、计划、运行手册、openapi.json
 
 | 包 | 一句话说明 |
 |---|---|
-| `api/` | FastAPI 应用（`app.py`）、各领域路由（`research.py`、`events.py`）、本地只读投影（`reads.py`）和请求/响应模型（`schemas.py`，Insider 读取的响应模型在 `insider_schemas.py`）；`docs/openapi.json` 由它导出。 |
+| `api/` | FastAPI 应用（`app.py`）、各领域路由（`research.py`、`events.py`）、本地只读投影（`reads.py`）和请求/响应模型（`schemas.py`，Insider 读取的响应模型在 `insider_schemas.py`）；Insider 查询、取价与前后 n 日在 `insider.py`，系统健康检查在 `health.py`；`docs/openapi.json` 由它导出。 |
 | `jobs/` | 持久任务与租约（`queue.py`、`ownership.py`）、用户需求批次（`batches.py`、`batch_views.py`）、规划（`planner.py`）、执行（`worker.py`、`handlers.py`、`operations.py`、`operation_pool.py`）、自动更新与定时（`auto_update.py`、`schedule.py`）。 |
-| `sec/` | SEC EDGAR：URL 校验与解析（`parse.py`、`ownership.py`）、限速下载（`fetch.py`）、历史范围规划（`planning.py`）、最新申报轮询（`poll.py`）。 |
-| `insider/` | 把申报写成按行的交易事实（`facts.py`），信息流的修订、水位线与阅读会话（`views.py`、`feed_index.py`、`feed.py`、`feed_updates.py`），公司/人员历史与交易详情（`entities.py`、`transactions.py`、`records.py`）。 |
+| `sec/` | SEC EDGAR：URL 校验与解析（`parse.py`、`ownership.py`）、限速下载（`fetch.py`）、历史范围规划（`planning.py`）、最新申报轮询（`poll.py`）、按 CIK 获取一家公司或一个人的申报（`entity.py`）。 |
+| `insider/` | 把申报写成按行的交易事实（`facts.py`），信息流的修订、水位线与阅读会话（`views.py`、`feed_index.py`、`feed.py`、`feed_updates.py`），公司/人员历史与交易详情（`entities.py`、`transactions.py`、`records.py`）、Insider 查询（`lookup.py`）。 |
 | `market/` | Yahoo 适配器与日线校验（`yahoo.py`）、24 小时日线缓存（`cache.py`）、首页报价（`quotes.py`）、本地行情读取（`reads.py`）。 |
-| `analysis/` | 所有金融计算：交易日历、月度与区间研究（`research.py`）、分布统计（`distributions.py`）、事件窗口（`event_windows.py`）、交易前后窗口；分析请求、结果复用与过期后重新获取。前端不重复实现。 |
+| `analysis/` | 所有金融计算：交易日历、月度与区间研究（`research.py`）、分布统计（`distributions.py`）、事件窗口（`event_windows.py`）、交易前后窗口（单笔 `transaction_windows.py`，列表 `insider_windows.py`）；分析请求、结果复用与过期后重新获取。前端不重复实现。 |
 | `events/` | 财报与自定义事件：提示词模板（`prompts.py`）、简短 JSON 校验（`input.py`）、事件集与分析（`service.py`）。 |
 | `storage/` | 按内容哈希保存来源文件（`objects.py`）、维护与备份调度（`maintenance.py`）、存储盘点与系统状态。 |
 | `models/` | 全部表定义，按领域分文件（`insider.py`、`market.py`、`jobs.py`、`analysis.py`、`sources.py`）；统一从 `iirp.models` 导入。 |
@@ -73,12 +73,12 @@ docs/            本文、决策、计划、运行手册、openapi.json
 
 ## 前端（`frontend/src`）
 
-页面在 `pages/`，共享组件在 `components/`。已改造的部分用 Tailwind 和 [shadcn/ui](https://ui.shadcn.com/)（`components/ui/`，Radix 组件）：外壳在 `components/shell/`（侧栏、顶部栏、搜索、任务入口、语言切换、系统状态），首页在 `components/home/`（行情条 `MarketStrip`、Insider 瀑布流 `InsiderStream` 与卡片 `FeedCard`）。尚未改造的页面（Insider 查询、分析、事件、数据、详情）沿用 `legacy.css`，它在 `legacy` 层叠层里，低于 Tailwind 工具类；页面迁移后删除对应规则。
+页面在 `pages/`，共享组件在 `components/`。已改造的部分用 Tailwind 和 [shadcn/ui](https://ui.shadcn.com/)（`components/ui/`，Radix 组件）：外壳在 `components/shell/`（侧栏、顶部栏、搜索、任务入口、语言切换、系统状态），首页在 `components/home/`（行情条 `MarketStrip`、Insider 瀑布流 `InsiderStream` 与卡片 `FeedCard`），Insider 查询 `pages/Insiders.tsx`、公司/人员页 `pages/Entity.tsx`、交易详情 `pages/Transaction.tsx`、数据与任务 `pages/Data.tsx`，它们共用 `components/insider/`（K 线 `PriceChart`、交易表 `TradeTable`、前后 n 日单元格、范围与 n 控件）。尚未改造的页面（分析、事件、指数详情、开发诊断）沿用 `legacy.css`，它在 `legacy` 层叠层里，低于 Tailwind 工具类；页面迁移后删除对应规则。
 
 - **请求**：新代码用 [openapi-fetch](https://openapi-ts.dev/openapi-fetch/)（`lib/api-client.ts`），类型由 `docs/openapi.json` 生成到 `generated/api.ts`（`npm run generate:api`，`npm run check:api` 校验一致）；服务器状态用 TanStack Query。旧页面仍用 `api.ts` 的 `api()`。前端只展示后端计算好的结果，不重复实现金融计算。
 - **配色**：令牌在 `index.css`。涨/买为蓝（`--up`），跌/卖为橙（`--down`），一律带 + / − 号；主操作色是近黑的墨色，与蓝、橙都能区分；数据延迟用紫灰（`--warn`），不与“跌”混淆。文字与背景的组合在 Chrome 中实测对比度均 ≥ 4.5:1，并在 Chrome 的绿色盲（deuteranopia）模拟下检查过。
 - **动画**：[Motion](https://motion.dev/) 负责新卡片落入、展开收起，[NumberFlow](https://number-flow.barvian.me/) 负责行情数字滚动（变化时背景闪蓝或橙约 1 秒）；首次加载用骨架；后台刷新时顶部栏刷新图标转动并显示细进度线；数据延迟的标记缓慢呼吸。时长约 0.15–0.3 秒，系统开启“减少动态效果”时不做位移动画。
-- **长列表**：瀑布流用 [TanStack Virtual](https://tanstack.com/virtual) 按窗口虚拟化。
+- **长列表与表格**：瀑布流用 [TanStack Virtual](https://tanstack.com/virtual) 按窗口虚拟化；交易表和任务表用 [TanStack Table](https://tanstack.com/table)；K 线用 ECharts。
 
 ### 首页刷新（D22）
 
@@ -87,6 +87,12 @@ docs/            本文、决策、计划、运行手册、openapi.json
 ### 瀑布流
 
 信息流按“公司 × SEC 接受日（美东）”分组，每组里每位申报人一行：谁（职务）、交易代码对应的 SEC 说法、股数、金额（买入为 +、卖出为 −）、交易日；卡片右上角是披露时间。列表在服务器的阅读会话（水位线，见下文“信息流的阅读会话”）上工作：读者停在顶部时，新申报读取两条水位线之间的增量后立即落入；读者往下翻时列表不动，顶部出现“↑ N new trades”，点击后先回到顶部再落入；接近底部时用同一会话的游标加载更早的组。列表操作是纯函数（`lib/feedStream.ts`），有单元测试。
+
+### Insider 查询与前后 n 日
+
+- **查询**（`insider/lookup.py`）：先查本地（`issuer.ticker` 精确匹配，或名字包含每个词）；本地没有时由 worker 的 `sec_identity` 任务去 SEC 查：像 ticker 的输入查 `company_tickers_exchange.json`，名字查 EDGAR 公司与人员搜索（`efts.sec.gov/LATEST/search-index?keysTyped=…`，即 sec.gov 搜索框背后的公开接口），同一查询每天只请求一次。选中一项后建 `sec_entity` 批次：`sec_discover`（mode=entity）读该 CIK 的 `data.sec.gov/submissions` 文件（Form 3/4/5 同时列在发行人和每位申报人名下），只为范围内的申报建 `sec_document` 任务。全部走现有 SEC 限速（每秒 ≤ 2 次）和 User-Agent。
+- **前后 n 日**（`analysis/insider_windows.py`，D16）：以交易日 t（非交易日顺延）收盘为基准，前 n 日 = C(t)/C(t−n) − 1，后 n 日 = C(t+n)/C(t) − 1；尚未到来的交易日留空并给出预计日期，当天未收盘标“盘中”。价格来自申报里写的 ticker 的 24 小时缓存；该证券未经 SEC ticker 列表确认属于该发行人时照常计算并标“待核对”。`GET /insider/windows` 只读缓存；缺价时页面调用一次 `POST /insider/prices`，每只股票一次请求取“默认 6 个月与最早 t−n 的较早者 − 1 个月余量”到当天，所以随后打开公司页不再取价。n 默认值在 `config/analysis-defaults.toml`，页面上切换并记住。
+- **数据页健康检查**（`api/health.py`）：只看当前问题——worker、SEC 联系方式与轮询、来源冷却、磁盘、备份、最近 24 小时失败的任务（按类型和原因分组，可一键重试）；没有问题时只显示一行“All systems normal”。超过 7 天未处理的部分完成批次归入“已完成”。
 
 ### 界面文字
 
@@ -128,4 +134,4 @@ docs/            本文、决策、计划、运行手册、openapi.json
 
 ## 后续改造
 
-尚未完成的界面与展示工作（Insider 查询与交易页、分析结果展示）见 [改进计划](IMPROVEMENT_PLAN.zh-CN.md)。
+尚未完成的界面与展示工作（分析结果展示）见 [改进计划](IMPROVEMENT_PLAN.zh-CN.md)。

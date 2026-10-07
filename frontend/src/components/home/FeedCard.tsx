@@ -28,7 +28,7 @@ export const FeedWindows = createContext<{ windows: Windows | null; n: number }>
 export const LINE_COLUMNS =
   "grid grid-cols-[minmax(0,1fr)_minmax(0,10.5rem)_4.25rem_5.75rem_6.5rem_3.75rem_3.75rem] items-baseline gap-x-3";
 /** Company column, then the lines, then the filing time. */
-export const CARD_COLUMNS = "grid grid-cols-[minmax(0,13rem)_minmax(0,1fr)_7.5rem] gap-x-4";
+export const CARD_COLUMNS = "grid grid-cols-[minmax(0,11rem)_minmax(0,1fr)_7.5rem] gap-x-3 min-[1400px]:grid-cols-[minmax(0,13rem)_minmax(0,1fr)_7.5rem] min-[1400px]:gap-x-4";
 
 function Amount({ summary }: { summary: Summary }) {
   const { t } = useTranslation();
@@ -94,9 +94,10 @@ function TraderLine({ trader, anomalies, group }: { trader: TraderGroup; anomali
   const ticker = windows?.ticker(group.ticker);
   return (
     <li className={cn(LINE_COLUMNS, "leading-6")}>
-      <span className="flex min-w-0 items-baseline gap-1.5">
+      <span className="flex min-w-0 items-baseline gap-1.5 overflow-hidden">
         {first ? (
-          <Link to={`/people/${first.id}`} state={sourceContext(location)} className="max-w-[65%] shrink-0 truncate font-medium hover:underline" title={readableCase(first.name)}>
+          <Link to={`/people/${first.id}`} state={sourceContext(location)} className="min-w-0 shrink truncate font-medium hover:underline"
+            title={[readableCase(first.name), first.roles.length ? rolesText(first) : ""].filter(Boolean).join(" · ")}>
             {readableCase(first.name)}
           </Link>
         ) : (
@@ -104,12 +105,12 @@ function TraderLine({ trader, anomalies, group }: { trader: TraderGroup; anomali
         )}
         {rest.length > 0 && (
           <Tooltip>
-            <TooltipTrigger className="shrink-0 text-xs text-muted-foreground">{t("ui.feed.more_owners", { count: rest.length })}</TooltipTrigger>
-            <TooltipContent>{rest.map((owner) => readableCase(owner.name)).join(", ")}</TooltipContent>
+            <TooltipTrigger className="shrink-0 text-xs text-muted-foreground tabular-nums" aria-label={t("ui.feed.more_owners", { count: rest.length })}>+{rest.length}</TooltipTrigger>
+            <TooltipContent>{t("ui.feed.more_owners", { count: rest.length })}: {rest.map((owner) => readableCase(owner.name)).join(", ")}</TooltipContent>
           </Tooltip>
         )}
         {first && first.roles.length > 0 && (
-          <span className="truncate text-xs text-muted-foreground" title={rolesText(first)}>{rolesText(first)}</span>
+          <span className="min-w-0 shrink-[3] truncate text-xs text-muted-foreground max-[1400px]:hidden">{rolesText(first)}</span>
         )}
       </span>
       {main ? <Action summary={main} others={others} /> : <span />}
