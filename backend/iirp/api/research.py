@@ -111,8 +111,8 @@ def price_range_document(body: PriceRangeInput):
 
 
 @router.get("/batches", response_model=BatchesOutput)
-def batches(category: str = "all", cursor: str = "", policy_key: str = "", view: str = "all"):
-    return invoke(batch_views.list_batches, category, cursor, policy_key, view)
+def batches(category: str = "all", cursor: str = "", policy_key: str = "", view: str = "all", kind: str = "all"):
+    return invoke(batch_views.list_batches, category, cursor, policy_key, view, kind)
 
 
 @router.get("/batches/{batch_id}", response_model=CollectionOutput)

@@ -46,6 +46,30 @@ for (const [name, separator] of [
   );
 }
 
+// "{{time, et}}": an instant in US Eastern time; "{{size, bytes}}": a byte count;
+// "{{kind, jobkind}}": a job kind in words.
+i18n.services.formatter?.add("et", (value: unknown, language: string | undefined) => {
+  const instant = new Date(String(value ?? ""));
+  if (Number.isNaN(instant.getTime())) return String(value ?? "");
+  const text = new Intl.DateTimeFormat(language === "zh" ? "zh-CN" : "en-US", {
+    month: "short", day: "numeric", hour: "numeric", minute: "2-digit", hour12: language !== "zh", timeZone: "America/New_York",
+  }).format(instant);
+  return `${text} ${i18n.t("ui.time.et")}`;
+});
+i18n.services.formatter?.add("bytes", (value: unknown, language: string | undefined) => {
+  const bytes = Number(value);
+  if (!Number.isFinite(bytes)) return String(value ?? "");
+  const units = ["B", "KB", "MB", "GB", "TB"];
+  const power = Math.min(units.length - 1, Math.max(0, Math.floor(Math.log(Math.max(bytes, 1)) / Math.log(1024))));
+  return `${new Intl.NumberFormat(language === "zh" ? "zh-CN" : "en-US", { maximumFractionDigits: 1 }).format(bytes / 1024 ** power)} ${units[power]}`;
+});
+// "{{purpose, purpose}}": a batch purpose code ("insider_window"); legacy Chinese text passes to tm.
+i18n.services.formatter?.add("purpose", (value: unknown) => {
+  const text = String(value ?? "");
+  return /^[a-z_]+$/.test(text) ? i18n.t(`ui.purpose.${text}`, { defaultValue: text }) : text;
+});
+i18n.services.formatter?.add("jobkind", (value: unknown) => i18n.t(`ui.job_kind.${String(value)}`, { defaultValue: String(value) }));
+
 function applyDocumentLanguage(language: string) {
   if (typeof document !== "undefined")
     document.documentElement.lang = language === "zh" ? "zh-CN" : "en";
@@ -88,13 +112,55 @@ export function decodeMessage(value: unknown): Message | null {
 
 function param(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(param);
-  return decodeMessage(value) ? tm(value) : value;
+  if (decodeMessage(value)) return tm(value);
+  // A legacy Chinese fragment inside a parameter ("自动日线更新").
+  return typeof value === "string" && i18n.language !== "zh" && legacyMessage(value) ? tm(value) : value;
+}
+
+/**
+ * Rows written before message codes (S4) hold finished Chinese sentences.
+ * Match them against the Chinese templates once and show them in the reader's
+ * language; text that matches no template stays as it is.
+ */
+let legacyTemplates: { code: string; pattern: RegExp; names: string[] }[] | null = null;
+const legacyCache = new Map<string, Message | null>();
+const CJK = /[\u3400-\u9fff]/;
+
+function legacyMessage(text: string): Message | null {
+  if (!CJK.test(text)) return null;
+  if (legacyCache.has(text)) return legacyCache.get(text)!;
+  legacyTemplates ??= Object.entries(zh as Record<string, string>)
+    .filter(([code, template]) => !code.startsWith("ui.") && CJK.test(template.replace(/\{\{[^}]+\}\}/g, "")))
+    .map(([code, template]) => {
+      const names: string[] = [];
+      const source = template
+        .split(/(\{\{[^}]+\}\})/)
+        .map((part) => {
+          const name = /^\{\{\s*([\w.]+)/.exec(part)?.[1];
+          if (!name) return part.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+          names.push(name);
+          return "(.+?)";
+        })
+        .join("");
+      return { code: code.replace(/_(one|other)$/, ""), pattern: new RegExp(`^${source}$`), names };
+    })
+    .sort((a, b) => b.pattern.source.length - a.pattern.source.length);
+  let found: Message | null = null;
+  for (const template of legacyTemplates) {
+    const match = template.pattern.exec(text);
+    if (!match) continue;
+    found = { code: template.code, params: Object.fromEntries(template.names.map((name, index) => [name, match[index + 1]])) };
+    break;
+  }
+  legacyCache.set(text, found);
+  return found;
 }
 
 /** Translate one backend message; plain text passes through. */
 export function tm(value: unknown): string {
   if (value === null || value === undefined) return "";
-  const message = decodeMessage(value);
+  let message = decodeMessage(value);
+  if (!message && typeof value === "string" && i18n.language !== "zh") message = legacyMessage(value);
   if (!message) return String(value);
   const params = Object.fromEntries(
     Object.entries(message.params ?? {}).map(([key, child]) => [key, param(child)]),

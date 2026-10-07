@@ -16,12 +16,12 @@ import { MotionConfig } from "motion/react";
 import { EmptyState, Loading, NoticeProvider } from "./components/common";
 import { AppShell } from "./components/shell/AppShell";
 import { RefreshProvider } from "./lib/refresh";
-import { HomePage, InsiderPage } from "./pages/Home";
+import { HomePage } from "./pages/Home";
 const DataPage = lazy(() =>
   import("./pages/Data").then((m) => ({ default: m.DataPage })),
 );
 const DiagnosticsPage = lazy(() =>
-  import("./pages/Data").then((m) => ({ default: m.DiagnosticsPage })),
+  import("./pages/Diagnostics").then((m) => ({ default: m.DiagnosticsPage })),
 );
 const AnalysisPage = lazy(() =>
   import("./pages/Analysis").then((m) => ({ default: m.AnalysisPage })),
@@ -29,14 +29,17 @@ const AnalysisPage = lazy(() =>
 const EventsPage = lazy(() =>
   import("./pages/Events").then((m) => ({ default: m.EventsPage })),
 );
+const InsidersPage = lazy(() =>
+  import("./pages/Insiders").then((m) => ({ default: m.InsidersPage })),
+);
 const EntityPage = lazy(() =>
-  import("./pages/Details").then((m) => ({ default: m.EntityPage })),
+  import("./pages/Entity").then((m) => ({ default: m.EntityPage })),
 );
 const TransactionPage = lazy(() =>
-  import("./pages/Details").then((m) => ({ default: m.TransactionPage })),
+  import("./pages/Transaction").then((m) => ({ default: m.TransactionPage })),
 );
 const MarketDetailPage = lazy(() =>
-  import("./pages/Details").then((m) => ({ default: m.MarketDetailPage })),
+  import("./pages/Market").then((m) => ({ default: m.MarketDetailPage })),
 );
 
 function useReadingScroll() {
@@ -147,7 +150,7 @@ function Workbench() {
       <Suspense fallback={<Loading label={t("ui.loading")} />}>
         <Routes>
           <Route path="/" element={<HomePage />} />
-          <Route path="/insiders" element={<InsiderPage />} />
+          <Route path="/insiders" element={<InsidersPage />} />
           <Route
             path="/analysis/monthly"
             element={<AnalysisPage key="monthly" />}
@@ -168,11 +171,11 @@ function Workbench() {
           <Route path="/data/diagnostics" element={<DiagnosticsPage />} />
           <Route
             path="/companies/:id"
-            element={<EntityPage kind="company" />}
+            element={<EntityPage key="company" kind="company" />}
           />
           <Route
             path="/people/:id"
-            element={<EntityPage kind="person" />}
+            element={<EntityPage key="person" kind="person" />}
           />
           <Route path="/transactions/:id" element={<TransactionPage />} />
           <Route path="/market/:symbol" element={<MarketDetailPage />} />

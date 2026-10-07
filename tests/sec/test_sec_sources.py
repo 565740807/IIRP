@@ -389,3 +389,43 @@ def test_submissions_misaligned_columns_are_not_silently_truncated():
         parse_submissions(
             json.dumps({"accessionNumber": [ACCESSION], "form": []}).encode(), cik="1702924"
         )
+
+
+def test_entity_search_url_is_allowlisted_with_only_the_typed_text():
+    assert validate_sec_url("https://efts.sec.gov/LATEST/search-index?keysTyped=tim+cook").startswith("https://efts.sec.gov/")
+    for url in ("https://efts.sec.gov/LATEST/search-index?keysTyped=a&forms=4",
+                "https://efts.sec.gov/LATEST/other?keysTyped=a"):
+        with pytest.raises(SecSourceError):
+            validate_sec_url(url)
+
+
+def test_lookup_matches_tickers_first_then_entity_search():
+    tickers = json.dumps({"fields": ["cik", "name", "ticker", "exchange"],
+                          "data": [[320193, "SYNTHETIC APPLE", "AAPL", "Nasdaq"], [1, "SYNTHETIC B", "BRK-B", "NYSE"]]}).encode()
+    search = json.dumps({"hits": {"hits": [{"_id": "1214156", "_source": {"entity": "COOK TIMOTHY D"}}]}}).encode()
+    seen = []
+
+    def fetch(url):
+        seen.append(url)
+        return tickers if "company_tickers" in url else search
+
+    ticker = run_sec_operation("sec_identity", {"query": "brk.b", "mode": "ticker"}, fetch=fetch)
+    assert [row["cik"] for row in ticker["candidates"]] == ["0000000001"] and len(seen) == 1
+    name = run_sec_operation("sec_identity", {"query": "tim cook", "mode": "name"}, fetch=fetch)
+    assert name["candidates"] == [{"cik": "0001214156", "name": "COOK TIMOTHY D", "tickers": []}]
+    assert seen[-1] == "https://efts.sec.gov/LATEST/search-index?keysTyped=tim+cook"
+
+
+def test_entity_discovery_keeps_ownership_filings_in_range_only():
+    columns = {
+        "accessionNumber": ["0001140361-26-038674", "0001959173-26-007235", "0000320187-26-000049", "0000320187-25-000010"],
+        "filingDate": ["2026-10-05", "2026-10-02", "2026-04-14", "2025-11-01"],
+        "acceptanceDateTime": ["2026-10-06T02:42:45.000Z"] * 4,
+        "form": ["4", "144", "4", "4"],
+        "primaryDocument": ["xslF345X06/form4.xml"] * 4,
+    }
+    payload = json.dumps({"cik": "1214156", "name": "COOK TIMOTHY D", "filings": {"recent": columns, "files": []}}).encode()
+    result = run_sec_operation("sec_discover", {"mode": "entity", "cik": "1214156", "start_date": "2026-04-07",
+                                                "end_date": "2026-10-07"}, fetch=lambda url: payload)
+    assert [entry["accession"] for entry in result["entries"]] == ["0001140361-26-038674", "0000320187-26-000049"]
+    assert result["scan"]["complete"] is True and result["entity"]["name"] == "COOK TIMOTHY D"

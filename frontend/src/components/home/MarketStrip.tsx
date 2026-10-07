@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { LoaderCircle } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
@@ -7,7 +8,7 @@ import { locale, tm } from "@/i18n";
 import type { Schemas } from "@/lib/api-client";
 import { formatDay, formatEt, formatLocal } from "@/lib/format";
 import { homeQuery } from "@/lib/queries";
-import { usePageVisible, useRefreshIntervals } from "@/lib/refresh";
+import { usePageVisible, useRefresh, useRefreshIntervals } from "@/lib/refresh";
 import { sourceContext } from "@/researchStorage";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -38,12 +39,12 @@ function Direction({ value, children, className }: { value: number | null | unde
   );
 }
 
-function QuoteTile({ quote }: { quote: Quote }) {
+function QuoteTile({ quote, updating }: { quote: Quote; updating: boolean }) {
   const { t } = useTranslation();
   const location = useLocation();
   const flash = useFlash(quote.value);
   const percent = quote.change_percent == null ? null : quote.change_percent / 100;
-  const delayed = quote.freshness === "delayed";
+  const delayed = quote.freshness === "delayed" && !updating;
   return (
     <Link
       to={`/market/${encodeURIComponent(quote.symbol)}`}
@@ -95,8 +96,21 @@ function QuoteTile({ quote }: { quote: Quote }) {
   );
 }
 
-/** One line under the strip: when the data is from and whether it is live, closed or delayed. */
-function StripStatus({ quotes }: { quotes: Quote[] }) {
+/**
+ * Delayed quotes grouped by reason: one sentence when they share it
+ * ("5 quotes delayed: …"), otherwise one group per reason with its names.
+ */
+function delayGroups(delayed: Quote[]) {
+  const groups = new Map<string, string[]>();
+  for (const quote of delayed) {
+    const reason = tm(quote.reason);
+    groups.set(reason, [...(groups.get(reason) ?? []), tm(quote.name)]);
+  }
+  return [...groups.entries()].map(([reason, names]) => ({ reason, names }));
+}
+
+/** One line under the strip: when the data is from and whether it is live, closed, updating or delayed. */
+function StripStatus({ quotes, updating }: { quotes: Quote[]; updating: boolean }) {
   const { t } = useTranslation();
   const delayed = quotes.filter((quote) => quote.freshness === "delayed");
   // Open or closed refers to the US stock market (S&P 500 session), not VIX or gold hours.
@@ -104,12 +118,20 @@ function StripStatus({ quotes }: { quotes: Quote[] }) {
   const updated = quotes.map((quote) => quote.fetched_at).filter(Boolean).sort().at(-1);
   if (!reference) return null;
   const closed = reference.freshness === "closed" || (reference.freshness !== "live" && reference.market_open === false);
+  const groups = delayGroups(delayed);
   return (
-    <p className="flex flex-wrap items-center gap-x-2 gap-y-0.5 px-1 pt-1.5 text-xs text-muted-foreground">
-      {delayed.length ? (
+    <p className="flex flex-wrap items-center gap-x-2 gap-y-0.5 px-1 pt-1.5 text-xs text-muted-foreground" role="status">
+      {updating && delayed.length ? (
+        <span className="inline-flex items-center gap-1.5">
+          <LoaderCircle className="size-3 motion-safe:animate-spin" aria-hidden />
+          {t("ui.market.updating")}
+        </span>
+      ) : delayed.length ? (
         <span className="inline-flex items-center gap-1.5 rounded bg-warn-soft px-1.5 py-0.5 font-medium text-warn">
           <span className="size-1.5 rounded-full bg-warn motion-safe:animate-breathe" aria-hidden />
-          {t("ui.market.delayed_since", { time: formatEt(delayed.map((quote) => quote.fetched_at).filter(Boolean).sort()[0], { date: true }) })}
+          {groups.length === 1
+            ? t("ui.market.delayed_all", { count: delayed.length, reason: groups[0].reason })
+            : t("ui.market.delayed_some", { count: delayed.length })}
         </span>
       ) : closed ? (
         <span>{t("ui.market.closed", { day: formatDay(reference.as_of, { year: false }) })}</span>
@@ -119,9 +141,14 @@ function StripStatus({ quotes }: { quotes: Quote[] }) {
           {t("ui.market.live")}
         </span>
       )}
-      {delayed.length > 0 && (
+      {!updating && groups.length > 1 && (
         <span className="text-warn">
-          {[...new Set(delayed.map((quote) => `${tm(quote.name)}: ${tm(quote.reason)}`))].join(" · ")}
+          {groups.map((group) => t("ui.market.delay_group", { names: group.names.join(t("format.list_separator")), reason: group.reason })).join(" · ")}
+        </span>
+      )}
+      {!updating && delayed.length > 0 && (
+        <span className="tabular-nums">
+          {t("ui.market.last_updated", { time: formatEt(delayed.map((quote) => quote.fetched_at).filter(Boolean).sort()[0]) })}
         </span>
       )}
       {updated && (
@@ -136,6 +163,26 @@ function StripStatus({ quotes }: { quotes: Quote[] }) {
   );
 }
 
+/**
+ * Until the first update after opening has finished, saved quotes may look
+ * delayed only because nobody has asked for new ones yet; show "Updating…".
+ */
+function useFirstUpdate(fetching: boolean) {
+  const { refreshing } = useRefresh();
+  const seen = useRef(false);
+  const [done, setDone] = useState(false);
+  useEffect(() => {
+    if (refreshing) seen.current = true;
+    else if (seen.current && !fetching) setDone(true);
+  }, [refreshing, fetching]);
+  // A check that never starts (offline service) must not keep the spinner forever.
+  useEffect(() => {
+    const timer = window.setTimeout(() => setDone(true), 20_000);
+    return () => window.clearTimeout(timer);
+  }, []);
+  return !done;
+}
+
 /** Five indexes in one compact row; values are the server's saved quotes. */
 export function MarketStrip() {
   const { t } = useTranslation();
@@ -146,6 +193,7 @@ export function MarketStrip() {
     refetchInterval: visible ? intervals.home_poll_seconds * 1000 : false,
   });
   const quotes = query.data?.market ?? [];
+  const updating = useFirstUpdate(query.isFetching);
   return (
     <section aria-label={t("ui.market.label")}>
       <div className="grid grid-cols-5 divide-x overflow-hidden rounded-lg border bg-card">
@@ -157,12 +205,12 @@ export function MarketStrip() {
                 <Skeleton className="h-3 w-16" />
               </div>
             ))
-          : quotes.map((quote) => <QuoteTile key={quote.symbol} quote={quote} />)}
+          : quotes.map((quote) => <QuoteTile key={quote.symbol} quote={quote} updating={updating} />)}
       </div>
       {query.error ? (
         <p className="px-1 pt-1.5 text-xs text-destructive">{query.error.message}</p>
       ) : (
-        <StripStatus quotes={quotes} />
+        <StripStatus quotes={quotes} updating={updating} />
       )}
     </section>
   );

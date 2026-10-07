@@ -55,7 +55,7 @@ def test_translations_use_known_placeholders():
         for placeholder in re.findall(r"\{\{([^}]*)\}\}", text):
             name, _, formatter = (part.strip() for part in placeholder.partition(","))
             assert re.fullmatch(r"[a-z_]+", name), key
-            assert formatter in {"", "number", "list", "items"}, key
+            assert formatter in {"", "number", "list", "items", "et", "bytes", "jobkind", "purpose"}, key
 
 
 def test_backend_returns_no_chinese_sentences():

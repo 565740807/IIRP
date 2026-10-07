@@ -8,7 +8,7 @@ from iirp.db import session
 from iirp.jobs.batch_views import batch_view
 from iirp.jobs.batches import ET, _create, resolve_defaults, scope_range
 from iirp.market.cache import cache_facts, price_bars
-from iirp.messages import NotFoundError, UserError, msg
+from iirp.messages import NotFoundError, UserError
 from iirp.models import (
     Batch,
     RequestReceipt,

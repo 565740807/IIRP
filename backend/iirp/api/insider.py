@@ -261,3 +261,45 @@ def prices(body: PricesInput):
             for item in body.items]
     with session() as s, s.begin():
         return _invoke(request_trade_prices, s, keys, n)
+
+
+class Bar(Output):
+    date: str
+    open: str | None = None
+    high: str | None = None
+    low: str | None = None
+    close: str | None = None
+    volume: str | None = None
+
+
+class BarsOutput(Output):
+    ticker: str | None = None
+    status: str
+    bars: list[Bar] = Field(default_factory=list)
+    fetched_at: str | None = None
+    expires_at: str | None = None
+
+
+@router.get("/bars", response_model=BarsOutput)
+def bars(ticker: str = Query(max_length=32), start_date: date = Query(), end_date: date | None = None):
+    """Cached daily bars (split-adjusted only) of a filing ticker, for the chart."""
+    from sqlalchemy import select
+
+    from iirp.analysis.insider_windows import provider_symbol
+    from iirp.market.cache import current_cache, price_bars
+    from iirp.models import Security
+
+    symbol = provider_symbol(ticker)
+    if not symbol:
+        return {"ticker": None, "status": "unavailable"}
+    with session() as s:
+        security = s.scalar(select(Security).where(Security.symbol == symbol).order_by(Security.id).limit(1))
+        cache = current_cache(s, security.id) if security else None
+        if cache is None:
+            return {"ticker": symbol, "status": "not_fetched"}
+        rows, _ = price_bars(s, security.id, cache.id, ranges=[(start_date, end_date or date.max)])
+        return {
+            "ticker": symbol, "status": "ready",
+            "bars": [row for row in rows if row["status"] == "VALID"],
+            "fetched_at": cache.fetched_at.isoformat(), "expires_at": cache.expires_at.isoformat(),
+        }

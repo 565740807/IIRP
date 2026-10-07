@@ -205,6 +205,8 @@ def request_trade_prices(s, items: list[dict], n: int) -> dict:
         params = {"kind": "market_history", "tickers": chunk, "start_date": start.isoformat(),
                   "end_date": today.isoformat(), "purpose": "insider_window"}
         params["request_id"] = "insider-prices-" + digest([params, today.isoformat()])[:40]
-        batch, _ = _create(s, params, trigger="automatic", policy_key="market")
+        batch, reused = _create(s, params, trigger="automatic", policy_key="market")
+        if not reused:
+            batch.title = msg("batch.title.insider_prices", symbols=", ".join(chunk[:3]), count=len(chunk))
         batch_ids.append(batch.id)
     return {"requested": due, "batch_ids": batch_ids}

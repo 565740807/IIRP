@@ -985,6 +985,63 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/insider/bars": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Bars
+         * @description Cached daily bars (split-adjusted only) of a filing ticker, for the chart.
+         */
+        get: operations["bars_api_v1_insider_bars_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/system/health": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Health View */
+        get: operations["health_view_api_v1_system_health_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/system/health/retry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Retry
+         * @description Retry the failed jobs of one group (at most 200, oldest first).
+         */
+        post: operations["retry_api_v1_system_health_retry_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1144,6 +1201,34 @@ export interface components {
             dump_bytes: number | null;
         } & {
             [key: string]: unknown;
+        };
+        /** Bar */
+        Bar: {
+            /** Date */
+            date: string;
+            /** Open */
+            open: string | null;
+            /** High */
+            high: string | null;
+            /** Low */
+            low: string | null;
+            /** Close */
+            close: string | null;
+            /** Volume */
+            volume: string | null;
+        };
+        /** BarsOutput */
+        BarsOutput: {
+            /** Ticker */
+            ticker: string | null;
+            /** Status */
+            status: string;
+            /** Bars */
+            bars: components["schemas"]["Bar"][];
+            /** Fetched At */
+            fetched_at: string | null;
+            /** Expires At */
+            expires_at: string | null;
         };
         /** BatchAction */
         BatchAction: {
@@ -2192,6 +2277,42 @@ export interface components {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
         };
+        /** HealthAction */
+        HealthAction: {
+            /** Kind */
+            kind: string;
+            /** Value */
+            value: string | null;
+        };
+        /** HealthGroup */
+        HealthGroup: {
+            /** Key */
+            key: string;
+            /** Severity */
+            severity: string;
+            /** Message */
+            message: string;
+            /**
+             * Count
+             * @default 1
+             */
+            count: number;
+            /** Since */
+            since: string | null;
+            action: components["schemas"]["HealthAction"] | null;
+        };
+        /** HealthOutput */
+        HealthOutput: {
+            /** Status */
+            status: string;
+            /**
+             * Checked At
+             * Format: date-time
+             */
+            checked_at: string;
+            /** Groups */
+            groups: components["schemas"]["HealthGroup"][];
+        };
         /** HistoricalSegment */
         HistoricalSegment: {
             /** Label */
@@ -3185,6 +3306,16 @@ export interface components {
             group: "historical" | "current" | "observation";
             /** Points */
             points: components["schemas"]["ResearchPoint"][];
+        };
+        /** RetryInput */
+        RetryInput: {
+            /** Key */
+            key: string;
+        };
+        /** RetryOutput */
+        RetryOutput: {
+            /** Retried */
+            retried: number;
         };
         /** ScopeView */
         ScopeView: {
@@ -4251,6 +4382,7 @@ export interface operations {
                 cursor?: string;
                 policy_key?: string;
                 view?: string;
+                kind?: string;
             };
             header?: never;
             path?: never;
@@ -5689,6 +5821,92 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PricesOutput"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    bars_api_v1_insider_bars_get: {
+        parameters: {
+            query: {
+                ticker: string;
+                start_date: string;
+                end_date?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BarsOutput"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    health_view_api_v1_system_health_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HealthOutput"];
+                };
+            };
+        };
+    };
+    retry_api_v1_system_health_retry_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RetryInput"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RetryOutput"];
                 };
             };
             /** @description Validation Error */
