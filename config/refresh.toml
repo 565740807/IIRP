@@ -1,0 +1,23 @@
+# Refresh cadence (D22), the only place these intervals are set.
+#
+# The worker makes every external request. A browser only asks whether
+# anything is due while a page is visible; the server coalesces those asks
+# across tabs, so more open tabs never mean more SEC or Yahoo requests.
+# Times are US Eastern; trading days follow the NYSE calendar.
+
+[sec]                       # latest Form 3/4/5 filings
+premarket_seconds = 120     # SEC business days 06:00-09:30, and SEC days the market is closed
+session_seconds = 60        # trading days 09:30-22:00 (EDGAR accepts filings until 22:00)
+night_seconds = 1800        # 22:00-06:00
+non_business_seconds = 3600 # weekends and federal holidays
+
+[quotes]                    # home-page indexes and gold futures (Yahoo)
+session_seconds = 60        # during the instrument's own regular session
+extended_seconds = 300      # US pre-market 04:00-09:30 and after-hours 16:00-20:00
+# Otherwise closed: no refresh until the next session; the last close is shown with its date.
+overdue_seconds = 180       # in session, a quote fetched longer ago than this is marked delayed
+
+[browser]                   # an open page; everything pauses while the tab is hidden
+home_poll_seconds = 10      # re-read the saved quotes (local database only)
+feed_poll_seconds = 5       # check for newly published Insider filings (local database only)
+ensure_seconds = 30         # ask the server whether a SEC or quote refresh is due

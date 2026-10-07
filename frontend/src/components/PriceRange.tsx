@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../api";
 import type { components } from "../generated/api";
-import { ErrorNotice } from "./ui";
+import { ErrorNotice } from "./common";
 
 type Range = components["schemas"]["PriceRangeView"];
 export function PriceRangeSummary({ range }: { range: Range }) {

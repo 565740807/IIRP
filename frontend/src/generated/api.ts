@@ -263,6 +263,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/feed/updates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Feed Updates
+         * @description Count changes since a reading watermark, or read one bounded delta page.
+         */
+        get: operations["feed_updates_api_v1_feed_updates_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/feed/groups/{group_id}": {
         parameters: {
             query?: never;
@@ -836,23 +856,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/feed/updates": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get Feed Updates */
-        get: operations["get_feed_updates_api_v1_feed_updates_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -996,6 +999,23 @@ export interface components {
         } & {
             [key: string]: unknown;
         };
+        /** BackupEntry */
+        BackupEntry: {
+            /** Name */
+            name: string;
+            /** Completed At */
+            completed_at: string | null;
+            /** Restore Verified At */
+            restore_verified_at: string | null;
+            /** Object Count */
+            object_count: number | null;
+            /** Object Bytes */
+            object_bytes: number | null;
+            /** Dump Bytes */
+            dump_bytes: number | null;
+        } & {
+            [key: string]: unknown;
+        };
         /** BatchAction */
         BatchAction: {
             /**
@@ -1062,6 +1082,18 @@ export interface components {
             counts?: {
                 [key: string]: number;
             };
+        };
+        /**
+         * BrowserRefresh
+         * @description How often an open page re-reads and asks for fresh data (config/refresh.toml).
+         */
+        BrowserRefresh: {
+            /** Home Poll Seconds */
+            home_poll_seconds: number;
+            /** Feed Poll Seconds */
+            feed_poll_seconds: number;
+            /** Ensure Seconds */
+            ensure_seconds: number;
         };
         /** CollectionInput */
         CollectionInput: {
@@ -1183,6 +1215,20 @@ export interface components {
             /** Reasons */
             reasons?: string[];
         };
+        /**
+         * DateAnomaly
+         * @description Transaction dated after its own SEC acceptance date (D19); kept as reported.
+         */
+        DateAnomaly: {
+            /** Code */
+            code: string;
+            /** Label */
+            label: string;
+            /** Transaction Date */
+            transaction_date: string;
+            /** Accepted Date */
+            accepted_date: string;
+        };
         /** Distribution */
         Distribution: {
             /** Key */
@@ -1283,6 +1329,107 @@ export interface components {
              * @default 0
              */
             flat: number;
+        };
+        /** EntityCompany */
+        EntityCompany: {
+            /** Issuer Id */
+            issuer_id: string;
+            /** Name */
+            name: string | null;
+            /** Ticker */
+            ticker: string | null;
+        };
+        /** EntityCoverage */
+        EntityCoverage: {
+            /** Status */
+            status: string;
+            /** Start Date */
+            start_date: string | null;
+            /** End Date */
+            end_date: string | null;
+            /** Requested Count */
+            requested_count: number | null;
+            /**
+             * Observed Count
+             * @default 0
+             */
+            observed_count: number;
+            /**
+             * Complete
+             * @default false
+             */
+            complete: boolean;
+            /** Message */
+            message: string | null;
+        };
+        /** EntityHistory */
+        EntityHistory: {
+            /** Id */
+            id: string;
+            /** Kind */
+            kind: string;
+            /** Name */
+            name: string | null;
+            entity: components["schemas"]["EntityRef"];
+            /** Items */
+            items: components["schemas"]["InsiderTransaction"][];
+            /** Status */
+            status: string | null;
+            /** Message */
+            message: string | null;
+            /** Session Id */
+            session_id: string | null;
+            /** As Of */
+            as_of: string | null;
+            /**
+             * Total
+             * @default 0
+             */
+            total: number;
+            /** Next Cursor */
+            next_cursor: string | null;
+            /** Summary */
+            summary: components["schemas"]["TradeSummary"][];
+            /** Summary Owner Scope */
+            summary_owner_scope: string | null;
+            /** Summary Note */
+            summary_note: string | null;
+            /** Transaction Start */
+            transaction_start: string | null;
+            /** Transaction End */
+            transaction_end: string | null;
+            /** Filings */
+            filings: number | null;
+            /**
+             * Date Basis
+             * @default transaction
+             */
+            date_basis: string;
+            /** Companies */
+            companies: components["schemas"]["EntityCompany"][];
+            coverage: components["schemas"]["EntityCoverage"];
+        };
+        /**
+         * EntityHistoryOutput
+         * @description A company's or person's transactions in a stable reading session.
+         */
+        EntityHistoryOutput: {
+            /** Items */
+            items: components["schemas"]["InsiderTransaction"][];
+            data: components["schemas"]["EntityHistory"];
+        };
+        /** EntityRef */
+        EntityRef: {
+            /** Id */
+            id: string;
+            /** Kind */
+            kind: string;
+            /** Name */
+            name: string;
+            /** Ticker */
+            ticker: string | null;
+            /** Issuer Ticker Raw */
+            issuer_ticker_raw: string | null;
         };
         /** EventAnalysisCreated */
         EventAnalysisCreated: {
@@ -1685,12 +1832,90 @@ export interface components {
              */
             status: "ok" | "pending" | "missing_price";
         };
-        /** FeedGroupOutput */
+        /** FeedCoverage */
+        FeedCoverage: {
+            /** Status */
+            status: string;
+            /** Pending Filings */
+            pending_filings: number;
+            /** Missing Acceptance Rows */
+            missing_acceptance_rows: number;
+            /** Message */
+            message: string;
+        };
+        /**
+         * FeedGroup
+         * @description One company and SEC acceptance date (US Eastern), as of one revision.
+         */
+        FeedGroup: {
+            /** Id */
+            id: string;
+            /** Issuer Id */
+            issuer_id: string;
+            /** Company */
+            company: string | null;
+            /** Ticker */
+            ticker: string | null;
+            /** Issuer Ticker Raw */
+            issuer_ticker_raw: string | null;
+            /** Accepted At */
+            accepted_at: string | null;
+            /** Accepted Date */
+            accepted_date: string | null;
+            /** Transaction Dates */
+            transaction_dates: string[];
+            /**
+             * Owners
+             * @default 0
+             */
+            owners: number;
+            /**
+             * Filings
+             * @default 0
+             */
+            filings: number;
+            /**
+             * Total Transactions
+             * @default 0
+             */
+            total_transactions: number;
+            /**
+             * Matching Transactions
+             * @default 0
+             */
+            matching_transactions: number;
+            /**
+             * Amendment Count
+             * @default 0
+             */
+            amendment_count: number;
+            /**
+             * Amendment Updates
+             * @default 0
+             */
+            amendment_updates: number;
+            /** Revision Id */
+            revision_id: string;
+            /** Revision Created At */
+            revision_created_at: string;
+            /** Summary */
+            summary: components["schemas"]["TradeSummary"][];
+            /** Transactions */
+            transactions: components["schemas"]["InsiderTransaction"][];
+            /** Trader Groups */
+            trader_groups: components["schemas"]["TraderGroup"][];
+            /** Next Trader Cursor */
+            next_trader_cursor: string | null;
+            /** Next Cursor */
+            next_cursor: string | null;
+        };
+        /**
+         * FeedGroupOutput
+         * @description Either trader groups (cursor "g:…") or transaction rows of one group.
+         */
         FeedGroupOutput: {
             /** Items */
-            items: {
-                [key: string]: unknown;
-            }[];
+            items: (components["schemas"]["TraderGroup"] | components["schemas"]["InsiderTransaction"])[];
             /** Revision Id */
             revision_id: string;
             /** Total */
@@ -1701,9 +1926,7 @@ export interface components {
         /** FeedOutput */
         FeedOutput: {
             /** Groups */
-            groups: {
-                [key: string]: unknown;
-            }[];
+            groups: components["schemas"]["FeedGroup"][];
             /**
              * Order
              * @default transaction
@@ -1719,23 +1942,15 @@ export interface components {
             total_groups: number;
             /** Data Status */
             data_status: string;
-            /** Coverage */
-            coverage: {
-                [key: string]: unknown;
-            };
+            coverage: components["schemas"]["FeedCoverage"];
             /**
              * New Count
              * @default 0
              */
             new_count: number;
             /** Pending Filings */
-            pending_filings?: {
-                [key: string]: unknown;
-            }[];
-            /** Pending Summary */
-            pending_summary?: {
-                [key: string]: unknown;
-            };
+            pending_filings: components["schemas"]["PendingFiling"][];
+            pending_summary: components["schemas"]["PendingSummary"];
         };
         /** FeedUpdatesOutput */
         FeedUpdatesOutput: {
@@ -1748,25 +1963,18 @@ export interface components {
             /** New Count */
             new_count: number;
             /** Changed Ids */
-            changed_ids?: string[];
+            changed_ids: string[];
             /** Removed Ids */
-            removed_ids?: string[];
+            removed_ids: string[];
             /** Groups */
-            groups?: {
-                [key: string]: unknown;
-            }[];
+            groups: components["schemas"]["FeedGroup"][];
             /** Next Cursor */
-            next_cursor?: string | null;
+            next_cursor: string | null;
             /** As Of */
             as_of: string;
-            /** Pending Summary */
-            pending_summary?: {
-                [key: string]: unknown;
-            };
+            pending_summary: components["schemas"]["PendingSummary"];
             /** Pending Filings */
-            pending_filings?: {
-                [key: string]: unknown;
-            }[];
+            pending_filings: components["schemas"]["PendingFiling"][];
         };
         /** FreshnessInput */
         FreshnessInput: {
@@ -1845,22 +2053,167 @@ export interface components {
         };
         /** HomeOutput */
         HomeOutput: {
-            /** Data Status */
-            data_status: string;
+            /**
+             * Observed At
+             * Format: date-time
+             */
+            observed_at: string;
             /** Market */
-            market: {
-                [key: string]: unknown;
-            }[];
-            /** Worker */
-            worker: {
-                [key: string]: unknown;
-            };
-            /** Active Jobs */
-            active_jobs: number;
-            /** Mode */
-            mode: string;
-            /** Notice */
-            notice: string;
+            market: components["schemas"]["HomeQuote"][];
+            refresh: components["schemas"]["BrowserRefresh"];
+        };
+        /**
+         * HomeQuote
+         * @description One index (or gold futures) quote as saved from its latest fetch.
+         *
+         *     ``freshness`` is judged at read time: ``live`` in session and on time,
+         *     ``closed`` outside the session (``as_of`` is the last trading day),
+         *     ``delayed`` when overdue, stale at the source or the last refresh failed
+         *     (``reason`` says which), ``missing`` before the first fetch.
+         */
+        HomeQuote: {
+            /** Symbol */
+            symbol: string;
+            /** Name */
+            name: string;
+            /** Value */
+            value: number | null;
+            /** Change */
+            change: number | null;
+            /** Change Percent */
+            change_percent: number | null;
+            /** Previous Close */
+            previous_close: string | null;
+            /** Baseline Date */
+            baseline_date: string | null;
+            /** As Of */
+            as_of: string | null;
+            /** Source Time */
+            source_time: string | null;
+            /** Fetched At */
+            fetched_at: string | null;
+            /** Next Refresh At */
+            next_refresh_at: string | null;
+            /** Market Open */
+            market_open: boolean | null;
+            session: components["schemas"]["QuoteSession"] | null;
+            /** Status */
+            status: string;
+            /** Unit */
+            unit: string | null;
+            /** Baseline */
+            baseline: string | null;
+            /**
+             * Freshness
+             * @enum {string}
+             */
+            freshness: "live" | "closed" | "delayed" | "missing";
+            /** Reason */
+            reason: string | null;
+        };
+        /**
+         * InsiderOwner
+         * @description A reporting owner with the roles stated in that filing.
+         */
+        InsiderOwner: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            /** Roles */
+            roles: string[];
+            /**
+             * Entity Type
+             * @default unknown
+             */
+            entity_type: string;
+        };
+        /**
+         * InsiderTransaction
+         * @description One row of Table I or II of a Form 3/4/5 filing.
+         */
+        InsiderTransaction: {
+            /** Id */
+            id: string;
+            /** Issuer Id */
+            issuer_id: string;
+            /** Accession */
+            accession: string;
+            /** Version Id */
+            version_id: string | null;
+            /** Form */
+            form: string | null;
+            /** Table */
+            table: string | null;
+            /** Code */
+            code: string | null;
+            /** Kind */
+            kind: string | null;
+            /** Action Category */
+            action_category: string | null;
+            /** Direction */
+            direction: string | null;
+            /** Security Title */
+            security_title: string | null;
+            /** Ticker */
+            ticker: string | null;
+            /** Issuer Ticker Raw */
+            issuer_ticker_raw: string | null;
+            /** Issuer Name */
+            issuer_name: string | null;
+            /** Shares */
+            shares: string | null;
+            /** Quantity Unit */
+            quantity_unit: string | null;
+            /** Price */
+            price: string | null;
+            /** Price Per Share */
+            price_per_share: string | null;
+            /** Amount */
+            amount: string | null;
+            /** Known Amount */
+            known_amount: string | null;
+            /** Currency */
+            currency: string | null;
+            /** Transaction Date */
+            transaction_date: string | null;
+            /** Accepted At */
+            accepted_at: string | null;
+            /** Group Accepted At */
+            group_accepted_at: string | null;
+            /** Group Accession */
+            group_accession: string | null;
+            /** Owner */
+            owner: string | null;
+            /** Owner Id */
+            owner_id: string | null;
+            /** Owner Ids */
+            owner_ids: string[];
+            /** Owners */
+            owners: components["schemas"]["InsiderOwner"][];
+            /** Status */
+            status: string | null;
+            /**
+             * Eligible For Totals
+             * @default false
+             */
+            eligible_for_totals: boolean;
+            /** Summary Exclusion Reason */
+            summary_exclusion_reason: string | null;
+            /** Replaces Id */
+            replaces_id: string | null;
+            /**
+             * Is Amendment Update
+             * @default false
+             */
+            is_amendment_update: boolean;
+            date_anomaly: components["schemas"]["DateAnomaly"] | null;
+            /** Source Row Index */
+            source_row_index: number | null;
+            /** Warnings */
+            warnings: unknown[];
+        } & {
+            [key: string]: unknown;
         };
         /** JobDetailView */
         JobDetailView: {
@@ -2057,6 +2410,19 @@ export interface components {
              */
             interpretation: string;
         };
+        /** MaintenanceRecord */
+        MaintenanceRecord: {
+            /** Kind */
+            kind: string;
+            /** Status */
+            status: string;
+            /** Created At */
+            created_at: string | null;
+            /** Details */
+            details: {
+                [key: string]: unknown;
+            };
+        };
         /** MonthlyRanking */
         MonthlyRanking: {
             /** Month */
@@ -2085,6 +2451,57 @@ export interface components {
             start_date: string;
             /** End Date */
             end_date: string;
+        };
+        /** PendingFiling */
+        PendingFiling: {
+            /** Accession */
+            accession: string;
+            /** Company */
+            company: string | null;
+            /** Form */
+            form: string | null;
+            /** Accepted At */
+            accepted_at: string | null;
+            /** Filing Date */
+            filing_date: string | null;
+            /** Stage */
+            stage: string;
+            /** Status */
+            status: string;
+        };
+        /** PendingStage */
+        PendingStage: {
+            /** Id */
+            id: string;
+            /** Label */
+            label: string;
+            /** Count */
+            count: number;
+        };
+        /**
+         * PendingSummary
+         * @description Filings seen at SEC but not yet parsed, by stage.
+         */
+        PendingSummary: {
+            /**
+             * Total
+             * @default 0
+             */
+            total: number;
+            /** Scope */
+            scope: string | null;
+            /** Stages */
+            stages: components["schemas"]["PendingStage"][];
+            /**
+             * Preview Limit
+             * @default 5
+             */
+            preview_limit: number;
+            /**
+             * Preview Count
+             * @default 0
+             */
+            preview_count: number;
         };
         /** PolicyRequest */
         PolicyRequest: {
@@ -2137,6 +2554,47 @@ export interface components {
             /** Version */
             version: number;
         };
+        /**
+         * PriceContext
+         * @description Price change around a transaction; status explains when it is unavailable.
+         */
+        PriceContext: {
+            /** Status */
+            status: string | null;
+            /** Reason */
+            reason: string | null;
+            /** Disclosure Lag Calendar Days */
+            disclosure_lag_calendar_days: number | null;
+            /** Price Fetched At */
+            price_fetched_at: string | null;
+            /** Price Basis */
+            price_basis: string | null;
+            /** Cutoff Date */
+            cutoff_date: string | null;
+            transaction: components["schemas"]["PriceWindow"] | null;
+            disclosure: components["schemas"]["PriceWindow"] | null;
+            /** Next Open */
+            next_open: {
+                [key: string]: unknown;
+            } | null;
+        } & {
+            [key: string]: unknown;
+        };
+        /** PricePoint */
+        PricePoint: {
+            /** X */
+            x: number | null;
+            /** Date */
+            date: string | null;
+            /** Close */
+            close: string | number | null;
+            /** Value */
+            value: string | number | null;
+            /** Status */
+            status: string | null;
+        } & {
+            [key: string]: unknown;
+        };
         /** PriceRangeInput */
         PriceRangeInput: {
             /** Historical Years */
@@ -2170,6 +2628,18 @@ export interface components {
             explanation: string;
             /** Buffer Explanation */
             buffer_explanation?: string | null;
+        };
+        /**
+         * PriceWindow
+         * @description Closes from t−n to t+n around one time basis (transaction or disclosure).
+         */
+        PriceWindow: {
+            /** Baseline Date */
+            baseline_date: string | null;
+            /** Points */
+            points: components["schemas"]["PricePoint"][];
+        } & {
+            [key: string]: unknown;
         };
         /** ProportionUncertainty */
         ProportionUncertainty: {
@@ -2206,6 +2676,15 @@ export interface components {
              * @default {"code":"method.proportion.interpretation","params":{}}
              */
             interpretation: string;
+        };
+        /** QuoteSession */
+        QuoteSession: {
+            /** Start */
+            start: string;
+            /** End */
+            end: string;
+            /** Timezone */
+            timezone: string | null;
         };
         /** RecentAnalysesOutput */
         RecentAnalysesOutput: {
@@ -2461,6 +2940,40 @@ export interface components {
                 [key: string]: unknown;
             };
         };
+        /** SearchData */
+        SearchData: {
+            /** Message */
+            message: string;
+        };
+        /** SearchItem */
+        SearchItem: {
+            /** Id */
+            id: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "company" | "person" | "security";
+            /** Name */
+            name: string;
+            /** Href */
+            href: string;
+            /** Ticker */
+            ticker: string | null;
+            /** Security Id */
+            security_id: string | null;
+            /** Issuer Id */
+            issuer_id: string | null;
+        };
+        /**
+         * SearchOutput
+         * @description Local matches only; searching never starts a download.
+         */
+        SearchOutput: {
+            /** Items */
+            items: components["schemas"]["SearchItem"][];
+            data: components["schemas"]["SearchData"];
+        };
         /** SecUserAgentState */
         SecUserAgentState: {
             /** Configured */
@@ -2472,6 +2985,95 @@ export interface components {
             status: "CONFIGURED" | "NEEDS_CONFIG";
             /** Message */
             message: string;
+        };
+        /** StoragePath */
+        StoragePath: {
+            /** Path */
+            path: string;
+            /** Logical Bytes */
+            logical_bytes: number | null;
+            /** Allocated Bytes */
+            allocated_bytes: number | null;
+            /** Files */
+            files: number | null;
+        };
+        /**
+         * StorageState
+         * @description Recorded sizes (no directory walk); capacity verdicts are null when unknown.
+         */
+        StorageState: {
+            /** Objects */
+            objects: number | null;
+            /** Bytes */
+            bytes: number | null;
+            /** Evidence */
+            evidence: number | null;
+            /** Cache */
+            cache: number | null;
+            /** Logs */
+            logs: number | null;
+            /** Backups */
+            backups: number | null;
+            /** Restores */
+            restores: number | null;
+            /** Database */
+            database: number | null;
+            /** Database Server */
+            database_server: number | null;
+            /** Expiring Objects */
+            expiring_objects: number | null;
+            /** Expiring Bytes */
+            expiring_bytes: number | null;
+            /** Analysis Cache Bytes */
+            analysis_cache_bytes: number | null;
+            /** Backup List */
+            backup_list: components["schemas"]["BackupEntry"][];
+            /** Restore List */
+            restore_list: {
+                [key: string]: unknown;
+            }[];
+            /** Recent Maintenance */
+            recent_maintenance: components["schemas"]["MaintenanceRecord"][];
+            /** Paths */
+            paths: {
+                [key: string]: components["schemas"]["StoragePath"];
+            };
+            /** Backup Estimated Temporary Bytes */
+            backup_estimated_temporary_bytes: number | null;
+            /** Restore Estimated Temporary Bytes */
+            restore_estimated_temporary_bytes: number | null;
+            /** Estimate Scope */
+            estimate_scope: string | null;
+            /** Inventory Status */
+            inventory_status: string | null;
+            /** Inventory Measured At */
+            inventory_measured_at: string | null;
+            /** Inventory Attempted At */
+            inventory_attempted_at: string | null;
+            /** Inventory Error */
+            inventory_error: string | null;
+            /** Inventory Age Seconds */
+            inventory_age_seconds: number | null;
+            /** Exact Status */
+            exact_status: string | null;
+            /** Exact Measured At */
+            exact_measured_at: string | null;
+            /** Exact Error */
+            exact_error: string | null;
+            /** Exact Seconds */
+            exact_seconds: number | null;
+            /** Free Bytes */
+            free_bytes: number | null;
+            /** Min Free Bytes */
+            min_free_bytes: number | null;
+            /** Disk Pressure */
+            disk_pressure: boolean | null;
+            /** Backup Capacity Sufficient */
+            backup_capacity_sufficient: boolean | null;
+            /** Restore Capacity Sufficient */
+            restore_capacity_sufficient: boolean | null;
+        } & {
+            [key: string]: unknown;
         };
         /** StrategyInput */
         StrategyInput: {
@@ -2513,19 +3115,114 @@ export interface components {
             version: string;
             /** Mode */
             mode: string;
-            /** Worker */
-            worker: {
-                [key: string]: unknown;
-            };
+            worker: components["schemas"]["WorkerState"];
             /** Migration */
             migration: string;
             /** Automatic Collection Scope */
             automatic_collection_scope: string;
             sec_user_agent: components["schemas"]["SecUserAgentState"];
-            /** Storage */
-            storage: {
+            storage: components["schemas"]["StorageState"];
+        };
+        /**
+         * TradeSummary
+         * @description Rows of one action (table, security, currency, code) added up.
+         */
+        TradeSummary: {
+            /** Table */
+            table: string | null;
+            /** Security Title */
+            security_title: string | null;
+            /** Currency */
+            currency: string | null;
+            /** Code */
+            code: string | null;
+            /** Kind */
+            kind: string | null;
+            /** Shares */
+            shares: string | null;
+            /** Known Amount */
+            known_amount: string | null;
+            /** Rows */
+            rows: number;
+            /**
+             * Missing Price Rows
+             * @default 0
+             */
+            missing_price_rows: number;
+            /**
+             * Review Rows
+             * @default 0
+             */
+            review_rows: number;
+            /**
+             * Known Price Rows
+             * @default 0
+             */
+            known_price_rows: number;
+            /**
+             * Known Shares Rows
+             * @default 0
+             */
+            known_shares_rows: number;
+            /**
+             * Reported Value Review Rows
+             * @default 0
+             */
+            reported_value_review_rows: number;
+            /**
+             * Missing Source Value Rows
+             * @default 0
+             */
+            missing_source_value_rows: number;
+            /**
+             * Owner Count
+             * @default 0
+             */
+            owner_count: number;
+            /**
+             * Person Count
+             * @default 0
+             */
+            person_count: number;
+            /**
+             * Institution Count
+             * @default 0
+             */
+            institution_count: number;
+            /**
+             * Unknown Owner Count
+             * @default 0
+             */
+            unknown_owner_count: number;
+        };
+        /**
+         * TraderGroup
+         * @description The same owners, transaction date and action inside one company/date group.
+         */
+        TraderGroup: {
+            /** Id */
+            id: string;
+            /** Owners */
+            owners: components["schemas"]["InsiderOwner"][];
+            /** Transaction Date */
+            transaction_date: string | null;
+            /** Summary */
+            summary: components["schemas"]["TradeSummary"][];
+            /** Rows */
+            rows: number;
+        };
+        /** TransactionDetail */
+        TransactionDetail: {
+            transaction: components["schemas"]["InsiderTransaction"];
+            price_context: components["schemas"]["PriceContext"];
+        };
+        /** TransactionDetailOutput */
+        TransactionDetailOutput: {
+            /** Items */
+            items: {
                 [key: string]: unknown;
-            };
+            }[];
+            data: components["schemas"]["TransactionDetail"];
         };
         /** TransactionSecurityInput */
         TransactionSecurityInput: {
@@ -2546,6 +3243,18 @@ export interface components {
             input?: unknown;
             /** Context */
             ctx?: Record<string, never>;
+        };
+        /**
+         * WorkerState
+         * @description Worker liveness from its heartbeat; online is null when the read failed.
+         */
+        WorkerState: {
+            /** Online */
+            online: boolean | null;
+            /** Last Seen */
+            last_seen: string | null;
+            /** Error */
+            error: string | null;
         };
         /** WorkerView */
         WorkerView: {
@@ -2938,7 +3647,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["GenericOutput"];
+                    "application/json": components["schemas"]["SearchOutput"];
                 };
             };
             /** @description Validation Error */
@@ -2970,6 +3679,40 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    feed_updates_api_v1_feed_updates_get: {
+        parameters: {
+            query: {
+                session_id: string;
+                include_groups?: boolean;
+                target_session_id?: string;
+                cursor?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FeedUpdatesOutput"];
                 };
             };
             /** @description Validation Error */
@@ -3579,7 +4322,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["GenericOutput"];
+                    "application/json": components["schemas"]["EntityHistoryOutput"];
                 };
             };
             /** @description Validation Error */
@@ -3619,7 +4362,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["GenericOutput"];
+                    "application/json": components["schemas"]["EntityHistoryOutput"];
                 };
             };
             /** @description Validation Error */
@@ -3653,7 +4396,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["GenericOutput"];
+                    "application/json": components["schemas"]["TransactionDetailOutput"];
                 };
             };
             /** @description Validation Error */
@@ -4314,40 +5057,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["EventAnalysisOutput"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    get_feed_updates_api_v1_feed_updates_get: {
-        parameters: {
-            query: {
-                session_id: string;
-                include_groups?: boolean;
-                target_session_id?: string;
-                cursor?: string;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["FeedUpdatesOutput"];
                 };
             };
             /** @description Validation Error */

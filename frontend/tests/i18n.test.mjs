@@ -5,16 +5,26 @@ import { fileURLToPath } from "node:url";
 
 const { outputFiles } = buildSync({
   stdin: {
-    contents: 'export { localize, tm } from "./i18n";',
+    contents: 'export { localize, tm, setLanguage, locale } from "./i18n";',
     resolveDir: fileURLToPath(new URL("../src", import.meta.url)),
     loader: "ts",
   },
   bundle: true, write: false, platform: "node", format: "esm",
 });
-const { localize, tm } = await import(`data:text/javascript;base64,${Buffer.from(outputFiles[0].text).toString("base64")}`);
+const { localize, tm, setLanguage, locale } = await import(`data:text/javascript;base64,${Buffer.from(outputFiles[0].text).toString("base64")}`);
 const msg = (code, params = {}) => JSON.stringify({ code, params });
 
-test("messages render the current Chinese text, nested and with list formatters", () => {
+test("English is the default language, with the same messages and list formatters", () => {
+  assert.equal(locale(), "en-US");
+  assert.equal(tm(msg("stage.waiting_channel", { source: "Yahoo", stage: msg("stage.market_history") })),
+    "Waiting for the Yahoo channel · Filling daily price history");
+  assert.equal(tm(msg("events.set_title.earnings_more", { tickers: ["AAPL", "MSFT", "NVDA"], first: "2018", last: "2026" })),
+    "AAPL, MSFT, NVDA and more · earnings 2018–2026");
+  assert.ok(tm(msg("http.request_too_large", { size: 1234567, limit: 524288 })).startsWith("This request is at least 1,234,567 bytes"));
+});
+
+test("messages render the current Chinese text, nested and with list formatters", async () => {
+  await setLanguage("zh");
   assert.equal(tm(msg("stage.waiting_channel", { source: "Yahoo", stage: msg("stage.market_history") })),
     "等待 Yahoo 通道 · 补齐历史日线");
   assert.equal(tm(msg("events.set_title.earnings_more", { tickers: ["AAPL", "MSFT", "NVDA"], first: "2018", last: "2026" })),
@@ -26,7 +36,8 @@ test("messages render the current Chinese text, nested and with list formatters"
   assert.equal(tm({ code: "job.not_found", params: {} }), "任务不存在。");
 });
 
-test("responses are localized in place; data with a code field and old text stay", () => {
+test("responses are localized in place; data with a code field and old text stay", async () => {
+  await setLanguage("zh");
   const response = {
     title: msg("batch.title.sec_latest"),
     rows: [{ code: "P", kind: msg("insider.kind.derivative", { kind: msg("insider.action.grant_or_award") }) }],

@@ -58,7 +58,7 @@ docs/            本文、决策、计划、运行手册、openapi.json
 
 | 包 | 一句话说明 |
 |---|---|
-| `api/` | FastAPI 应用（`app.py`）、各领域路由（`research.py`、`events.py`）、本地只读投影（`reads.py`）和唯一的请求/响应模型（`schemas.py`）；`docs/openapi.json` 由它导出。 |
+| `api/` | FastAPI 应用（`app.py`）、各领域路由（`research.py`、`events.py`）、本地只读投影（`reads.py`）和请求/响应模型（`schemas.py`，Insider 读取的响应模型在 `insider_schemas.py`）；`docs/openapi.json` 由它导出。 |
 | `jobs/` | 持久任务与租约（`queue.py`、`ownership.py`）、用户需求批次（`batches.py`、`batch_views.py`）、规划（`planner.py`）、执行（`worker.py`、`handlers.py`、`operations.py`、`operation_pool.py`）、自动更新与定时（`auto_update.py`、`schedule.py`）。 |
 | `sec/` | SEC EDGAR：URL 校验与解析（`parse.py`、`ownership.py`）、限速下载（`fetch.py`）、历史范围规划（`planning.py`）、最新申报轮询（`poll.py`）。 |
 | `insider/` | 把申报写成按行的交易事实（`facts.py`），信息流的修订、水位线与阅读会话（`views.py`、`feed_index.py`、`feed.py`、`feed_updates.py`），公司/人员历史与交易详情（`entities.py`、`transactions.py`、`records.py`）。 |
@@ -69,15 +69,28 @@ docs/            本文、决策、计划、运行手册、openapi.json
 | `models/` | 全部表定义，按领域分文件（`insider.py`、`market.py`、`jobs.py`、`analysis.py`、`sources.py`）；统一从 `iirp.models` 导入。 |
 | `messages.py` | 返回给用户的文字是“消息代码 + 参数”，见下文“界面文字”。 |
 
-迁移在 `migrations/`（Alembic）。采集与保留的默认值在 `config/collection-defaults.toml`，分析的 n 默认值在 `config/analysis-defaults.toml`，来源契约在 `config/provider-contracts.json`。
+迁移在 `migrations/`（Alembic）。采集与保留的默认值在 `config/collection-defaults.toml`，刷新间隔在 `config/refresh.toml`，分析的 n 默认值在 `config/analysis-defaults.toml`，来源契约在 `config/provider-contracts.json`。
 
 ## 前端（`frontend/src`）
 
-页面在 `pages/`（首页、Insider、分析、事件、数据与任务），共享组件在 `components/`。服务器状态用 TanStack Query，图表用 ECharts。接口类型由 `docs/openapi.json` 生成到 `generated/api.ts`（`npm run generate:api`），`npm run check:api` 校验两者一致。前端只展示后端计算好的结果。
+页面在 `pages/`，共享组件在 `components/`。已改造的部分用 Tailwind 和 [shadcn/ui](https://ui.shadcn.com/)（`components/ui/`，Radix 组件）：外壳在 `components/shell/`（侧栏、顶部栏、搜索、任务入口、语言切换、系统状态），首页在 `components/home/`（行情条 `MarketStrip`、Insider 瀑布流 `InsiderStream` 与卡片 `FeedCard`）。尚未改造的页面（Insider 查询、分析、事件、数据、详情）沿用 `legacy.css`，它在 `legacy` 层叠层里，低于 Tailwind 工具类；页面迁移后删除对应规则。
+
+- **请求**：新代码用 [openapi-fetch](https://openapi-ts.dev/openapi-fetch/)（`lib/api-client.ts`），类型由 `docs/openapi.json` 生成到 `generated/api.ts`（`npm run generate:api`，`npm run check:api` 校验一致）；服务器状态用 TanStack Query。旧页面仍用 `api.ts` 的 `api()`。前端只展示后端计算好的结果，不重复实现金融计算。
+- **配色**：令牌在 `index.css`。涨/买为蓝（`--up`），跌/卖为橙（`--down`），一律带 + / − 号；主操作色是近黑的墨色，与蓝、橙都能区分；数据延迟用紫灰（`--warn`），不与“跌”混淆。文字与背景的组合在 Chrome 中实测对比度均 ≥ 4.5:1，并在 Chrome 的绿色盲（deuteranopia）模拟下检查过。
+- **动画**：[Motion](https://motion.dev/) 负责新卡片落入、展开收起，[NumberFlow](https://number-flow.barvian.me/) 负责行情数字滚动（变化时背景闪蓝或橙约 1 秒）；首次加载用骨架；后台刷新时顶部栏刷新图标转动并显示细进度线；数据延迟的标记缓慢呼吸。时长约 0.15–0.3 秒，系统开启“减少动态效果”时不做位移动画。
+- **长列表**：瀑布流用 [TanStack Virtual](https://tanstack.com/virtual) 按窗口虚拟化。
+
+### 首页刷新（D22）
+
+间隔只写在 `config/refresh.toml`：SEC 轮询节奏、行情的开盘/盘前盘后/休市规则，以及浏览器端的三个间隔（重读本地行情、检查新申报、询问服务器是否该更新）。浏览器端间隔随 `/api/v1/home` 下发。外部请求只由 worker 发出；页面打开、回到前台和可见期间每隔一段时间调用 `POST /api/v1/freshness/ensure`，服务器用咨询锁、“60 秒内已请求”和每个品种的 `next_refresh_at` 合并请求，所以多个标签页不会让 SEC 或 Yahoo 请求成倍增加；标签页隐藏时不轮询。行情是否“交易中 / 已休市 / 延迟”在读取时按当时时间判断（`api/reads.py`），延迟会写明原因（超时未更新、来源报价滞后、最近一次更新失败、收盘价尚未取回）。
+
+### 瀑布流
+
+信息流按“公司 × SEC 接受日（美东）”分组，每组里每位申报人一行：谁（职务）、交易代码对应的 SEC 说法、股数、金额（买入为 +、卖出为 −）、交易日；卡片右上角是披露时间。列表在服务器的阅读会话（水位线，见下文“信息流的阅读会话”）上工作：读者停在顶部时，新申报读取两条水位线之间的增量后立即落入；读者往下翻时列表不动，顶部出现“↑ N new trades”，点击后先回到顶部再落入；接近底部时用同一会话的游标加载更早的组。列表操作是纯函数（`lib/feedStream.ts`），有单元测试。
 
 ### 界面文字
 
-后端不返回某种语言的成句文字。报错、状态说明、提示、任务标题和方法说明都是消息 `{"code": "...", "params": {...}}`（`iirp.messages.msg`）；放在原来的文本字段（数据库列、异常、子进程结果、JSON 响应）里时是该对象的紧凑 JSON 字符串，HTTP 报错的 `detail` 直接是对象。前端用 [i18next](https://www.i18next.com/) / react-i18next 按代码显示：翻译在 `frontend/src/locales/<语言>/translation.json`（i18next JSON 格式，`{{参数}}` 插值），`api()` 收到响应时把其中的消息换成当前语言的文字（`src/i18n.ts` 的 `localize`）。消息出现之前写入的旧文字原样显示。`tests/test_messages.py` 检查后端用到的每个代码都有翻译。目前只有中文；前端页面自身的文字仍写在组件里，英文界面与切换在 S5 完成。
+后端不返回某种语言的成句文字。报错、状态说明、提示、任务标题和方法说明都是消息 `{"code": "...", "params": {...}}`（`iirp.messages.msg`）；放在原来的文本字段（数据库列、异常、子进程结果、JSON 响应）里时是该对象的紧凑 JSON 字符串，HTTP 报错的 `detail` 直接是对象。前端用 [i18next](https://www.i18next.com/) / react-i18next 按代码显示：翻译在 `frontend/src/locales/{en,zh}/translation.json`（`{{参数}}` 插值；`ui.*` 是界面自身的文字）。首次打开为英文，右上角切换 English / 中文，选择存在浏览器的 localStorage；数字、日期按语言格式化（`lib/format.ts`），时间统一按美东显示并注明时区，悬停可看本地时间。新代码在显示时翻译（`tm`），切换语言不需要重新请求；旧页面在 `api()` 收到响应时翻译，切换语言后重新读取。`tests/test_messages.py` 检查后端用到的每个代码在两种语言里都有翻译。
 
 ## 数据流
 
@@ -115,4 +128,4 @@ docs/            本文、决策、计划、运行手册、openapi.json
 
 ## 后续改造
 
-尚未完成的界面与展示工作（英文界面、首页与 Insider、分析结果展示）见 [改进计划](IMPROVEMENT_PLAN.zh-CN.md)。
+尚未完成的界面与展示工作（Insider 查询与交易页、分析结果展示）见 [改进计划](IMPROVEMENT_PLAN.zh-CN.md)。

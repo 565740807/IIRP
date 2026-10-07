@@ -1,9 +1,16 @@
 """Current Yahoo snapshots, kept separate from completed research price datasets."""
 
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, datetime, time, timedelta, timezone
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from iirp.analysis.calendar import last_completed_session, previous_session
+from iirp.analysis.calendar import (
+    ET,
+    last_completed_session,
+    next_session,
+    previous_session,
+    sessions,
+)
+from iirp.config import refresh
 from iirp.market.yahoo import MARKETS, number
 from iirp.messages import msg
 
@@ -38,6 +45,41 @@ def _periods(meta):
             result.append({"period": name, "start": start, "end": end,
                            "timezone": meta.get("exchangeTimezoneName") or period.get("timezone")})
     return result
+
+
+# US pre-market and after-hours windows, minutes after midnight Eastern (D22).
+EXTENDED_HOURS = ((4 * 60, 9 * 60 + 30), (16 * 60, 20 * 60))
+
+
+def _extended_hours(stamp):
+    local = stamp.astimezone(ET)
+    minute = local.hour * 60 + local.minute
+    return bool(sessions(local.date(), local.date())) and any(a <= minute < b for a, b in EXTENDED_HOURS)
+
+
+def _next_extended_start(stamp):
+    """Start of the next pre-market or after-hours window after a closed instant."""
+    local = stamp.astimezone(ET)
+    day, minute = local.date(), local.hour * 60 + local.minute
+    if sessions(day, day):
+        for start, _ in EXTENDED_HOURS:
+            if minute < start:
+                return datetime.combine(day, time(start // 60, start % 60), tzinfo=ET)
+    day = next_session(day + timedelta(days=1))
+    return datetime.combine(day, time(4), tzinfo=ET)
+
+
+def next_quote_refresh(fetched, active, upcoming, periods_known):
+    """When this quote is next due (config/refresh.toml): each minute in the
+    instrument's session, every five minutes in US extended hours or when the
+    source gives no session, otherwise not before the next window opens."""
+    cadence = refresh()["quotes"]
+    if active:
+        return fetched + timedelta(seconds=cadence["session_seconds"])
+    following = [upcoming[0]["start"]] if upcoming else []
+    if not periods_known or _extended_hours(fetched):
+        return min([fetched + timedelta(seconds=cadence["extended_seconds"]), *following])
+    return min([_next_extended_start(fetched).astimezone(timezone.utc), *following])
 
 
 def _daily_records(response):
@@ -85,14 +127,7 @@ def quote_from_snapshot(symbol, response):
     session = ({**selected, "start": selected["start"].isoformat(),
                 "end": selected["end"].isoformat(), "basis": msg("quote.session_basis")}
                if selected else None)
-    next_refresh = None
-    if fetched:
-        if active:
-            next_refresh = fetched + timedelta(seconds=60)
-        elif upcoming:
-            next_refresh = upcoming[0]["start"]
-        else:
-            next_refresh = fetched + timedelta(minutes=15 if market_open is False else 5)
+    next_refresh = next_quote_refresh(fetched, active, upcoming, bool(periods)) if fetched else None
 
     source_time = quoted.isoformat() if paired else None
     if paired:

@@ -1,7 +1,6 @@
 import { Timestamp } from "./Timestamp";
 import { useMutation } from "@tanstack/react-query";
 import * as Switch from "@radix-ui/react-switch";
-import { Link } from "react-router-dom";
 import type { ReactNode } from "react";
 import {
   api,
@@ -12,7 +11,8 @@ import {
   type CollectionInput,
   type StrategyInput,
 } from "../api";
-import { Button, ErrorNotice, Loading, useNotice } from "./ui";
+import i18n from "../i18n";
+import { Button, ErrorNotice, Loading, useNotice } from "./common";
 export function CollectionButton({
   kind,
   tickers,
@@ -52,7 +52,7 @@ export function CollectionButton({
           {
             onSuccess: (r) =>
               notice({
-                text: `${r.reused ? "已复用" : "已创建"}批次：${r.batch.title}。可在数据与任务查看进度。`,
+                text: i18n.t(r.reused ? "ui.collection.reused" : "ui.collection.created", { title: r.batch.title }),
               }),
             onError: (e) => notice({ text: e.message, error: true }),
           },
@@ -133,21 +133,5 @@ export function ScopeNotice() {
     <p className="notice notice-info">
       SEC 申报与交易永久保存；行情为 24 小时缓存，期间重复查看不再下载，过期后按需重新获取。来源不足会保留具体缺口。
     </p>
-  );
-}
-export function CollectionStrip() {
-  return (
-    <div className="collection-strip">
-      <strong>Insider 更新</strong>
-      <div className="button-row">
-        <CollectionButton kind="sec_latest" primary>
-          获取最新申报
-        </CollectionButton>
-        <PolicyControl />
-      </div>
-      <Link to="/data" className="strip-help">
-        查看覆盖与任务
-      </Link>
-    </div>
   );
 }

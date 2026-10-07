@@ -18,7 +18,7 @@ import {
   type Batch,
   type GenericOutput,
 } from "../api";
-import { Button, EmptyState, ErrorNotice, Loading, useNotice } from "./ui";
+import { Button, EmptyState, ErrorNotice, Loading, useNotice } from "./common";
 import { PriceRangeSummary } from "./PriceRange";
 function AnalysisLink({
   batch,

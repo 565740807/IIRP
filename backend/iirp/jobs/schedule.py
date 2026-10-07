@@ -6,6 +6,7 @@ from datetime import timedelta
 from sqlalchemy import select
 
 from iirp.analysis.calendar import ET, sessions
+from iirp.config import refresh
 from iirp.db import session
 from iirp.jobs.providers import sec_configured
 from iirp.messages import msg
@@ -25,15 +26,16 @@ def sec_workday(day):
 
 
 def sec_poll_seconds(stamp):
+    cadence = refresh()["sec"]
     current = stamp.astimezone(ET)
     if not sec_workday(current.date()):
-        return 3600
+        return cadence["non_business_seconds"]
     minute = current.hour * 60 + current.minute
     if not 360 <= minute < 1320:
-        return 1800
+        return cadence["night_seconds"]
     if not sessions(current.date(), current.date()) or minute < 570:
-        return 120
-    return 60
+        return cadence["premarket_seconds"]
+    return cadence["session_seconds"]
 
 
 def _has_running(s, key, kind=None):

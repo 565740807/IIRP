@@ -10,7 +10,7 @@ import { api, formatTime, percent, requestId } from "../api";
 import { researchHref } from "../researchStorage";
 import { useEventResearch, useEventSets } from "../researchQueries";
 import { researchKeys } from "../queryIdentity";
-import { Button, ErrorNotice, Loading, useNotice } from "../components/ui";
+import { Button, ErrorNotice, Loading, useNotice } from "../components/common";
 import "../analysis.css";
 
 echarts.use([CandlestickChart, GridComponent, TooltipComponent, CanvasRenderer]);

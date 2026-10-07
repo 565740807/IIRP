@@ -1,55 +1,63 @@
 """Read projections from committed local facts; none of these reads fetch a source."""
 
-from sqlalchemy import func, select
+from datetime import datetime, timedelta
 
-from iirp.config import settings
+from sqlalchemy import select
+
+from iirp.config import refresh
 from iirp.db import session
-from iirp.jobs.job_views import worker_view
 from iirp.jobs.providers import sec_configured
 from iirp.market.yahoo import MARKETS, source_contract
 from iirp.messages import UserError, msg
-from iirp.models import ACTIVE, Issuer, Job, MarketQuote, Owner, Security
+from iirp.models import Issuer, Job, MarketQuote, Owner, Security, now
+
+
+def _quote_freshness(quote, failure, current):
+    """(freshness, reason message) of a saved quote at ``current``."""
+    session = quote.get("session") or {}
+    start, end = (datetime.fromisoformat(session[key]) if session.get(key) else None for key in ("start", "end"))
+    fetched = datetime.fromisoformat(quote["fetched_at"])
+    if failure is not None and failure.updated_at > fetched:
+        return "delayed", failure.error or msg("home.quote.refresh_failed")
+    if start and end and start <= current < end:
+        if quote.get("status") == "STALE":
+            return "delayed", msg("quote.delay.stale")
+        overdue = refresh()["quotes"]["overdue_seconds"]
+        if (current - fetched).total_seconds() > overdue:
+            return "delayed", msg("home.quote.overdue", minutes=overdue // 60)
+        return "live", None
+    if end and current >= end and fetched < end:
+        return "delayed", msg("home.quote.close_pending")
+    if start and end:
+        return "closed", None
+    return ("delayed", msg("quote.delay.daily")) if quote.get("status") == "DAILY" else ("live", None)
 
 
 def home():
+    """Saved quotes for the home strip; the browser asks /freshness/ensure for new ones."""
+    current = now()
     with session() as s:
-        quotes = {q.symbol: q for q in s.scalars(select(MarketQuote))}
+        quotes = {q.symbol: q for q in s.scalars(select(MarketQuote).where(MarketQuote.symbol.in_(MARKETS)))}
+        # The newest quote job per symbol: a failure after the last fetch explains a delay.
+        latest = {}
+        for job in s.scalars(
+            select(Job).where(Job.kind == "market_quote", Job.created_at > current - timedelta(days=1))
+            .order_by(Job.created_at.desc()).limit(50)
+        ):
+            latest.setdefault(job.target.get("symbol"), job)
         market = []
         for symbol, name in MARKETS.items():
-            row = quotes.get(symbol)
-            if row:
-                market.append({**row.data, "name": name, "source": row.data.get("source", "Yahoo Finance / yfinance"), "fetched_at": row.fetched_at.isoformat()})
-            else:
-                failure = s.scalar(
-                    select(Job)
-                    .where(
-                        Job.kind.in_(("market_identity", "market_quote")),
-                        Job.target["symbol"].astext == symbol,
-                    )
-                    .order_by(Job.created_at.desc())
-                    .limit(1)
-                )
-                market.append(
-                    {
-                        "symbol": symbol,
-                        "name": name,
-                        "value": None,
-                        "change_percent": None,
-                        "as_of": None,
-                        "status": failure.status if failure else "NOT_FETCHED",
-                        "reason": failure.error if failure else msg("home.quote_not_fetched"),
-                    }
-                )
-        return {
-            "data_status": "AVAILABLE" if quotes else "NOT_FETCHED",
-            "market": market,
-            "worker": worker_view(s),
-            "active_jobs": s.scalar(
-                select(func.count()).select_from(Job).where(Job.status.in_(ACTIVE))
-            ),
-            "mode": settings().mode,
-            "notice": msg("home.notice"),
-        }
+            row, job = quotes.get(symbol), latest.get(symbol)
+            failure = job if job is not None and job.status in ("FAILED", "RETRY_WAIT") else None
+            if row is None:
+                market.append({"symbol": symbol, "name": name, "status": "NOT_FETCHED", "freshness": "missing",
+                               "reason": failure.error if failure else msg("home.quote_not_fetched")})
+                continue
+            quote = {**row.data, "name": name, "fetched_at": row.fetched_at.isoformat()}
+            quote["freshness"], quote["reason"] = _quote_freshness(quote, failure, current)
+            market.append(quote)
+    browser = refresh()["browser"]
+    return {"observed_at": current, "market": market, "refresh": browser}
 
 
 def feed(session_id="", cursor="", kind="all", order="transaction"):

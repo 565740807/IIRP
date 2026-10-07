@@ -15,7 +15,8 @@ from sqlalchemy.exc import SQLAlchemyError
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from iirp import __version__
-from iirp.api.schemas import FeedOutput, GenericOutput, HomeOutput, SystemOutput
+from iirp.api.insider_schemas import FeedOutput
+from iirp.api.schemas import GenericOutput, HomeOutput, SearchOutput, SystemOutput
 from iirp.config import ROOT, settings
 from iirp.db import session
 from iirp.jobs.job_views import job_view, list_jobs, policy_view
@@ -359,7 +360,7 @@ def storage_exact():
     return {"data": request_exact()}
 
 
-@app.get("/api/v1/search", response_model=GenericOutput)
+@app.get("/api/v1/search", response_model=SearchOutput)
 def search(q: str = ""):
     from iirp.api.reads import search
 
@@ -387,10 +388,6 @@ app.include_router(research_router)
 from iirp.api.events import router as event_router  # noqa: E402
 
 app.include_router(event_router)
-
-from iirp.insider.feed_updates import router as feed_updates_router  # noqa: E402
-
-app.include_router(feed_updates_router)
 
 DIST = ROOT / "frontend/dist"
 if (DIST / "assets").exists():

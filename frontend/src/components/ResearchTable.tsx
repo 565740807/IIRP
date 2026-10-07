@@ -5,7 +5,7 @@ import {
   sourceLabel,
   type Fact,
 } from "../api";
-import { Button } from "./ui";
+import { Button } from "./common";
 
 export function ResearchTable({ data }: { data: Fact[] }) {
   const [page, setPage] = useState(0);

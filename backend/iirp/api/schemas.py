@@ -15,6 +15,11 @@ class Strict(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
 
+class Output(BaseModel):
+    """Response model: fields with defaults are always present in the JSON."""
+    model_config = ConfigDict(json_schema_serialization_defaults_required=True)
+
+
 class CollectionInput(Strict):
     request_id: str = Field(min_length=1, max_length=128)
     kind: Literal[
@@ -306,50 +311,156 @@ class RequestIdentity(Strict):
     request_id: str = Field(min_length=1, max_length=128)
 
 
-class FeedOutput(BaseModel):
-    groups: list[dict[str, Any]]
-    order: str = "transaction"
-    session_id: str
-    as_of: str
-    next_cursor: str | None
-    total_groups: int
-    data_status: str
-    coverage: dict[str, Any]
-    new_count: int = 0
-    pending_filings: list[dict[str, Any]] = Field(default_factory=list)
-    pending_summary: dict[str, Any] = Field(default_factory=dict)
+class QuoteSession(Output):
+    start: str
+    end: str
+    timezone: str | None = None
 
 
-class FeedGroupOutput(BaseModel):
-    items: list[dict[str, Any]]
-    revision_id: str
-    total: int
-    next_cursor: str | None
+class HomeQuote(Output):
+    """One index (or gold futures) quote as saved from its latest fetch.
+
+    ``freshness`` is judged at read time: ``live`` in session and on time,
+    ``closed`` outside the session (``as_of`` is the last trading day),
+    ``delayed`` when overdue, stale at the source or the last refresh failed
+    (``reason`` says which), ``missing`` before the first fetch.
+    """
+    symbol: str
+    name: str
+    value: float | None = None
+    change: float | None = None
+    change_percent: float | None = None
+    previous_close: str | None = None
+    baseline_date: str | None = None
+    as_of: str | None = None
+    source_time: str | None = None
+    fetched_at: str | None = None
+    next_refresh_at: str | None = None
+    market_open: bool | None = None
+    session: QuoteSession | None = None
+    status: str
+    unit: str | None = None
+    baseline: str | None = None
+    freshness: Literal["live", "closed", "delayed", "missing"]
+    reason: str | None = None
 
 
-class HomeOutput(BaseModel):
-    data_status: str
-    market: list[dict[str, Any]]
-    worker: dict[str, Any]
-    active_jobs: int
-    mode: str
-    notice: str
+class BrowserRefresh(Output):
+    """How often an open page re-reads and asks for fresh data (config/refresh.toml)."""
+    home_poll_seconds: int
+    feed_poll_seconds: int
+    ensure_seconds: int
 
 
-class SecUserAgentState(BaseModel):
+class HomeOutput(Output):
+    observed_at: datetime
+    market: list[HomeQuote]
+    refresh: BrowserRefresh
+
+
+class SecUserAgentState(Output):
     configured: bool
     status: Literal["CONFIGURED", "NEEDS_CONFIG"]
     message: str
 
 
-class SystemOutput(BaseModel):
+class WorkerState(Output):
+    """Worker liveness from its heartbeat; online is null when the read failed."""
+    online: bool | None
+    last_seen: datetime | None = None
+    error: str | None = None
+
+
+class BackupEntry(Output):
+    model_config = ConfigDict(extra="allow")
+    name: str
+    completed_at: str | None = None
+    restore_verified_at: str | None = None
+    object_count: int | None = None
+    object_bytes: int | None = None
+    dump_bytes: int | None = None
+
+
+class StoragePath(Output):
+    path: str
+    logical_bytes: int | None = None
+    allocated_bytes: int | None = None
+    files: int | None = None
+
+
+class MaintenanceRecord(Output):
+    kind: str
+    status: str
+    created_at: str | None = None
+    details: dict[str, Any] = Field(default_factory=dict)
+
+
+class StorageState(Output):
+    """Recorded sizes (no directory walk); capacity verdicts are null when unknown."""
+    model_config = ConfigDict(extra="allow")
+    objects: int | None = None
+    bytes: int | None = None
+    evidence: int | None = None
+    cache: int | None = None
+    logs: int | None = None
+    backups: int | None = None
+    restores: int | None = None
+    database: int | None = None
+    database_server: int | None = None
+    expiring_objects: int | None = None
+    expiring_bytes: int | None = None
+    analysis_cache_bytes: int | None = None
+    backup_list: list[BackupEntry] = Field(default_factory=list)
+    restore_list: list[dict[str, Any]] = Field(default_factory=list)
+    recent_maintenance: list[MaintenanceRecord] = Field(default_factory=list)
+    paths: dict[str, StoragePath] = Field(default_factory=dict)
+    backup_estimated_temporary_bytes: int | None = None
+    restore_estimated_temporary_bytes: int | None = None
+    estimate_scope: str | None = None
+    inventory_status: str | None = None
+    inventory_measured_at: str | None = None
+    inventory_attempted_at: str | None = None
+    inventory_error: str | None = None
+    inventory_age_seconds: float | None = None
+    exact_status: str | None = None
+    exact_measured_at: str | None = None
+    exact_error: str | None = None
+    exact_seconds: float | None = None
+    free_bytes: int | None = None
+    min_free_bytes: int | None = None
+    disk_pressure: bool | None = None
+    backup_capacity_sufficient: bool | None = None
+    restore_capacity_sufficient: bool | None = None
+
+
+class SystemOutput(Output):
     version: str
     mode: str
-    worker: dict[str, Any]
+    worker: WorkerState
     migration: str
     automatic_collection_scope: str
     sec_user_agent: SecUserAgentState
-    storage: dict[str, Any]
+    storage: StorageState
+
+
+class SearchItem(Output):
+    id: str
+    kind: Literal["company", "person", "security"]
+    name: str
+    href: str
+    ticker: str | None = None
+    security_id: str | None = None
+    issuer_id: str | None = None
+
+
+class SearchData(Output):
+    message: str
+
+
+class SearchOutput(Output):
+    """Local matches only; searching never starts a download."""
+    items: list[SearchItem]
+    data: SearchData
 
 
 class FreshnessInput(Strict):

@@ -451,7 +451,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/GenericOutput"
+                  "$ref": "#/components/schemas/SearchOutput"
                 }
               }
             }
@@ -490,6 +490,80 @@
             "content": {
               "application/json": {
                 "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/feed/updates": {
+      "get": {
+        "summary": "Feed Updates",
+        "description": "Count changes since a reading watermark, or read one bounded delta page.",
+        "operationId": "feed_updates_api_v1_feed_updates_get",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 36,
+              "title": "Session Id"
+            }
+          },
+          {
+            "name": "include_groups",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Include Groups"
+            }
+          },
+          {
+            "name": "target_session_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 36,
+              "default": "",
+              "title": "Target Session Id"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 12,
+              "default": "",
+              "title": "Cursor"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FeedUpdatesOutput"
+                }
               }
             }
           },
@@ -1418,7 +1492,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/GenericOutput"
+                  "$ref": "#/components/schemas/EntityHistoryOutput"
                 }
               }
             }
@@ -1537,7 +1611,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/GenericOutput"
+                  "$ref": "#/components/schemas/EntityHistoryOutput"
                 }
               }
             }
@@ -1609,7 +1683,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/GenericOutput"
+                  "$ref": "#/components/schemas/TransactionDetailOutput"
                 }
               }
             }
@@ -2603,79 +2677,6 @@
           }
         }
       }
-    },
-    "/api/v1/feed/updates": {
-      "get": {
-        "summary": "Get Feed Updates",
-        "operationId": "get_feed_updates_api_v1_feed_updates_get",
-        "parameters": [
-          {
-            "name": "session_id",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "minLength": 1,
-              "maxLength": 36,
-              "title": "Session Id"
-            }
-          },
-          {
-            "name": "include_groups",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "boolean",
-              "default": false,
-              "title": "Include Groups"
-            }
-          },
-          {
-            "name": "target_session_id",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "maxLength": 36,
-              "default": "",
-              "title": "Target Session Id"
-            }
-          },
-          {
-            "name": "cursor",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "maxLength": 12,
-              "default": "",
-              "title": "Cursor"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FeedUpdatesOutput"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
     }
   },
   "components": {
@@ -3061,6 +3062,80 @@
         ],
         "title": "AnalysisVersionView"
       },
+      "BackupEntry": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "completed_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completed At"
+          },
+          "restore_verified_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Restore Verified At"
+          },
+          "object_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Object Count"
+          },
+          "object_bytes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Object Bytes"
+          },
+          "dump_bytes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dump Bytes"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "required": [
+          "name",
+          "completed_at",
+          "restore_verified_at",
+          "object_count",
+          "object_bytes",
+          "dump_bytes"
+        ],
+        "title": "BackupEntry"
+      },
       "BatchAction": {
         "properties": {
           "action": {
@@ -3244,6 +3319,30 @@
           "items"
         ],
         "title": "BatchesOutput"
+      },
+      "BrowserRefresh": {
+        "properties": {
+          "home_poll_seconds": {
+            "type": "integer",
+            "title": "Home Poll Seconds"
+          },
+          "feed_poll_seconds": {
+            "type": "integer",
+            "title": "Feed Poll Seconds"
+          },
+          "ensure_seconds": {
+            "type": "integer",
+            "title": "Ensure Seconds"
+          }
+        },
+        "type": "object",
+        "required": [
+          "home_poll_seconds",
+          "feed_poll_seconds",
+          "ensure_seconds"
+        ],
+        "title": "BrowserRefresh",
+        "description": "How often an open page re-reads and asks for fresh data (config/refresh.toml)."
       },
       "CollectionInput": {
         "properties": {
@@ -3592,6 +3691,35 @@
         "type": "object",
         "title": "CoverageView"
       },
+      "DateAnomaly": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "title": "Code"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "transaction_date": {
+            "type": "string",
+            "title": "Transaction Date"
+          },
+          "accepted_date": {
+            "type": "string",
+            "title": "Accepted Date"
+          }
+        },
+        "type": "object",
+        "required": [
+          "code",
+          "label",
+          "transaction_date",
+          "accepted_date"
+        ],
+        "title": "DateAnomaly",
+        "description": "Transaction dated after its own SEC acceptance date (D19); kept as reported."
+      },
       "Distribution": {
         "properties": {
           "key": {
@@ -3913,6 +4041,378 @@
           "n"
         ],
         "title": "DistributionStatistics"
+      },
+      "EntityCompany": {
+        "properties": {
+          "issuer_id": {
+            "type": "string",
+            "title": "Issuer Id"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "ticker": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ticker"
+          }
+        },
+        "type": "object",
+        "required": [
+          "issuer_id",
+          "name",
+          "ticker"
+        ],
+        "title": "EntityCompany"
+      },
+      "EntityCoverage": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "start_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Start Date"
+          },
+          "end_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "End Date"
+          },
+          "requested_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Requested Count"
+          },
+          "observed_count": {
+            "type": "integer",
+            "title": "Observed Count",
+            "default": 0
+          },
+          "complete": {
+            "type": "boolean",
+            "title": "Complete",
+            "default": false
+          },
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "start_date",
+          "end_date",
+          "requested_count",
+          "observed_count",
+          "complete",
+          "message"
+        ],
+        "title": "EntityCoverage"
+      },
+      "EntityHistory": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "kind": {
+            "type": "string",
+            "title": "Kind"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "entity": {
+            "$ref": "#/components/schemas/EntityRef"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/InsiderTransaction"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          },
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message"
+          },
+          "session_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Session Id"
+          },
+          "as_of": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "As Of"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total",
+            "default": 0
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          },
+          "summary": {
+            "items": {
+              "$ref": "#/components/schemas/TradeSummary"
+            },
+            "type": "array",
+            "title": "Summary"
+          },
+          "summary_owner_scope": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Summary Owner Scope"
+          },
+          "summary_note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Summary Note"
+          },
+          "transaction_start": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Transaction Start"
+          },
+          "transaction_end": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Transaction End"
+          },
+          "filings": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Filings"
+          },
+          "date_basis": {
+            "type": "string",
+            "title": "Date Basis",
+            "default": "transaction"
+          },
+          "companies": {
+            "items": {
+              "$ref": "#/components/schemas/EntityCompany"
+            },
+            "type": "array",
+            "title": "Companies"
+          },
+          "coverage": {
+            "$ref": "#/components/schemas/EntityCoverage"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "kind",
+          "name",
+          "entity",
+          "items",
+          "status",
+          "message",
+          "session_id",
+          "as_of",
+          "total",
+          "next_cursor",
+          "summary",
+          "summary_owner_scope",
+          "summary_note",
+          "transaction_start",
+          "transaction_end",
+          "filings",
+          "date_basis",
+          "companies",
+          "coverage"
+        ],
+        "title": "EntityHistory"
+      },
+      "EntityHistoryOutput": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/InsiderTransaction"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "data": {
+            "$ref": "#/components/schemas/EntityHistory"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "data"
+        ],
+        "title": "EntityHistoryOutput",
+        "description": "A company's or person's transactions in a stable reading session."
+      },
+      "EntityRef": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "kind": {
+            "type": "string",
+            "title": "Kind"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "ticker": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ticker"
+          },
+          "issuer_ticker_raw": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Issuer Ticker Raw"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "kind",
+          "name",
+          "ticker",
+          "issuer_ticker_raw"
+        ],
+        "title": "EntityRef"
       },
       "EventAnalysisCreated": {
         "properties": {
@@ -5177,12 +5677,227 @@
         ],
         "title": "EventWindow"
       },
+      "FeedCoverage": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "pending_filings": {
+            "type": "integer",
+            "title": "Pending Filings"
+          },
+          "missing_acceptance_rows": {
+            "type": "integer",
+            "title": "Missing Acceptance Rows"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "pending_filings",
+          "missing_acceptance_rows",
+          "message"
+        ],
+        "title": "FeedCoverage"
+      },
+      "FeedGroup": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "issuer_id": {
+            "type": "string",
+            "title": "Issuer Id"
+          },
+          "company": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Company"
+          },
+          "ticker": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ticker"
+          },
+          "issuer_ticker_raw": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Issuer Ticker Raw"
+          },
+          "accepted_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Accepted At"
+          },
+          "accepted_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Accepted Date"
+          },
+          "transaction_dates": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Transaction Dates"
+          },
+          "owners": {
+            "type": "integer",
+            "title": "Owners",
+            "default": 0
+          },
+          "filings": {
+            "type": "integer",
+            "title": "Filings",
+            "default": 0
+          },
+          "total_transactions": {
+            "type": "integer",
+            "title": "Total Transactions",
+            "default": 0
+          },
+          "matching_transactions": {
+            "type": "integer",
+            "title": "Matching Transactions",
+            "default": 0
+          },
+          "amendment_count": {
+            "type": "integer",
+            "title": "Amendment Count",
+            "default": 0
+          },
+          "amendment_updates": {
+            "type": "integer",
+            "title": "Amendment Updates",
+            "default": 0
+          },
+          "revision_id": {
+            "type": "string",
+            "title": "Revision Id"
+          },
+          "revision_created_at": {
+            "type": "string",
+            "title": "Revision Created At"
+          },
+          "summary": {
+            "items": {
+              "$ref": "#/components/schemas/TradeSummary"
+            },
+            "type": "array",
+            "title": "Summary"
+          },
+          "transactions": {
+            "items": {
+              "$ref": "#/components/schemas/InsiderTransaction"
+            },
+            "type": "array",
+            "title": "Transactions"
+          },
+          "trader_groups": {
+            "items": {
+              "$ref": "#/components/schemas/TraderGroup"
+            },
+            "type": "array",
+            "title": "Trader Groups"
+          },
+          "next_trader_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Trader Cursor"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "issuer_id",
+          "company",
+          "ticker",
+          "issuer_ticker_raw",
+          "accepted_at",
+          "accepted_date",
+          "transaction_dates",
+          "owners",
+          "filings",
+          "total_transactions",
+          "matching_transactions",
+          "amendment_count",
+          "amendment_updates",
+          "revision_id",
+          "revision_created_at",
+          "summary",
+          "transactions",
+          "trader_groups",
+          "next_trader_cursor",
+          "next_cursor"
+        ],
+        "title": "FeedGroup",
+        "description": "One company and SEC acceptance date (US Eastern), as of one revision."
+      },
       "FeedGroupOutput": {
         "properties": {
           "items": {
             "items": {
-              "additionalProperties": true,
-              "type": "object"
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/TraderGroup"
+                },
+                {
+                  "$ref": "#/components/schemas/InsiderTransaction"
+                }
+              ]
             },
             "type": "array",
             "title": "Items"
@@ -5214,14 +5929,14 @@
           "total",
           "next_cursor"
         ],
-        "title": "FeedGroupOutput"
+        "title": "FeedGroupOutput",
+        "description": "Either trader groups (cursor \"g:…\") or transaction rows of one group."
       },
       "FeedOutput": {
         "properties": {
           "groups": {
             "items": {
-              "additionalProperties": true,
-              "type": "object"
+              "$ref": "#/components/schemas/FeedGroup"
             },
             "type": "array",
             "title": "Groups"
@@ -5259,9 +5974,7 @@
             "title": "Data Status"
           },
           "coverage": {
-            "additionalProperties": true,
-            "type": "object",
-            "title": "Coverage"
+            "$ref": "#/components/schemas/FeedCoverage"
           },
           "new_count": {
             "type": "integer",
@@ -5270,27 +5983,28 @@
           },
           "pending_filings": {
             "items": {
-              "additionalProperties": true,
-              "type": "object"
+              "$ref": "#/components/schemas/PendingFiling"
             },
             "type": "array",
             "title": "Pending Filings"
           },
           "pending_summary": {
-            "additionalProperties": true,
-            "type": "object",
-            "title": "Pending Summary"
+            "$ref": "#/components/schemas/PendingSummary"
           }
         },
         "type": "object",
         "required": [
           "groups",
+          "order",
           "session_id",
           "as_of",
           "next_cursor",
           "total_groups",
           "data_status",
-          "coverage"
+          "coverage",
+          "new_count",
+          "pending_filings",
+          "pending_summary"
         ],
         "title": "FeedOutput"
       },
@@ -5328,8 +6042,7 @@
           },
           "groups": {
             "items": {
-              "additionalProperties": true,
-              "type": "object"
+              "$ref": "#/components/schemas/FeedGroup"
             },
             "type": "array",
             "title": "Groups"
@@ -5350,14 +6063,11 @@
             "title": "As Of"
           },
           "pending_summary": {
-            "additionalProperties": true,
-            "type": "object",
-            "title": "Pending Summary"
+            "$ref": "#/components/schemas/PendingSummary"
           },
           "pending_filings": {
             "items": {
-              "additionalProperties": true,
-              "type": "object"
+              "$ref": "#/components/schemas/PendingFiling"
             },
             "type": "array",
             "title": "Pending Filings"
@@ -5369,7 +6079,13 @@
           "target_session_id",
           "version",
           "new_count",
-          "as_of"
+          "changed_ids",
+          "removed_ids",
+          "groups",
+          "next_cursor",
+          "as_of",
+          "pending_summary",
+          "pending_filings"
         ],
         "title": "FeedUpdatesOutput"
       },
@@ -5554,46 +6270,670 @@
       },
       "HomeOutput": {
         "properties": {
-          "data_status": {
+          "observed_at": {
             "type": "string",
-            "title": "Data Status"
+            "format": "date-time",
+            "title": "Observed At"
           },
           "market": {
             "items": {
-              "additionalProperties": true,
-              "type": "object"
+              "$ref": "#/components/schemas/HomeQuote"
             },
             "type": "array",
             "title": "Market"
           },
-          "worker": {
-            "additionalProperties": true,
-            "type": "object",
-            "title": "Worker"
-          },
-          "active_jobs": {
-            "type": "integer",
-            "title": "Active Jobs"
-          },
-          "mode": {
-            "type": "string",
-            "title": "Mode"
-          },
-          "notice": {
-            "type": "string",
-            "title": "Notice"
+          "refresh": {
+            "$ref": "#/components/schemas/BrowserRefresh"
           }
         },
         "type": "object",
         "required": [
-          "data_status",
+          "observed_at",
           "market",
-          "worker",
-          "active_jobs",
-          "mode",
-          "notice"
+          "refresh"
         ],
         "title": "HomeOutput"
+      },
+      "HomeQuote": {
+        "properties": {
+          "symbol": {
+            "type": "string",
+            "title": "Symbol"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value"
+          },
+          "change": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Change"
+          },
+          "change_percent": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Change Percent"
+          },
+          "previous_close": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Previous Close"
+          },
+          "baseline_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Baseline Date"
+          },
+          "as_of": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "As Of"
+          },
+          "source_time": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Time"
+          },
+          "fetched_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fetched At"
+          },
+          "next_refresh_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Refresh At"
+          },
+          "market_open": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Market Open"
+          },
+          "session": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/QuoteSession"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "unit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unit"
+          },
+          "baseline": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Baseline"
+          },
+          "freshness": {
+            "type": "string",
+            "enum": [
+              "live",
+              "closed",
+              "delayed",
+              "missing"
+            ],
+            "title": "Freshness"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          }
+        },
+        "type": "object",
+        "required": [
+          "symbol",
+          "name",
+          "value",
+          "change",
+          "change_percent",
+          "previous_close",
+          "baseline_date",
+          "as_of",
+          "source_time",
+          "fetched_at",
+          "next_refresh_at",
+          "market_open",
+          "session",
+          "status",
+          "unit",
+          "baseline",
+          "freshness",
+          "reason"
+        ],
+        "title": "HomeQuote",
+        "description": "One index (or gold futures) quote as saved from its latest fetch.\n\n``freshness`` is judged at read time: ``live`` in session and on time,\n``closed`` outside the session (``as_of`` is the last trading day),\n``delayed`` when overdue, stale at the source or the last refresh failed\n(``reason`` says which), ``missing`` before the first fetch."
+      },
+      "InsiderOwner": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "roles": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Roles"
+          },
+          "entity_type": {
+            "type": "string",
+            "title": "Entity Type",
+            "default": "unknown"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "roles",
+          "entity_type"
+        ],
+        "title": "InsiderOwner",
+        "description": "A reporting owner with the roles stated in that filing."
+      },
+      "InsiderTransaction": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "issuer_id": {
+            "type": "string",
+            "title": "Issuer Id"
+          },
+          "accession": {
+            "type": "string",
+            "title": "Accession"
+          },
+          "version_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Version Id"
+          },
+          "form": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Form"
+          },
+          "table": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Table"
+          },
+          "code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Code"
+          },
+          "kind": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Kind"
+          },
+          "action_category": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Action Category"
+          },
+          "direction": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Direction"
+          },
+          "security_title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Security Title"
+          },
+          "ticker": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ticker"
+          },
+          "issuer_ticker_raw": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Issuer Ticker Raw"
+          },
+          "issuer_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Issuer Name"
+          },
+          "shares": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Shares"
+          },
+          "quantity_unit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Quantity Unit"
+          },
+          "price": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Price"
+          },
+          "price_per_share": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Price Per Share"
+          },
+          "amount": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Amount"
+          },
+          "known_amount": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Known Amount"
+          },
+          "currency": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Currency"
+          },
+          "transaction_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Transaction Date"
+          },
+          "accepted_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Accepted At"
+          },
+          "group_accepted_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Group Accepted At"
+          },
+          "group_accession": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Group Accession"
+          },
+          "owner": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Owner"
+          },
+          "owner_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Owner Id"
+          },
+          "owner_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Owner Ids"
+          },
+          "owners": {
+            "items": {
+              "$ref": "#/components/schemas/InsiderOwner"
+            },
+            "type": "array",
+            "title": "Owners"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          },
+          "eligible_for_totals": {
+            "type": "boolean",
+            "title": "Eligible For Totals",
+            "default": false
+          },
+          "summary_exclusion_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Summary Exclusion Reason"
+          },
+          "replaces_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Replaces Id"
+          },
+          "is_amendment_update": {
+            "type": "boolean",
+            "title": "Is Amendment Update",
+            "default": false
+          },
+          "date_anomaly": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DateAnomaly"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "source_row_index": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Row Index"
+          },
+          "warnings": {
+            "items": {},
+            "type": "array",
+            "title": "Warnings"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "required": [
+          "id",
+          "issuer_id",
+          "accession",
+          "version_id",
+          "form",
+          "table",
+          "code",
+          "kind",
+          "action_category",
+          "direction",
+          "security_title",
+          "ticker",
+          "issuer_ticker_raw",
+          "issuer_name",
+          "shares",
+          "quantity_unit",
+          "price",
+          "price_per_share",
+          "amount",
+          "known_amount",
+          "currency",
+          "transaction_date",
+          "accepted_at",
+          "group_accepted_at",
+          "group_accession",
+          "owner",
+          "owner_id",
+          "owner_ids",
+          "owners",
+          "status",
+          "eligible_for_totals",
+          "summary_exclusion_reason",
+          "replaces_id",
+          "is_amendment_update",
+          "date_anomaly",
+          "source_row_index",
+          "warnings"
+        ],
+        "title": "InsiderTransaction",
+        "description": "One row of Table I or II of a Form 3/4/5 filing."
       },
       "JobDetailView": {
         "properties": {
@@ -6203,6 +7543,42 @@
         ],
         "title": "LeaveOneOutSensitivity"
       },
+      "MaintenanceRecord": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "title": "Kind"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          },
+          "details": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Details"
+          }
+        },
+        "type": "object",
+        "required": [
+          "kind",
+          "status",
+          "created_at",
+          "details"
+        ],
+        "title": "MaintenanceRecord"
+      },
       "MonthlyRanking": {
         "properties": {
           "month": {
@@ -6307,6 +7683,147 @@
           "end_date"
         ],
         "title": "OverlappingSamples"
+      },
+      "PendingFiling": {
+        "properties": {
+          "accession": {
+            "type": "string",
+            "title": "Accession"
+          },
+          "company": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Company"
+          },
+          "form": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Form"
+          },
+          "accepted_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Accepted At"
+          },
+          "filing_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Filing Date"
+          },
+          "stage": {
+            "type": "string",
+            "title": "Stage"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          }
+        },
+        "type": "object",
+        "required": [
+          "accession",
+          "company",
+          "form",
+          "accepted_at",
+          "filing_date",
+          "stage",
+          "status"
+        ],
+        "title": "PendingFiling"
+      },
+      "PendingStage": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "count": {
+            "type": "integer",
+            "title": "Count"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "label",
+          "count"
+        ],
+        "title": "PendingStage"
+      },
+      "PendingSummary": {
+        "properties": {
+          "total": {
+            "type": "integer",
+            "title": "Total",
+            "default": 0
+          },
+          "scope": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scope"
+          },
+          "stages": {
+            "items": {
+              "$ref": "#/components/schemas/PendingStage"
+            },
+            "type": "array",
+            "title": "Stages"
+          },
+          "preview_limit": {
+            "type": "integer",
+            "title": "Preview Limit",
+            "default": 5
+          },
+          "preview_count": {
+            "type": "integer",
+            "title": "Preview Count",
+            "default": 0
+          }
+        },
+        "type": "object",
+        "required": [
+          "total",
+          "scope",
+          "stages",
+          "preview_limit",
+          "preview_count"
+        ],
+        "title": "PendingSummary",
+        "description": "Filings seen at SEC but not yet parsed, by stage."
       },
       "PolicyRequest": {
         "properties": {
@@ -6413,6 +7930,198 @@
           "version"
         ],
         "title": "PreferenceOutput"
+      },
+      "PriceContext": {
+        "properties": {
+          "status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "disclosure_lag_calendar_days": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Disclosure Lag Calendar Days"
+          },
+          "price_fetched_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Price Fetched At"
+          },
+          "price_basis": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Price Basis"
+          },
+          "cutoff_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cutoff Date"
+          },
+          "transaction": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PriceWindow"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "disclosure": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PriceWindow"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "next_open": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Open"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "required": [
+          "status",
+          "reason",
+          "disclosure_lag_calendar_days",
+          "price_fetched_at",
+          "price_basis",
+          "cutoff_date",
+          "transaction",
+          "disclosure",
+          "next_open"
+        ],
+        "title": "PriceContext",
+        "description": "Price change around a transaction; status explains when it is unavailable."
+      },
+      "PricePoint": {
+        "properties": {
+          "x": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "X"
+          },
+          "date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Date"
+          },
+          "close": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Close"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "required": [
+          "x",
+          "date",
+          "close",
+          "value",
+          "status"
+        ],
+        "title": "PricePoint"
       },
       "PriceRangeInput": {
         "properties": {
@@ -6532,6 +8241,36 @@
         ],
         "title": "PriceRangeView"
       },
+      "PriceWindow": {
+        "properties": {
+          "baseline_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Baseline Date"
+          },
+          "points": {
+            "items": {
+              "$ref": "#/components/schemas/PricePoint"
+            },
+            "type": "array",
+            "title": "Points"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "required": [
+          "baseline_date",
+          "points"
+        ],
+        "title": "PriceWindow",
+        "description": "Closes from t−n to t+n around one time basis (transaction or disclosure)."
+      },
       "ProportionUncertainty": {
         "properties": {
           "n": {
@@ -6608,6 +8347,36 @@
           "flat"
         ],
         "title": "ProportionUncertainty"
+      },
+      "QuoteSession": {
+        "properties": {
+          "start": {
+            "type": "string",
+            "title": "Start"
+          },
+          "end": {
+            "type": "string",
+            "title": "End"
+          },
+          "timezone": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Timezone"
+          }
+        },
+        "type": "object",
+        "required": [
+          "start",
+          "end",
+          "timezone"
+        ],
+        "title": "QuoteSession"
       },
       "RecentAnalysesOutput": {
         "properties": {
@@ -7289,6 +9058,109 @@
         ],
         "title": "ScopeView"
       },
+      "SearchData": {
+        "properties": {
+          "message": {
+            "type": "string",
+            "title": "Message"
+          }
+        },
+        "type": "object",
+        "required": [
+          "message"
+        ],
+        "title": "SearchData"
+      },
+      "SearchItem": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "company",
+              "person",
+              "security"
+            ],
+            "title": "Kind"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "href": {
+            "type": "string",
+            "title": "Href"
+          },
+          "ticker": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ticker"
+          },
+          "security_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Security Id"
+          },
+          "issuer_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Issuer Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "kind",
+          "name",
+          "href",
+          "ticker",
+          "security_id",
+          "issuer_id"
+        ],
+        "title": "SearchItem"
+      },
+      "SearchOutput": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/SearchItem"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "data": {
+            "$ref": "#/components/schemas/SearchData"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "data"
+        ],
+        "title": "SearchOutput",
+        "description": "Local matches only; searching never starts a download."
+      },
       "SecUserAgentState": {
         "properties": {
           "configured": {
@@ -7315,6 +9187,446 @@
           "message"
         ],
         "title": "SecUserAgentState"
+      },
+      "StoragePath": {
+        "properties": {
+          "path": {
+            "type": "string",
+            "title": "Path"
+          },
+          "logical_bytes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Logical Bytes"
+          },
+          "allocated_bytes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Allocated Bytes"
+          },
+          "files": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Files"
+          }
+        },
+        "type": "object",
+        "required": [
+          "path",
+          "logical_bytes",
+          "allocated_bytes",
+          "files"
+        ],
+        "title": "StoragePath"
+      },
+      "StorageState": {
+        "properties": {
+          "objects": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Objects"
+          },
+          "bytes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bytes"
+          },
+          "evidence": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Evidence"
+          },
+          "cache": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cache"
+          },
+          "logs": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Logs"
+          },
+          "backups": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Backups"
+          },
+          "restores": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Restores"
+          },
+          "database": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Database"
+          },
+          "database_server": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Database Server"
+          },
+          "expiring_objects": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expiring Objects"
+          },
+          "expiring_bytes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expiring Bytes"
+          },
+          "analysis_cache_bytes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Analysis Cache Bytes"
+          },
+          "backup_list": {
+            "items": {
+              "$ref": "#/components/schemas/BackupEntry"
+            },
+            "type": "array",
+            "title": "Backup List"
+          },
+          "restore_list": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Restore List"
+          },
+          "recent_maintenance": {
+            "items": {
+              "$ref": "#/components/schemas/MaintenanceRecord"
+            },
+            "type": "array",
+            "title": "Recent Maintenance"
+          },
+          "paths": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/StoragePath"
+            },
+            "type": "object",
+            "title": "Paths"
+          },
+          "backup_estimated_temporary_bytes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Backup Estimated Temporary Bytes"
+          },
+          "restore_estimated_temporary_bytes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Restore Estimated Temporary Bytes"
+          },
+          "estimate_scope": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Estimate Scope"
+          },
+          "inventory_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Inventory Status"
+          },
+          "inventory_measured_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Inventory Measured At"
+          },
+          "inventory_attempted_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Inventory Attempted At"
+          },
+          "inventory_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Inventory Error"
+          },
+          "inventory_age_seconds": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Inventory Age Seconds"
+          },
+          "exact_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Exact Status"
+          },
+          "exact_measured_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Exact Measured At"
+          },
+          "exact_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Exact Error"
+          },
+          "exact_seconds": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Exact Seconds"
+          },
+          "free_bytes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Free Bytes"
+          },
+          "min_free_bytes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Min Free Bytes"
+          },
+          "disk_pressure": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Disk Pressure"
+          },
+          "backup_capacity_sufficient": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Backup Capacity Sufficient"
+          },
+          "restore_capacity_sufficient": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Restore Capacity Sufficient"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "required": [
+          "objects",
+          "bytes",
+          "evidence",
+          "cache",
+          "logs",
+          "backups",
+          "restores",
+          "database",
+          "database_server",
+          "expiring_objects",
+          "expiring_bytes",
+          "analysis_cache_bytes",
+          "backup_list",
+          "restore_list",
+          "recent_maintenance",
+          "paths",
+          "backup_estimated_temporary_bytes",
+          "restore_estimated_temporary_bytes",
+          "estimate_scope",
+          "inventory_status",
+          "inventory_measured_at",
+          "inventory_attempted_at",
+          "inventory_error",
+          "inventory_age_seconds",
+          "exact_status",
+          "exact_measured_at",
+          "exact_error",
+          "exact_seconds",
+          "free_bytes",
+          "min_free_bytes",
+          "disk_pressure",
+          "backup_capacity_sufficient",
+          "restore_capacity_sufficient"
+        ],
+        "title": "StorageState",
+        "description": "Recorded sizes (no directory walk); capacity verdicts are null when unknown."
       },
       "StrategyInput": {
         "properties": {
@@ -7432,9 +9744,7 @@
             "title": "Mode"
           },
           "worker": {
-            "additionalProperties": true,
-            "type": "object",
-            "title": "Worker"
+            "$ref": "#/components/schemas/WorkerState"
           },
           "migration": {
             "type": "string",
@@ -7448,9 +9758,7 @@
             "$ref": "#/components/schemas/SecUserAgentState"
           },
           "storage": {
-            "additionalProperties": true,
-            "type": "object",
-            "title": "Storage"
+            "$ref": "#/components/schemas/StorageState"
           }
         },
         "type": "object",
@@ -7464,6 +9772,248 @@
           "storage"
         ],
         "title": "SystemOutput"
+      },
+      "TradeSummary": {
+        "properties": {
+          "table": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Table"
+          },
+          "security_title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Security Title"
+          },
+          "currency": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Currency"
+          },
+          "code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Code"
+          },
+          "kind": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Kind"
+          },
+          "shares": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Shares"
+          },
+          "known_amount": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Known Amount"
+          },
+          "rows": {
+            "type": "integer",
+            "title": "Rows"
+          },
+          "missing_price_rows": {
+            "type": "integer",
+            "title": "Missing Price Rows",
+            "default": 0
+          },
+          "review_rows": {
+            "type": "integer",
+            "title": "Review Rows",
+            "default": 0
+          },
+          "known_price_rows": {
+            "type": "integer",
+            "title": "Known Price Rows",
+            "default": 0
+          },
+          "known_shares_rows": {
+            "type": "integer",
+            "title": "Known Shares Rows",
+            "default": 0
+          },
+          "reported_value_review_rows": {
+            "type": "integer",
+            "title": "Reported Value Review Rows",
+            "default": 0
+          },
+          "missing_source_value_rows": {
+            "type": "integer",
+            "title": "Missing Source Value Rows",
+            "default": 0
+          },
+          "owner_count": {
+            "type": "integer",
+            "title": "Owner Count",
+            "default": 0
+          },
+          "person_count": {
+            "type": "integer",
+            "title": "Person Count",
+            "default": 0
+          },
+          "institution_count": {
+            "type": "integer",
+            "title": "Institution Count",
+            "default": 0
+          },
+          "unknown_owner_count": {
+            "type": "integer",
+            "title": "Unknown Owner Count",
+            "default": 0
+          }
+        },
+        "type": "object",
+        "required": [
+          "table",
+          "security_title",
+          "currency",
+          "code",
+          "kind",
+          "shares",
+          "known_amount",
+          "rows",
+          "missing_price_rows",
+          "review_rows",
+          "known_price_rows",
+          "known_shares_rows",
+          "reported_value_review_rows",
+          "missing_source_value_rows",
+          "owner_count",
+          "person_count",
+          "institution_count",
+          "unknown_owner_count"
+        ],
+        "title": "TradeSummary",
+        "description": "Rows of one action (table, security, currency, code) added up."
+      },
+      "TraderGroup": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "owners": {
+            "items": {
+              "$ref": "#/components/schemas/InsiderOwner"
+            },
+            "type": "array",
+            "title": "Owners"
+          },
+          "transaction_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Transaction Date"
+          },
+          "summary": {
+            "items": {
+              "$ref": "#/components/schemas/TradeSummary"
+            },
+            "type": "array",
+            "title": "Summary"
+          },
+          "rows": {
+            "type": "integer",
+            "title": "Rows"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "owners",
+          "transaction_date",
+          "summary",
+          "rows"
+        ],
+        "title": "TraderGroup",
+        "description": "The same owners, transaction date and action inside one company/date group."
+      },
+      "TransactionDetail": {
+        "properties": {
+          "transaction": {
+            "$ref": "#/components/schemas/InsiderTransaction"
+          },
+          "price_context": {
+            "$ref": "#/components/schemas/PriceContext"
+          }
+        },
+        "type": "object",
+        "required": [
+          "transaction",
+          "price_context"
+        ],
+        "title": "TransactionDetail"
+      },
+      "TransactionDetailOutput": {
+        "properties": {
+          "items": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "data": {
+            "$ref": "#/components/schemas/TransactionDetail"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "data"
+        ],
+        "title": "TransactionDetailOutput"
       },
       "TransactionSecurityInput": {
         "properties": {
@@ -7527,6 +10077,52 @@
           "type"
         ],
         "title": "ValidationError"
+      },
+      "WorkerState": {
+        "properties": {
+          "online": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Online"
+          },
+          "last_seen": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Seen"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          }
+        },
+        "type": "object",
+        "required": [
+          "online",
+          "last_seen",
+          "error"
+        ],
+        "title": "WorkerState",
+        "description": "Worker liveness from its heartbeat; online is null when the read failed."
       },
       "WorkerView": {
         "properties": {

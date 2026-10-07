@@ -59,13 +59,23 @@ def test_quote_without_daily_baseline_keeps_value_but_not_invented_change():
     assert quote["change"] is None and quote["change_percent"] is None
 
 
-def test_closed_quote_keeps_source_time_and_schedules_low_frequency_check():
+def test_closed_quote_keeps_source_time_and_checks_every_five_minutes_after_hours():
     quote = quote_from_history("^GSPC", snapshot(fetched="2026-09-16T21:00:00+00:00",
                                                 quoted="2026-09-16T20:00:00+00:00"))
     assert quote["status"] == "CLOSED" and quote["market_open"] is False
     assert quote["source_time"] == "2026-09-16T20:00:00+00:00"
     assert quote["previous_close"] == "100"
-    assert quote["next_refresh_at"] == "2026-09-16T21:15:00+00:00"
+    assert quote["next_refresh_at"] == "2026-09-16T21:05:00+00:00"
+
+
+@pytest.mark.parametrize(("fetched", "due"), [
+    ("2026-09-17T01:00:00+00:00", "2026-09-17T08:00:00+00:00"),  # 21:00 ET: next pre-market 04:00
+    ("2026-09-19T15:00:00+00:00", "2026-09-21T08:00:00+00:00"),  # Saturday: Monday 04:00 ET
+])
+def test_closed_market_waits_for_the_next_extended_window(fetched, due):
+    quote = quote_from_history("^GSPC", snapshot(fetched=fetched, quoted="2026-09-16T20:00:00+00:00"))
+    assert quote["status"] == "CLOSED"
+    assert quote["next_refresh_at"] == due
 
 
 def test_source_snapshot_stale_during_active_period_is_labelled():
@@ -103,11 +113,13 @@ def test_vix_provider_session_can_be_active_after_stock_close():
                                               quoted=payload["metadata"]["regularMarketTime"]))["market_open"] is False
 
 
-def test_next_provider_session_start_is_refresh_boundary():
+def test_next_provider_session_start_bounds_the_premarket_step():
     payload = snapshot(fetched="2026-09-16T13:00:00+00:00", quoted="2026-09-15T20:00:00+00:00")
     quote = quote_from_history("^GSPC", payload)
-    assert quote["next_refresh_at"] == "2026-09-16T13:30:00+00:00"
+    assert quote["next_refresh_at"] == "2026-09-16T13:05:00+00:00"
     assert quote["market_open"] is False
+    payload = snapshot(fetched="2026-09-16T13:28:00+00:00", quoted="2026-09-15T20:00:00+00:00")
+    assert quote_from_history("^GSPC", payload)["next_refresh_at"] == "2026-09-16T13:30:00+00:00"
 
 
 def test_empty_unusable_source_cannot_replace_previous_good_snapshot():
@@ -192,7 +204,7 @@ def test_regular_quote_does_not_treat_generic_index_premarket_as_active():
         "start": "2026-09-16T08:00:00+00:00", "end": "2026-09-16T13:30:00+00:00"}
     quote = quote_from_history("^GSPC", payload)
     assert quote["market_open"] is False and quote["status"] == "CLOSED"
-    assert quote["next_refresh_at"] == "2026-09-16T13:30:00+00:00"
+    assert quote["next_refresh_at"] == "2026-09-16T12:05:00+00:00"
 
 
 @pytest.mark.parametrize("zone", [None, "not/a-timezone"])
