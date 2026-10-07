@@ -31,6 +31,7 @@ TITLES = {
     "fixture_check": msg("job.title.fixture_check"),
     "market_probe": msg("job.title.market_probe"),
     "sec_probe": msg("job.title.sec_probe"),
+    "sec_identity": msg("job.title.sec_lookup"),
 }
 
 

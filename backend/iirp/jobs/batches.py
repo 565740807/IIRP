@@ -179,6 +179,8 @@ def _create(s, params, *, trigger="manual", policy_key=None, parent_id=None):
         title=(
             msg("batch.title.sec_latest")
             if kind == "sec_latest"
+            else msg("batch.title.sec_entity", name=params.get("name") or params.get("cik"), start=start)
+            if kind == "sec_entity"
             else msg("batch.title.sec_history", start=start, end=end)
             if kind == "sec_history"
             else msg("batch.title.market_quotes")

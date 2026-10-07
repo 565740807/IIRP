@@ -21,8 +21,13 @@ def transaction_price_context(
     accepted_at: str | datetime | None,
     today: date | None = None,
     calendar: str = "XNYS",
+    n: int = 5,
 ) -> dict:
-    """Two explicitly different day-zero conventions and next-open observation."""
+    """Two explicitly different day-zero conventions and next-open observation.
+
+    ``before_n`` = C(t)/C(t−n) − 1 and ``after_n`` = C(t+n)/C(t) − 1 (D16);
+    the fixed 1- and 5-session values stay for exports.
+    """
     index = _bars_by_date(bars)
     cutoff = completed_through(today, calendar)
     original = (
@@ -32,16 +37,30 @@ def transaction_price_context(
     )
     transaction = next_session(original, calendar)
 
-    def context(anchor: date, before: int = 5, after: int = 5) -> dict:
+    def status(day: date, baseline, value) -> str:
+        if day > cutoff:
+            return "not_yet_formed"
+        return "available" if baseline is not None and value is not None else "missing_price"
+
+    def context(anchor: date, before: int = max(n, 5), after: int = max(n, 5)) -> dict:
         days = session_window(anchor, before, after, calendar)
+        start_n, end_n = days[before - n], days[before + n]
         baseline = _price(index, anchor, cutoff)
         future = days[before + 1 :]
         path_prices = [_price(index, day, cutoff) for day in days if day <= cutoff]
         path_complete = all(price is not None for price in path_prices)
+        first, last = _price(index, start_n, cutoff), _price(index, end_n, cutoff)
         return {
             "baseline_date": anchor.isoformat(),
             "baseline_close": _text(baseline),
-            "pre_5": _ratio(_price(index, days[0], cutoff), baseline),
+            "n": n,
+            "before_n": _ratio(first, baseline),
+            "after_n": _ratio(baseline, last),
+            "before_date": start_n.isoformat(),
+            "after_date": end_n.isoformat(),
+            "before_status": status(anchor, first, baseline),
+            "after_status": status(end_n, baseline, last),
+            "pre_5": _ratio(_price(index, days[before - 5], cutoff), baseline),
             "day_1": _ratio(baseline, _price(index, future[0], cutoff)),
             "day_5": _ratio(baseline, _price(index, future[4], cutoff)),
             "day_1_date": future[0].isoformat(),
@@ -72,7 +91,7 @@ def transaction_price_context(
                     "close": _text(_price(index, day, cutoff)),
                 }
                 for i, day in enumerate(days)
-                if day <= cutoff
+                if day <= cutoff and abs(i - before) <= n
             ],
         }
 

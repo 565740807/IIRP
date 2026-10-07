@@ -5,7 +5,7 @@ import json
 from dataclasses import asdict
 from hashlib import sha256
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
@@ -65,7 +65,7 @@ def persist_discovery(s: Session, job, response: dict, sources: dict[str, str]) 
             "sec_cursor": response.get("cursor"),
             "manifest_hash": sha256(json.dumps(sorted(accessions)).encode()).hexdigest(),
             "manifest_count": len(accessions),
-            "discovered_accessions": accessions if target.get("mode", "latest") == "latest" else [],
+            "discovered_accessions": accessions if target.get("mode", "latest") in {"latest", "entity"} else [],
         }
     for url, source_hash in sources.items():
         _observation(
@@ -263,6 +263,15 @@ def persist_document(s: Session, job, response: dict, sources: dict[str, str]) -
             set_={"name": observation.issuer_name or observation.issuer_cik},
         )
     )
+    accepted = _instant(raw.get("accepted_at"))
+    newer = select(Filing.accession).where(
+        Filing.issuer_id == observation.issuer_cik, Filing.visible.is_(True),
+        Filing.accession != raw["accession"], Filing.accepted_at > accepted,
+    ).exists() if accepted else None
+    if accepted:
+        # The newest filing's ticker wins; a backfilled older filing never reverts it.
+        s.execute(update(Issuer).where(Issuer.id == observation.issuer_cik, ~newer)
+                  .values(ticker=normalized_ticker(observation.issuer_ticker)))
     s.execute(
         insert(Filing)
         .values(

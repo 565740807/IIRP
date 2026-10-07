@@ -75,6 +75,12 @@ class InsiderTransaction(OpenOutput):
     date_anomaly: DateAnomaly | None = None
     source_row_index: int | None = None
     warnings: list[Any] = Field(default_factory=list)
+    direct_or_indirect: str | None = None
+    nature_of_ownership: str | None = None
+    shares_after: str | None = None
+    shares_before: str | None = None
+    holding_change: str | None = None
+    raw_10b5_1_flag: str | None = None
 
 
 class TradeSummary(Output):
@@ -225,6 +231,18 @@ class EntityCoverage(Output):
     message: str | None = None
 
 
+class SideTotal(Output):
+    """Open-market purchases (buy) or sales (sell) in the range: owners, shares, known amount."""
+    side: str
+    rows: int
+    owners: int = 0
+    shares: str | None = None
+    known_amount: str | None = None
+    missing_price_rows: int = 0
+    currencies: int = 0
+    currency: str | None = None
+
+
 class EntityHistory(Output):
     id: str
     kind: str
@@ -238,6 +256,7 @@ class EntityHistory(Output):
     total: int = 0
     next_cursor: str | None = None
     summary: list[TradeSummary] = Field(default_factory=list)
+    headline: list[SideTotal] = Field(default_factory=list)
     summary_owner_scope: str | None = None
     summary_note: str | None = None
     transaction_start: str | None = None

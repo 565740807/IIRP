@@ -26,6 +26,10 @@ LATEST_URL = SEC_BASE + "/cgi-bin/browse-edgar"
 TICKERS_URL = SEC_BASE + "/files/company_tickers_exchange.json"
 
 
+# EDGAR's company and person lookup (the search box on sec.gov/edgar/search).
+ENTITY_SEARCH_URL = "https://efts.sec.gov/LATEST/search-index"
+
+
 ET = ZoneInfo("America/New_York")
 
 
@@ -50,7 +54,7 @@ def validate_sec_url(url: str) -> str:
         parts = urlsplit(url)
         allowed = (
             parts.scheme == "https"
-            and parts.hostname in {"www.sec.gov", "sec.gov", "data.sec.gov"}
+            and parts.hostname in {"www.sec.gov", "sec.gov", "data.sec.gov", "efts.sec.gov"}
             and parts.port in {None, 443}
             and parts.username is None
             and parts.password is None
@@ -64,7 +68,15 @@ def validate_sec_url(url: str) -> str:
         raise SecSourceError("unsafe_sec_url")
     if "//" in parts.path:
         raise SecSourceError("unsafe_sec_url")
-    if parts.hostname == "data.sec.gov":
+    if parts.hostname == "efts.sec.gov":
+        query = parse_qs(parts.query, keep_blank_values=True)
+        allowed = (
+            parts.path == "/LATEST/search-index"
+            and set(query) == {"keysTyped"}
+            and len(query["keysTyped"]) == 1
+            and 0 < len(query["keysTyped"][0]) <= 100
+        )
+    elif parts.hostname == "data.sec.gov":
         allowed = (
             bool(re.fullmatch(r"/submissions/CIK\d{10}(?:-submissions-\d+)?\.json", parts.path))
             and not parts.query
@@ -88,7 +100,7 @@ def validate_sec_url(url: str) -> str:
         ) and not parts.query
     if not allowed:
         raise SecSourceError("sec_url_outside_source_allowlist")
-    host = "data.sec.gov" if parts.hostname == "data.sec.gov" else "www.sec.gov"
+    host = parts.hostname if parts.hostname in {"data.sec.gov", "efts.sec.gov"} else "www.sec.gov"
     return urlunsplit(("https", host, parts.path, parts.query, ""))
 
 
@@ -579,6 +591,28 @@ def parse_company_tickers(payload: bytes) -> list[dict]:
                 "valid_to": None,
             }
         )
+    return result
+
+
+def parse_entity_search(payload: bytes, limit: int = 10) -> list[dict]:
+    """Entities (companies and people) matching a typed name, best match first."""
+    data = _json(payload)
+    hits = (data.get("hits") or {}).get("hits")
+    if not isinstance(hits, list):
+        raise SecSourceError("invalid_entity_search")
+    result = []
+    for hit in hits[:limit]:
+        source = hit.get("_source") if isinstance(hit, dict) else None
+        if not isinstance(source, dict) or not str(hit.get("_id", "")).isdigit():
+            raise SecSourceError("invalid_entity_search_hit")
+        tickers = source.get("tickers")
+        tickers = [value for value in re.split(r"[,\s]+", tickers) if value] if isinstance(tickers, str) else (
+            [str(value) for value in tickers] if isinstance(tickers, list) else [])
+        result.append({
+            "cik": _cik(hit["_id"]),
+            "name": str(source.get("entity") or "").strip(),
+            "tickers": tickers[:5],
+        })
     return result
 
 

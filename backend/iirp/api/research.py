@@ -193,7 +193,7 @@ def company(
     recent_count: int = 0,
     date_basis: str = "transaction",
     cursor: str = "",
-    limit: int = 50,
+    limit: int = 200,
     action: str = "all",
 ):
     return invoke(transactions.entity_history,
@@ -218,7 +218,7 @@ def person(
     recent_count: int = 0,
     date_basis: str = "transaction",
     cursor: str = "",
-    limit: int = 50,
+    limit: int = 200,
     action: str = "all",
 ):
     return invoke(transactions.entity_history,
@@ -236,8 +236,12 @@ def person(
 
 
 @router.get("/transactions/{transaction_id}", response_model=TransactionDetailOutput)
-def transaction(transaction_id: str, mapping_version: int | None = None, cutoff_date: date | None = None):
-    return invoke(transactions.transaction_detail, transaction_id, mapping_version, cutoff_date.isoformat() if cutoff_date else None)
+def transaction(transaction_id: str, mapping_version: int | None = None, cutoff_date: date | None = None,
+                n: int | None = None):
+    from iirp.api.insider import _n
+
+    return invoke(transactions.transaction_detail, transaction_id, mapping_version,
+                  cutoff_date.isoformat() if cutoff_date else None, _n(n))
 
 
 @router.get("/transactions/{transaction_id}/export")

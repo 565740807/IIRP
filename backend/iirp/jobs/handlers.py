@@ -117,6 +117,8 @@ def _persist(s, current, response, sources, source, observation_metadata=None):
 
         entries = persist_discovery(s, current, response, source_hashes)
         result["discovered"] = len(entries)
+        if response.get("entity"):
+            result["entity"] = response["entity"]
         cursor = response.get("cursor")
         scan = response.get("scan", {})
         for scope in scopes:
@@ -156,6 +158,8 @@ def _persist(s, current, response, sources, source, observation_metadata=None):
             filing = s.get(Filing, current.target["accession"])
             result["accession"] = filing.accession
     elif kind == "sec_identity":
+        if "candidates" in response and current.target.get("query"):
+            result["candidates"] = response["candidates"][:20]
         for entry in response.get("entries", []):
             symbol = entry.get("ticker") or entry.get("symbol")
             cik = entry.get("cik")
@@ -318,7 +322,7 @@ def execute_business(job, stopping=lambda: False, runner=None):
         storage_started = time.perf_counter()
         # Discovery list pages and index files can be fetched again; filing
         # documents and parsed facts are permanent. Responses: response_expiry.
-        expiry = {"expires_at": discovery_expiry()} if job.kind == "sec_discover" else {}
+        expiry = {"expires_at": discovery_expiry()} if job.kind in {"sec_discover", "sec_identity"} else {}
         sources = {}
         for document in data.get("source_documents", []):
             content = (

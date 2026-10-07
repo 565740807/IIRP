@@ -1471,7 +1471,7 @@
             "required": false,
             "schema": {
               "type": "integer",
-              "default": 50,
+              "default": 200,
               "title": "Limit"
             }
           },
@@ -1590,7 +1590,7 @@
             "required": false,
             "schema": {
               "type": "integer",
-              "default": 50,
+              "default": 200,
               "title": "Limit"
             }
           },
@@ -1674,6 +1674,22 @@
                 }
               ],
               "title": "Cutoff Date"
+            }
+          },
+          {
+            "name": "n",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "N"
             }
           }
         ],
@@ -2661,6 +2677,328 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/EventAnalysisOutput"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/insider/settings": {
+      "get": {
+        "summary": "Settings View",
+        "description": "Defaults of the Insider pages: n (D16) and the lookup range (D15).",
+        "operationId": "settings_view_api_v1_insider_settings_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InsiderSettingsOutput"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/insider/lookup": {
+      "get": {
+        "summary": "Lookup Local",
+        "operationId": "lookup_local_api_v1_insider_lookup_get",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 100,
+              "default": "",
+              "title": "Q"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LocalLookupOutput"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Lookup Sec",
+        "operationId": "lookup_sec_api_v1_insider_lookup_post",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LookupInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LookupOutput"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/insider/lookup/{job_id}": {
+      "get": {
+        "summary": "Lookup Status",
+        "operationId": "lookup_status_api_v1_insider_lookup__job_id__get",
+        "parameters": [
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Job Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LookupOutput"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/insider/fetch": {
+      "post": {
+        "summary": "Fetch",
+        "operationId": "fetch_api_v1_insider_fetch_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FetchInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CollectionOutput"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/insider/fetch/{kind}/{cik}": {
+      "get": {
+        "summary": "Fetch State",
+        "operationId": "fetch_state_api_v1_insider_fetch__kind___cik__get",
+        "parameters": [
+          {
+            "name": "kind",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "enum": [
+                "company",
+                "person"
+              ],
+              "type": "string",
+              "title": "Kind"
+            }
+          },
+          {
+            "name": "cik",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Cik"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FetchStateOutput"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/insider/windows": {
+      "get": {
+        "summary": "Windows",
+        "description": "Before/after-n changes from the cached prices; never requests a provider.",
+        "operationId": "windows_api_v1_insider_windows_get",
+        "parameters": [
+          {
+            "name": "items",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 20000,
+              "default": "",
+              "title": "Items"
+            }
+          },
+          {
+            "name": "n",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "N"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WindowsOutput"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/insider/prices": {
+      "post": {
+        "summary": "Prices",
+        "description": "Fetch prices (one request per ticker, 24-hour cache) for windows still missing them.",
+        "operationId": "prices_api_v1_insider_prices_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PricesInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PricesOutput"
                 }
               }
             }
@@ -4250,6 +4588,13 @@
             "type": "array",
             "title": "Summary"
           },
+          "headline": {
+            "items": {
+              "$ref": "#/components/schemas/SideTotal"
+            },
+            "type": "array",
+            "title": "Headline"
+          },
           "summary_owner_scope": {
             "anyOf": [
               {
@@ -4335,6 +4680,7 @@
           "total",
           "next_cursor",
           "summary",
+          "headline",
           "summary_owner_scope",
           "summary_note",
           "transaction_start",
@@ -6089,6 +6435,157 @@
         ],
         "title": "FeedUpdatesOutput"
       },
+      "FetchInput": {
+        "properties": {
+          "cik": {
+            "type": "string",
+            "pattern": "^[0-9]{1,10}$",
+            "title": "Cik"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "company",
+              "person"
+            ],
+            "title": "Kind"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "months": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 120.0,
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Months"
+          },
+          "start_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Start Date"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "cik",
+          "kind"
+        ],
+        "title": "FetchInput"
+      },
+      "FetchState": {
+        "properties": {
+          "batch_id": {
+            "type": "string",
+            "title": "Batch Id"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "created_at": {
+            "type": "string",
+            "title": "Created At"
+          },
+          "start_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Start Date"
+          },
+          "discovered": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Discovered"
+          },
+          "parsed": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parsed"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          }
+        },
+        "type": "object",
+        "required": [
+          "batch_id",
+          "status",
+          "created_at",
+          "start_date",
+          "discovered",
+          "parsed",
+          "error"
+        ],
+        "title": "FetchState"
+      },
+      "FetchStateOutput": {
+        "properties": {
+          "fetch": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FetchState"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "fetch"
+        ],
+        "title": "FetchStateOutput"
+      },
       "FreshnessInput": {
         "properties": {
           "reason": {
@@ -6529,6 +7026,22 @@
         "title": "InsiderOwner",
         "description": "A reporting owner with the roles stated in that filing."
       },
+      "InsiderSettingsOutput": {
+        "properties": {
+          "window_sessions": {
+            "$ref": "#/components/schemas/WindowSettings"
+          },
+          "range": {
+            "$ref": "#/components/schemas/RangeSettings"
+          }
+        },
+        "type": "object",
+        "required": [
+          "window_sessions",
+          "range"
+        ],
+        "title": "InsiderSettingsOutput"
+      },
       "InsiderTransaction": {
         "properties": {
           "id": {
@@ -6889,6 +7402,72 @@
             "items": {},
             "type": "array",
             "title": "Warnings"
+          },
+          "direct_or_indirect": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Direct Or Indirect"
+          },
+          "nature_of_ownership": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nature Of Ownership"
+          },
+          "shares_after": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Shares After"
+          },
+          "shares_before": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Shares Before"
+          },
+          "holding_change": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Holding Change"
+          },
+          "raw_10b5_1_flag": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Raw 10B5 1 Flag"
           }
         },
         "additionalProperties": true,
@@ -6930,7 +7509,13 @@
           "is_amendment_update",
           "date_anomaly",
           "source_row_index",
-          "warnings"
+          "warnings",
+          "direct_or_indirect",
+          "nature_of_ownership",
+          "shares_after",
+          "shares_before",
+          "holding_change",
+          "raw_10b5_1_flag"
         ],
         "title": "InsiderTransaction",
         "description": "One row of Table I or II of a Form 3/4/5 filing."
@@ -7542,6 +8127,219 @@
           "available"
         ],
         "title": "LeaveOneOutSensitivity"
+      },
+      "LocalCompany": {
+        "properties": {
+          "cik": {
+            "type": "string",
+            "title": "Cik"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "ticker": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ticker"
+          },
+          "last_trade": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Trade"
+          }
+        },
+        "type": "object",
+        "required": [
+          "cik",
+          "name",
+          "ticker",
+          "last_trade"
+        ],
+        "title": "LocalCompany"
+      },
+      "LocalLookupOutput": {
+        "properties": {
+          "query": {
+            "type": "string",
+            "title": "Query"
+          },
+          "companies": {
+            "items": {
+              "$ref": "#/components/schemas/LocalCompany"
+            },
+            "type": "array",
+            "title": "Companies"
+          },
+          "people": {
+            "items": {
+              "$ref": "#/components/schemas/LocalPerson"
+            },
+            "type": "array",
+            "title": "People"
+          }
+        },
+        "type": "object",
+        "required": [
+          "query",
+          "companies",
+          "people"
+        ],
+        "title": "LocalLookupOutput"
+      },
+      "LocalPerson": {
+        "properties": {
+          "cik": {
+            "type": "string",
+            "title": "Cik"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "last_trade": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Trade"
+          }
+        },
+        "type": "object",
+        "required": [
+          "cik",
+          "name",
+          "last_trade"
+        ],
+        "title": "LocalPerson"
+      },
+      "LookupCandidate": {
+        "properties": {
+          "cik": {
+            "type": "string",
+            "title": "Cik"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "company",
+              "person"
+            ],
+            "title": "Kind"
+          },
+          "tickers": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Tickers"
+          },
+          "exchange": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Exchange"
+          },
+          "local": {
+            "type": "boolean",
+            "title": "Local",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "cik",
+          "name",
+          "kind",
+          "tickers",
+          "exchange",
+          "local"
+        ],
+        "title": "LookupCandidate"
+      },
+      "LookupInput": {
+        "properties": {
+          "query": {
+            "type": "string",
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Query"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "query"
+        ],
+        "title": "LookupInput"
+      },
+      "LookupOutput": {
+        "properties": {
+          "job_id": {
+            "type": "string",
+            "title": "Job Id"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "query": {
+            "type": "string",
+            "title": "Query"
+          },
+          "candidates": {
+            "items": {
+              "$ref": "#/components/schemas/LookupCandidate"
+            },
+            "type": "array",
+            "title": "Candidates"
+          }
+        },
+        "type": "object",
+        "required": [
+          "job_id",
+          "status",
+          "error",
+          "query",
+          "candidates"
+        ],
+        "title": "LookupOutput"
       },
       "MaintenanceRecord": {
         "properties": {
@@ -8271,6 +9069,54 @@
         "title": "PriceWindow",
         "description": "Closes from t−n to t+n around one time basis (transaction or disclosure)."
       },
+      "PricesInput": {
+        "properties": {
+          "n": {
+            "type": "integer",
+            "title": "N"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/TradeKey"
+            },
+            "type": "array",
+            "maxItems": 500,
+            "minItems": 1,
+            "title": "Items"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "n",
+          "items"
+        ],
+        "title": "PricesInput"
+      },
+      "PricesOutput": {
+        "properties": {
+          "requested": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Requested"
+          },
+          "batch_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Batch Ids"
+          }
+        },
+        "type": "object",
+        "required": [
+          "requested",
+          "batch_ids"
+        ],
+        "title": "PricesOutput"
+      },
       "ProportionUncertainty": {
         "properties": {
           "n": {
@@ -8377,6 +9223,24 @@
           "timezone"
         ],
         "title": "QuoteSession"
+      },
+      "RangeSettings": {
+        "properties": {
+          "months": {
+            "type": "integer",
+            "title": "Months"
+          },
+          "count": {
+            "type": "integer",
+            "title": "Count"
+          }
+        },
+        "type": "object",
+        "required": [
+          "months",
+          "count"
+        ],
+        "title": "RangeSettings"
       },
       "RecentAnalysesOutput": {
         "properties": {
@@ -9188,6 +10052,79 @@
         ],
         "title": "SecUserAgentState"
       },
+      "SideTotal": {
+        "properties": {
+          "side": {
+            "type": "string",
+            "title": "Side"
+          },
+          "rows": {
+            "type": "integer",
+            "title": "Rows"
+          },
+          "owners": {
+            "type": "integer",
+            "title": "Owners",
+            "default": 0
+          },
+          "shares": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Shares"
+          },
+          "known_amount": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Known Amount"
+          },
+          "missing_price_rows": {
+            "type": "integer",
+            "title": "Missing Price Rows",
+            "default": 0
+          },
+          "currencies": {
+            "type": "integer",
+            "title": "Currencies",
+            "default": 0
+          },
+          "currency": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Currency"
+          }
+        },
+        "type": "object",
+        "required": [
+          "side",
+          "rows",
+          "owners",
+          "shares",
+          "known_amount",
+          "missing_price_rows",
+          "currencies",
+          "currency"
+        ],
+        "title": "SideTotal",
+        "description": "Open-market purchases (buy) or sales (sell) in the range: owners, shares, known amount."
+      },
       "StoragePath": {
         "properties": {
           "path": {
@@ -9773,6 +10710,125 @@
         ],
         "title": "SystemOutput"
       },
+      "TickerPrices": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "ready",
+              "fetching",
+              "not_fetched",
+              "unavailable"
+            ],
+            "title": "Status"
+          },
+          "security_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Security Id"
+          },
+          "confirmed": {
+            "type": "boolean",
+            "title": "Confirmed",
+            "default": false
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "fetched_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fetched At"
+          },
+          "expires_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires At"
+          },
+          "needed_start": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Needed Start"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "security_id",
+          "confirmed",
+          "reason",
+          "fetched_at",
+          "expires_at",
+          "needed_start"
+        ],
+        "title": "TickerPrices"
+      },
+      "TradeKey": {
+        "properties": {
+          "ticker": {
+            "type": "string",
+            "maxLength": 32,
+            "minLength": 1,
+            "title": "Ticker"
+          },
+          "date": {
+            "type": "string",
+            "format": "date",
+            "title": "Date"
+          },
+          "issuer_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 10
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Issuer Id"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "ticker",
+          "date"
+        ],
+        "title": "TradeKey"
+      },
       "TradeSummary": {
         "properties": {
           "table": {
@@ -10077,6 +11133,193 @@
           "type"
         ],
         "title": "ValidationError"
+      },
+      "WindowChange": {
+        "properties": {
+          "value": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value"
+          },
+          "start_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Start Date"
+          },
+          "end_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "End Date"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          }
+        },
+        "type": "object",
+        "required": [
+          "value",
+          "start_date",
+          "end_date",
+          "status"
+        ],
+        "title": "WindowChange"
+      },
+      "WindowItem": {
+        "properties": {
+          "ticker": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ticker"
+          },
+          "date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Date"
+          },
+          "symbol": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Symbol"
+          },
+          "anchor_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Anchor Date"
+          },
+          "before": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/WindowChange"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "after": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/WindowChange"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "ticker",
+          "date",
+          "symbol",
+          "anchor_date",
+          "before",
+          "after"
+        ],
+        "title": "WindowItem"
+      },
+      "WindowSettings": {
+        "properties": {
+          "default": {
+            "type": "integer",
+            "title": "Default"
+          },
+          "min": {
+            "type": "integer",
+            "title": "Min"
+          },
+          "max": {
+            "type": "integer",
+            "title": "Max"
+          },
+          "presets": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Presets"
+          }
+        },
+        "type": "object",
+        "required": [
+          "default",
+          "min",
+          "max",
+          "presets"
+        ],
+        "title": "WindowSettings"
+      },
+      "WindowsOutput": {
+        "properties": {
+          "n": {
+            "type": "integer",
+            "title": "N"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/WindowItem"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "tickers": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/TickerPrices"
+            },
+            "type": "object",
+            "title": "Tickers"
+          }
+        },
+        "type": "object",
+        "required": [
+          "n",
+          "items",
+          "tickers"
+        ],
+        "title": "WindowsOutput"
       },
       "WorkerState": {
         "properties": {

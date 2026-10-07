@@ -65,7 +65,8 @@ def resolve_amendment(relation_id, action, original_event_id, evidence):
         return records.resolve_amendment(s, relation_id, action, original_event_id, evidence)
 
 
-def transaction_detail(transaction_id, mapping_version=None, cutoff_date=None):
+def transaction_detail(transaction_id, mapping_version=None, cutoff_date=None, n=5):
+    from iirp.analysis.insider_windows import _ticker_state, provider_symbol
     from iirp.analysis.transaction_windows import transaction_price_context
     from iirp.insider import records
 
@@ -108,23 +109,39 @@ def transaction_detail(transaction_id, mapping_version=None, cutoff_date=None):
         record["mapping_version"] = int(mapping.get("version", 1)) if mapping else None
         record["mapping_latest_version"] = latest_version
         sec = s.get(Security, mapping.get("security_id")) if mapping else None
-        context = {"status": "IDENTITY_PENDING", "reason": msg("transaction.security_unverified")}
-        if sec and sec.status == "VERIFIED" and sec.issuer_id == event.issuer_id:
+        mapped = bool(sec and sec.status == "VERIFIED" and sec.issuer_id == event.issuer_id)
+        if mapped:
             record["security_id"] = sec.id
             record["security_mapping"] = mapping
-            bars, cache = price_bars(s, sec.id)
-            if record.get("transaction_date") and record.get("accepted_at"):
-                observation_date = date.fromisoformat(cutoff_date) if cutoff_date else None
-                context = transaction_price_context(
-                    bars, record["transaction_date"], record["accepted_at"],
-                    today=observation_date, calendar=sec.calendar,
-                )
-                context["mapping_version"] = record["mapping_version"]
-                context["security_id"] = sec.id
-                context["source"] = cache.provider if cache else None
-                context["price_basis"] = "SPLIT_ONLY" if cache else "UNVERIFIED_PROVIDER_RECORDS"
-                context["as_of"] = cache.fetched_at.isoformat() if cache else None
-                context.update(cache_facts(cache))
+        else:
+            # Without a confirmed mapping use the ticker the filing states and
+            # show the values marked as pending confirmation.
+            symbol = provider_symbol(ticker)
+            sec = s.scalar(select(Security).where(Security.symbol == symbol).order_by(Security.id).limit(1)) if symbol else None
+        state = _ticker_state(s, sec, {event.issuer_id}) if (sec or ticker) else {"status": "unavailable"}
+        cache = state.pop("cache", None)
+        context = {
+            "status": "NO_TICKER" if not provider_symbol(ticker) and not mapped else state["status"].upper(),
+            "reason": state.get("reason"),
+            "ticker": sec.symbol if sec else provider_symbol(ticker),
+            "identity": "confirmed" if mapped or state.get("confirmed") else "pending",
+        }
+        if sec and record.get("transaction_date") and record.get("accepted_at"):
+            # Without a cache the windows still carry their dates; values stay empty.
+            bars, cache = price_bars(s, sec.id, cache.id) if cache else ([], None)
+            observation_date = date.fromisoformat(cutoff_date) if cutoff_date else None
+            context.update(transaction_price_context(
+                bars, record["transaction_date"], record["accepted_at"],
+                today=observation_date, calendar=sec.calendar or "XNYS", n=n,
+            ))
+            context["status"] = state["status"].upper() if state["status"] != "ready" else "READY"
+            context["mapping_version"] = record["mapping_version"]
+            context["security_id"] = sec.id
+            context["source"] = cache.provider if cache else None
+            context["price_basis"] = "SPLIT_ONLY"
+            context["as_of"] = cache.fetched_at.isoformat() if cache else None
+            context.update(cache_facts(cache))
+            context["bars"] = _window_bars(bars, context, sec.calendar or "XNYS", n)
 
         if record.get("transaction_date") and record.get("accepted_at"):
             accepted = datetime.fromisoformat(record["accepted_at"]).astimezone(ET).date()
@@ -132,6 +149,20 @@ def transaction_detail(transaction_id, mapping_version=None, cutoff_date=None):
                 accepted - date.fromisoformat(record["transaction_date"])
             ).days
         return {"items": [], "data": {"transaction": record, "price_context": context}}
+
+
+def _window_bars(bars, context, calendar, n):
+    """Daily OHLC from t−n to t+n, spanning both the trade and disclosure bases."""
+    from iirp.analysis.calendar import session_window
+
+    anchors = [date.fromisoformat(item["baseline_date"]) for item in
+               (context.get("transaction"), context.get("disclosure")) if item and item.get("baseline_date")]
+    if not anchors:
+        return []
+    first = session_window(min(anchors), n, 0, calendar)[0].isoformat()
+    last = session_window(max(anchors), 0, n, calendar)[-1].isoformat()
+    return [{key: bar.get(key) for key in ("date", "open", "high", "low", "close", "volume")}
+            for bar in bars if first <= bar["date"] <= last and bar.get("status") == "VALID"]
 
 
 def map_transaction_security(transaction_id, values):
