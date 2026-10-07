@@ -386,6 +386,10 @@ def _plan_batch(s, batch, capacity, latest_capacity, document_link_capacity):
             plan_event_scope(s, scope, batch, capacity)
         elif scope.security_id:
             _plan_market(s, scope, batch, capacity)
+        elif batch.kind == "sec_entity":
+            from iirp.sec.entity import plan_entity_scope
+
+            plan_entity_scope(s, scope, batch, capacity)
         elif batch.kind == "sec_filing":
             url = batch.params["filing_url"]
             accession = url.rsplit("/", 1)[-1][:-4]

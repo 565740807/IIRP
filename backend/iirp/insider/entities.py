@@ -91,6 +91,29 @@ def _freeze_index(s, statement, filters, companies):
         .select_from(groups).outerjoin(owner_counts, (groups.c.table.is_not_distinct_from(owner_counts.c.table)) & (groups.c.security_title.is_not_distinct_from(owner_counts.c.security_title)) & (groups.c.currency.is_not_distinct_from(owner_counts.c.currency)) & (groups.c.code.is_not_distinct_from(owner_counts.c.code)))
         .scalar_subquery()
     )
+    # One line per side for the page headline: open-market purchases (P) and
+    # sales (S) of Table I, with distinct owners, shares and known amounts.
+    side = case(((values.c.table == "I") & (values.c.code == "P"), "buy"),
+                ((values.c.table == "I") & (values.c.code == "S"), "sell"))
+    side_totals = (select(side.label("side"), func.count().label("rows"),
+                          cast(func.sum(values.c.shares), String).label("shares"),
+                          cast(func.sum(values.c.amount), String).label("known_amount"),
+                          func.count().filter(values.c.amount.is_(None)).label("missing_price_rows"),
+                          func.count(func.distinct(values.c.currency)).label("currencies"),
+                          func.min(values.c.currency).label("currency"))
+                   .where(valid, side.is_not(None)).group_by(side).subquery("side_totals"))
+    side_owners = (select(side.label("side"), func.count(func.distinct(owner_ids.c.value)).label("owners"))
+                   .select_from(values).join(owner_ids, owner_scope)
+                   .where(valid, side.is_not(None)).group_by(side).subquery("side_owners"))
+    headline = (
+        select(func.coalesce(func.jsonb_agg(func.jsonb_build_object(
+            "side", side_totals.c.side, "rows", side_totals.c.rows, "shares", side_totals.c.shares,
+            "known_amount", side_totals.c.known_amount, "missing_price_rows", side_totals.c.missing_price_rows,
+            "currencies", side_totals.c.currencies, "currency", side_totals.c.currency,
+            "owners", func.coalesce(side_owners.c.owners, 0))), literal([], JSONB)))
+        .select_from(side_totals).outerjoin(side_owners, side_owners.c.side == side_totals.c.side)
+        .scalar_subquery()
+    )
     refs = func.coalesce(
         func.jsonb_agg(
             aggregate_order_by(
@@ -109,7 +132,7 @@ def _freeze_index(s, statement, filters, companies):
     )
     identifier = str(uuid.uuid4())
     metadata = literal(filters, JSONB).op("||")(
-        func.jsonb_build_object("total", func.count(), "summary", summary, "companies", companies,
+        func.jsonb_build_object("total", func.count(), "summary", summary, "headline", headline, "companies", companies,
                                "transaction_start", func.min(values.c.transaction_date), "transaction_end", func.max(values.c.transaction_date),
                                "filings", func.count(func.distinct(values.c.accession)))
     )
@@ -293,7 +316,7 @@ def read_entity_history(
         raise UserError("insider.entity_kind_invalid")
     identifier = _cik(identifier)
     issuer_id = _cik(issuer_id) if issuer_id else None
-    if not 1 <= limit <= 100 or date_basis not in {
+    if not 1 <= limit <= 500 or date_basis not in {
         "transaction_date",
         "accepted_at",
         "accepted_date",
@@ -527,6 +550,7 @@ def read_entity_history(
             "total": total,
             "next_cursor": f"{session_id}:{offset + limit}" if offset + limit < total else None,
             "summary": summary,
+            "headline": metadata.get("headline") or [],
             "summary_owner_scope": metadata.get("summary_owner_scope", "legacy_joint_subjects" if kind in {"owner", "person"} else "all_filing_owners"),
             "summary_note": msg("insider.summary_joint_owners") if kind in {"owner", "person"} and not metadata.get("summary_owner_scope") else None,
             "transaction_start": metadata.get("transaction_start"),

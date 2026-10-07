@@ -8,7 +8,7 @@
 [normal_usage]
 timezone = "America/New_York"
 initial_sec_business_days = 5
-insider_history_months = 3
+insider_history_months = 6
 price_history_years = 8
 include_current_year = true
 price_cache_hours = 24

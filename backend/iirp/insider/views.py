@@ -46,6 +46,10 @@ _LIST_SOURCE_FIELDS = {
     "quantity_unit",
     "form",
     "source_row_index",
+    "direct_or_indirect",
+    "nature_of_ownership",
+    "shares_after",
+    "raw_10b5_1_flag",
 }
 
 
@@ -70,6 +74,8 @@ _LIST_FIELDS = _LIST_SOURCE_FIELDS | {
     "summary_exclusion_reason",
     "group_accession",
     "group_accepted_at",
+    "shares_before",
+    "holding_change",
 }
 
 
@@ -263,11 +269,28 @@ def _event_view(
         "eligible_for_totals": status == "CURRENT",
         "summary_exclusion_reason": _summary_exclusion_reason(status),
         "replaces_id": event.replaces_id,
+        **_holding_change(data),
         "date_anomaly": _date_anomaly({
             "transaction_date": event.transaction_date.isoformat() if event.transaction_date else None,
             "accepted_at": event.accepted_at,
         }),
     }
+
+
+def _holding_change(data: dict) -> dict:
+    """Holdings before the row and the change as a ratio of them (A adds, D removes)."""
+    try:
+        shares, after = Decimal(str(data["shares"])), Decimal(str(data["shares_after"]))
+    except (KeyError, TypeError, ArithmeticError, ValueError):
+        return {}
+    sign = {"A": 1, "D": -1}.get(data.get("direction"))
+    if sign is None or not shares.is_finite() or not after.is_finite():
+        return {}
+    before = after - sign * shares
+    if before < 0:
+        return {}
+    return {"shares_before": str(before),
+            "holding_change": str(sign * shares / before) if before > 0 else None}
 
 
 def _matches(row: dict, kind: str) -> bool:

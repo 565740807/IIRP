@@ -8,6 +8,7 @@ from hashlib import sha256
 from urllib.parse import parse_qs, urlencode, urlsplit
 
 from iirp.sec.parse import (
+    ENTITY_SEARCH_URL,
     LATEST_URL,
     SEC_BASE,
     TICKERS_URL,
@@ -27,6 +28,7 @@ from iirp.sec.parse import (
     _text,
     _xml,
     parse_company_tickers,
+    parse_entity_search,
     parse_filing_index,
     parse_index,
     parse_submission,
@@ -470,6 +472,63 @@ def _document_from_index(index: dict, transport: _Transport, target: dict) -> di
     )
 
 
+# Older submission files followed for one entity; each holds about 1,000 filings.
+ENTITY_OLDER_FILES = 3
+
+
+def _entity(target: dict, transport: _Transport) -> dict:
+    """Ownership filings of one CIK (issuer or reporting owner) filed in a date range.
+
+    EDGAR lists Form 3/4/5 under the issuer and under every reporting owner,
+    so one submissions file answers both a company and a person lookup.
+    """
+    cik = _cik(target.get("cik"))
+    start, end = _date(target.get("start_date")), _date(target.get("end_date"))
+    if not start or not end or start > end:
+        raise SecSourceError("invalid_entity_range")
+    payload = transport.get(f"https://data.sec.gov/submissions/CIK{cik}.json", "application/json")
+    parsed = parse_submissions(payload, cik=cik)
+    entries = list(parsed["entries"])
+    older = [file for file in parsed["files"] if (file["filing_to"] or "9999") >= start]
+    for file in older[:ENTITY_OLDER_FILES]:
+        entries += parse_submissions(transport.get(file["url"], "application/json"), cik=cik)["entries"]
+    selected = [entry for entry in entries if start <= entry["filing_date"] <= end]
+    data = _json(payload)
+    return _result(
+        transport,
+        entries=selected,
+        complete=len(older) <= ENTITY_OLDER_FILES,
+        reason="entity_submissions_read",
+        coverage_scope="entity_ownership_filings",
+        entity={"cik": cik, "name": data.get("name"), "tickers": list(data.get("tickers") or [])[:5],
+                "entity_type": data.get("entityType")},
+    )
+
+
+def _lookup(target: dict, transport: _Transport) -> dict:
+    """Candidates for a typed ticker or name: company tickers first, then EDGAR's entity search."""
+    query = str(target.get("query", "")).strip()
+    if not 0 < len(query) <= 100:
+        raise SecSourceError("invalid_lookup_query")
+    candidates = []
+    if target.get("mode") == "ticker":
+        wanted = query.upper().replace(".", "-")
+        for row in parse_company_tickers(transport.get(TICKERS_URL, "application/json")):
+            if row["ticker"].upper().replace(".", "-") == wanted:
+                candidates.append({"cik": row["cik"], "name": row["name"], "tickers": [row["ticker"]],
+                                   "exchange": row["exchange"], "ticker": row["ticker"]})
+    if not candidates:
+        url = ENTITY_SEARCH_URL + "?" + urlencode({"keysTyped": query})
+        candidates = parse_entity_search(transport.get(url, "application/json"))
+    return {
+        **_result(transport, complete=True, reason="lookup_candidates_read",
+                  coverage_scope="current_candidates_only"),
+        "candidates": candidates,
+        # Ticker matches also link an existing security to its issuer.
+        "entries": [row for row in candidates if row.get("ticker")],
+    }
+
+
 def run_sec_operation(kind: str, target: dict, *, fetch: Fetch) -> dict:
     """Execute one bounded operation through the shared SEC-budget callback.
 
@@ -497,9 +556,13 @@ def run_sec_operation(kind: str, target: dict, *, fetch: Fetch) -> dict:
             return _latest(target, transport)
         if mode in {"daily", "quarterly"}:
             return _indexes(target, transport, mode)
+        if mode == "entity":
+            return _entity(target, transport)
         raise SecSourceError("unsupported_sec_discovery_mode")
     if kind == "sec_document":
         return _document(target, transport)
+    if kind == "sec_identity" and target.get("query"):
+        return _lookup(target, transport)
     if kind == "sec_identity":
         payload = transport.get(TICKERS_URL, "application/json")
         candidates = parse_company_tickers(payload)

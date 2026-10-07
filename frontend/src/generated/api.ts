@@ -856,6 +856,135 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/insider/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Settings View
+         * @description Defaults of the Insider pages: n (D16) and the lookup range (D15).
+         */
+        get: operations["settings_view_api_v1_insider_settings_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/insider/lookup": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Lookup Local */
+        get: operations["lookup_local_api_v1_insider_lookup_get"];
+        put?: never;
+        /** Lookup Sec */
+        post: operations["lookup_sec_api_v1_insider_lookup_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/insider/lookup/{job_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Lookup Status */
+        get: operations["lookup_status_api_v1_insider_lookup__job_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/insider/fetch": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Fetch */
+        post: operations["fetch_api_v1_insider_fetch_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/insider/fetch/{kind}/{cik}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Fetch State */
+        get: operations["fetch_state_api_v1_insider_fetch__kind___cik__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/insider/windows": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Windows
+         * @description Before/after-n changes from the cached prices; never requests a provider.
+         */
+        get: operations["windows_api_v1_insider_windows_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/insider/prices": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Prices
+         * @description Fetch prices (one request per ticker, 24-hour cache) for windows still missing them.
+         */
+        post: operations["prices_api_v1_insider_prices_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1390,6 +1519,8 @@ export interface components {
             next_cursor: string | null;
             /** Summary */
             summary: components["schemas"]["TradeSummary"][];
+            /** Headline */
+            headline: components["schemas"]["SideTotal"][];
             /** Summary Owner Scope */
             summary_owner_scope: string | null;
             /** Summary Note */
@@ -1976,6 +2107,43 @@ export interface components {
             /** Pending Filings */
             pending_filings: components["schemas"]["PendingFiling"][];
         };
+        /** FetchInput */
+        FetchInput: {
+            /** Cik */
+            cik: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "company" | "person";
+            /** Name */
+            name?: string | null;
+            /** Months */
+            months?: number | null;
+            /** Start Date */
+            start_date?: string | null;
+        };
+        /** FetchState */
+        FetchState: {
+            /** Batch Id */
+            batch_id: string;
+            /** Status */
+            status: string;
+            /** Created At */
+            created_at: string;
+            /** Start Date */
+            start_date: string | null;
+            /** Discovered */
+            discovered: number | null;
+            /** Parsed */
+            parsed: number | null;
+            /** Error */
+            error: string | null;
+        };
+        /** FetchStateOutput */
+        FetchStateOutput: {
+            fetch: components["schemas"]["FetchState"] | null;
+        };
         /** FreshnessInput */
         FreshnessInput: {
             /**
@@ -2128,6 +2296,11 @@ export interface components {
              */
             entity_type: string;
         };
+        /** InsiderSettingsOutput */
+        InsiderSettingsOutput: {
+            window_sessions: components["schemas"]["WindowSettings"];
+            range: components["schemas"]["RangeSettings"];
+        };
         /**
          * InsiderTransaction
          * @description One row of Table I or II of a Form 3/4/5 filing.
@@ -2212,6 +2385,18 @@ export interface components {
             source_row_index: number | null;
             /** Warnings */
             warnings: unknown[];
+            /** Direct Or Indirect */
+            direct_or_indirect: string | null;
+            /** Nature Of Ownership */
+            nature_of_ownership: string | null;
+            /** Shares After */
+            shares_after: string | null;
+            /** Shares Before */
+            shares_before: string | null;
+            /** Holding Change */
+            holding_change: string | null;
+            /** Raw 10B5 1 Flag */
+            raw_10b5_1_flag: string | null;
         } & {
             [key: string]: unknown;
         };
@@ -2409,6 +2594,74 @@ export interface components {
              * @default {"code":"method.leave_one_out.interpretation","params":{}}
              */
             interpretation: string;
+        };
+        /** LocalCompany */
+        LocalCompany: {
+            /** Cik */
+            cik: string;
+            /** Name */
+            name: string;
+            /** Ticker */
+            ticker: string | null;
+            /** Last Trade */
+            last_trade: string | null;
+        };
+        /** LocalLookupOutput */
+        LocalLookupOutput: {
+            /** Query */
+            query: string;
+            /** Companies */
+            companies: components["schemas"]["LocalCompany"][];
+            /** People */
+            people: components["schemas"]["LocalPerson"][];
+        };
+        /** LocalPerson */
+        LocalPerson: {
+            /** Cik */
+            cik: string;
+            /** Name */
+            name: string;
+            /** Last Trade */
+            last_trade: string | null;
+        };
+        /** LookupCandidate */
+        LookupCandidate: {
+            /** Cik */
+            cik: string;
+            /** Name */
+            name: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "company" | "person";
+            /** Tickers */
+            tickers: string[];
+            /** Exchange */
+            exchange: string | null;
+            /**
+             * Local
+             * @default false
+             */
+            local: boolean;
+        };
+        /** LookupInput */
+        LookupInput: {
+            /** Query */
+            query: string;
+        };
+        /** LookupOutput */
+        LookupOutput: {
+            /** Job Id */
+            job_id: string;
+            /** Status */
+            status: string;
+            /** Error */
+            error: string | null;
+            /** Query */
+            query: string;
+            /** Candidates */
+            candidates: components["schemas"]["LookupCandidate"][];
         };
         /** MaintenanceRecord */
         MaintenanceRecord: {
@@ -2641,6 +2894,20 @@ export interface components {
         } & {
             [key: string]: unknown;
         };
+        /** PricesInput */
+        PricesInput: {
+            /** N */
+            n: number;
+            /** Items */
+            items: components["schemas"]["TradeKey"][];
+        };
+        /** PricesOutput */
+        PricesOutput: {
+            /** Requested */
+            requested: string[];
+            /** Batch Ids */
+            batch_ids: string[];
+        };
         /** ProportionUncertainty */
         ProportionUncertainty: {
             /** N */
@@ -2685,6 +2952,13 @@ export interface components {
             end: string;
             /** Timezone */
             timezone: string | null;
+        };
+        /** RangeSettings */
+        RangeSettings: {
+            /** Months */
+            months: number;
+            /** Count */
+            count: number;
         };
         /** RecentAnalysesOutput */
         RecentAnalysesOutput: {
@@ -2986,6 +3260,37 @@ export interface components {
             /** Message */
             message: string;
         };
+        /**
+         * SideTotal
+         * @description Open-market purchases (buy) or sales (sell) in the range: owners, shares, known amount.
+         */
+        SideTotal: {
+            /** Side */
+            side: string;
+            /** Rows */
+            rows: number;
+            /**
+             * Owners
+             * @default 0
+             */
+            owners: number;
+            /** Shares */
+            shares: string | null;
+            /** Known Amount */
+            known_amount: string | null;
+            /**
+             * Missing Price Rows
+             * @default 0
+             */
+            missing_price_rows: number;
+            /**
+             * Currencies
+             * @default 0
+             */
+            currencies: number;
+            /** Currency */
+            currency: string | null;
+        };
         /** StoragePath */
         StoragePath: {
             /** Path */
@@ -3123,6 +3428,41 @@ export interface components {
             sec_user_agent: components["schemas"]["SecUserAgentState"];
             storage: components["schemas"]["StorageState"];
         };
+        /** TickerPrices */
+        TickerPrices: {
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "ready" | "fetching" | "not_fetched" | "unavailable";
+            /** Security Id */
+            security_id: string | null;
+            /**
+             * Confirmed
+             * @default false
+             */
+            confirmed: boolean;
+            /** Reason */
+            reason: string | null;
+            /** Fetched At */
+            fetched_at: string | null;
+            /** Expires At */
+            expires_at: string | null;
+            /** Needed Start */
+            needed_start: string | null;
+        };
+        /** TradeKey */
+        TradeKey: {
+            /** Ticker */
+            ticker: string;
+            /**
+             * Date
+             * Format: date
+             */
+            date: string;
+            /** Issuer Id */
+            issuer_id?: string | null;
+        };
         /**
          * TradeSummary
          * @description Rows of one action (table, security, currency, code) added up.
@@ -3243,6 +3583,52 @@ export interface components {
             input?: unknown;
             /** Context */
             ctx?: Record<string, never>;
+        };
+        /** WindowChange */
+        WindowChange: {
+            /** Value */
+            value: string | null;
+            /** Start Date */
+            start_date: string | null;
+            /** End Date */
+            end_date: string | null;
+            /** Status */
+            status: string;
+        };
+        /** WindowItem */
+        WindowItem: {
+            /** Ticker */
+            ticker: string | null;
+            /** Date */
+            date: string | null;
+            /** Symbol */
+            symbol: string | null;
+            /** Anchor Date */
+            anchor_date: string | null;
+            before: components["schemas"]["WindowChange"] | null;
+            after: components["schemas"]["WindowChange"] | null;
+        };
+        /** WindowSettings */
+        WindowSettings: {
+            /** Default */
+            default: number;
+            /** Min */
+            min: number;
+            /** Max */
+            max: number;
+            /** Presets */
+            presets: number[];
+        };
+        /** WindowsOutput */
+        WindowsOutput: {
+            /** N */
+            n: number;
+            /** Items */
+            items: components["schemas"]["WindowItem"][];
+            /** Tickers */
+            tickers: {
+                [key: string]: components["schemas"]["TickerPrices"];
+            };
         };
         /**
          * WorkerState
@@ -4381,6 +4767,7 @@ export interface operations {
             query?: {
                 mapping_version?: number | null;
                 cutoff_date?: string | null;
+                n?: number | null;
             };
             header?: never;
             path: {
@@ -5057,6 +5444,251 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["EventAnalysisOutput"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    settings_view_api_v1_insider_settings_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InsiderSettingsOutput"];
+                };
+            };
+        };
+    };
+    lookup_local_api_v1_insider_lookup_get: {
+        parameters: {
+            query?: {
+                q?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LocalLookupOutput"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    lookup_sec_api_v1_insider_lookup_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LookupInput"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LookupOutput"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    lookup_status_api_v1_insider_lookup__job_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                job_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LookupOutput"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    fetch_api_v1_insider_fetch_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FetchInput"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CollectionOutput"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    fetch_state_api_v1_insider_fetch__kind___cik__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                kind: "company" | "person";
+                cik: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FetchStateOutput"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    windows_api_v1_insider_windows_get: {
+        parameters: {
+            query?: {
+                items?: string;
+                n?: number | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WindowsOutput"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    prices_api_v1_insider_prices_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PricesInput"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PricesOutput"];
                 };
             };
             /** @description Validation Error */

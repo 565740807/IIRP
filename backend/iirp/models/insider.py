@@ -29,6 +29,8 @@ class Issuer(Base):
     __tablename__ = "issuer"
     id: Mapped[str] = mapped_column(String(10), primary_key=True)
     name: Mapped[str] = mapped_column(Text)
+    # Ticker stated by the most recently accepted filing (lookup only).
+    ticker: Mapped[str | None] = mapped_column(String(32), index=True)
 
 
 class Owner(Base):
