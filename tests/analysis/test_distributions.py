@@ -1,21 +1,9 @@
-"""Hand-computed distributions and missing-data counterexamples, no provider calls."""
+"""Hand-computed distribution statistics, no provider calls."""
 
-from datetime import date
 from decimal import Decimal
 
 import pytest
-from iirp.analysis.distributions import statistics
-from iirp.analysis.research import compute_research
-
-from tests.analysis.test_research import history as price_history
-
-
-def benchmark(bars, **extra):
-    return {"symbol": "SYNTHETIC_ETF", "name": "开发合成ETF", "dataset_id": "synthetic-b1", "status": "available", "bars": bars, **extra}
-
-
-def distribution(result, metric="after5", group="developer_keynote"):
-    return next(d for d in result["distributions"] if d["metric"] == metric and d["group"] == group)
+from iirp.analysis.distributions import statistics, wilson_interval
 
 
 def test_full_statistics_hand_calculation_and_degenerate_samples():
@@ -32,13 +20,10 @@ def test_full_statistics_hand_calculation_and_degenerate_samples():
         statistics(["Infinity"])
 
 
-@pytest.mark.parametrize("kind", ["monthly", "interval"])
-def test_all_research_modes_serialize_statistics_benchmarks_and_actual_windows(kind):
-    params = {"kind": kind, "current_year": 2024, "years": [2023], "month": 1, "comparison": "complete", "start_mmdd": "01-03", "end_mmdd": "01-10"}
-    bars = price_history(date(2022, 12, 1), date(2024, 6, 30))
-    result = compute_research(params, bars, today=date(2024, 6, 30), benchmark=benchmark(bars))
-    d = distribution(result, "endpoint", "1" if kind == "monthly" else "interval")
-    assert d["stock"]["n"] == d["difference"]["n"] == 1
-    assert Decimal(d["difference"]["median"]) == 0
-    assert d["samples"][0]["start_date"] <= d["samples"][0]["end_date"]
-    assert result["benchmark"]["dataset_id"] == "synthetic-b1"
+def test_wilson_interval_matches_the_nist_formula():
+    low, high = wilson_interval(6, 8)
+    # p = 0.75, n = 8, z = 1.96: 40.9%–92.9%
+    assert (round(low, 3), round(high, 3)) == (Decimal("0.409"), Decimal("0.929"))
+    assert wilson_interval(0, 5)[0] == 0 and wilson_interval(5, 5)[1] == 1
+    with pytest.raises(ValueError):
+        wilson_interval(0, 0)

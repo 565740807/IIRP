@@ -70,12 +70,3 @@ def test_manual_refetch_creates_one_new_research_while_it_runs():
     refetched = requests.refresh_analysis(created["id"], force=True)
     assert refetched["id"] != created["id"]
     assert requests.refresh_analysis(created["id"], force=True)["id"] == refetched["id"]
-
-
-def test_acceptance_label_is_not_a_financial_condition():
-    seed_security()
-    values = params()
-    values["research_label"] = "验收20260922-隔离测试"
-    view = requests.create_analysis(values)
-    assert view["batch"]["title"].startswith("验收20260922")
-    assert "research_label" not in view["params"]

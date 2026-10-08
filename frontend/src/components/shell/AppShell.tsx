@@ -6,7 +6,7 @@ import { Activity, BarChart3, Database, Home, RefreshCw, Users } from "lucide-re
 import { setLanguage, tm, type Language } from "@/i18n";
 import { formatEt } from "@/lib/format";
 import { useRefresh } from "@/lib/refresh";
-import { researchHref } from "@/researchStorage";
+import { analysisHref } from "@/lib/navigation";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
@@ -48,7 +48,7 @@ function Sidebar({ openSystem }: { openSystem: () => void }) {
         {NAVIGATION.map((item) => (
           <NavLink
             key={item.to}
-            to={item.key === "analysis" ? researchHref("monthly") : item.to}
+            to={item.key === "analysis" ? analysisHref("monthly") : item.to}
             end={item.to === "/"}
             className={({ isActive }) =>
               cn(

@@ -47,8 +47,7 @@ def _current_but_incomplete(monkeypatch):
         s.add(result)
         s.get(Batch, request.batch_id).status = "PARTIAL"
     result = requests.get_analysis(view["id"])
-    assert result["results"][0]["is_current"]
-    assert result["results"][0]["coverage"]["complete"] is False
+    assert result["results"]
     return result
 
 
@@ -58,8 +57,8 @@ def test_explicit_latest_refresh_retries_terminal_same_input_price_gaps(monkeypa
     updated = requests.refresh_analysis(previous["id"], force=True)
     assert updated["id"] != previous["id"]
     assert updated["batch"]["status"] in models.ACTIVE
-    frozen = requests.get_analysis(previous["id"], previous["results"][0]["result_id"])
-    assert frozen["results"][0]["data"] == previous["results"][0]["data"]
+    # The earlier research still reads its own unexpired result.
+    assert requests.get_analysis(previous["id"])["results"][0]["data"] == previous["results"][0]["data"]
     # Rapid manual retries share the still-active refresh, instead of multiplying work.
     repeated = requests.refresh_analysis(previous["id"], force=True)
     assert repeated["id"] == updated["id"]
@@ -78,9 +77,8 @@ def test_automatic_refresh_does_not_loop_on_an_unexpired_gap(monkeypatch):
 @pytest.mark.parametrize("kind", ["monthly", "interval"])
 def test_range_bounded_loading_keeps_full_financial_output_identical(kind):
     cutoff = date(2024, 6, 30)
-    values = {"kind": kind, "cutoff_date": str(cutoff), "years": [2022, 2023], "current_year": 2024,
-              "month": 2, "comparison": "complete",
-              "start_mmdd": "12-15", "end_mmdd": "01-20", "cross_year": True}
+    values = {"kind": kind, "cutoff_date": str(cutoff), "historical_years": 2, "current_year": 2024,
+              "start_mmdd": "12-15", "end_mmdd": "01-20"}
     bars = history(date(2020, 12, 1), date(2024, 12, 31))
     ranges = research_ranges(values, "XNYS")
     clipped = [row for row in bars if any(str(first) <= row["date"] <= str(last) for first, last in ranges)]

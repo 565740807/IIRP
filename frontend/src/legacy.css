@@ -417,9 +417,6 @@ td small {
   color: #56657a;
   font-size: 12px;
 }
-.provider {
-  border-top: 1px solid var(--border);
-}
 .analysis-tabs {
   display: flex;
   border-bottom: 1px solid #d9e1ed;
@@ -447,12 +444,6 @@ td small {
   font-size: 12px;
   color: #56657a;
   font-weight: 500;
-}
-.trade-buy {
-  color: var(--up);
-}
-.trade-sell {
-  color: var(--down);
 }
 .modal-overlay {
   position: fixed;
@@ -531,26 +522,6 @@ td small {
 }
 .compact-tasks .job-actions {
   margin-left: auto;
-}
-.compact-tasks .task-card {
-  display: block;
-}
-.compact-tasks .task-card .section-heading {
-  align-items: flex-start;
-  gap: 12px;
-}
-.compact-tasks .task-card .task-title {
-  width: auto;
-  flex: 1;
-  min-width: 0;
-  text-align: left;
-  overflow-wrap: anywhere;
-}
-.compact-tasks .task-card .section-heading > span {
-  flex-shrink: 0;
-}
-.compact-tasks .task-card > p {
-  margin: 10px 0;
 }
 .detail-summary {
   display: flex;
@@ -804,78 +775,10 @@ textarea:focus-visible {
   min-height: 90px;
   resize: vertical;
 }
-.analysis-form .ticker-field {
-  flex: 1;
-  min-width: 210px;
-}
-.analysis-form .interval-year-field input {
-  width: 180px;
-}
-.analysis-form .ticker-field input {
-  width: 100%;
-}
-.analysis-form input[type="checkbox"],
-.ticker-checkboxes input {
+.analysis-form input[type="checkbox"] {
   accent-color: #2563eb;
   width: 16px;
   height: 16px;
-}
-.advanced-options {
-  flex-basis: 100%;
-  border-top: 1px solid var(--border);
-  padding-top: 10px;
-  font-size: 12px;
-  color: var(--legacy-muted);
-}
-.advanced-options summary {
-  cursor: pointer;
-  width: fit-content;
-}
-.nested-form {
-  padding: 14px 0 0;
-}
-.nested-form input:not([type="checkbox"]) {
-  width: 100%;
-}
-.scope-list {
-  padding: 0 19px 15px;
-}
-.scope-item {
-  padding: 13px 0;
-  border-top: 1px solid var(--border);
-}
-.scope-title {
-  display: flex;
-  gap: 15px;
-  align-items: center;
-  flex-wrap: wrap;
-  font-size: 13px;
-}
-.scope-title strong {
-  color: #172033;
-}
-.scope-item p,
-.scope-item details {
-  font-size: 12px;
-  color: var(--legacy-muted);
-  margin-top: 5px;
-  overflow-wrap: anywhere;
-}
-.scope-item .reason {
-  color: #926800;
-}
-.scope-item details {
-  max-width: 100%;
-}
-.result-meta {
-  display: flex;
-  gap: 18px;
-  flex-wrap: wrap;
-  background: #f8fafc;
-  padding: 13px 19px;
-  font-size: 12px;
-  color: var(--legacy-muted);
-  border-block: 1px solid var(--border);
 }
 .summary-grid {
   display: grid;
@@ -902,41 +805,6 @@ textarea:focus-visible {
   font-weight: 580;
   font-variant-numeric: tabular-nums;
 }
-.chart-wrap {
-  min-width: 0;
-  overflow: hidden;
-}
-.research-chart {
-  height: 390px;
-  width: 100%;
-}
-.heatmap-chart {
-  height: 385px;
-}
-.heatmap-scroll {
-  max-width: 100%;
-  overflow-x: auto;
-  overscroll-behavior-x: contain;
-  scrollbar-gutter: stable;
-}
-.heatmap-scroll:focus-visible {
-  outline: 2px solid var(--accent, #2563eb);
-  outline-offset: -2px;
-}
-.monthly-heatmap {
-  min-width: 960px;
-}
-.chart-actions {
-  padding: 0 18px 10px;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  font-size: 11px;
-  color: var(--legacy-muted);
-}
-.chart-actions .button {
-  font-size: 12px;
-}
 .result-notes {
   padding: 16px 19px;
   border-top: 1px solid var(--border);
@@ -950,20 +818,6 @@ textarea:focus-visible {
 .result-notes summary {
   cursor: pointer;
   color: #315fbb;
-}
-.ticker-checkboxes {
-  display: flex;
-  gap: 16px;
-  flex-wrap: wrap;
-  padding: 12px 19px;
-  font-size: 12px;
-  color: var(--legacy-muted);
-}
-.ticker-checkboxes label {
-  display: flex;
-  gap: 7px;
-  align-items: center;
-  min-height: 36px;
 }
 .selected-row td {
   background: #eff5ff;
@@ -1010,9 +864,6 @@ textarea:focus-visible {
   .analysis-form .button-row {
     width: 100%;
   }
-  .analysis-form .ticker-field {
-    min-width: 100%;
-  }
   .summary-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 18px;
@@ -1024,31 +875,9 @@ textarea:focus-visible {
   .summary-grid strong {
     font-size: 22px;
   }
-  .research-chart {
-    height: 360px;
-  }
-  .heatmap-chart {
-    height: 370px;
-  }
-  .result-meta {
-    gap: 8px 15px;
-    padding: 12px 15px;
-  }
-  .chart-actions {
-    align-items: flex-start;
-    flex-direction: column;
-    gap: 0;
-  }
   .section-heading label {
     width: 100%;
   }
-  .scope-list {
-    padding-inline: 15px;
-  }
-}
-.batch-progress {
-  border-left: 2px solid #588277;
-  padding-left: 12px;
 }
 
 /* Event imports use the same readable controls on desktop and mobile. */
@@ -1081,15 +910,8 @@ textarea:focus-visible {
   }
 }
 .search-results a[aria-selected="true"] { background: #eff6ff; outline: 2px solid #2563eb; outline-offset: -2px; }
-.statistics-panel { padding: 16px 0; border-top: 1px solid #e2e8f0; }
-.distribution-box { display: block; width: 150px; height: 34px; }
-.statistics-table th, .statistics-table td { padding: 8px 7px; font-size: 13px; white-space: nowrap; }
-.statistics-table th:first-child { white-space: normal; min-width: 140px; }
 .inline-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
 .tabs button { border: 0; background: transparent; padding: 10px 16px; cursor: pointer; color: #475569; }
 .tabs button.active { color: #1d4ed8; border-bottom: 2px solid #2563eb; }
 
 /* Current month is a reading cue; the frozen sample dates stay unchanged. */
-.statistics-table .current-month-row > * { background: #eff6ff; }
-.statistics-table .current-month-row > th { border-left: 4px solid #2563eb; }
-.current-month-badge { display: inline-block; margin-left: .5rem; padding: .1rem .4rem; border-radius: .3rem; background: #dbeafe; color: #1d4ed8; font-size: .8rem; white-space: nowrap; }

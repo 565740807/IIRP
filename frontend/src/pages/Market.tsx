@@ -1,11 +1,10 @@
-import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useLocation, useParams } from "react-router-dom";
 import { Timestamp } from "../components/Timestamp";
 import { quoteStatusLabel, quoteTime } from "../freshnessRefresh";
 import { api, display, facts, formatNumber, quotePercent, sourceLabel, type GenericOutput } from "../api";
-import { ResearchChart } from "../components/ResearchChart";
-import { sourceContext, sourceHref } from "../researchStorage";
+import { PriceChart } from "@/components/insider/PriceChart";
+import { sourceContext, sourceHref } from "@/lib/navigation";
 import { ErrorNotice, Loading } from "../components/common";
 
 // Index detail page opened from the market strip; restyled with the analysis pages (S6).
@@ -24,18 +23,6 @@ export function MarketDetailPage() {
       ? "暂未取得"
       : formatNumber(Number(value));
   const unit = quote.unit ? ` ${quote.unit}` : "";
-  const chartData = useMemo(() => ({
-    value_kind: "price",
-    metadata: { alignment: "trading" },
-    series: [{
-      key: symbol,
-      label: `${data.name ?? symbol} 日线`,
-      group: "current",
-      points: (query.data?.items ?? []).map((row, i) => ({
-        x: i, date: row.date, value: row.close, status: "available",
-      })),
-    }],
-  }), [query.data?.items, symbol, data.name]);
   return (
     <>
       <div className="page-heading">
@@ -53,7 +40,7 @@ export function MarketDetailPage() {
         <Link
           className="button button-primary"
           state={sourceContext(location)}
-          to={`/analysis/monthly?ticker=${encodeURIComponent(symbol!)}`}
+          to={`/analysis/monthly?tickers=${encodeURIComponent(symbol!)}`}
         >
           研究历史路径
         </Link>
@@ -94,11 +81,9 @@ export function MarketDetailPage() {
                 {display(quote.chart_end)}
               </h3>
               <p className="panel-body muted">{quote.chart_note || "供应商日线序列，当日数据可能尚未收盘；不是分时走势。"}</p>
-              <ResearchChart
-                data={chartData}
-                title={`${data.name ?? symbol} · 近期日线${data.unit ? `（${data.unit}）` : ""}`}
-                provenance={`图表数据截至 ${display(quote.chart_end)} · ${quote.chart_source ? sourceLabel(quote.chart_source) : "图表来源尚未记录"}\n${display(quote.chart_basis)}`}
-              />
+              <div className="panel-body">
+                <PriceChart bars={query.data.items as { date: string; open?: string | null; high?: string | null; low?: string | null; close?: string | null }[]} height={280} />
+              </div>
             </>
           ) : null}
           <details className="result-notes">

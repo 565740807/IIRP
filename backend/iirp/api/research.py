@@ -141,8 +141,8 @@ def recent_analyses(kind: str = "monthly", ticker: str = ""):
 
 
 @router.get("/analyses/{analysis_id}", response_model=AnalysisOutput)
-def analysis(analysis_id: str, result_ids: str = ""):
-    return invoke(analysis_requests.get_analysis, analysis_id, result_ids)
+def analysis(analysis_id: str):
+    return invoke(analysis_requests.get_analysis, analysis_id)
 
 
 @router.post("/analyses/{analysis_id}/refresh", response_model=AnalysisRefreshOutput, status_code=202)
@@ -151,12 +151,12 @@ def analysis_refresh(analysis_id: str, force: bool = False):
 
 
 @router.get("/analyses/{analysis_id}/export")
-def export(analysis_id: str, result_ids: str = "", format: str = Query(default="csv", pattern="^(csv|json)$")):
-    content = invoke(analysis_requests.export_analysis, analysis_id, result_ids, format)
+def export(analysis_id: str, table: str = Query(default="detail", pattern="^(stats|detail)$")):
+    content = invoke(analysis_requests.export_analysis, analysis_id, table)
     return Response(
         content,
-        media_type="application/json" if format == "json" else "text/csv; charset=utf-8",
-        headers={"Content-Disposition": f'attachment; filename="iirp-{analysis_id}.{format}"'},
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="iirp-{analysis_id}-{table}.csv"'},
     )
 
 

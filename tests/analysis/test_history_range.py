@@ -246,7 +246,7 @@ def test_explicit_dates_are_preserved(api):
     assert value["basis"] == "explicit_dates"
 
 
-def test_monthly_retains_previous_close_as_separate_buffer(api):
+def test_monthly_starts_at_the_first_open_of_the_first_year(api):
     created = response_json(
         api.post("/api/v1/analyses", json=monthly_body(historical_years=8, current_year=2026)), 202
     )
@@ -255,38 +255,15 @@ def test_monthly_retains_previous_close_as_separate_buffer(api):
         value,
         start="2018-01-01",
         end="2026-09-12",
-        collection_start="2017-12-29",
+        collection_start="2018-01-01",
         collection_end="2026-09-11",
         completed="2026-09-11",
     )
     assert value["basis"] == "research_conditions"
-    assert value["buffer_explanation"].strip()
-    assert created["batch"]["params"]["start_date"] == "2017-12-29"
+    # Open → close needs no previous close (D6); the cache adds its own month.
+    assert not value["buffer_explanation"]
+    assert created["batch"]["params"]["start_date"] == "2018-01-01"
     assert created["params"]["cutoff_date"] == "2026-09-11"
-
-
-def test_selected_research_years_override_default_n_year_envelope(api):
-    created = response_json(
-        api.post(
-            "/api/v1/analyses",
-            json=monthly_body(
-                historical_years=8,
-                current_year=2024,
-                years=[2016, 2019, 2021],
-                excluded_years=[2016],
-            ),
-        ),
-        202,
-    )
-    value = frozen_range(created)
-    assert_dates(
-        value,
-        start="2019-01-01",
-        end="2024-12-31",
-        collection_start="2018-12-31",
-        collection_end="2024-12-31",
-        completed="2026-09-11",
-    )
 
 
 def test_preview_uses_analysis_year_count_and_matches_submitted_batch(api):
@@ -299,7 +276,7 @@ def test_preview_uses_analysis_year_count_and_matches_submitted_batch(api):
         preview,
         start="2023-01-01",
         end="2026-09-12",
-        collection_start="2022-12-30",
+        collection_start="2023-01-01",
         collection_end="2026-09-11",
         completed="2026-09-11",
     )

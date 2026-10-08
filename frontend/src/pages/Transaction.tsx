@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useRef } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useLocation, useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
@@ -9,7 +9,7 @@ import { formatDay, formatEt, formatLocal, formatNumber, formatSignedRatio } fro
 import { actionLabel, plainKey, readableCase, rolesText, side, sideClass } from "@/lib/insider";
 import { todayEt } from "@/lib/insiderPrefs";
 import { useInsiderN } from "@/lib/windows";
-import { sourceContext, sourceHref } from "@/researchStorage";
+import { sourceContext, sourceHref } from "@/lib/navigation";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -96,8 +96,6 @@ export function TransactionPage() {
       .catch(() => undefined);
   }, [row, context, n, id, queryClient]);
 
-  const other = i18n.language === "zh" ? "en" : "zh";
-  const otherT = useMemo(() => i18n.getFixedT(other), [other]);
   if (query.error) return <p className="text-sm text-destructive">{query.error.message}</p>;
   if (!row || !context)
     return (
@@ -145,9 +143,8 @@ export function TransactionPage() {
 
       <section className="rounded-lg border bg-card px-4 py-3">
         <p className={cn("text-base font-medium", sideClass(row))}>{sentence(row, t, i18n.language)}</p>
-        <p className="mt-0.5 text-sm text-muted-foreground" lang={other === "zh" ? "zh-CN" : "en"}>{sentence(row, otherT, other)}</p>
         <dl className="mt-3 grid grid-cols-2 gap-x-6 gap-y-2 text-sm sm:grid-cols-4 lg:grid-cols-6">
-          <Fact label={t("ui.trades.action")}><span className={sideClass(row)}>{actionLabel(row, t)}</span></Fact>
+          <Fact label={t("ui.trades.action")}><span className={sideClass(row)} title={actionLabel(row, t)}>{actionLabel(row, t)}</span></Fact>
           <Fact label={t("ui.trades.traded")}>
             {formatDay(row.transaction_date, { year: true })}
             {row.date_anomaly && <Badge variant="outline" className="ml-1.5 h-5 border-warn/40 px-1 text-[11px] text-warn" title={t("ui.feed.date_anomaly_detail", { trade: formatDay(row.date_anomaly.transaction_date, { year: true }), accepted: formatDay(row.date_anomaly.accepted_date, { year: true }) })}>{t("ui.feed.date_anomaly")}</Badge>}

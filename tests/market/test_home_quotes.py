@@ -49,3 +49,19 @@ def test_overdue_threshold_and_browser_intervals_come_from_the_config_file():
     fetched = datetime(2026, 10, 7, 15, tzinfo=timezone.utc)
     reason = _quote_freshness(quote(fetched.isoformat()), None, fetched + timedelta(seconds=181))[1]
     assert decode(reason) == {"code": "home.quote.overdue", "params": {"minutes": 3}}
+
+
+def test_the_delay_threshold_follows_the_scheduled_refresh_interval():
+    # Gold futures after the US close refresh every 5 minutes: 6 minutes is on time,
+    # more than twice the interval is late.
+    fetched = datetime(2026, 10, 7, 21, tzinfo=timezone.utc)
+    session = {"start": "2026-10-06T22:00:00+00:00", "end": "2026-10-07T21:00:00+00:00"}
+    gold = {**quote(fetched.isoformat(), session={**session, "end": "2026-10-07T22:00:00+00:00"}),
+            "next_refresh_at": (fetched + timedelta(minutes=5)).isoformat()}
+    assert _quote_freshness(gold, None, fetched + timedelta(minutes=6)) == ("live", None)
+    state, reason = _quote_freshness(gold, None, fetched + timedelta(minutes=11))
+    assert state == "delayed" and decode(reason) == {"code": "home.quote.overdue", "params": {"minutes": 10}}
+    # A one-minute cadence keeps the 3-minute floor.
+    index = {**quote("2026-10-07T15:00:00+00:00"), "next_refresh_at": "2026-10-07T15:01:00+00:00"}
+    assert _quote_freshness(index, None, at("2026-10-07T15:02:30+00:00"))[0] == "live"
+    assert _quote_freshness(index, None, at("2026-10-07T15:03:30+00:00"))[0] == "delayed"

@@ -7,7 +7,6 @@ from datetime import date
 
 from sqlalchemy import func, or_, select
 
-from iirp.analysis.calendar import previous_session
 from iirp.models import PriceCache, PriceCacheBar
 
 
@@ -28,23 +27,11 @@ def range_predicate(column, ranges):
 
 
 def research_ranges(params, calendar='XNYS'):
-    from iirp.analysis.research import _interval_rules, _mapped_day, _selected_years
+    from iirp.analysis.research import period_ranges
 
     values = {k: v for k, v in params.items() if v is not None}
     cutoff = date.fromisoformat(values['cutoff_date'])
-    kind = values.get('kind', 'monthly')
-    ranges = []
-    if kind == 'monthly':
-        current = values.get('current_year', cutoff.year)
-        years, _ = _selected_years(values, current)
-        for year in [*years, current]:
-            ranges.append((previous_session(date(year, 1, 1), calendar), min(cutoff, date(year, 12, 31))))
-    elif kind == 'interval':
-        first, last, cross, current = _interval_rules(values, cutoff)
-        years, _ = _selected_years(values, current)
-        for year in [*years, current]:
-            ranges.append((_mapped_day(year, first), min(cutoff, _mapped_day(year + int(cross), last))))
-    return normalize_ranges(ranges)
+    return normalize_ranges([(first, min(cutoff, last)) for first, last in period_ranges(values, cutoff)])
 
 
 def dataset_dependency(s, dataset, ranges):

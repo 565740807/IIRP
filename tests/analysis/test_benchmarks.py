@@ -62,7 +62,7 @@ def test_index_identity_contract_is_specific_to_composite_and_sp500():
             assert security.status == ("VERIFIED_MARKET" if symbol == "^VIX" else "VERIFIED")
 
 
-def test_benchmark_refetch_rejects_old_worker_and_keeps_earlier_result_readable():
+def test_benchmark_refetch_rejects_old_worker_and_shows_the_newest_result():
     stock = seed_security()
     seed_prices(stock, date(2022, 12, 1), date(2024, 1, 31), wide=True)
     other = baseline()
@@ -71,7 +71,7 @@ def test_benchmark_refetch_rejects_old_worker_and_keeps_earlier_result_readable(
     first = claim({"research_compute"})
     publish(first)
     original = requests.get_analysis(created["id"])["results"][0]
-    assert original["is_current"] and original["expires_at"]
+    assert original["expires_at"]
     assert claim({"research_compute"}) is None
     # A new benchmark fetch is a new input; the running computation is stale.
     b2 = refetch_prices(other, date(2024, 1, 4), date(2024, 1, 4), close=101)
@@ -89,10 +89,8 @@ def test_benchmark_refetch_rejects_old_worker_and_keeps_earlier_result_readable(
     assert third.target["benchmark"]["dataset_id"] == b3
     publish(third)
     current = requests.get_analysis(created["id"])
-    assert current["results"][0]["input_version"] != original["input_version"]
-    earlier = requests.get_analysis(created["id"], original["result_id"])["results"][0]
-    assert earlier["input_version"] == original["input_version"]
-    exported = list(csv.DictReader(io.StringIO(requests.export_analysis(created["id"], original["result_id"]).lstrip("\ufeff"))))
-    assert {r["result_id"] for r in exported} == {original["result_id"]}
-    assert "distribution" in {r["record_type"] for r in exported}
-    assert json.loads(next(r for r in exported if r["record_type"] == "benchmark")["data"])["dataset_id"] == original["data"]["benchmark"]["dataset_id"]
+    assert len(current["results"]) == 1
+    assert current["results"][0]["result_id"] != original["result_id"]
+    exported = list(csv.DictReader(io.StringIO(requests.export_analysis(created["id"], "detail").lstrip("\ufeff"))))
+    assert {r["ticker"] for r in exported} == {"AAPL"} and {r["benchmark"] for r in exported} == {"^IXIC"}
+    assert any(r["benchmark_change"] for r in exported)

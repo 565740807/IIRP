@@ -945,7 +945,7 @@ def test_analysis_collects_only_completed_session_at_midnight(monkeypatch):
         )
     )
     assert result["batch"]["params"]["end_date"] == "2025-12-31"
-    assert result["batch"]["params"]["start_date"].startswith("2022-")
+    assert result["batch"]["params"]["start_date"] == "2023-01-01"
 
 
 def test_continue_cancelled_analysis_retains_calculation_request():
@@ -1059,6 +1059,7 @@ def test_twenty_symbols_keep_eighteen_results_when_one_fails_and_one_needs_revie
             historical_years=1,
             start_mmdd="01-03",
             end_mmdd="01-10",
+            benchmark=None,
         ).model_dump(mode="json")
     )
     planner.plan_tick()
@@ -1082,3 +1083,6 @@ def test_twenty_symbols_keep_eighteen_results_when_one_fails_and_one_needs_revie
     assert len({r["result_id"] for r in result["results"]}) == 18
     statuses = {item["symbol"]: item["status"] for item in result["batch"]["items"]}
     assert statuses[tickers[18]] == "FAILED" and statuses[tickers[19]] == "PARTIAL"
+    steps = {item["symbol"]: item["step"] for item in result["progress"]}
+    assert [steps[t] for t in tickers[:18]] == ["done"] * 18
+    assert steps[tickers[18]] == steps[tickers[19]] == "failed"

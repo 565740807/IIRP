@@ -252,7 +252,7 @@ export function InsiderStream() {
           <ToggleGroup type="single" size="sm" variant="outline" spacing={0} value={filter} aria-label={t("ui.feed.filter_label")}
             onValueChange={(value) => value && choose("filter", value)}>
             {FILTERS.map((item) => (
-              <ToggleGroupItem key={item} value={item} className="px-2.5">{t(`ui.feed.filter.${item}`)}</ToggleGroupItem>
+              <ToggleGroupItem key={item} value={item} className="px-2.5" title={item === "focus" ? t("ui.feed.filter_tip.focus") : undefined}>{t(`ui.feed.filter.${item}`)}</ToggleGroupItem>
             ))}
           </ToggleGroup>
           <ToggleGroup type="single" size="sm" variant="outline" spacing={0} value={order} aria-label={t("ui.feed.order_label")}

@@ -10,7 +10,6 @@ const {outputFiles: identityCode} = buildSync({entryPoints:[fileURLToPath(new UR
 const keys = await import(`data:text/javascript;base64,${Buffer.from(identityCode[0].text).toString('base64')}`);
 const pause = () => new Promise(resolve => setTimeout(resolve, 10));
 const deferred = () => { let resolve; const promise = new Promise(r => resolve=r); return {promise,resolve}; };
-const nativeValue = (id='a') => ({id,batch_id:'batch-'+id,status:'RUNNING',params:{kind:'monthly'},results:[]});
 const eventValue = (id='a', result='r') => ({id,batch_id:'batch-'+id,status:'RUNNING',params:{},result_id:result,data:{metadata:{},source:{note:'完整人工备注'}},progress:[],results:[{id:result}]});
 function transport() {
   const calls=[];
@@ -40,35 +39,10 @@ test('Events: simultaneous consumers share one actual fetch and warm remount sen
  const c=mount(h.client,options.eventResearchOptions('a'));await pause();assert.equal(h.calls.length,1);c.unsubscribe();h.close();
 });
 
-test('immutable reads ignore invalidation/focus; dynamic batch remains refreshable with visible failure/recovery',async()=>{
- const h=transport();h.client.mount();const a=mount(h.client,options.nativeResearchOptions('a','r'));h.calls[0].gate.resolve(nativeValue());await pause();
- const batch=mount(h.client,options.batchOptions('batch-a'));h.calls[1].gate.resolve({batch_id:'batch-a',batch:{id:'batch-a',status:'RUNNING',items:[]}});await pause();
- const original=a.observer.getCurrentResult().data;
- const pending=h.client.invalidateQueries();await pause();assert.equal(h.calls.length,3);assert.match(h.calls[2].url,/batches/);
- h.calls[2].gate.resolve({batch_id:'batch-a',batch:{id:'batch-a',status:'PARTIAL',items:[{wait_reason:'benchmark_missing_prices'}]}});await pending;
- focusManager.setFocused(false);focusManager.setFocused(true);await pause();assert.equal(h.calls.length,3);
- assert.equal(a.observer.getCurrentResult().data,original);assert.equal(batch.observer.getCurrentResult().data.batch.status,'PARTIAL');
- assert.equal(options.nativeResearchOptions('a','r').refetchInterval({state:{data:nativeValue()}}),false);
- assert.equal(options.eventResearchOptions('a').refetchInterval({state:{data:eventValue()}}),2000);
- const retry=batch.observer.refetch();h.calls[3].gate.resolve('abort');await retry;assert.equal(batch.observer.getCurrentResult().isError,true);assert.equal(a.observer.getCurrentResult().data,original);
- const recovered=batch.observer.refetch();h.calls[4].gate.resolve({batch_id:'batch-a',batch:{id:'batch-a',status:'SUCCEEDED',items:[]}});await recovered;assert.equal(batch.observer.getCurrentResult().isError,false);
- a.unsubscribe();batch.unsubscribe();h.client.unmount();h.close();
-});
-
-test('frozen result set identity canonicalizes order only; securities and research stay isolated',async()=>{
- const h=transport();
- const one=h.client.fetchQuery(options.nativeResearchOptions('a','r2,r1'));
- const same=h.client.fetchQuery(options.nativeResearchOptions('a','r1,r2,r1'));
- assert.equal(h.calls.length,1);assert.match(h.calls[0].url,/r1%2Cr2/);
- const data={id:'a',params:{kind:'monthly',tickers:['X','Y']},batch:{updated_at:'2026-01-01'},results:[]};
- h.calls[0].gate.resolve(data);assert.deepEqual(await one,await same);
- assert.notDeepEqual(keys.researchKeys.native('a',','),keys.researchKeys.native('a',''));
- assert.notDeepEqual(keys.researchKeys.native('a','r1'),keys.researchKeys.native('a','r2'));
- assert.notDeepEqual(keys.researchKeys.native('a','r1'),keys.researchKeys.native('b','r1'));
- assert.equal(keys.mutableResearchForBatch(keys.researchKeys.native('a'),'a'),true);
- assert.equal(keys.mutableResearchForBatch(keys.researchKeys.native('a','r1'),'a'),false);
+test('task progress marks only the same research stale',()=>{
+ assert.equal(keys.mutableResearchForBatch(keys.researchKeys.analysis('a'),'a'),true);
+ assert.equal(keys.mutableResearchForBatch(keys.researchKeys.events('a'),'a'),true);
  assert.equal(keys.mutableResearchForBatch(keys.researchKeys.events('b'),'a'),false);
- h.close();
 });
 
 test('a failed immutable read can explicitly retry; cancellation never posts task actions',async()=>{

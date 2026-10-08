@@ -30,8 +30,7 @@ def params(**values):
             "tickers": ["AAPL"],
             "historical_years": 1,
             "current_year": 2024,
-            "month": 1,
-            "comparison": "complete",
+            "benchmark": None,
             **values,
         }
     ).model_dump(mode="json")
@@ -123,8 +122,8 @@ def test_identical_valid_inputs_reuse_result_without_new_compute_or_download():
             == 1
         )
     assert (
-        reused["results"][0]["data"]["rows"]
-        == requests.get_analysis(original["id"])["results"][0]["data"]["rows"]
+        reused["results"][0]["data"]["periods"]
+        == requests.get_analysis(original["id"])["results"][0]["data"]["periods"]
     )
 
 
@@ -154,7 +153,7 @@ def test_changed_research_conditions_do_not_reuse_previous_result():
     requests.create_analysis(params())
     planner.plan_tick()
     finish_compute()
-    other = requests.create_analysis(params(month=2))
+    other = requests.create_analysis(params(historical_years=2))
     assert not other["results"]
     planner.plan_tick()
     with session() as s:

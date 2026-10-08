@@ -18,7 +18,8 @@ import {
   type Range,
 } from "@/lib/insiderPrefs";
 import { useInsiderN, useTradeWindows } from "@/lib/windows";
-import { sourceHref } from "@/researchStorage";
+import { sourceHref } from "@/lib/navigation";
+import { rememberEntity } from "@/lib/recent";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -172,6 +173,11 @@ export function EntityPage({ kind }: { kind: PageKind }) {
   const data = history.data;
   const rows = useMemo(() => data?.items ?? [], [data]);
   const name = readableCase(data && data.status !== "NOT_FETCHED" ? data.entity.name : (location.state as { name?: string } | null)?.name ?? data?.entity.name ?? id);
+
+  const known = !!data && data.status !== "NOT_FETCHED" && !!data.entity.name;
+  useEffect(() => {
+    if (known) rememberEntity({ kind, id, name, ticker: kind === "company" ? data?.entity.ticker ?? null : null });
+  }, [known, kind, id, name, data?.entity.ticker]);
 
   const keys = useMemo(
     () => rows.map((row) => ({ ticker: row.ticker, date: row.date_anomaly ? null : row.transaction_date, issuer_id: row.issuer_id })),

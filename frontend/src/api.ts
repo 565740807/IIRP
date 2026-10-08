@@ -1,19 +1,10 @@
 import { decodeMessage, localize, tm } from "./i18n";
-import { isFrozenEntityQuery } from "./taskPresentation";
-import { isFrozenResearchQuery, mutableResearchForBatch } from "./queryIdentity";
-import { useMutation, useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
-import { useEffect, useRef } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { components } from "./generated/api";
 export type Job = components["schemas"]["JobSummary"];
 export type JobDetail = components["schemas"]["JobDetailView"];
 type JobsResponse = components["schemas"]["JobsResponse"];
-export type Batch = components["schemas"]["BatchView"];
-export type CollectionInput = components["schemas"]["CollectionInput"];
 export type CollectionOutput = components["schemas"]["CollectionOutput"];
-export type AnalysisInput = components["schemas"]["AnalysisInput"];
-export type AnalysisRefreshOutput = components["schemas"]["AnalysisRefreshOutput"];
-export type AnalysisOutput = components["schemas"]["AnalysisOutput"];
-export type AnalysisItem = components["schemas"]["AnalysisItem"];
 // Flexible fact payloads are defined by the generated OpenAPI dictionary, never a second finance model.
 export type Fact = {
   [K in keyof NonNullable<components["schemas"]["GenericOutput"]["data"]>]: any;
@@ -22,11 +13,6 @@ export type GenericOutput = Omit<
   components["schemas"]["GenericOutput"],
   "data" | "items"
 > & { data: Fact; items: Fact[] };
-export type StrategyInput = components["schemas"]["StrategyInput"];
-export type PreferenceInput = components["schemas"]["PreferenceInput"];
-export type TransactionSecurityInput =
-  components["schemas"]["TransactionSecurityInput"];
-export type RequestIdentity = components["schemas"]["RequestIdentity"];
 export type System = Fact;
 type ApiFailure = Error & { details?: unknown; status?: number };
 export async function api<T>(
@@ -200,9 +186,7 @@ export function useInvalidate(roots: readonly string[] = operationalRoots) {
   return () =>
     c.invalidateQueries({
       predicate: (query) =>
-        roots.includes(String(query.queryKey[0])) &&
-        !isFrozenResearchQuery(query.queryKey) &&
-        !isFrozenEntityQuery(query.queryKey),
+        roots.includes(String(query.queryKey[0])),
     });
 }
 export const JOB_PAGE_SIZE = 20;
@@ -233,110 +217,6 @@ export function useJob(id: string) {
           : 2000
         : false,
   });
-}
-export function useBatches(category = "all", cursor = "", policyKey = "", view = "all") {
-  const c = useQueryClient();
-  const previous = useRef<Map<string, Batch> | null>(null);
-  const query = useQuery({
-    queryKey: ["batches", category, cursor, policyKey, view],
-    queryFn: () =>
-      api<components["schemas"]["BatchesOutput"]>(
-        `/batches?${new URLSearchParams({ category, cursor, policy_key: policyKey, view })}`,
-      ),
-    refetchInterval: (q) =>
-      q.state.data?.items.some((x) => activeStatuses.includes(x.status))
-        ? document.hidden
-          ? 10000
-          : 2000
-        : 15000,
-  });
-  useEffect(() => {
-    if (!query.data) return;
-    const items = query.data.items;
-    const currentIds = new Set(items.map(x => x.id));
-    const changed = [
-      ...items.filter(x => {
-        const old = previous.current?.get(x.id);
-        return previous.current && (!old || old.status !== x.status || old.updated_at !== x.updated_at);
-      }),
-      // Completion can remove a batch from the active list altogether.
-      ...[...(previous.current?.values() ?? [])].filter(x => !currentIds.has(x.id)),
-    ];
-    if (changed.length) void c.invalidateQueries({ predicate: query => {
-      const key = query.queryKey;
-      if (isFrozenEntityQuery(key) || isFrozenResearchQuery(key)) return false;
-      if (changed.some(x => mutableResearchForBatch(key, x.analysis_id))) return true;
-      if (["batch", "batch-jobs"].includes(String(key[0]))) return changed.some(x => x.id === key[1]);
-      // These non-research summaries expose progress or newly available facts.
-      return ["home", "coverage", "earnings", "entity", "system"].includes(String(key[0]));
-    } }, { cancelRefetch: false });
-    previous.current = new Map(items.map(x => [x.id, x]));
-  }, [query.data, c]);
-  return query;
-}
-export function usePolicy() {
-  return useQuery({
-    queryKey: ["policy"],
-    queryFn: () =>
-      api<components["schemas"]["StrategyOutput"]>("/collection-policy"),
-  });
-}
-export function usePreferences() {
-  return useQuery({
-    queryKey: ["preferences"],
-    queryFn: () =>
-      api<components["schemas"]["PreferenceOutput"]>("/preferences"),
-  });
-}
-export function useProviders() {
-  return useQuery({
-    queryKey: ["providers"],
-    queryFn: () => api<GenericOutput>("/providers"),
-  });
-}
-export function useCollection() {
-  const invalidate = useInvalidate();
-  return useMutation({
-    mutationFn: (
-      input: Pick<CollectionInput, "request_id" | "kind"> &
-        Partial<CollectionInput>,
-    ) => api<CollectionOutput>("/collections", "POST", input),
-    onSuccess: invalidate,
-  });
-}
-export function batchActionOptions(client: QueryClient) {
-  return {
-    mutationFn: ({
-      id,
-      action,
-    }: {
-      id: string;
-      action: components["schemas"]["BatchAction"]["action"];
-    }) =>
-      api<CollectionOutput>(
-        `/batches/${encodeURIComponent(id)}/actions`,
-        "POST",
-        { action },
-      ),
-    onSuccess: async (value: CollectionOutput, command: { id: string }) => {
-      await client.cancelQueries({ predicate: query => query.queryKey[0] === "batch" &&
-        [command.id, value.batch_id].includes(String(query.queryKey[1])) });
-      // A command can commit before another client's action yet arrive later.
-      // Its receipt confirms the command, not the latest batch state. Re-read
-      // both identities after cancelling older GETs; equal/missing timestamps
-      // cannot safely establish server ordering either.
-      void client.invalidateQueries({ predicate: query => {
-        const key = query.queryKey;
-        return ["batches", "jobs", "system"].includes(String(key[0])) ||
-          (key[0] === "batch" && [command.id, value.batch_id].includes(String(key[1]))) ||
-          (key[0] === "batch-jobs" && [command.id, value.batch_id].includes(String(key[1]))) ||
-          mutableResearchForBatch(key, value.batch.analysis_id);
-      } });
-    },
-  };
-}
-export function useBatchAction() {
-  return useMutation(batchActionOptions(useQueryClient()));
 }
 export function useJobAction() {
   const invalidate = useInvalidate();
@@ -390,20 +270,6 @@ export function quotePercent(value: unknown) {
   return Number.isFinite(n)
     ? `${n > 0 ? "+" : ""}${n.toFixed(2)}%`
     : "暂未取得";
-}
-export function marketName(symbol: string) {
-  return (
-    (
-      {
-        "^GSPC": "标普500",
-        "^IXIC": "纳斯达克综合",
-        "^DJI": "道琼斯工业平均",
-        "GC=F": "黄金期货",
-        "^VIX": "VIX波动率指数",
-        SEC: "Insider申报",
-      } as Record<string, string>
-    )[symbol] ?? symbol
-  );
 }
 export function facts(value: unknown): Fact {
   return value && typeof value === "object" && !Array.isArray(value)
