@@ -1,6 +1,6 @@
 # 架构说明
 
-本文简述 IIRP 的模块、数据流、任务模型和存储，帮助读者快速定位代码。产品范围和口径见 [产品与实施规划](PRODUCT_AND_IMPLEMENTATION_PLAN.zh-CN.md)，决策记录见 [DECISIONS.md](DECISIONS.md)，接口以 [openapi.json](openapi.json) 为准。
+本文简述 IIRP 的模块、数据流、任务模型和存储，帮助读者快速定位代码。功能与使用见 [README](../README.zh-CN.md)，当前范围与决策见 [改进计划](dev/IMPROVEMENT_PLAN.zh-CN.md) 第〇节和第五节，接口以 [openapi.json](openapi.json) 为准。
 
 ## 组成
 
@@ -26,12 +26,12 @@ Compose 启动三个服务：`postgres`、`web`（启动时先执行 `alembic up
 ```
 backend/iirp/    后端（Python 包，按领域分包，见下）
 frontend/src/    前端：pages/ 页面、components/ 共享组件、locales/ 翻译、generated/ 接口类型
-migrations/      Alembic 迁移（versions/00xx_*.py）
+migrations/      Alembic 迁移：0001_baseline（2026-10 合并的结构基线，SQL 在同名 .sql）及之后的新迁移
 config/          采集、分析默认值与来源契约
-deploy/          Dockerfile、compose.yaml、环境变量示例
+deploy/          Dockerfile、compose.yaml、环境变量模板（./iirp start 首次运行时据此生成 deploy/.env）
 scripts/         ./iirp 的实现（cli.py）、备份与恢复验证、OpenAPI 导出与检查、读取基准
 tests/           pytest，目录与后端包一一对应
-docs/            本文、决策、计划、运行手册、openapi.json
+docs/            本文、运行手册、openapi.json、README 截图（images/）；dev/ 是开发计划与历史记录
 ```
 
 ## 后端模块（`backend/iirp`）
@@ -60,7 +60,7 @@ docs/            本文、决策、计划、运行手册、openapi.json
 |---|---|
 | `api/` | FastAPI 应用（`app.py`）、各领域路由（`research.py`、`events.py`）、本地只读投影（`reads.py`）和请求/响应模型（`schemas.py`，Insider 读取的响应模型在 `insider_schemas.py`）；Insider 查询、取价与前后 n 日在 `insider.py`，系统健康检查在 `health.py`；`docs/openapi.json` 由它导出。 |
 | `jobs/` | 持久任务与租约（`queue.py`、`ownership.py`）、用户需求批次（`batches.py`、`batch_views.py`）、规划（`planner.py`）、执行（`worker.py`、`handlers.py`、`operations.py`、`operation_pool.py`）、自动更新与定时（`auto_update.py`、`schedule.py`）。 |
-| `sec/` | SEC EDGAR：URL 校验与解析（`parse.py`、`ownership.py`）、限速下载（`fetch.py`）、历史范围规划（`planning.py`）、最新申报轮询（`poll.py`）、按 CIK 获取一家公司或一个人的申报（`entity.py`）。 |
+| `sec/` | SEC EDGAR：URL 校验与解析（`parse.py`、`ownership.py`）、限速下载（`fetch.py`）、历史范围规划（`planning.py`）、最新申报轮询（`poll.py`）、按 CIK 获取一家公司或一个人的申报（`entity.py`）、User-Agent 用的联系信息（`contact.py`）。 |
 | `insider/` | 把申报写成按行的交易事实（`facts.py`），信息流的修订、水位线与阅读会话（`views.py`、`feed_index.py`、`feed.py`、`feed_updates.py`），公司/人员历史与交易详情（`entities.py`、`transactions.py`、`records.py`）、Insider 查询（`lookup.py`）。 |
 | `market/` | Yahoo 适配器与日线校验（`yahoo.py`）、24 小时日线缓存（`cache.py`）、首页报价（`quotes.py`）、本地行情读取（`reads.py`）。 |
 | `analysis/` | 所有金融计算：交易日历、月度与区间研究（`research.py`：每年一根“首个交易日开盘 → 最后交易日收盘”的 K 线、完整过去年份的统计、上涨比例的 Wilson 区间、同日期基准与超额）、分布统计（`distributions.py`）、事件窗口（`event_windows.py`）、交易前后窗口（单笔 `transaction_windows.py`，列表 `insider_windows.py`）；分析请求、结果复用与过期后重新获取。前端不重复实现。 |
@@ -75,7 +75,7 @@ docs/            本文、决策、计划、运行手册、openapi.json
 
 页面在 `pages/`，共享组件在 `components/`。已改造的部分用 Tailwind 和 [shadcn/ui](https://ui.shadcn.com/)（`components/ui/`，Radix 组件）：外壳在 `components/shell/`（侧栏、顶部栏、搜索、任务入口、语言切换、系统状态），首页在 `components/home/`（行情条 `MarketStrip`、Insider 瀑布流 `InsiderStream` 与卡片 `FeedCard`），Insider 查询 `pages/Insiders.tsx`、公司/人员页 `pages/Entity.tsx`、交易详情 `pages/Transaction.tsx`、数据与任务 `pages/Data.tsx`，它们共用 `components/insider/`（K 线 `PriceChart`、交易表 `TradeTable`、前后 n 日单元格、范围与 n 控件）。分析中心的外壳与月度/区间结果在 `components/analysis/`（四个页签、可收起的条件栏、逐只股票的分步进度、结论卡、年份 × 月份热力表、每年一根 K 线、排名与统计表、逐年明细、计算方法），月度与区间页是 `pages/Seasonal.tsx`，请求、轮询和 24 小时过期后自动重取在 `lib/analysis.ts`。财报与事件页是 `pages/Events.tsx`，组件在 `components/events/`（左侧输入流程 `EventInputs`：提示词、粘贴 JSON 与预览改时段、n 与基准、已保存事件集；结果 `EventResults`；图表 `EventCharts`：一个事件一根反应日 K 线、R−n…R+n 平均路径、单个事件日 K 线；表格 `EventTables`），请求与结论句在 `lib/events.ts`。指数详情页 `pages/Market.tsx` 显示保存的报价与最近 6 个月日 K 线。旧的 `legacy.css` 已全部删除，样式只用 Tailwind 与 shadcn/ui。
 
-- **请求**：新代码用 [openapi-fetch](https://openapi-ts.dev/openapi-fetch/)（`lib/api-client.ts`），类型由 `docs/openapi.json` 生成到 `generated/api.ts`（`npm run generate:api`，`npm run check:api` 校验一致）；服务器状态用 TanStack Query。旧页面仍用 `api.ts` 的 `api()`。前端只展示后端计算好的结果，不重复实现金融计算。
+- **请求**：新代码用 [openapi-fetch](https://openapi-ts.dev/openapi-fetch/)（`lib/api-client.ts`），类型由 `docs/openapi.json` 生成到 `generated/api.ts`（`npm run generate:api`，`npm run check:api` 校验一致）；服务器状态用 TanStack Query。前端只展示后端计算好的结果，不重复实现金融计算。
 - **配色**：令牌在 `index.css`。涨/买为蓝（`--up`），跌/卖为橙（`--down`），一律带 + / − 号；主操作色是近黑的墨色，与蓝、橙都能区分；数据延迟用紫灰（`--warn`），不与“跌”混淆。文字与背景的组合在 Chrome 中实测对比度均 ≥ 4.5:1，并在 Chrome 的绿色盲（deuteranopia）模拟下检查过。
 - **动画**：[Motion](https://motion.dev/) 负责新卡片落入、展开收起，[NumberFlow](https://number-flow.barvian.me/) 负责行情数字滚动（变化时背景闪蓝或橙约 1 秒）；首次加载用骨架；后台刷新时顶部栏刷新图标转动并显示细进度线；数据延迟的标记缓慢呼吸。时长约 0.15–0.3 秒，系统开启“减少动态效果”时不做位移动画。
 - **长列表与表格**：瀑布流用 [TanStack Virtual](https://tanstack.com/virtual) 按窗口虚拟化；交易表和任务表用 [TanStack Table](https://tanstack.com/table)；K 线用 ECharts。
@@ -92,11 +92,12 @@ docs/            本文、决策、计划、运行手册、openapi.json
 
 - **查询**（`insider/lookup.py`）：先查本地（`issuer.ticker` 精确匹配，或名字包含每个词）；本地没有时由 worker 的 `sec_identity` 任务去 SEC 查：像 ticker 的输入查 `company_tickers_exchange.json`，名字查 EDGAR 公司与人员搜索（`efts.sec.gov/LATEST/search-index?keysTyped=…`，即 sec.gov 搜索框背后的公开接口），同一查询每天只请求一次。选中一项后建 `sec_entity` 批次：`sec_discover`（mode=entity）读该 CIK 的 `data.sec.gov/submissions` 文件（Form 3/4/5 同时列在发行人和每位申报人名下），只为范围内的申报建 `sec_document` 任务。全部走现有 SEC 限速（每秒 ≤ 2 次）和 User-Agent。
 - **前后 n 日**（`analysis/insider_windows.py`，D16）：以交易日 t（非交易日顺延）收盘为基准，前 n 日 = C(t)/C(t−n) − 1，后 n 日 = C(t+n)/C(t) − 1；尚未到来的交易日留空并给出预计日期，当天未收盘标“盘中”。价格来自申报里写的 ticker 的 24 小时缓存；该证券未经 SEC ticker 列表确认属于该发行人时照常计算并标“待核对”。`GET /insider/windows` 只读缓存；缺价时页面调用一次 `POST /insider/prices`，每只股票一次请求取“默认 6 个月与最早 t−n 的较早者 − 1 个月余量”到当天，所以随后打开公司页不再取价。n 默认值在 `config/analysis-defaults.toml`，页面上切换并记住。
+- **SEC 联系信息**（`sec/contact.py`，D18、D24）：SEC 要求自动访问在 User-Agent 中写名字和真实邮箱。`deploy/.env` 的 `IIRP_SEC_USER_AGENT` 有值时用它（界面显示“由配置文件设定”，不可改）；否则用界面填写、保存在 `user_preferences.values.sec_contact` 的名字和邮箱（`GET/PUT /api/v1/sec-contact`）。没有真实邮箱（空、旧模板值、`example.com` 等 RFC 2606 保留域名）时 SEC 策略保持开启但不发任何请求，首页顶部提示填写。保存后 worker 在数秒内（读取缓存 5 秒）开始轮询，不需要重启。
 - **数据页健康检查**（`api/health.py`）：只看当前问题——worker、SEC 联系方式与轮询、来源冷却、磁盘、备份、最近 24 小时失败的任务（按类型和原因分组，可一键重试）；没有问题时只显示一行“All systems normal”。超过 7 天未处理的部分完成批次归入“已完成”。
 
 ### 界面文字
 
-后端不返回某种语言的成句文字。报错、状态说明、提示、任务标题和方法说明都是消息 `{"code": "...", "params": {...}}`（`iirp.messages.msg`）；放在原来的文本字段（数据库列、异常、子进程结果、JSON 响应）里时是该对象的紧凑 JSON 字符串，HTTP 报错的 `detail` 直接是对象。前端用 [i18next](https://www.i18next.com/) / react-i18next 按代码显示：翻译在 `frontend/src/locales/{en,zh}/translation.json`（`{{参数}}` 插值；`ui.*` 是界面自身的文字）。首次打开为英文，右上角切换 English / 中文，选择存在浏览器的 localStorage；数字、日期按语言格式化（`lib/format.ts`），时间统一按美东显示并注明时区，悬停可看本地时间。新代码在显示时翻译（`tm`），切换语言不需要重新请求；旧页面在 `api()` 收到响应时翻译，切换语言后重新读取。`tests/test_messages.py` 检查后端用到的每个代码在两种语言里都有翻译。
+后端不返回某种语言的成句文字。报错、状态说明、提示、任务标题和方法说明都是消息 `{"code": "...", "params": {...}}`（`iirp.messages.msg`）；放在原来的文本字段（数据库列、异常、子进程结果、JSON 响应）里时是该对象的紧凑 JSON 字符串，HTTP 报错的 `detail` 直接是对象。前端用 [i18next](https://www.i18next.com/) / react-i18next 按代码显示：翻译在 `frontend/src/locales/{en,zh}/translation.json`（`{{参数}}` 插值；`ui.*` 是界面自身的文字）。首次打开为英文，右上角切换 English / 中文，选择存在浏览器的 localStorage；数字、日期按语言格式化（`lib/format.ts`），时间统一按美东显示并注明时区，悬停可看本地时间。前端在显示时翻译（`tm`），切换语言不需要重新请求。`tests/test_messages.py` 检查后端用到的每个代码在两种语言里都有翻译；`scripts/check_ui_text.py`（在 pytest 中运行）拒绝前端源码里写死的中文字符和成句英文。
 
 ## 数据流
 
@@ -134,4 +135,4 @@ docs/            本文、决策、计划、运行手册、openapi.json
 
 ## 后续改造
 
-尚未完成的界面与展示工作（分析结果展示）见 [改进计划](IMPROVEMENT_PLAN.zh-CN.md)。
+板块研究（S8）等后续工作见 [改进计划](dev/IMPROVEMENT_PLAN.zh-CN.md)。

@@ -1,68 +1,180 @@
 # IIRP
 
-IIRP 是一个在本机运行的美股投资研究工具，面向电脑浏览器。它把 SEC 内部人交易申报和行情日线整理成可核对的本地数据，并在此基础上做月度、跨年区间、财报和自定义事件分析。
+**English** · [中文](README.zh-CN.md)
 
-> **状态：开发中，尚未完成 V1。** 现有功能已能运行，但历史数据覆盖、性能和界面仍在改进，见[改进计划](docs/IMPROVEMENT_PLAN.zh-CN.md)。开发时用的小样数据不代表完整覆盖。
+IIRP is a personal research tool for US stocks that runs on your own computer. It
+collects SEC insider-trading filings and daily prices, and shows them so you can do
+your own research:
 
-![首页](docs/images/home.png)
+- **Insider trades**: a live feed of Form 3/4/5 filings as SEC publishes them, and a
+  lookup by ticker or name (last 6 months or last 10 trades by default), with the
+  price change in the trading days before and after each trade.
+- **Price studies**: monthly seasonality, any date range across years, and price
+  reactions to earnings or to any event you name.
 
-*当前首页（开发中）。截图来自本机实例：行情卡片显示的是最近一次成功获取的数据日期，涨跌颜色将在后续改为色弱友好的蓝/橙。*
+It does not rate trades, give signals or give investment advice. Data and settings
+stay on your machine.
 
-## 主要功能
+![Home page: market strip and the live insider feed](docs/images/home.png)
 
-- **Insider 信息流**：采集 SEC Form 3/4/5，按公司和日期分组；交易日、接受时间和发现时间分开保存，修订按行记录，缺失、未知和已知零分别展示。
-- **公司与人员详情**：按稳定身份查看历史，同名不自动合并，交易详情可回到 SEC 原文。
-- **行情**：指数、期货和个股日线（仅做拆股调整）。日线是 24 小时缓存：每只股票按所需区间（另加 1 个月余量）一次取完，24 小时内所有分析和交易前后窗口都复用，到期自动删除，再次需要时重新获取；首页报价另有短期缓存。
-- **分析中心**：月度分析、跨年区间（条件显式应用，结果可导出 JSON/CSV/PNG），以及财报与自定义事件分析：页面提供提示词模板（可修改、恢复默认），拿去其他 AI 平台问到日期后把简短 JSON 贴回来，按日期取价，计算事前 n 日、反应日（含开盘跳空）和事后 n 日的涨跌，财报另按财季统计。结果与所用行情缓存同生命周期：24 小时内重复打开不再下载，过期后打开会自动重新获取。
-- **任务与采集控制**：SEC 采集、回补和行情获取都是持久任务，可暂停、恢复、取消、重试；浏览器关闭后 worker 继续工作。SEC 申报原文与交易数据永久保存。
-- **备份与恢复**：一致快照备份（只保留最近 2 份），并可在随机新库上验证恢复。
+## Quick start
 
-金融计算只在后端完成，前端只展示结果。
+You need [Docker](https://docs.docker.com/get-docker/) (Docker Engine with Compose v2
+on Linux, Docker Desktop on macOS), Python 3 (only the standard library is used) and
+git. On Windows, use WSL2 and keep the folder inside the Linux file system (for
+example under `~`, not `/mnt/c`).
 
-## 快速开始（Docker Compose）
-
-需要 Docker（Linux 用 Docker Engine 与 Compose v2，macOS 用 Docker Desktop；Windows 请在 WSL2 中运行）和 Python 3（`./iirp` 入口只用标准库）。所有服务、测试和开发工具都在容器里运行，本机不需要安装 PostgreSQL、Node 或 Python 依赖。详细说明见[安装说明](deploy/README.zh-CN.md)。
-
-```sh
-git clone <本仓库地址> iirp && cd iirp
-install -m 600 deploy/.env.example deploy/.env
-# 编辑 deploy/.env：填写随机的 IIRP_DB_PASSWORD，以及含真实联系邮箱的 IIRP_SEC_USER_AGENT（未配置时 SEC 不运行）
-./iirp build
+```bash
+git clone https://github.com/565740807/iirp2.git iirp
+cd iirp
 ./iirp start
 ```
 
-启动后访问 <http://127.0.0.1:18081>（仅监听本机回环地址）。常用命令：
+The first run builds the image (a few minutes), creates `deploy/.env` from
+`deploy/.env.example` (readable only by you, with a random database password), and
+starts PostgreSQL, the web server and the background worker. Then open
+<http://127.0.0.1:18081>.
 
-```sh
-./iirp status   # 查看服务状态
-./iirp check    # Ruff、后端测试（临时 PostgreSQL 容器）、OpenAPI 一致性、前端测试与构建
-./iirp stop     # 停止服务，保留数据卷
+**Add your SEC contact.** SEC asks automated tools to identify themselves with a name
+and a real e-mail address. Until you add one, a notice at the top of the home page
+says so and nothing is requested from SEC. Click **Add SEC contact**, enter your name
+and e-mail, and insider filings start updating within a minute. It is stored only in
+the local database and sent only to SEC. (You can instead set `IIRP_SEC_USER_AGENT`
+in `deploy/.env`, for example `Jane Doe jane.doe@your-mail.com`; that value wins and
+the page then shows it as set in the config file.)
+
+What happens next: the worker follows new SEC filings (every minute or two on trading
+days) and backfills the last 6 months of Form 3/4/5 filings, about 75,000 filings and
+3 GB, which takes roughly a day at the polite rate IIRP uses (at most 2 requests per
+second). Home-page index quotes refresh while the page is open. You can switch each
+automatic update off under **Data & tasks → Automatic updates**.
+
+Everyday commands:
+
+```bash
+./iirp status    # what is running
+./iirp stop      # stop; data is kept in Docker volumes
+./iirp start     # start again (also after git pull, to upgrade)
+./iirp backup    # consistent backup of the database and saved filings
 ```
 
-`deploy/.env` 含私有配置，已被 `.gitignore` 忽略，不要提交。
+The page listens on `127.0.0.1:18081` only. To use another port, set
+`IIRP_HTTP_PORT` in `deploy/.env`. The interface is in English; switch to Chinese at
+the top right.
 
-> **首次启动会立即开始自动更新。** 全新数据库中，SEC 申报和首页行情报价两项自动更新策略默认开启（备份、维护默认关闭），首页打开时即开始请求报价。**SEC 只有在 `IIRP_SEC_USER_AGENT` 含真实联系邮箱时才会自动运行**：留空、保留模板值（`IIRP contact@example.invalid`）或使用 RFC 2606 保留域名（`example.com/.org/.net`、`*.test`、`*.invalid`、`*.localhost`、`*.example`）时，不向 SEC 发任何请求，页面顶部的更新状态、“数据与任务”的自动更新开关和系统状态面板（以及 `/api/v1/system` 的 `sec_user_agent`）会显示“需配置 SEC User-Agent”。填好后执行 `./iirp restart` 生效。所有 SEC 请求共用一个全局限速（`config/collection-defaults.toml` 的 `sec_requests_per_second`，默认任意 1 秒内最多 2 次）。可在“数据与任务”页按来源关闭自动更新。默认的采集与回补范围、行情缓存时长在 [`config/collection-defaults.toml`](config/collection-defaults.toml)。
+## Using IIRP
 
-## 数据来源与使用条款
+### Insider trades
 
-- **SEC EDGAR**：内部人交易申报来自 SEC 公开数据。SEC 要求自动化访问在 User-Agent 中提供**真实的联系邮箱**（`IIRP_SEC_USER_AGENT`），并遵守其访问频率限制；使用前请阅读 [SEC 的访问说明](https://www.sec.gov/search-filings/edgar-search-assistance/accessing-edgar-data)。
-- **行情**：日线和报价通过开源库 [yfinance](https://github.com/ranaroussi/yfinance) 获取。yfinance **不是 Yahoo 的官方产品**，只是访问 Yahoo Finance 公开接口的第三方工具，数据使用受 Yahoo 的服务条款约束，仅供个人研究和学习，数据可能延迟、缺失或被更正。行情适配器是可替换的。
-- 本项目不提供投资建议，也不对数据的准确性、完整性或及时性作保证。
+![Company page: daily candles with insider buys and sells marked](docs/images/company.png)
 
-## 文档
+- **Home**: new filings slide in at the top. Each card is one company on one filing
+  day; each row is one insider: role, what they did (in SEC's wording), shares, value
+  and trade date. Buys are blue with `+`, sales orange with `−`. If you scroll down,
+  the list stays put and a "↑ N new trades" button appears instead.
+- **Insiders**: search a ticker or a person's name. If IIRP has not seen it yet, it
+  asks SEC and downloads only that company's or person's filings in range. The default
+  range is the last 6 months; switch to the last 10 trades or a custom range.
+- **Company and person pages** show daily candles with insider buys (▲) and sales (▼)
+  marked, a trade table, and the price change n trading days before and after each
+  trade (n = 3, 5, 10, 20 or your own; default 5). Each trade links to its detail page
+  and to the original SEC filing.
 
-| 文档 | 内容 |
-|---|---|
-| [产品与实施规划](docs/PRODUCT_AND_IMPLEMENTATION_PLAN.zh-CN.md) | 产品范围、口径、技术方案 |
-| [架构说明](docs/ARCHITECTURE.zh-CN.md) | 模块、数据流、任务模型、存储 |
-| [决策记录](docs/DECISIONS.md) | 已做出的产品与技术决策 |
-| [运行手册](docs/RUNBOOK.zh-CN.md) | 日常操作、备份与恢复、升级、验证 |
-| [安装说明](deploy/README.zh-CN.md) | Compose 部署与配置 |
-| [OpenAPI](docs/openapi.json) | 后端接口（由应用导出，`./iirp check` 校验一致） |
-| [改进计划](docs/IMPROVEMENT_PLAN.zh-CN.md) | 当前问题、阶段计划与进度 |
-| [第三方声明](THIRD_PARTY_NOTICES.md) | 依赖清单与许可材料 |
-| [AGENTS.md](AGENTS.md) | 开发约定（含 AI 编码助手使用的说明） |
+### Analysis center
 
-## 许可
+![Monthly analysis: year × month heat map, per-year candles and ranking](docs/images/monthly.png)
 
-本项目代码以 [MIT 许可证](LICENSE) 发布。第三方依赖各自保留其许可证，见[第三方声明](THIRD_PARTY_NOTICES.md)。
+- **Monthly**: for up to 20 tickers over the last n years (default 8 plus this year),
+  each month's return from the first trading day's open to the last trading day's
+  close. You get a year × month heat map, one candle per year, and per month the
+  median, the share of up years with a 95% interval, and how often it beat the
+  benchmark (S&P 500 by default).
+- **Interval**: the same for any date range, for example Dec 15 → Jan 10, including
+  ranges that cross the new year.
+- **Earnings** and **Events**: IIRP does not guess dates. It gives you a prompt, you
+  ask any AI assistant, and you paste back a short JSON list:
+
+  1. Enter tickers (and, for events, a description such as "Apple WWDC keynote"),
+     then **Copy prompt**. The prompt templates can be edited and reset.
+  2. Paste the prompt into the AI assistant of your choice and copy the JSON it
+     returns.
+  3. Paste the JSON into IIRP. It is checked as you paste; problems are listed by
+     item and field. Click **Save and analyze**.
+
+  ```json
+  {"events": [
+    {"ticker": "AAPL", "date": "2025-10-30", "session": "after_close",
+     "name": "FY2025 Q4 earnings", "fiscal_year": 2025, "fiscal_quarter": 4},
+    {"ticker": "AAPL", "date": "2025-06-09", "session": "during",
+     "name": "WWDC 2025 keynote"}
+  ]}
+  ```
+
+  `session` is `before_open`, `during`, `after_close` or `unknown`. A release after
+  the close reacts on the next trading day, so results are centered on that reaction
+  day: the n days before, the reaction day itself (and its opening gap), and the n
+  days after, each with median, quartiles and the share of ups, plus one candle per
+  event and the average path.
+
+![Earnings analysis: reaction-day candles, average path and statistics](docs/images/earnings.png)
+
+![Event analysis: Apple WWDC keynotes, AAPL and QQQ](docs/images/events.png)
+
+Results can be exported as CSV, and charts as PNG. Daily prices are fetched once per
+ticker for the whole range and kept for 24 hours; after that they are deleted with the
+results computed from them, and reopening a study fetches them again.
+
+## Data sources and terms
+
+- **SEC EDGAR**: insider filings come from SEC's public EDGAR system. Read SEC's
+  [guidance on accessing EDGAR data](https://www.sec.gov/search-filings/edgar-search-assistance/accessing-edgar-data):
+  automated access must identify itself, and IIRP stays far below SEC's rate limit.
+- **Prices** come through [yfinance](https://github.com/ranaroussi/yfinance), an
+  open-source library that reads Yahoo Finance's public endpoints. yfinance is **not
+  an official Yahoo product** and is not affiliated with Yahoo; the data is subject to
+  Yahoo's terms, is meant for personal research, and can be delayed, missing or
+  corrected.
+- IIRP gives no investment advice and no guarantee that any data is accurate,
+  complete or timely.
+
+## Security and privacy
+
+- IIRP listens on `127.0.0.1` only and has **no login**. Do not expose it to the
+  internet or your local network. To use it from another computer, use an SSH tunnel.
+- Everything is stored locally in Docker volumes (`iirp2_postgres-data`,
+  `iirp2_app-runtime`): filings, prices, your event lists, prompt templates, SEC
+  contact and backups. The only things sent out are your SEC contact (to SEC, in each
+  request) and ticker symbols (to Yahoo).
+- `deploy/.env` holds the database password; it is ignored by git. Do not share it.
+
+## How it works
+
+```
+browser ──► web (FastAPI) ──► PostgreSQL ◄── worker ──► SEC EDGAR / Yahoo (yfinance)
+              reads only           ▲            fetches, parses, computes
+                                   └── saved filings, backups (Docker volume)
+```
+
+The web server only reads the local database; every fetch is a durable task done by
+the worker, so closing the browser does not stop work. All financial calculations are
+in the Python backend; the React frontend only displays results. Details (in Chinese):
+[architecture](docs/ARCHITECTURE.zh-CN.md), [operations runbook](docs/RUNBOOK.zh-CN.md),
+[installation notes](deploy/README.zh-CN.md). The API is described in
+[docs/openapi.json](docs/openapi.json).
+
+## Development
+
+```bash
+./iirp check             # Ruff, backend tests, OpenAPI, frontend tests and build
+./iirp test tests/sec    # some backend tests
+./iirp frontend npm test # frontend tests
+```
+
+Tests and tools run in containers; backend tests use a throwaway PostgreSQL in tmpfs,
+never the running instance's database. See [AGENTS.md](AGENTS.md) for conventions.
+Planning notes and decision history are in [docs/dev](docs/dev/) (Chinese).
+
+## License
+
+[MIT](LICENSE). Third-party components keep their own licenses; see
+[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).

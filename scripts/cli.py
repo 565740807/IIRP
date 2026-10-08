@@ -43,7 +43,7 @@ def create_env():
     env_file.parent.mkdir(parents=True, exist_ok=True)
     with os.fdopen(os.open(env_file, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600), "w") as target:
         target.write(text)
-    print(f"Created {env_file} (mode 600) with a random database password.")
+    print(f"Created {env_file} (mode 600) with a random database password.", flush=True)
     return True
 
 
