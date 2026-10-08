@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import {
   createColumnHelper,
@@ -16,16 +16,20 @@ import { cn } from "@/lib/utils";
 
 // Column value types differ per column; TanStack needs `any` to hold them in one list.
 /* eslint-disable @typescript-eslint/no-explicit-any */
-type Meta = { numeric?: boolean; tip?: string };
+export type Meta = { numeric?: boolean; tip?: string };
 
-/** Sortable TanStack table with the app's compact styling. */
-function SortableTable<T>({
+/**
+ * Sortable TanStack table with the app's compact styling. ``expanded`` renders
+ * a full-width row under the selected one (the event details' K-line).
+ */
+export function SortableTable<T>({
   data,
   columns,
   initial,
   selected,
   onSelect,
   rowKey,
+  expanded,
 }: {
   data: T[];
   columns: ColumnDef<T, any>[];
@@ -33,6 +37,7 @@ function SortableTable<T>({
   selected?: string | null;
   onSelect?: (key: string) => void;
   rowKey: (row: T) => string;
+  expanded?: (row: T) => ReactNode;
 }) {
   const [sorting, setSorting] = useState<SortingState>(initial);
   const table = useReactTable({
@@ -72,21 +77,30 @@ function SortableTable<T>({
         </thead>
         <tbody>
           {table.getRowModel().rows.map((row) => (
-            <tr
-              key={row.id}
-              onClick={onSelect ? () => onSelect(row.id) : undefined}
-              aria-selected={selected === row.id}
-              className={cn("border-b last:border-b-0", onSelect && "cursor-pointer hover:bg-accent/50", selected === row.id && "bg-accent hover:bg-accent")}
-            >
-              {row.getVisibleCells().map((cell) => {
-                const meta = cell.column.columnDef.meta as Meta | undefined;
-                return (
-                  <td key={cell.id} className={cn("px-2 py-1.5 first:pl-3 last:pr-3", meta?.numeric && "text-right whitespace-nowrap tabular-nums")}>
-                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
+            <Fragment key={row.id}>
+              <tr
+                onClick={onSelect ? () => onSelect(row.id) : undefined}
+                aria-selected={selected === row.id}
+                aria-expanded={expanded ? selected === row.id : undefined}
+                className={cn("border-b last:border-b-0", onSelect && "cursor-pointer hover:bg-accent/50", selected === row.id && "bg-accent hover:bg-accent")}
+              >
+                {row.getVisibleCells().map((cell) => {
+                  const meta = cell.column.columnDef.meta as Meta | undefined;
+                  return (
+                    <td key={cell.id} className={cn("px-2 py-1.5 first:pl-3 last:pr-3", meta?.numeric && "text-right whitespace-nowrap tabular-nums")}>
+                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                    </td>
+                  );
+                })}
+              </tr>
+              {expanded && selected === row.id && (
+                <tr className="border-b bg-muted/30 last:border-b-0">
+                  <td colSpan={row.getVisibleCells().length} className="px-3 py-2">
+                    {expanded(row.original)}
                   </td>
-                );
-              })}
-            </tr>
+                </tr>
+              )}
+            </Fragment>
           ))}
         </tbody>
       </table>
@@ -94,8 +108,21 @@ function SortableTable<T>({
   );
 }
 
-const Signed = ({ value, digits = 1 }: { value: unknown; digits?: number }) => <span className={directionClass(value)}>{pct(value, digits)}</span>;
-const num = (value: string | null | undefined) => (value == null ? Number.NEGATIVE_INFINITY : Number(value));
+export const Signed = ({ value, digits = 1 }: { value: unknown; digits?: number }) => <span className={directionClass(value)}>{pct(value, digits)}</span>;
+
+/** The middle half "q25 to q75", never cut and never read as an ellipsis. */
+export function Quartiles({ low, high }: { low: unknown; high: unknown }) {
+  const { t } = useTranslation();
+  return (
+    <span className="whitespace-nowrap">
+      <Signed value={low} />
+      <span className="mx-1 text-xs text-muted-foreground">{t("ui.analysis.range_to")}</span>
+      <Signed value={high} />
+    </span>
+  );
+}
+
+export const num = (value: string | null | undefined) => (value == null ? Number.NEGATIVE_INFINITY : Number(value));
 
 type StatsRow = { key: string; label: string; stats: PeriodStats; extra?: string };
 
@@ -107,6 +134,12 @@ function useStatColumns(benchmark: string | null) {
     const columns = [
       column.accessor((row) => num(row.stats.median), { id: "median", header: t("ui.analysis.col.median"), meta: { numeric: true }, cell: ({ row }) => <Signed value={row.original.stats.median} /> }),
       column.accessor((row) => num(row.stats.mean), { id: "mean", header: t("ui.analysis.col.mean"), meta: { numeric: true }, cell: ({ row }) => <Signed value={row.original.stats.mean} /> }),
+      column.accessor((row) => num(row.stats.q25), {
+        id: "quartiles",
+        header: t("ui.analysis.col.quartiles"),
+        meta: { numeric: true, tip: t("ui.analysis.col.quartiles_tip") },
+        cell: ({ row }) => (row.original.stats.n ? <Quartiles low={row.original.stats.q25} high={row.original.stats.q75} /> : "—"),
+      }),
       column.accessor((row) => (row.stats.n ? row.stats.up / row.stats.n : -1), {
         id: "up",
         header: t("ui.analysis.col.up"),
@@ -158,12 +191,6 @@ function useStatColumns(benchmark: string | null) {
             {row.original.stats.worst_year != null && <span className="ml-1 text-xs text-muted-foreground">{row.original.stats.worst_year}</span>}
           </span>
         ),
-      }),
-      column.accessor((row) => num(row.stats.q25), {
-        id: "quartiles",
-        header: t("ui.analysis.col.quartiles"),
-        meta: { numeric: true, tip: t("ui.analysis.col.quartiles_tip") },
-        cell: ({ row }) => (row.original.stats.n ? <span><Signed value={row.original.stats.q25} /> … <Signed value={row.original.stats.q75} /></span> : "—"),
       }),
     ];
     return columns as ColumnDef<StatsRow, any>[];

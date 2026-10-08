@@ -13,7 +13,7 @@ import {
 } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { MotionConfig } from "motion/react";
-import { EmptyState, Loading, NoticeProvider } from "./components/common";
+import { FileSearch, LoaderCircle } from "lucide-react";
 import { AppShell } from "./components/shell/AppShell";
 import { RefreshProvider } from "./lib/refresh";
 import { HomePage } from "./pages/Home";
@@ -147,7 +147,14 @@ function Workbench() {
   useReadingScroll();
   return (
     <AppShell>
-      <Suspense fallback={<Loading label={t("ui.loading")} />}>
+      <Suspense
+        fallback={
+          <div className="flex items-center gap-2 py-10 text-sm text-muted-foreground" role="status">
+            <LoaderCircle className="size-4 motion-safe:animate-spin" />
+            {t("ui.loading")}
+          </div>
+        }
+      >
         <Routes>
           <Route path="/" element={<HomePage />} />
           <Route path="/insiders" element={<InsidersPage />} />
@@ -182,15 +189,13 @@ function Workbench() {
           <Route
             path="*"
             element={
-              <section className="panel">
-                <EmptyState
-                  title={t("ui.not_found.title")}
-                  description={t("ui.not_found.description")}
-                >
-                  <Link to="/" className="text-link">
-                    {t("ui.not_found.home")}
-                  </Link>
-                </EmptyState>
+              <section className="rounded-lg border border-dashed bg-card px-6 py-12 text-center">
+                <FileSearch className="mx-auto size-10 text-muted-foreground" strokeWidth={1.2} aria-hidden />
+                <h1 className="mt-3 text-base font-semibold">{t("ui.not_found.title")}</h1>
+                <p className="mt-1 text-sm text-muted-foreground">{t("ui.not_found.description")}</p>
+                <Link to="/" className="mt-3 inline-block text-sm font-medium underline-offset-2 hover:underline">
+                  {t("ui.not_found.home")}
+                </Link>
               </section>
             }
           />
@@ -202,11 +207,9 @@ function Workbench() {
 export function App() {
   return (
     <MotionConfig reducedMotion="user">
-      <NoticeProvider>
-        <RefreshProvider>
-          <Workbench />
-        </RefreshProvider>
-      </NoticeProvider>
+      <RefreshProvider>
+        <Workbench />
+      </RefreshProvider>
     </MotionConfig>
   );
 }
