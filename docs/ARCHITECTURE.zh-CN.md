@@ -73,7 +73,7 @@ docs/            本文、决策、计划、运行手册、openapi.json
 
 ## 前端（`frontend/src`）
 
-页面在 `pages/`，共享组件在 `components/`。已改造的部分用 Tailwind 和 [shadcn/ui](https://ui.shadcn.com/)（`components/ui/`，Radix 组件）：外壳在 `components/shell/`（侧栏、顶部栏、搜索、任务入口、语言切换、系统状态），首页在 `components/home/`（行情条 `MarketStrip`、Insider 瀑布流 `InsiderStream` 与卡片 `FeedCard`），Insider 查询 `pages/Insiders.tsx`、公司/人员页 `pages/Entity.tsx`、交易详情 `pages/Transaction.tsx`、数据与任务 `pages/Data.tsx`，它们共用 `components/insider/`（K 线 `PriceChart`、交易表 `TradeTable`、前后 n 日单元格、范围与 n 控件）。分析中心的外壳与月度/区间结果在 `components/analysis/`（四个页签、可收起的条件栏、逐只股票的分步进度、结论卡、年份 × 月份热力表、每年一根 K 线、排名与统计表、逐年明细、计算方法），月度与区间页是 `pages/Seasonal.tsx`，请求、轮询和 24 小时过期后自动重取在 `lib/analysis.ts`。尚未改造的页面（财报与事件页的内容、指数详情、开发诊断）沿用 `legacy.css`，它在 `legacy` 层叠层里，低于 Tailwind 工具类；页面迁移后删除对应规则。
+页面在 `pages/`，共享组件在 `components/`。已改造的部分用 Tailwind 和 [shadcn/ui](https://ui.shadcn.com/)（`components/ui/`，Radix 组件）：外壳在 `components/shell/`（侧栏、顶部栏、搜索、任务入口、语言切换、系统状态），首页在 `components/home/`（行情条 `MarketStrip`、Insider 瀑布流 `InsiderStream` 与卡片 `FeedCard`），Insider 查询 `pages/Insiders.tsx`、公司/人员页 `pages/Entity.tsx`、交易详情 `pages/Transaction.tsx`、数据与任务 `pages/Data.tsx`，它们共用 `components/insider/`（K 线 `PriceChart`、交易表 `TradeTable`、前后 n 日单元格、范围与 n 控件）。分析中心的外壳与月度/区间结果在 `components/analysis/`（四个页签、可收起的条件栏、逐只股票的分步进度、结论卡、年份 × 月份热力表、每年一根 K 线、排名与统计表、逐年明细、计算方法），月度与区间页是 `pages/Seasonal.tsx`，请求、轮询和 24 小时过期后自动重取在 `lib/analysis.ts`。财报与事件页是 `pages/Events.tsx`，组件在 `components/events/`（左侧输入流程 `EventInputs`：提示词、粘贴 JSON 与预览改时段、n 与基准、已保存事件集；结果 `EventResults`；图表 `EventCharts`：一个事件一根反应日 K 线、R−n…R+n 平均路径、单个事件日 K 线；表格 `EventTables`），请求与结论句在 `lib/events.ts`。指数详情页 `pages/Market.tsx` 显示保存的报价与最近 6 个月日 K 线。旧的 `legacy.css` 已全部删除，样式只用 Tailwind 与 shadcn/ui。
 
 - **请求**：新代码用 [openapi-fetch](https://openapi-ts.dev/openapi-fetch/)（`lib/api-client.ts`），类型由 `docs/openapi.json` 生成到 `generated/api.ts`（`npm run generate:api`，`npm run check:api` 校验一致）；服务器状态用 TanStack Query。旧页面仍用 `api.ts` 的 `api()`。前端只展示后端计算好的结果，不重复实现金融计算。
 - **配色**：令牌在 `index.css`。涨/买为蓝（`--up`），跌/卖为橙（`--down`），一律带 + / − 号；主操作色是近黑的墨色，与蓝、橙都能区分；数据延迟用紫灰（`--warn`），不与“跌”混淆。文字与背景的组合在 Chrome 中实测对比度均 ≥ 4.5:1，并在 Chrome 的绿色盲（deuteranopia）模拟下检查过。
@@ -103,7 +103,7 @@ docs/            本文、决策、计划、运行手册、openapi.json
 1. **采集**：用户在界面提交需求（或启用自动策略）→ API 写入批次与任务 → worker 领取任务 → 访问外部来源（网络调用不在数据库事务内）→ 原文按内容哈希存入 `runtime/objects`，解析结果在一次带围栏的事务中提交为事实。
 2. **SEC 内部人交易**：最新申报由 worker 按来源轮询（`iirp/sec/poll.py`，状态是 `source_poll` 中每个来源一行：水位线、未读完的补扫游标、下次时间、租约），不为每次轮询建任务；历史回补用 `sec_discover` 扫日/季索引 → `sec_document` 下载并解析 Form 3/4/5 → 写入申报、版本、申报人和按行的交易事实；修订按行记录，不覆盖旧版本。交易日、接受时间和发现时间分开保存；缺失、未知和已知零分别表示。
 3. **行情**：`market_identity` 确认证券身份 → 规划时若该证券的缓存覆盖不了所需区间，`market_history` 一次取“所需区间 + 前 1 个月余量”到当天，替换为一份新的 24 小时缓存（`price_cache` + `price_cache_bar`，仅拆股调整的 OHLC、分红与拆股，记下获取与到期时间）→ `market_quote` 另行更新首页报价。到期的缓存由 worker 删除。
-4. **分析**：用户显式应用条件 → 月度/区间由 `research_compute` 任务、财报/事件由规划器在行情缓存就绪后直接读取缓存日线，计算并写入结果（记下所用缓存与获取时间）。结果与所用缓存同生命周期（`analysis_result.expires_at`），图表、表格、结论和导出（月度/区间为统计 CSV 与明细 CSV，图表用 ECharts 存 PNG）都读同一份结果；过期后打开研究会自动按最近已完成交易日重新获取。
+4. **分析**：用户显式应用条件 → 月度/区间由 `research_compute` 任务、财报/事件由规划器在行情缓存（及基准缓存，所有股票共用一次取价）就绪后直接读取缓存日线，计算并写入结果（记下所用缓存与获取时间）。结果与所用缓存同生命周期（`analysis_result.expires_at`，事件结果取股票与基准缓存中较早到期者），图表、表格、结论和导出（统计 CSV 与明细 CSV，图表用 ECharts 存 PNG）都读同一份结果；同一天相同条件（事件、n、基准）的事件分析直接复用，不再新建；过期后打开研究会自动按最近已完成交易日重新获取。
 5. **读取**：所有 GET 只读本地数据库；信息流和详情在阅读会话中保持稳定，新内容以提示形式出现。
 
 ### 信息流的阅读会话
