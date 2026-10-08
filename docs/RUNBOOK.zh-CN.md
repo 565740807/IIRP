@@ -107,6 +107,10 @@ python3 scripts/bench_reads.py --base-url http://127.0.0.1:18092 --ids-from ../b
 - 两个迁移都只改结构，先停 worker，用一次性容器执行；不支持回退（回退用升级前的备份）。Compose 的入口改为 `iirp.api.app:app` 与 `python -m iirp.jobs.worker`，必须用新的 compose 重建 web 和 worker。
 - 升级前写入的任务标题、报错和行情说明仍是中文原文，照原样显示；新写入的都是消息代码。
 
+### 升级到迁移 0030（S6a）
+
+- 0030 只改派生数据：信息流“重点”改为只含 Table I 公开市场买入/卖出，按每个修订已存的买入/卖出分面重写其分面与排序日期，并重建“重点”的排序行；旧的月度/区间结果（前收口径、旧结构）标为到期，worker 10 分钟内删除，打开旧研究会自动按新口径重新获取。先停 worker，用一次性容器执行（预览库演练约 6 秒）；不支持回退（回退用升级前的备份）。
+
 ## 验证
 
 `./iirp check` 是日常入口：Ruff、后端测试（临时 PostgreSQL 容器）、OpenAPI 一致性、前端测试与构建。CI（`.github/workflows/ci.yml`）在每个 PR 上跑同样的检查，另有只能手动触发的 slow 作业（大型容量与基准，`pytest -m slow`）。本地命令成功不代表 GitHub 上的 CI 成功。性能改动用 `scripts/bench_reads.py` 做一次前后对比（见上文）。
