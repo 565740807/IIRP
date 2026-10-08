@@ -1,33 +1,40 @@
 # Third-party notices
 
-IIRP's own source code is released under the MIT License (see `LICENSE`). The
-license applies to this project's code only; third-party components keep their own
-licenses.
+IIRP's own source code is released under the MIT License (see `LICENSE`). The license
+covers this project's code only. IIRP does not bundle third-party code in this
+repository: dependencies are downloaded from PyPI, npm and Docker Hub when you build
+it, and each keeps its own license. Exact versions are locked in `uv.lock` and
+`frontend/package-lock.json`.
 
-Exact Python and npm versions are in `uv.lock` and `frontend/package-lock.json`.
+## Direct dependencies
 
-- `docs/THIRD_PARTY_INVENTORY.json` lists every locked package with its declared
-  license.
-- `docs/THIRD_PARTY_REVIEW.json` records, for each locked distribution (one selected
-  Python artifact per version; every npm artifact, including optional platform
-  packages), the download URL, the verified hash and the notice files it contains.
-- `docs/THIRD_PARTY_LICENSE_TEXTS.txt` keeps the LICENSE / NOTICE / COPYING texts
-  found in those archives, with archive paths and hashes.
+| Component | License |
+|---|---|
+| FastAPI, SQLAlchemy, Alembic, pydantic-settings, curl_cffi | MIT |
+| Uvicorn, HTTPX | BSD-3-Clause |
+| psycopg | LGPL-3.0-only |
+| defusedxml | PSF License |
+| yfinance, exchange_calendars | Apache-2.0 |
+| React, React DOM, React Router, TanStack Query / Table / Virtual, i18next, react-i18next, Motion, NumberFlow, openapi-fetch, Radix UI, clsx, tailwind-merge, tw-animate-css | MIT |
+| Apache ECharts, class-variance-authority | Apache-2.0 |
+| Lucide icons | ISC |
+| Geist font (@fontsource-variable/geist) | SIL Open Font License 1.1 |
+| UI components adapted from [shadcn/ui](https://github.com/shadcn-ui/ui) | MIT |
 
-After a dependency change, refresh them with:
+Transitive dependencies (for example pandas and NumPy, pulled in by yfinance) keep
+their own licenses. To list everything that is installed, you can use tools such as
+[pip-licenses](https://github.com/raimon49/pip-licenses) for Python and
+[license-checker](https://github.com/davglass/license-checker) for npm.
 
-```sh
-python3 scripts/third_party_review.py
-python3 scripts/dependency_inventory.py > docs/THIRD_PARTY_INVENTORY.json
-```
+## Container images
 
-Known gaps: `react-remove-scroll-bar`, `uri-js-replace` and
-`@napi-rs/lzma-linux-x64-gnu` ship without a notice file at the locked version
-(their declared license, MIT, is recorded). The platform-specific esbuild and Rollup
-archives omit notice bodies; their parent packages' notices are retained. Bundled
-native components inside Python wheels are not reviewed separately.
+The images are pinned by digest in `deploy/Dockerfile` and `deploy/compose.yaml`:
+the official Python, Node.js and PostgreSQL images. PostgreSQL is distributed under
+the [PostgreSQL License](https://www.postgresql.org/about/licence/). Debian and PGDG
+packages installed while building the image are not snapshot-pinned.
 
-Container images are pinned by digest in `deploy/Dockerfile`, `deploy/compose.yaml`
-and `deploy/image-lock.json`. Debian and PGDG packages installed while building the
-image are not snapshot-pinned. PostgreSQL is distributed under the
-[PostgreSQL License](https://www.postgresql.org/about/licence/).
+## Data sources
+
+SEC EDGAR data is public. Prices come through yfinance, which reads Yahoo Finance's
+public endpoints; it is not an official Yahoo product, and the data is subject to
+Yahoo's terms. See the README for details.

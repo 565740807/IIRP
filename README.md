@@ -25,7 +25,7 @@ git. On Windows, use WSL2 and keep the folder inside the Linux file system (for
 example under `~`, not `/mnt/c`).
 
 ```bash
-git clone https://github.com/565740807/iirp2.git iirp
+git clone https://github.com/565740807/IIRP.git iirp
 cd iirp
 ./iirp start
 ```
@@ -158,8 +158,7 @@ browser ──► web (FastAPI) ──► PostgreSQL ◄── worker ──► 
 The web server only reads the local database; every fetch is a durable task done by
 the worker, so closing the browser does not stop work. All financial calculations are
 in the Python backend; the React frontend only displays results. Details (in Chinese):
-[architecture](docs/ARCHITECTURE.zh-CN.md), [operations runbook](docs/RUNBOOK.zh-CN.md),
-[installation notes](deploy/README.zh-CN.md). The API is described in
+[architecture](docs/ARCHITECTURE.zh-CN.md), [installation and operations runbook](docs/RUNBOOK.zh-CN.md). The API is described in
 [docs/openapi.json](docs/openapi.json).
 
 ## Development

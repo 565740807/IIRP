@@ -16,7 +16,7 @@ IIRP 是一个在自己电脑上运行的美股个人研究工具。它采集 SE
 需要 [Docker](https://docs.docker.com/get-docker/)（Linux 用 Docker Engine 与 Compose v2，macOS 用 Docker Desktop）、Python 3（只用标准库）和 git。Windows 请在 WSL2 中运行，并把项目放在 Linux 文件系统里（例如 `~` 下，不要放在 `/mnt/c`）。
 
 ```bash
-git clone https://github.com/565740807/iirp2.git iirp
+git clone https://github.com/565740807/IIRP.git iirp
 cd iirp
 ./iirp start
 ```
@@ -97,7 +97,7 @@ cd iirp
                                   └── 申报原文、备份（Docker 卷）
 ```
 
-网页服务只读本地数据库；所有取数都是由 worker 执行的持久任务，关闭浏览器不影响。金融计算全部在 Python 后端完成，React 前端只展示结果。详见[架构说明](docs/ARCHITECTURE.zh-CN.md)、[运行手册](docs/RUNBOOK.zh-CN.md)、[安装说明](deploy/README.zh-CN.md)；接口见 [docs/openapi.json](docs/openapi.json)。
+网页服务只读本地数据库；所有取数都是由 worker 执行的持久任务，关闭浏览器不影响。金融计算全部在 Python 后端完成，React 前端只展示结果。详见[架构说明](docs/ARCHITECTURE.zh-CN.md)、[安装与运行手册](docs/RUNBOOK.zh-CN.md)；接口见 [docs/openapi.json](docs/openapi.json)。
 
 ## 开发
 

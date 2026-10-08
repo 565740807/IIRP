@@ -4,7 +4,7 @@
 
 ## 开始前
 
-先阅读 `README.md`、`docs/ARCHITECTURE.zh-CN.md` 和 `docs/dev/IMPROVEMENT_PLAN.zh-CN.md`（第〇节是当前范围，第五节是决策，第七节是进度表）。`docs/dev/PRODUCT_AND_IMPLEMENTATION_PLAN.zh-CN.md` 与 `docs/dev/DECISIONS.md` 只作历史参考，与改进计划冲突时以改进计划为准。这是一个独立的新项目，不要整体导入旧项目的迁移、运行目录或预发布数据。
+先阅读 `README.md`、`docs/ARCHITECTURE.zh-CN.md` 和 `docs/dev/IMPROVEMENT_PLAN.zh-CN.md`（第〇节是当前范围，第五节是决策，第七节是进度表）。早期的产品规划与决策记录已从仓库删除（可在 git 历史中查看），以改进计划为准。这是一个独立的新项目，不要整体导入旧项目的迁移、运行目录或预发布数据。
 
 ## 数据范围
 
