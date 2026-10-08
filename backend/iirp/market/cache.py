@@ -144,6 +144,7 @@ def ensure_prices(s, scope, security, start, end, *, title=None):
     Returns the current cache (when it covers the need) and the linked fetch job
     (when one is running or has ended without producing a covering cache).
     """
+    from iirp.analysis.calendar import last_completed_session
     from iirp.jobs.batches import add_job
 
     calendar = security.calendar or "XNYS"
@@ -163,8 +164,10 @@ def ensure_prices(s, scope, security, start, end, *, title=None):
         first, last = min(first, cache.start_date), max(last, cache.end_date)
     target = {"symbol": security.symbol, "security_id": security.id,
               "start_date": str(first), "end_date": str(last),
-              # A new day is a new fetch; the same day reuses a finished one.
-              "round": _today().isoformat()}
+              # Crossing the exchange close requires a new fetch, even on the
+              # same date. Repeated planning still shares one complete range.
+              "round": _today().isoformat(),
+              "completed_through": last_completed_session(calendar=calendar).isoformat()}
     job = add_job(s, scope, "market_history", target)
     if title:
         job.title = title

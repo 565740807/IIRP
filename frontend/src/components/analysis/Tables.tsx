@@ -33,6 +33,7 @@ export function SortableTable<T>({
   expanded,
   rank,
   rowTone,
+  pinnedTop,
 }: {
   data: T[];
   columns: ColumnDef<T, any>[];
@@ -43,6 +44,7 @@ export function SortableTable<T>({
   expanded?: (row: T) => ReactNode;
   rank?: (row: T, sorting: SortingState) => number | undefined;
   rowTone?: (row: T, sorting: SortingState) => string;
+  pinnedTop?: string;
 }) {
   const { t } = useTranslation();
   const [sorting, setSorting] = useState<SortingState>(initial);
@@ -83,7 +85,8 @@ export function SortableTable<T>({
           ))}
         </thead>
         <tbody>
-          {table.getRowModel().rows.map((row) => (
+          {[...table.getRowModel().rows.filter((row) => row.id === pinnedTop),
+            ...table.getRowModel().rows.filter((row) => row.id !== pinnedTop)].map((row) => (
             <Fragment key={row.id}>
               <tr
                 onClick={onSelect ? () => onSelect(row.id) : undefined}

@@ -132,7 +132,7 @@ export function QuarterTable({ result, benchmark }: { result: EventResult; bench
           </button>
         ))}
       </div>
-      <SortableTable data={data} columns={columns} initial={[{ id: "median", desc: true }]} rowKey={(row) => row.key} rank={(row, sorting) => row.ranks?.[`${window}_${sorting[0]?.id === "up" ? "up_ratio" : "median"}_${sorting[0]?.desc ? "desc" : "asc"}`]} />
+      <SortableTable pinnedTop="all" data={data} columns={columns} initial={[{ id: "median", desc: true }]} rowKey={(row) => row.key} rank={(row, sorting) => row.ranks?.[`${window}_${sorting[0]?.id === "up" ? "up_ratio" : "median"}_${sorting[0]?.desc ? "desc" : "asc"}`]} />
     </div>
   );
 }
