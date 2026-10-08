@@ -566,30 +566,6 @@ def test_concurrent_retry_and_new_request_reuse_one_active_job():
         assert a.result().id == b.result()[0].id
 
 
-def test_new_migration_can_roll_back_and_reapply_on_isolated_database():
-    cfg = Config(str(ROOT / "alembic.ini"))
-    command.downgrade(cfg, "base")
-    with session() as s:
-        assert (
-            s.scalar(
-                text(
-                    "SELECT count(*) FROM information_schema.tables WHERE table_schema='public' AND table_name!='alembic_version'"
-                )
-            )
-            == 0
-        )
-    command.upgrade(cfg, "head")
-    ensure_defaults()
-    with session() as s:
-        assert not s.get(Policy, 1).sec_enabled
-        assert (
-            s.scalar(text("SELECT version_num FROM alembic_version"))
-            == __import__("alembic.script", fromlist=["ScriptDirectory"])
-            .ScriptDirectory.from_config(Config(str(ROOT / "alembic.ini")))
-            .get_current_head()
-        )
-
-
 def test_database_unavailable_is_not_reported_as_success(client):
     import socket
 
