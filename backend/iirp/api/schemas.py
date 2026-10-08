@@ -324,6 +324,42 @@ class HomeQuote(Output):
     reason: str | None = None
 
 
+class MarketBar(Output):
+    date: str
+    open: str | None = None
+    high: str | None = None
+    low: str | None = None
+    close: str | None = None
+
+
+class MarketChart(Output):
+    """Where the daily bars come from: ``history`` (the six-month fetch, 24 hours),
+    ``cache`` (a cached price range), ``quote`` (the quote's last 40 days) or none."""
+    source: Literal["history", "cache", "quote"] | None = None
+    start: str | None = None
+    end: str | None = None
+    fetched_at: str | None = None
+    expires_at: str | None = None
+    days: int
+
+
+class MarketHistoryState(Output):
+    """``missing``: the page should ask for six months; ``fetching``; ``failed`` today; ``fresh``."""
+    status: Literal["fresh", "fetching", "failed", "missing"]
+    reason: str | None = None
+
+
+class MarketDetailOutput(Output):
+    symbol: str
+    quote: HomeQuote
+    instrument: str | None = None
+    delay: str | None = None
+    source: str | None = None
+    bars: list[MarketBar]
+    chart: MarketChart
+    history: MarketHistoryState
+
+
 class BrowserRefresh(Output):
     """How often an open page re-reads and asks for fresh data (config/refresh.toml)."""
     home_poll_seconds: int

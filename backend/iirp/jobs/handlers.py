@@ -99,6 +99,9 @@ def _persist(s, current, response, sources, source, observation_metadata=None):
             status, error = "PARTIAL", result.get("reason") or msg("market.no_data")
     elif kind == "market_quote":
         quote = quote_from_history(current.target["symbol"], response)
+        if quote and current.target.get("history"):
+            from iirp.market.quote_publication import history_snapshot
+            quote["history"] = history_snapshot(response)
         if quote:
             existing = s.get(MarketQuote, current.target["symbol"], with_for_update=True)
             if existing:

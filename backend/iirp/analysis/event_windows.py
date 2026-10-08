@@ -8,17 +8,25 @@ With C = close, O = open and n sessions:
   before   = C(R-1) / C(R-1-n) - 1
   reaction = C(R) / C(R-1) - 1        gap = O(R) / C(R-1) - 1
   after    = C(R+n) / C(R) - 1
-The three windows do not overlap. Bars are the cached split-only daily prices
-(D14); nothing is fetched here. Ratios are decimal strings, never percents.
+The three windows do not overlap: before ends at the close of R-1 where the
+reaction day starts, and after starts at the close of R where it ends. The gap
+is the opening part of the reaction day, shown on its own.
+
+Each event also has its reaction-day candle relative to C(R-1) (open = gap,
+close = reaction, high and low), and its path C(t)/C(R-1) - 1 for t = R-n..R+n.
+A benchmark, when given, gets the same windows over the same dates; the excess
+is the stock's window minus the benchmark's. Bars are the cached split-only
+daily prices (D14); nothing is fetched here. Ratios are decimal strings, never
+percents; the frontend only formats them.
 """
 
 from datetime import date
 from decimal import Decimal, InvalidOperation, localcontext
 
 from iirp.analysis.calendar import next_session, session_window
-from iirp.analysis.distributions import statistics
+from iirp.analysis.distributions import statistics, wilson_interval
 
-CALCULATION_VERSION = "event-windows-v1"
+CALCULATION_VERSION = "event-windows-v2"
 WINDOWS = ("before", "reaction", "gap", "after")
 
 
@@ -47,7 +55,7 @@ def _number(value):
 
 def _bars(bars):
     output = {}
-    for bar in bars:
+    for bar in bars or ():
         if bar.get("status") != "VALID":
             continue
         day = date.fromisoformat(bar["date"]) if isinstance(bar["date"], str) else bar["date"]
@@ -63,36 +71,80 @@ def _change(first, last):
         return str(last / first - 1)
 
 
-def _window(prices, start, end, cutoff, end_field="close"):
+def _minus(a, b):
+    if a is None or b is None:
+        return None
+    with localcontext() as context:
+        context.prec = 34
+        return str(Decimal(a) - Decimal(b))
+
+
+def _price(prices, day, field="close"):
+    return (prices.get(day) or {}).get(field)
+
+
+def _window(prices, start, end, cutoff, end_field="close", benchmark=None):
     """Change from C(start) to C(end), or to O(end) for the opening gap."""
+    output = {"value": None, "start_date": start.isoformat(), "end_date": end.isoformat(),
+              "status": "pending", "benchmark": None, "excess": None}
     if end > cutoff:
-        return {"value": None, "start_date": start.isoformat(), "end_date": end.isoformat(),
-                "status": "pending"}
-    value = _change((prices.get(start) or {}).get("close"), (prices.get(end) or {}).get(end_field))
-    return {"value": value, "start_date": start.isoformat(), "end_date": end.isoformat(),
-            "status": "ok" if value is not None else "missing_price"}
+        return output
+    output["value"] = _change(_price(prices, start), _price(prices, end, end_field))
+    output["status"] = "ok" if output["value"] is not None else "missing_price"
+    if benchmark is not None:
+        output["benchmark"] = _change(_price(benchmark, start), _price(benchmark, end, end_field))
+        output["excess"] = _minus(output["value"], output["benchmark"])
+    return output
 
 
-def summarize(values):
-    """N, median, quartiles and the share of positive values."""
+def window_stats(windows):
+    """N, median, mean, quartiles, the up share with its Wilson 95% interval,
+    the median absolute move and, when paired, how often the benchmark was beaten."""
+    values = [w["value"] for w in windows if w["value"] is not None]
     stats = statistics(values)
     with localcontext() as context:
         context.prec = 34
-        stats["up_ratio"] = str(Decimal(stats["up"]) / stats["n"]) if stats["n"] else None
-    return stats
+        absolute = statistics([abs(Decimal(v)) for v in values])
+    paired = [w for w in windows if w["excess"] is not None]
+    excess = statistics([w["excess"] for w in paired])
+    output = {
+        **{key: stats.get(key) for key in ("n", "median", "mean", "q25", "q75", "min", "max", "up", "flat")},
+        "abs_median": absolute.get("median"),
+        "up_low": None, "up_high": None, "coin_flip": None,
+        "paired_n": excess["n"], "beat": excess["up"],
+        "median_excess": excess.get("median"), "mean_excess": excess.get("mean"),
+        "benchmark_median": statistics([w["benchmark"] for w in paired]).get("median"),
+    }
+    if stats["n"]:
+        low, high = wilson_interval(stats["up"], stats["n"])
+        output.update(up_low=str(low), up_high=str(high), coin_flip=low <= Decimal("0.5") <= high)
+    return output
 
 
 def _summary(rows):
-    return {name: summarize([row["windows"][name]["value"] for row in rows
-                             if row["windows"][name]["value"] is not None])
-            for name in WINDOWS}
+    return {name: window_stats([row["windows"][name] for row in rows]) for name in WINDOWS}
 
 
-def analyze_events(events, bars, *, n, cutoff, calendar="XNYS", kind="custom"):
-    """One ticker's result: rows per event, overall summary and, for earnings, Q1-Q4."""
+def _path_stats(rows, n):
+    """Median and middle half of the paths at each offset, and the benchmark's median."""
+    output = []
+    for index, offset in enumerate(range(-n, n + 1)):
+        points = [row["path"][index] for row in rows]
+        stats = statistics([p["value"] for p in points if p["value"] is not None])
+        output.append({"offset": offset, "n": stats["n"], "median": stats.get("median"),
+                       "q25": stats.get("q25"), "q75": stats.get("q75"),
+                       "benchmark_median": statistics([p["benchmark"] for p in points
+                                                       if p["benchmark"] is not None]).get("median")})
+    return output
+
+
+def analyze_events(events, bars, *, n, cutoff, calendar="XNYS", kind="custom", benchmark=None):
+    """One ticker's result: rows per event, overall summary, the average path and,
+    for earnings, Q1-Q4. ``benchmark`` is ``{"symbol", "status", "bars"}`` or None."""
     if n < 1:
         raise ValueError("n must be positive")
     prices = _bars(bars)
+    paired = _bars(benchmark.get("bars")) if benchmark and benchmark.get("status") == "available" else None
     rows = []
     for event in sorted(events, key=lambda e: e["date"]):
         day = date.fromisoformat(event["date"])
@@ -100,17 +152,30 @@ def analyze_events(events, bars, *, n, cutoff, calendar="XNYS", kind="custom"):
         days = session_window(reaction, n + 1, n, calendar)  # R-1-n .. R+n
         base, before_start, after_end = days[n], days[0], days[-1]
         windows = {
-            "before": _window(prices, before_start, base, cutoff),
-            "reaction": _window(prices, base, reaction, cutoff),
-            "gap": _window(prices, base, reaction, cutoff, end_field="open"),
-            "after": _window(prices, reaction, after_end, cutoff),
+            "before": _window(prices, before_start, base, cutoff, benchmark=paired),
+            "reaction": _window(prices, base, reaction, cutoff, benchmark=paired),
+            "gap": _window(prices, base, reaction, cutoff, end_field="open", benchmark=paired),
+            "after": _window(prices, reaction, after_end, cutoff, benchmark=paired),
         }
-        candles = []
+        base_close = _price(prices, base)
+        candle = None
+        if reaction <= cutoff and base_close is not None:
+            candle = {field: _change(base_close, _price(prices, reaction, field))
+                      for field in ("open", "high", "low", "close")}
+            if candle["close"] is None:
+                candle = None
+        candles, path = [], []
+        benchmark_base = _price(paired, base) if paired else None
         for offset, session_day in zip(range(-n, n + 1), days[1:], strict=True):
             bar = prices.get(session_day) if session_day <= cutoff else None
             candles.append({"offset": offset, "date": session_day.isoformat(),
                             **{field: str(bar[field]) if bar and bar[field] is not None else None
                                for field in ("open", "high", "low", "close")}})
+            formed = session_day <= cutoff
+            path.append({"offset": offset, "date": session_day.isoformat(),
+                         "value": _change(base_close, _price(prices, session_day)) if formed else None,
+                         "benchmark": _change(benchmark_base, _price(paired, session_day))
+                         if formed and paired else None})
         notes = []
         if event["session"] == "unknown":
             notes.append("session_unknown")
@@ -122,6 +187,8 @@ def analyze_events(events, bars, *, n, cutoff, calendar="XNYS", kind="custom"):
             "reaction_date": reaction.isoformat(),
             "baseline_date": base.isoformat(),
             "windows": windows,
+            "reaction_candle": candle,
+            "path": path,
             "candles": candles,
             "notes": notes,
         })
@@ -132,8 +199,11 @@ def analyze_events(events, bars, *, n, cutoff, calendar="XNYS", kind="custom"):
         "cutoff_date": cutoff.isoformat(),
         "calendar": calendar,
         "calculation_version": CALCULATION_VERSION,
+        "benchmark": {"symbol": benchmark["symbol"], "status": benchmark.get("status", "unknown")}
+        if benchmark else None,
         "event_count": len(rows),
         "summary": _summary(rows),
+        "path": _path_stats(rows, n),
         "rows": rows,
     }
     if kind == "earnings":

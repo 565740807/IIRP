@@ -613,6 +613,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/market/{symbol}/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Market History
+         * @description Fetch six months of daily bars for the detail page once (24 hours).
+         */
+        post: operations["market_history_api_v1_market__symbol__history_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/cache/cleanup": {
         parameters: {
             query?: never;
@@ -850,6 +870,40 @@ export interface paths {
         put?: never;
         /** Refresh */
         post: operations["refresh_api_v1_events_analyses__analysis_id__refresh_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/events/analyses/{analysis_id}/variant": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Variant */
+        post: operations["variant_api_v1_events_analyses__analysis_id__variant_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/events/analyses/{analysis_id}/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Export */
+        get: operations["export_api_v1_events_analyses__analysis_id__export_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1581,6 +1635,11 @@ export interface components {
             request_id: string;
             /** N */
             n?: number | null;
+            /**
+             * Benchmark
+             * @default ^GSPC
+             */
+            benchmark: string | null;
         };
         /** EventAnalysisOutput */
         EventAnalysisOutput: {
@@ -1601,6 +1660,8 @@ export interface components {
             event_set_id: string | null;
             /** N */
             n: number;
+            /** Benchmark */
+            benchmark: string | null;
             /** Cutoff Date */
             cutoff_date: string;
             /** Event Count */
@@ -1609,6 +1670,8 @@ export interface components {
             created_at: string;
             /** Tickers */
             tickers: components["schemas"]["EventTickerView"][];
+            /** Progress */
+            progress: components["schemas"]["TickerProgress"][];
             /** Freshness */
             freshness: {
                 [key: string]: unknown;
@@ -1622,6 +1685,13 @@ export interface components {
             created_at: string;
             /** N */
             n: number | null;
+            /** Status */
+            status: string;
+        };
+        /** EventBenchmark */
+        EventBenchmark: {
+            /** Symbol */
+            symbol: string;
             /** Status */
             status: string;
         };
@@ -1650,6 +1720,10 @@ export interface components {
             min: number;
             /** Max */
             max: number;
+            /** Presets */
+            presets: number[];
+            /** Benchmark */
+            benchmark: string;
         };
         /** EventDeleted */
         EventDeleted: {
@@ -1693,6 +1767,35 @@ export interface components {
              */
             reaction_date?: string | null;
         };
+        /** EventPathPoint */
+        EventPathPoint: {
+            /** Offset */
+            offset: number;
+            /** Date */
+            date: string;
+            /**
+             * Value
+             * @description C(t)/C(R-1) - 1
+             */
+            value: string | null;
+            /** Benchmark */
+            benchmark: string | null;
+        };
+        /** EventPathStatistics */
+        EventPathStatistics: {
+            /** Offset */
+            offset: number;
+            /** N */
+            n: number;
+            /** Median */
+            median: string | null;
+            /** Q25 */
+            q25: string | null;
+            /** Q75 */
+            q75: string | null;
+            /** Benchmark Median */
+            benchmark_median: string | null;
+        };
         /** EventPromptInput */
         EventPromptInput: {
             /** Text */
@@ -1730,6 +1833,20 @@ export interface components {
                 [key: string]: components["schemas"]["EventStatistics"];
             };
         };
+        /**
+         * EventReactionCandle
+         * @description The reaction day relative to C(R-1): open is the gap, close the reaction.
+         */
+        EventReactionCandle: {
+            /** Open */
+            open: string | null;
+            /** High */
+            high: string | null;
+            /** Low */
+            low: string | null;
+            /** Close */
+            close: string;
+        };
         /** EventRow */
         EventRow: {
             /** Ticker */
@@ -1757,6 +1874,9 @@ export interface components {
             windows: {
                 [key: string]: components["schemas"]["EventWindow"];
             };
+            reaction_candle: components["schemas"]["EventReactionCandle"] | null;
+            /** Path */
+            path: components["schemas"]["EventPathPoint"][];
             /** Candles */
             candles: components["schemas"]["EventCandle"][];
             /** Notes */
@@ -1787,6 +1907,12 @@ export interface components {
             analyze: boolean;
             /** N */
             n?: number | null;
+            /**
+             * Benchmark
+             * @description ^GSPC, ^IXIC or an ETF; null for no comparison
+             * @default ^GSPC
+             */
+            benchmark: string | null;
         };
         /** EventSetOutput */
         EventSetOutput: {
@@ -1872,8 +1998,40 @@ export interface components {
             up: number;
             /** Flat */
             flat: number;
-            /** Up Ratio */
-            up_ratio: string | null;
+            /**
+             * Up Low
+             * @description Wilson 95% interval of the up share
+             */
+            up_low?: string | null;
+            /** Up High */
+            up_high?: string | null;
+            /**
+             * Coin Flip
+             * @description The interval contains one half
+             */
+            coin_flip?: boolean | null;
+            /**
+             * Abs Median
+             * @description Median of the absolute changes
+             */
+            abs_median?: string | null;
+            /**
+             * Paired N
+             * @default 0
+             */
+            paired_n: number;
+            /**
+             * Beat
+             * @description Events whose change exceeded the benchmark's
+             * @default 0
+             */
+            beat: number;
+            /** Median Excess */
+            median_excess?: string | null;
+            /** Mean Excess */
+            mean_excess?: string | null;
+            /** Benchmark Median */
+            benchmark_median?: string | null;
         };
         /** EventTickerResult */
         EventTickerResult: {
@@ -1899,6 +2057,7 @@ export interface components {
             calculation_version: string;
             /** Price Fetched At */
             price_fetched_at: string | null;
+            benchmark: components["schemas"]["EventBenchmark"] | null;
             /** Event Count */
             event_count: number;
             /**
@@ -1908,6 +2067,8 @@ export interface components {
             summary: {
                 [key: string]: components["schemas"]["EventStatistics"];
             };
+            /** Path */
+            path: components["schemas"]["EventPathStatistics"][];
             /** Quarters */
             quarters?: components["schemas"]["EventQuarterSummary"][] | null;
             /** Rows */
@@ -1950,6 +2111,18 @@ export interface components {
             /** Tickers */
             tickers: string[];
         };
+        /**
+         * EventVariantInput
+         * @description Another n and/or benchmark for the same frozen events; omitted fields keep theirs.
+         */
+        EventVariantInput: {
+            /** Request Id */
+            request_id: string;
+            /** N */
+            n?: number | null;
+            /** Benchmark */
+            benchmark?: string | null;
+        };
         /** EventWindow */
         EventWindow: {
             /**
@@ -1966,6 +2139,16 @@ export interface components {
              * @enum {string}
              */
             status: "ok" | "pending" | "missing_price";
+            /**
+             * Benchmark
+             * @description The benchmark's change over the same dates
+             */
+            benchmark?: string | null;
+            /**
+             * Excess
+             * @description value - benchmark
+             */
+            excess?: string | null;
         };
         /** FeedCoverage */
         FeedCoverage: {
@@ -2647,6 +2830,67 @@ export interface components {
             details: {
                 [key: string]: unknown;
             };
+        };
+        /** MarketBar */
+        MarketBar: {
+            /** Date */
+            date: string;
+            /** Open */
+            open: string | null;
+            /** High */
+            high: string | null;
+            /** Low */
+            low: string | null;
+            /** Close */
+            close: string | null;
+        };
+        /**
+         * MarketChart
+         * @description Where the daily bars come from: ``history`` (the six-month fetch, 24 hours),
+         *     ``cache`` (a cached price range), ``quote`` (the quote's last 40 days) or none.
+         */
+        MarketChart: {
+            /** Source */
+            source: ("history" | "cache" | "quote") | null;
+            /** Start */
+            start: string | null;
+            /** End */
+            end: string | null;
+            /** Fetched At */
+            fetched_at: string | null;
+            /** Expires At */
+            expires_at: string | null;
+            /** Days */
+            days: number;
+        };
+        /** MarketDetailOutput */
+        MarketDetailOutput: {
+            /** Symbol */
+            symbol: string;
+            quote: components["schemas"]["HomeQuote"];
+            /** Instrument */
+            instrument: string | null;
+            /** Delay */
+            delay: string | null;
+            /** Source */
+            source: string | null;
+            /** Bars */
+            bars: components["schemas"]["MarketBar"][];
+            chart: components["schemas"]["MarketChart"];
+            history: components["schemas"]["MarketHistoryState"];
+        };
+        /**
+         * MarketHistoryState
+         * @description ``missing``: the page should ask for six months; ``fetching``; ``failed`` today; ``fresh``.
+         */
+        MarketHistoryState: {
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "fresh" | "fetching" | "failed" | "missing";
+            /** Reason */
+            reason: string | null;
         };
         /** PendingFiling */
         PendingFiling: {
@@ -4729,7 +4973,40 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["GenericOutput"];
+                    "application/json": components["schemas"]["MarketDetailOutput"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    market_history_api_v1_market__symbol__history_post: {
+        parameters: {
+            query?: {
+                force?: boolean;
+            };
+            header?: never;
+            path: {
+                symbol: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MarketDetailOutput"];
                 };
             };
             /** @description Validation Error */
@@ -5324,6 +5601,74 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["EventAnalysisOutput"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    variant_api_v1_events_analyses__analysis_id__variant_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                analysis_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EventVariantInput"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EventAnalysisCreated"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    export_api_v1_events_analyses__analysis_id__export_get: {
+        parameters: {
+            query?: {
+                table?: string;
+            };
+            header?: never;
+            path: {
+                analysis_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
                 };
             };
             /** @description Validation Error */

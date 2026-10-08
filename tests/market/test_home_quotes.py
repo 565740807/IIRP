@@ -4,8 +4,8 @@ from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 
 import pytest
-from iirp.api.reads import _quote_freshness
 from iirp.config import refresh
+from iirp.market.reads import _quote_freshness
 from iirp.messages import decode
 
 SESSION = {"start": "2026-10-07T13:30:00+00:00", "end": "2026-10-07T20:00:00+00:00"}

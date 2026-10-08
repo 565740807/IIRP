@@ -109,7 +109,9 @@ def test_reaction_day_and_windows_follow_d23():
     assert weekend["notes"] == ["session_unknown", "market_closed_on_date"]
     summary = result["summary"]
     assert summary["after"]["n"] == 3 and summary["after"]["up"] == 0
-    assert Decimal(summary["reaction"]["up_ratio"]) == 1
+    assert summary["reaction"]["up"] == 3 and Decimal(summary["reaction"]["up_high"]) == 1
+    # Without a benchmark nothing is paired.
+    assert summary["reaction"]["paired_n"] == 0 and result["benchmark"] is None
 
 
 def test_unformed_and_missing_prices_stay_empty_and_quarters_group_earnings():
@@ -118,12 +120,13 @@ def test_unformed_and_missing_prices_stay_empty_and_quarters_group_earnings():
     result = analyze_events(events, BARS[:-1], n=2, cutoff=date(2024, 6, 11), kind="earnings")
     after = result["rows"][0]["windows"]["after"]
     assert after == {"value": None, "start_date": "2024-06-10", "end_date": "2024-06-12",
-                     "status": "pending"}
+                     "status": "pending", "benchmark": None, "excess": None}
+    assert result["rows"][0]["path"][-1]["value"] is None
     assert result["rows"][0]["candles"][-1]["close"] is None
     missing = analyze_events(events, BARS[1:], n=2, cutoff=date(2024, 6, 12), kind="earnings")
     assert missing["rows"][0]["windows"]["before"]["status"] == "missing_price"
     assert [(q["fiscal_quarter"], q["event_count"]) for q in result["quarters"]] == [(2, 1), (3, 1)]
-    assert result["summary"]["after"]["n"] == 0 and result["summary"]["after"]["up_ratio"] is None
+    assert result["summary"]["after"]["n"] == 0 and result["summary"]["after"]["up_low"] is None
 
 
 def test_prompt_templates_are_saved_and_restored():
@@ -152,7 +155,8 @@ def test_each_ticker_is_fetched_once_and_results_publish_per_ticker():
     events = [earnings(date="2024-05-02"), earnings(date="2024-08-01", fiscal_quarter=3, name="Q3"),
               earnings(ticker="MSFT", date="2024-04-25", session="after_close")]
     created = event_service.create_set({"kind": "earnings", "text": text(*events), "title": None,
-                                        "request_id": "s3-test", "analyze": True, "n": 3})
+                                        "request_id": "s3-test", "analyze": True, "n": 3,
+                                        "benchmark": None})
     assert created["set"]["tickers"] == ["AAPL", "MSFT"]
     planner.plan_tick()
     yahoo = CountingYahoo()
@@ -168,7 +172,8 @@ def test_each_ticker_is_fetched_once_and_results_publish_per_ticker():
     assert results["AAPL"]["rows"][0]["reaction_date"] == "2024-05-03"
     assert [q["fiscal_quarter"] for q in results["AAPL"]["quarters"]] == [2, 3]
     # Within 24 hours another analysis of the same set downloads nothing.
-    again = event_service.create_analysis(created["set"]["id"], {"request_id": str(uuid.uuid4())})
+    again = event_service.create_analysis(created["set"]["id"], {"request_id": str(uuid.uuid4()),
+                                                                 "benchmark": None})
     planner.plan_tick()
     run_market(yahoo)
     assert len(yahoo.calls) == 2
@@ -182,6 +187,48 @@ def test_each_ticker_is_fetched_once_and_results_publish_per_ticker():
     assert event_service.get_analysis(again["analysis_id"])["event_count"] == 3
     event_service.delete_set(created["set"]["id"])
     assert event_service.get_analysis(again["analysis_id"])["tickers"]
+
+
+def test_benchmark_is_fetched_once_and_quick_switches_reuse_analyses():
+    from iirp.db import session
+    from iirp.models import Security
+
+    for symbol in ("AAPL", "MSFT"):
+        seed_security(symbol)
+    index = seed_security("^GSPC")
+    with session() as s, s.begin():
+        s.get(Security, index).instrument = "INDEX"
+    events = [earnings(date="2024-05-02"), earnings(ticker="MSFT", date="2024-04-25")]
+    created = event_service.create_set({"kind": "earnings", "text": text(*events), "title": None,
+                                        "request_id": "s6b-test", "analyze": True, "n": 3})
+    analysis_id = created["analysis"]["analysis_id"]
+    planner.plan_tick()
+    yahoo = CountingYahoo()
+    run_market(yahoo)
+    # One request per ticker and one for the benchmark, which covers both tickers' dates.
+    assert sorted(call[1] for call in yahoo.calls) == ["AAPL", "MSFT", "^GSPC"]
+    view = event_service.get_analysis(analysis_id)
+    assert view["status"] == "SUCCEEDED" and view["benchmark"] == "^GSPC"
+    assert [item["step"] for item in view["progress"]] == ["done", "done"]
+    for item in view["tickers"]:
+        assert item["result"]["benchmark"] == {"symbol": "^GSPC", "status": "available"}
+        assert item["result"]["summary"]["reaction"]["paired_n"] == 1
+    # Another n, then back: the second switch reopens the first analysis.
+    wider = event_service.analysis_variant(analysis_id, {"request_id": "v1", "n": 5})
+    assert not wider["reused"]
+    back = event_service.analysis_variant(wider["analysis_id"], {"request_id": "v2", "n": 3})
+    assert back["reused"] and back["analysis_id"] == analysis_id
+    plain = event_service.analysis_variant(analysis_id, {"request_id": "v3", "benchmark": None})
+    planner.plan_tick()
+    run_market(yahoo)
+    assert len(yahoo.calls) == 3
+    assert event_service.get_analysis(plain["analysis_id"])["benchmark"] is None
+    assert event_service.get_analysis(wider["analysis_id"])["n"] == 5
+    stats = event_service.export_analysis(analysis_id, "stats").lstrip("\ufeff").splitlines()
+    # Each ticker: all events and its one quarter, four windows each.
+    assert stats[0].startswith("ticker,group,window,n_sessions,benchmark,n,median") and len(stats) == 1 + 2 * 2 * 4
+    detail = event_service.export_analysis(analysis_id, "detail").lstrip("\ufeff").splitlines()
+    assert len(detail) == 3 and ",^GSPC," in detail[1]
 
 
 def test_api_validates_saves_and_reports_field_errors():

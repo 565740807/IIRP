@@ -1,7 +1,5 @@
 """Read projections from committed local facts; none of these reads fetch a source."""
 
-from datetime import datetime, timedelta
-
 from sqlalchemy import select
 
 from iirp.config import refresh
@@ -9,65 +7,16 @@ from iirp.db import session
 from iirp.jobs.providers import sec_configured
 from iirp.market.yahoo import MARKETS, source_contract
 from iirp.messages import UserError, msg
-from iirp.models import Issuer, Job, MarketQuote, Owner, Security, now
-
-
-def _overdue_seconds(quote, fetched):
-    """A quote is late after a multiple of the interval it was scheduled with
-    (1 minute in session, 5 minutes in extended hours), never sooner than the floor."""
-    cadence = refresh()["quotes"]
-    floor = cadence["overdue_seconds"]
-    due = quote.get("next_refresh_at")
-    if not due:
-        return floor
-    interval = (datetime.fromisoformat(due) - fetched).total_seconds()
-    return max(floor, cadence["overdue_factor"] * interval) if interval > 0 else floor
-
-
-def _quote_freshness(quote, failure, current):
-    """(freshness, reason message) of a saved quote at ``current``."""
-    session = quote.get("session") or {}
-    start, end = (datetime.fromisoformat(session[key]) if session.get(key) else None for key in ("start", "end"))
-    fetched = datetime.fromisoformat(quote["fetched_at"])
-    if failure is not None and failure.updated_at > fetched:
-        return "delayed", failure.error or msg("home.quote.refresh_failed")
-    if start and end and start <= current < end:
-        if quote.get("status") == "STALE":
-            return "delayed", msg("quote.delay.stale")
-        overdue = _overdue_seconds(quote, fetched)
-        if (current - fetched).total_seconds() > overdue:
-            return "delayed", msg("home.quote.overdue", minutes=round(overdue / 60))
-        return "live", None
-    if end and current >= end and fetched < end:
-        return "delayed", msg("home.quote.close_pending")
-    if start and end:
-        return "closed", None
-    return ("delayed", msg("quote.delay.daily")) if quote.get("status") == "DAILY" else ("live", None)
+from iirp.models import Issuer, Owner, Security, now
 
 
 def home():
     """Saved quotes for the home strip; the browser asks /freshness/ensure for new ones."""
+    from iirp.market.reads import quote_views
+
     current = now()
     with session() as s:
-        quotes = {q.symbol: q for q in s.scalars(select(MarketQuote).where(MarketQuote.symbol.in_(MARKETS)))}
-        # The newest quote job per symbol: a failure after the last fetch explains a delay.
-        latest = {}
-        for job in s.scalars(
-            select(Job).where(Job.kind == "market_quote", Job.created_at > current - timedelta(days=1))
-            .order_by(Job.created_at.desc()).limit(50)
-        ):
-            latest.setdefault(job.target.get("symbol"), job)
-        market = []
-        for symbol, name in MARKETS.items():
-            row, job = quotes.get(symbol), latest.get(symbol)
-            failure = job if job is not None and job.status in ("FAILED", "RETRY_WAIT") else None
-            if row is None:
-                market.append({"symbol": symbol, "name": name, "status": "NOT_FETCHED", "freshness": "missing",
-                               "reason": failure.error if failure else msg("home.quote_not_fetched")})
-                continue
-            quote = {**row.data, "name": name, "fetched_at": row.fetched_at.isoformat()}
-            quote["freshness"], quote["reason"] = _quote_freshness(quote, failure, current)
-            market.append(quote)
+        market = quote_views(s, MARKETS, current)
     browser = refresh()["browser"]
     return {"observed_at": current, "market": market, "refresh": browser}
 

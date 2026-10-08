@@ -26,6 +26,7 @@ from iirp.api.schemas import (
     FreshnessInput,
     FreshnessOutput,
     GenericOutput,
+    MarketDetailOutput,
     PreferenceInput,
     PreferenceOutput,
     PriceRangeInput,
@@ -267,9 +268,15 @@ def transaction_export(transaction_id: str, format: str = "json", mapping_versio
     return Response(output.getvalue(), media_type="text/csv; charset=utf-8", headers={"Content-Disposition": f'attachment; filename="{filename}.csv"'})
 
 
-@router.get("/market/{symbol}", response_model=GenericOutput)
+@router.get("/market/{symbol}", response_model=MarketDetailOutput)
 def market(symbol: str):
     return invoke(market_reads.market_detail, symbol)
+
+
+@router.post("/market/{symbol}/history", response_model=MarketDetailOutput, status_code=202)
+def market_history(symbol: str, force: bool = False):
+    """Fetch six months of daily bars for the detail page once (24 hours)."""
+    return invoke(market_reads.request_history, symbol, force)
 
 
 @router.post("/cache/cleanup", response_model=GenericOutput, status_code=202)

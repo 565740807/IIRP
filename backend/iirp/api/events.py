@@ -2,9 +2,10 @@
 
 from typing import Any, Literal
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query, Response
 from pydantic import BaseModel, ConfigDict, Field
 
+from iirp.api.schemas import TickerProgress
 from iirp.events import prompts as event_prompts
 from iirp.events import service as event_service
 
@@ -36,6 +37,8 @@ class EventDefaultsOutput(BaseModel):
     window_sessions: dict[str, int]
     min: int
     max: int
+    presets: list[int]
+    benchmark: str
 
 
 class EventValidateInput(EventStrict):
@@ -74,6 +77,8 @@ class EventSetInput(EventStrict):
     request_id: str | None = Field(None, min_length=1, max_length=100)
     analyze: bool = False
     n: int | None = None
+    benchmark: str | None = Field(event_service.DEFAULT_BENCHMARK, max_length=20,
+                                  description="^GSPC, ^IXIC or an ETF; null for no comparison")
 
 
 class EventSetUpdate(EventStrict):
@@ -116,6 +121,14 @@ class EventDeleted(BaseModel):
 class EventAnalysisInput(EventStrict):
     request_id: str = Field(min_length=1, max_length=128)
     n: int | None = None
+    benchmark: str | None = Field(event_service.DEFAULT_BENCHMARK, max_length=20)
+
+
+class EventVariantInput(EventStrict):
+    """Another n and/or benchmark for the same frozen events; omitted fields keep theirs."""
+    request_id: str = Field(min_length=1, max_length=128)
+    n: int | None = None
+    benchmark: str | None = Field(None, max_length=20)
 
 
 class EventAnalysisCreated(BaseModel):
@@ -134,6 +147,23 @@ class EventWindow(BaseModel):
     start_date: str
     end_date: str
     status: Literal["ok", "pending", "missing_price"]
+    benchmark: str | None = Field(None, description="The benchmark's change over the same dates")
+    excess: str | None = Field(None, description="value - benchmark")
+
+
+class EventReactionCandle(BaseModel):
+    """The reaction day relative to C(R-1): open is the gap, close the reaction."""
+    open: str | None
+    high: str | None
+    low: str | None
+    close: str
+
+
+class EventPathPoint(BaseModel):
+    offset: int
+    date: str
+    value: str | None = Field(description="C(t)/C(R-1) - 1")
+    benchmark: str | None
 
 
 class EventCandle(BaseModel):
@@ -156,6 +186,8 @@ class EventRow(BaseModel):
     reaction_date: str
     baseline_date: str
     windows: dict[str, EventWindow]
+    reaction_candle: EventReactionCandle | None
+    path: list[EventPathPoint]
     candles: list[EventCandle]
     notes: list[str]
 
@@ -170,7 +202,29 @@ class EventStatistics(BaseModel):
     max: str | None = None
     up: int
     flat: int
-    up_ratio: str | None
+    up_low: str | None = Field(None, description="Wilson 95% interval of the up share")
+    up_high: str | None = None
+    coin_flip: bool | None = Field(None, description="The interval contains one half")
+    abs_median: str | None = Field(None, description="Median of the absolute changes")
+    paired_n: int = 0
+    beat: int = Field(0, description="Events whose change exceeded the benchmark's")
+    median_excess: str | None = None
+    mean_excess: str | None = None
+    benchmark_median: str | None = None
+
+
+class EventPathStatistics(BaseModel):
+    offset: int
+    n: int
+    median: str | None
+    q25: str | None
+    q75: str | None
+    benchmark_median: str | None
+
+
+class EventBenchmark(BaseModel):
+    symbol: str
+    status: str
 
 
 class EventQuarterSummary(BaseModel):
@@ -188,8 +242,10 @@ class EventTickerResult(BaseModel):
     calendar: str
     calculation_version: str
     price_fetched_at: str | None
+    benchmark: EventBenchmark | None
     event_count: int
     summary: dict[str, EventStatistics] = Field(description="before, reaction, gap and after windows")
+    path: list[EventPathStatistics]
     quarters: list[EventQuarterSummary] | None = None
     rows: list[EventRow]
 
@@ -212,10 +268,12 @@ class EventAnalysisOutput(BaseModel):
     event_kind: Kind
     event_set_id: str | None
     n: int
+    benchmark: str | None
     cutoff_date: str
     event_count: int
     created_at: str
     tickers: list[EventTickerView]
+    progress: list[TickerProgress]
     freshness: dict[str, Any]
 
 
@@ -234,7 +292,8 @@ def _call(function, *args, **kwargs):
 def defaults():
     values = event_service.window_defaults()
     return {"window_sessions": {k: values[k] for k in ("insider", "earnings", "custom")},
-            "min": values["min"], "max": values["max"]}
+            "min": values["min"], "max": values["max"], "presets": event_service.PRESETS,
+            "benchmark": event_service.DEFAULT_BENCHMARK}
 
 
 @router.get("/prompts/{kind}", response_model=EventPromptOutput)
@@ -295,3 +354,18 @@ def analysis(analysis_id: str):
 @router.post("/analyses/{analysis_id}/refresh", response_model=EventAnalysisOutput)
 def refresh(analysis_id: str, force: bool = False):
     return _call(event_service.refresh_analysis, analysis_id, force)
+
+
+@router.post("/analyses/{analysis_id}/variant", response_model=EventAnalysisCreated, status_code=202)
+def variant(analysis_id: str, body: EventVariantInput):
+    return _call(event_service.analysis_variant, analysis_id, body.model_dump(exclude_unset=True))
+
+
+@router.get("/analyses/{analysis_id}/export")
+def export(analysis_id: str, table: str = Query(default="detail", pattern="^(stats|detail)$")):
+    content = _call(event_service.export_analysis, analysis_id, table)
+    return Response(
+        content,
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="iirp-events-{analysis_id}-{table}.csv"'},
+    )

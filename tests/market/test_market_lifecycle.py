@@ -192,34 +192,47 @@ def initial_prices(security_id, *, start="2022-11-01", end=None):
     return cached(security_id).id
 
 
-def test_market_detail_uses_cached_split_only_prices(security_id):
-    from iirp.analysis.calendar import sessions
+def test_market_detail_shows_six_months_and_prefers_the_history_fetch(security_id, monkeypatch):
+    from datetime import timedelta
+
+    from iirp.analysis.calendar import last_completed_session, sessions
+    from iirp.market import yahoo
+    from iirp.market.quote_publication import history_snapshot, merge_quote
     from iirp.market.reads import market_detail
     from iirp.models import MarketQuote
 
-    days = sessions(date(2023, 1, 3), date(2023, 5, 31))
+    monkeypatch.setitem(yahoo.MARKETS, "SYNTH", "Synthetic")
+    last = last_completed_session()
+    days = sessions(last - timedelta(days=250), last)
     commit_prices(
         security_id,
         response([bar(str(day), str(100 + i)) for i, day in enumerate(days)]),
         start=str(days[0]),
         end=str(days[-1]),
     )
+    quote = {"as_of": str(last), "source": "synthetic_quote", "value": "100", "status": "DAILY",
+             "records": [{"date": str(last), "open": "1", "high": "1", "low": "1", "close": "1"}]}
     with session() as s, s.begin():
-        s.add(
-            MarketQuote(
-                symbol="SYNTH",
-                data={"as_of": "2023-01-05", "source": "synthetic_quote", "value": "100"},
-            )
-        )
+        s.add(MarketQuote(symbol="SYNTH", data=quote))
     result = market_detail("SYNTH")
-    assert len(result["items"]) == 60
-    assert [row["date"] for row in result["items"]] == [str(day) for day in days[-60:]]
-    assert result["data"]["chart_start"] == str(days[-60])
-    assert result["data"]["price_cache_id"] == cached(security_id).id
-    assert result["data"]["as_of"] == "2023-01-05"
-    assert result["data"]["chart_end"] == str(days[-1])
-    assert result["data"]["chart_source"] == "synthetic"
-    assert "仅拆股调整" in zh(result["data"]["chart_basis"])
+    # The cached range is cut to the last six months (186 days).
+    first = str(last - timedelta(days=186))
+    assert result["chart"]["source"] == "cache" and result["history"]["status"] == "fresh"
+    assert result["bars"][0]["date"] >= first and result["bars"][-1]["date"] == str(last)
+    assert len(result["bars"]) == len([day for day in days if str(day) >= first])
+    assert result["quote"]["name"] == "Synthetic" and "records" not in result["quote"]
+    # A six-month fetch kept with the quote wins and survives an ordinary 40-day refresh.
+    history = history_snapshot({"records": [{"date": str(day), "open": "2", "high": "3", "low": "1",
+                                             "close": "2", "volume": "9"} for day in days[-120:]]})
+    merged, _ = merge_quote(quote, {**quote, "history": history})
+    refreshed, _ = merge_quote(merged, {**quote, "as_of": str(last)})
+    assert refreshed["history"] == history and set(history["records"][0]) == {"date", "open", "high", "low", "close"}
+    with session() as s, s.begin():
+        s.get(MarketQuote, "SYNTH").data = refreshed
+    result = market_detail("SYNTH")
+    assert result["chart"]["source"] == "history" and len(result["bars"]) == 120
+    with pytest.raises(LookupError):
+        market_detail("NOPE")
 
 
 def test_one_response_becomes_the_24_hour_cache_in_one_fenced_transaction(security_id):
