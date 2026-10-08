@@ -4,7 +4,16 @@ from sqlalchemy import select, text
 from iirp.db import session
 from iirp.market.yahoo import digest
 from iirp.messages import NotFoundError, msg
-from iirp.models import AnalysisRequest, AnalysisResult, Batch, RequestScope, ResearchTrack, now
+from iirp.models import (
+    AnalysisRequest,
+    AnalysisResult,
+    Batch,
+    PriceCache,
+    RequestScope,
+    ResearchTrack,
+    Security,
+    now,
+)
 
 
 def freshness(s, request, items=()):
@@ -29,7 +38,15 @@ def freshness(s, request, items=()):
         RequestScope.checkpoint["results_expired_at"].astext.is_not(None)).limit(1))
     fetched = [row.fetched for row in live if row.fetched]
     expires = [row.expires_at for row in live if row.expires_at]
-    return {"origin_id": origin, "latest_id": track.latest_id if track else request.id,
+    inputs = s.scalars(select(AnalysisResult.inputs).where(AnalysisResult.analysis_id == request.id)).all()
+    cache_ids = {identifier for item in inputs
+                 for identifier in (item.get("dataset_id"), item.get("benchmark_dataset_id"),
+                                    (item.get("benchmark") or {}).get("dataset_id")) if identifier}
+    caches = s.execute(select(PriceCache, Security.symbol).join(Security, Security.id == PriceCache.security_id)
+                       .where(PriceCache.id.in_(cache_ids)).order_by(PriceCache.expires_at, Security.symbol)).all()
+    sources = [{"symbol": symbol, "fetched_at": cache.fetched_at.isoformat(),
+                "expires_at": cache.expires_at.isoformat()} for cache, symbol in caches]
+    return {"sources": sources, "origin_id": origin, "latest_id": track.latest_id if track else request.id,
         "latest_completed_session": last_completed_session(as_of=stamp).isoformat(),
         "research_cutoff": request.params.get("cutoff_date"),
         "price_fetched_at": min(fetched) if fetched else None,

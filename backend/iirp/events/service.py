@@ -147,13 +147,15 @@ def get_set(identifier):
         return _set_view(s, _required(s, EventSet, identifier))
 
 
-def _title(kind, title, events):
+def _title(kind, title, events, language="en"):
     title = (title or "").strip()
     if title:
         return title[:200]
     tickers = sorted({event["ticker"] for event in events})
-    return msg(f"events.set_title.{kind}" + ("_more" if len(tickers) > 3 else ""),
-               tickers=tickers[:3], first=events[0]["date"][:4], last=events[-1]["date"][:4])
+    from iirp.messages import saved_name
+    return saved_name(f"events.set_title.{kind}" + ("_more" if len(tickers) > 3 else ""),
+               language=language, tickers=tickers[:3], first=min(e["date"] for e in events)[:4],
+                      last=max(e["date"] for e in events)[:4])
 
 
 def create_set(values):
@@ -169,7 +171,7 @@ def create_set(values):
                 if existing.kind != kind or existing.events != events:
                     raise RuntimeError(msg("events.request_id_reused"))
                 return _created(s, existing, values)
-        row = EventSet(kind=kind, title=_title(kind, values.get("title"), events),
+        row = EventSet(kind=kind, title=_title(kind, values.get("title"), events, values.get("language", "en")),
                        events=events, request_id=request_id)
         s.add(row)
         s.flush()
@@ -194,7 +196,7 @@ def update_set(identifier, values):
         if values.get("text") is not None:
             row.events = _parse(row.kind, values["text"])
         if values.get("title") is not None:
-            row.title = _title(row.kind, values["title"], row.events)
+            row.title = _title(row.kind, values["title"], row.events, values.get("language", "en"))
         row.updated_at = now()
         s.flush()
         return _set_view(s, row)
@@ -429,7 +431,8 @@ def plan_event_scope(s, scope, batch, capacity):
                         if key != "results_expired_at"}
 
 
-def analysis_view(s, request):
+def analysis_view(s, request, filters=None):
+    from iirp.analysis.event_windows import project_result
     from iirp.analysis.freshness import freshness
     from iirp.analysis.requests import ticker_progress
 
@@ -447,7 +450,7 @@ def analysis_view(s, request):
             "price_start": scope.start_date.isoformat() if scope.start_date else None,
             "price_end": scope.end_date.isoformat() if scope.end_date else None,
             "expires_at": result.expires_at.isoformat() if result else None,
-            "result": result.data if result else None,
+            "result": project_result(result.data, **(filters or {})) if result else None,
         })
     order = list(dict.fromkeys(event["ticker"] for event in params["events"]))
 
@@ -455,7 +458,12 @@ def analysis_view(s, request):
         return order.index(item["symbol"]) if item["symbol"] in order else len(order)
 
     tickers.sort(key=position)
+    from iirp.analysis.distributions import comparison
+    across = comparison((item["symbol"], item["result"]["summary"]["reaction"]["median"])
+                        for item in tickers if item["result"])
     return {
+        "comparison": across,
+        "filtered_event_count": sum(item["result"]["event_count"] for item in tickers if item["result"]),
         "id": request.id,
         "batch_id": batch.id,
         "status": batch.status,
@@ -473,12 +481,12 @@ def analysis_view(s, request):
     }
 
 
-def get_analysis(identifier):
+def get_analysis(identifier, **filters):
     with session() as s:
         request = _required(s, AnalysisRequest, identifier)
         if request.params.get("kind") != KIND:
             raise NotFoundError("events.not_event_analysis")
-        return analysis_view(s, request)
+        return analysis_view(s, request, filters)
 
 
 def refresh_analysis(identifier, force=False):
@@ -496,7 +504,7 @@ DETAIL_COLUMNS = ("ticker", "name", "date", "session", "fiscal_year", "fiscal_qu
                   "baseline_date")
 
 
-def export_analysis(identifier, table="detail"):
+def export_analysis(identifier, table="detail", **filters):
     """The shown results as CSV: statistics per ticker, group and window, or one row per event.
 
     Prices are deleted after 24 hours (D14); an export is how a result is kept.
@@ -504,7 +512,7 @@ def export_analysis(identifier, table="detail"):
     """
     if table not in {"stats", "detail"}:
         raise UserError("analysis.export_format_invalid")
-    view = get_analysis(identifier)
+    view = get_analysis(identifier, **filters)
     results = [item["result"] for item in view["tickers"] if item["result"]]
     if not results:
         raise UserError("analysis.result_missing")

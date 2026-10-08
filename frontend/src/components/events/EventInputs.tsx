@@ -404,7 +404,7 @@ function Choices({ n, setN, presets, defaultN, min, max, benchmark, setBenchmark
 
 /** Saved sets of this kind: open one to analyze, rename, edit sessions or delete. */
 function SavedSets({ kind, n, benchmark, current, onAnalysis }: { kind: EventKind; n: number; benchmark: string | null; current: string | null; onAnalysis: (id: string) => void }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const queryClient = useQueryClient();
   const sets = useEventSets(kind);
   const [selected, setSelected] = useState<string | null>(current);
@@ -427,7 +427,7 @@ function SavedSets({ kind, n, benchmark, current, onAnalysis }: { kind: EventKin
   });
   const update = useMutation({
     mutationFn: ({ id, ...body }: { id: string; title?: string; text?: string }) =>
-      unwrap(client.PUT("/api/v1/events/sets/{set_id}", { params: { path: { set_id: id } }, body })),
+      unwrap(client.PUT("/api/v1/events/sets/{set_id}", { params: { path: { set_id: id } }, body: { ...body, language: i18n.language.startsWith("zh") ? "zh" : "en" } })),
     onSuccess: (_data, variables) => {
       invalidate();
       setRenaming(null);
@@ -541,7 +541,7 @@ export function EventInputs({
   currentSet: string | null;
   onAnalysis: (id: string) => void;
 }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const queryClient = useQueryClient();
   const sets = useEventSets(kind);
   const [text, setText] = useState("");
@@ -567,7 +567,7 @@ export function EventInputs({
   const create = useMutation({
     mutationFn: () =>
       unwrap(client.POST("/api/v1/events/sets", {
-        body: { kind, text, title: title.trim() || null, request_id: crypto.randomUUID(), analyze: true, n: choices.n, benchmark: choices.benchmark },
+        body: { kind, language: i18n.language.startsWith("zh") ? "zh" : "en", text, title: title.trim() || null, request_id: crypto.randomUUID(), analyze: true, n: choices.n, benchmark: choices.benchmark },
       })),
     onSuccess: (created) => {
       setText("");

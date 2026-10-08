@@ -24,7 +24,7 @@ from datetime import date
 from decimal import Decimal, InvalidOperation, localcontext
 
 from iirp.analysis.calendar import next_session, session_window
-from iirp.analysis.distributions import statistics, wilson_interval
+from iirp.analysis.distributions import paired_ratio, statistics, wilson_interval
 
 CALCULATION_VERSION = "event-windows-v2"
 WINDOWS = ("before", "reaction", "gap", "after")
@@ -108,11 +108,14 @@ def window_stats(windows):
     paired = [w for w in windows if w["excess"] is not None]
     excess = statistics([w["excess"] for w in paired])
     output = {
-        **{key: stats.get(key) for key in ("n", "median", "mean", "q25", "q75", "min", "max", "up", "flat")},
+        **{key: stats.get(key) for key in ("n", "median", "mean", "q25", "q75", "min", "max", "up", "flat",
+                                                         "up_ratio", "whisker_low", "whisker_high", "outliers")},
         "abs_median": absolute.get("median"),
         "up_low": None, "up_high": None, "coin_flip": None,
         "paired_n": excess["n"], "beat": excess["up"],
         "median_excess": excess.get("median"), "mean_excess": excess.get("mean"),
+        "beat_ratio": paired_ratio(excess["up"], excess["n"]),
+        "benchmark_box": statistics([w["benchmark"] for w in windows]),
         "benchmark_median": statistics([w["benchmark"] for w in paired]).get("median"),
     }
     if stats["n"]:
@@ -213,3 +216,42 @@ def analyze_events(events, bars, *, n, cutoff, calendar="XNYS", kind="custom", b
             if (selected := [row for row in rows if row.get("fiscal_quarter") == quarter])
         ]
     return result
+
+
+def project_result(data, *, quarter=None, recent_years=None, session=None, direction=None):
+    """Recompute displays from frozen event rows, without reading or fetching prices.
+
+    Recent years are calendar years ending in the analysis cutoff year.
+    Missing and flat reactions belong to neither the up nor down subset.
+    """
+    first_year = date.fromisoformat(data["cutoff_date"]).year - recent_years + 1 if recent_years else None
+    rows = [dict(row) for row in data["rows"]
+            if (quarter is None or row.get("fiscal_quarter") == quarter)
+            and (first_year is None or int(row["date"][:4]) >= first_year)
+            and (session is None or row["session"] == session)
+            and (direction is None or (row["windows"]["reaction"]["value"] is not None
+                 and (Decimal(row["windows"]["reaction"]["value"]) > 0 if direction == "up"
+                      else Decimal(row["windows"]["reaction"]["value"]) < 0)))]
+    for row in rows:
+        row["id"] = "|".join([row["ticker"], row["date"], row["name"]])
+        row["ranks"] = {}
+    for window in WINDOWS:
+        valid = [row for row in rows if row["windows"][window]["value"] is not None]
+        for order in ("asc", "desc"):
+            ranked = sorted(valid, key=lambda row: Decimal(row["windows"][window]["value"]), reverse=order == "desc")
+            for rank, row in enumerate(ranked, 1):
+                row["ranks"][f"{window}_{order}"] = rank
+    output = {**data, "rows": rows, "event_count": len(rows), "summary": _summary(rows),
+              "path": _path_stats(rows, data["n"])}
+    if data["event_kind"] == "earnings":
+        output["quarters"] = [{"fiscal_quarter": q, "event_count": len(selected), "summary": _summary(selected)}
+                              for q in (1, 2, 3, 4)
+                              if (selected := [row for row in rows if row.get("fiscal_quarter") == q])]
+        for window in WINDOWS:
+            for metric in ("median", "up_ratio"):
+                for order in ("asc", "desc"):
+                    valid = [q for q in output["quarters"] if q["summary"][window][metric] is not None]
+                    for rank, q in enumerate(sorted(valid, key=lambda q: Decimal(q["summary"][window][metric]),
+                                                    reverse=order == "desc"), 1):
+                        q.setdefault("ranks", {})[f"{window}_{metric}_{order}"] = rank
+    return output

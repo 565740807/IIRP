@@ -22,7 +22,12 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 from iirp.analysis.calendar import ET, calendar_version, completed_through, sessions
-from iirp.analysis.distributions import statistics, wilson_interval
+from iirp.analysis.distributions import (
+    DistributionStatistics,
+    paired_ratio,
+    statistics,
+    wilson_interval,
+)
 from iirp.analysis.prices import endpoint_change
 
 CALCULATION_VERSION = "research-v11-open-close"
@@ -57,7 +62,7 @@ class Candle(BaseModel):
     excess: str | None = None
 
 
-class PeriodStats(BaseModel):
+class PeriodStats(DistributionStatistics):
     """Complete past years only; ``target_n`` is how many were asked for."""
 
     target_n: int
@@ -298,10 +303,11 @@ def period_stats(candles: list[dict], target_n: int) -> dict:
     excess = statistics([c["excess"] for c in paired])
     output = {
         "target_n": target_n, "n": values["n"], "up": values["up"], "flat": values["flat"],
-        **{key: values.get(key) for key in ("median", "mean", "q25", "q75")},
+        **{key: values.get(key) for key in ("median", "mean", "q25", "q75", "up_ratio", "whisker_low", "whisker_high", "outliers")},
         "best": values.get("max"), "worst": values.get("min"),
         "paired_n": excess["n"], "beat": excess["up"],
         "median_excess": excess.get("median"), "mean_excess": excess.get("mean"),
+        "beat_ratio": paired_ratio(excess["up"], excess["n"]),
         "benchmark_median": statistics([c["benchmark_change"] for c in paired]).get("median"),
     }
     if sample:

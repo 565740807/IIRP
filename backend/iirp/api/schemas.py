@@ -200,7 +200,14 @@ class TickerProgress(Output):
     reason: str | None = None
 
 
+class CacheSource(BaseModel):
+    symbol: str
+    fetched_at: str
+    expires_at: str
+
+
 class ResearchFreshness(BaseModel):
+    sources: list[CacheSource] = Field(default_factory=list)
     origin_id: str
     latest_id: str
     latest_completed_session: str
@@ -233,7 +240,17 @@ class RecentAnalysesOutput(BaseModel):
     items: list[RecentAnalysisView]
 
 
+class TickerComparison(BaseModel):
+    count: int
+    positive: int
+    high: str | None
+    high_ticker: str | None
+    low: str | None
+    low_ticker: str | None
+
+
 class AnalysisOutput(BaseModel):
+    comparisons: dict[str, TickerComparison] = Field(default_factory=dict)
     id: str
     batch_id: str
     status: str

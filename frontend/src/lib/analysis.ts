@@ -51,7 +51,12 @@ export function yearLabel(candle: Candle, cross: boolean) {
   return cross ? `${candle.year}–${String(candle.year + 1).slice(2)}` : String(candle.year);
 }
 
-export const pct = (value: unknown, digits = 1) => formatSignedRatio(value, digits);
+export function pct(value: unknown, digits = 1) {
+  const text = formatSignedRatio(value, digits);
+  const n = Number(value);
+  // Even a small nonzero change rounded to 0.0% keeps its direction sign.
+  return n > 0 && !text.startsWith("+") ? `+${text}` : n < 0 && !text.startsWith("−") ? `−${text}` : text;
+}
 
 /** Share 0.41 → "41%". */
 export function share(value: unknown) {
@@ -66,16 +71,10 @@ export function conclusion(symbol: string, period: Period, benchmark: string | n
   const name = periodName(period);
   if (!stats.n) return t("ui.analysis.conclusion.empty", { period: name, ticker: symbol });
   const parts = [
-    t("ui.analysis.conclusion.rose", { period: name, ticker: symbol, up: stats.up, n: stats.n, median: pct(stats.median) }),
+    t("ui.analysis.conclusion.rose", { period: name, ticker: symbol, up: stats.up, n: stats.n, ratio: share(stats.up_ratio), median: pct(stats.median) }),
   ];
   if (benchmark && stats.paired_n)
     parts.push(t("ui.analysis.conclusion.beat", { benchmark: benchmarkName(benchmark), beat: stats.beat, n: stats.paired_n, excess: pct(stats.median_excess) }));
-  const verdict = stats.coin_flip
-    ? t("ui.analysis.conclusion.coin_flip", { count: stats.n })
-    : Number(stats.up_low) > 0.5
-      ? t("ui.analysis.conclusion.above_half")
-      : t("ui.analysis.conclusion.below_half");
-  parts.push(t("ui.analysis.conclusion.interval", { low: share(stats.up_low), high: share(stats.up_high), verdict }));
   return parts.join(t("ui.analysis.conclusion.join")) + t("ui.analysis.conclusion.end");
 }
 

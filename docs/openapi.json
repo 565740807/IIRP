@@ -2710,6 +2710,84 @@
               "type": "string",
               "title": "Analysis Id"
             }
+          },
+          {
+            "name": "quarter",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "maximum": 4,
+                  "minimum": 1
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Quarter"
+            }
+          },
+          {
+            "name": "recent_years",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "maximum": 30,
+                  "minimum": 1
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Recent Years"
+            }
+          },
+          {
+            "name": "session",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "before_open",
+                    "during",
+                    "after_close",
+                    "unknown"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session"
+            }
+          },
+          {
+            "name": "direction",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "up",
+                    "down"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Direction"
+            }
           }
         ],
         "responses": {
@@ -2866,6 +2944,84 @@
               "pattern": "^(stats|detail)$",
               "default": "detail",
               "title": "Table"
+            }
+          },
+          {
+            "name": "quarter",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "maximum": 4,
+                  "minimum": 1
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Quarter"
+            }
+          },
+          {
+            "name": "recent_years",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "maximum": 30,
+                  "minimum": 1
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Recent Years"
+            }
+          },
+          {
+            "name": "session",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "before_open",
+                    "during",
+                    "after_close",
+                    "unknown"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session"
+            }
+          },
+          {
+            "name": "direction",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "up",
+                    "down"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Direction"
             }
           }
         ],
@@ -3509,6 +3665,13 @@
       },
       "AnalysisOutput": {
         "properties": {
+          "comparisons": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/TickerComparison"
+            },
+            "type": "object",
+            "title": "Comparisons"
+          },
           "id": {
             "type": "string",
             "title": "Id"
@@ -4028,6 +4191,29 @@
         ],
         "title": "BrowserRefresh",
         "description": "How often an open page re-reads and asks for fresh data (config/refresh.toml)."
+      },
+      "CacheSource": {
+        "properties": {
+          "symbol": {
+            "type": "string",
+            "title": "Symbol"
+          },
+          "fetched_at": {
+            "type": "string",
+            "title": "Fetched At"
+          },
+          "expires_at": {
+            "type": "string",
+            "title": "Expires At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "symbol",
+          "fetched_at",
+          "expires_at"
+        ],
+        "title": "CacheSource"
       },
       "Candle": {
         "properties": {
@@ -4606,6 +4792,168 @@
         "title": "DateAnomaly",
         "description": "Transaction dated after its own SEC acceptance date (D19); kept as reported."
       },
+      "DistributionStatistics": {
+        "properties": {
+          "n": {
+            "type": "integer",
+            "title": "N"
+          },
+          "min": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Min"
+          },
+          "q25": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Q25"
+          },
+          "median": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Median"
+          },
+          "mean": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mean"
+          },
+          "q75": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Q75"
+          },
+          "max": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max"
+          },
+          "worst": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Worst"
+          },
+          "best": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Best"
+          },
+          "up": {
+            "type": "integer",
+            "title": "Up",
+            "default": 0
+          },
+          "flat": {
+            "type": "integer",
+            "title": "Flat",
+            "default": 0
+          },
+          "up_ratio": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Up Ratio"
+          },
+          "beat_ratio": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Beat Ratio"
+          },
+          "whisker_low": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Whisker Low"
+          },
+          "whisker_high": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Whisker High"
+          },
+          "outliers": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Outliers"
+          }
+        },
+        "type": "object",
+        "required": [
+          "n"
+        ],
+        "title": "DistributionStatistics"
+      },
       "EntityCompany": {
         "properties": {
           "issuer_id": {
@@ -5051,6 +5399,13 @@
       },
       "EventAnalysisOutput": {
         "properties": {
+          "comparison": {
+            "$ref": "#/components/schemas/TickerComparison"
+          },
+          "filtered_event_count": {
+            "type": "integer",
+            "title": "Filtered Event Count"
+          },
           "id": {
             "type": "string",
             "title": "Id"
@@ -5128,13 +5483,13 @@
             "title": "Progress"
           },
           "freshness": {
-            "additionalProperties": true,
-            "type": "object",
-            "title": "Freshness"
+            "$ref": "#/components/schemas/ResearchFreshness"
           }
         },
         "type": "object",
         "required": [
+          "comparison",
+          "filtered_event_count",
           "id",
           "batch_id",
           "status",
@@ -5620,6 +5975,13 @@
       },
       "EventQuarterSummary": {
         "properties": {
+          "ranks": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Ranks"
+          },
           "fiscal_quarter": {
             "type": "integer",
             "title": "Fiscal Quarter"
@@ -5696,6 +6058,17 @@
       },
       "EventRow": {
         "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "ranks": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Ranks"
+          },
           "ticker": {
             "type": "string",
             "title": "Ticker"
@@ -5800,6 +6173,8 @@
         },
         "type": "object",
         "required": [
+          "id",
+          "ranks",
           "ticker",
           "date",
           "session",
@@ -5841,6 +6216,15 @@
       },
       "EventSetInput": {
         "properties": {
+          "language": {
+            "type": "string",
+            "enum": [
+              "zh",
+              "en"
+            ],
+            "title": "Language",
+            "default": "en"
+          },
           "kind": {
             "type": "string",
             "enum": [
@@ -6084,6 +6468,15 @@
       },
       "EventSetUpdate": {
         "properties": {
+          "language": {
+            "type": "string",
+            "enum": [
+              "zh",
+              "en"
+            ],
+            "title": "Language",
+            "default": "en"
+          },
           "title": {
             "anyOf": [
               {
@@ -6135,7 +6528,7 @@
             "type": "integer",
             "title": "N"
           },
-          "median": {
+          "min": {
             "anyOf": [
               {
                 "type": "string"
@@ -6144,7 +6537,7 @@
                 "type": "null"
               }
             ],
-            "title": "Median"
+            "title": "Min"
           },
           "q25": {
             "anyOf": [
@@ -6157,7 +6550,7 @@
             ],
             "title": "Q25"
           },
-          "q75": {
+          "median": {
             "anyOf": [
               {
                 "type": "string"
@@ -6166,7 +6559,7 @@
                 "type": "null"
               }
             ],
-            "title": "Q75"
+            "title": "Median"
           },
           "mean": {
             "anyOf": [
@@ -6179,7 +6572,7 @@
             ],
             "title": "Mean"
           },
-          "min": {
+          "q75": {
             "anyOf": [
               {
                 "type": "string"
@@ -6188,7 +6581,7 @@
                 "type": "null"
               }
             ],
-            "title": "Min"
+            "title": "Q75"
           },
           "max": {
             "anyOf": [
@@ -6201,6 +6594,28 @@
             ],
             "title": "Max"
           },
+          "worst": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Worst"
+          },
+          "best": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Best"
+          },
           "up": {
             "type": "integer",
             "title": "Up"
@@ -6208,6 +6623,60 @@
           "flat": {
             "type": "integer",
             "title": "Flat"
+          },
+          "up_ratio": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Up Ratio"
+          },
+          "beat_ratio": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Beat Ratio"
+          },
+          "whisker_low": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Whisker Low"
+          },
+          "whisker_high": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Whisker High"
+          },
+          "outliers": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Outliers"
+          },
+          "benchmark_box": {
+            "$ref": "#/components/schemas/DistributionStatistics"
           },
           "up_low": {
             "anyOf": [
@@ -6305,7 +6774,8 @@
         "required": [
           "n",
           "up",
-          "flat"
+          "flat",
+          "benchmark_box"
         ],
         "title": "EventStatistics"
       },
@@ -9333,13 +9803,31 @@
       },
       "PeriodStats": {
         "properties": {
-          "target_n": {
-            "type": "integer",
-            "title": "Target N"
-          },
           "n": {
             "type": "integer",
             "title": "N"
+          },
+          "min": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Min"
+          },
+          "q25": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Q25"
           },
           "median": {
             "anyOf": [
@@ -9363,17 +9851,6 @@
             ],
             "title": "Mean"
           },
-          "q25": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Q25"
-          },
           "q75": {
             "anyOf": [
               {
@@ -9384,6 +9861,28 @@
               }
             ],
             "title": "Q75"
+          },
+          "max": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max"
+          },
+          "worst": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Worst"
           },
           "best": {
             "anyOf": [
@@ -9396,7 +9895,17 @@
             ],
             "title": "Best"
           },
-          "worst": {
+          "up": {
+            "type": "integer",
+            "title": "Up",
+            "default": 0
+          },
+          "flat": {
+            "type": "integer",
+            "title": "Flat",
+            "default": 0
+          },
+          "up_ratio": {
             "anyOf": [
               {
                 "type": "string"
@@ -9405,7 +9914,51 @@
                 "type": "null"
               }
             ],
-            "title": "Worst"
+            "title": "Up Ratio"
+          },
+          "beat_ratio": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Beat Ratio"
+          },
+          "whisker_low": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Whisker Low"
+          },
+          "whisker_high": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Whisker High"
+          },
+          "outliers": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Outliers"
+          },
+          "target_n": {
+            "type": "integer",
+            "title": "Target N"
           },
           "best_year": {
             "anyOf": [
@@ -9428,16 +9981,6 @@
               }
             ],
             "title": "Worst Year"
-          },
-          "up": {
-            "type": "integer",
-            "title": "Up",
-            "default": 0
-          },
-          "flat": {
-            "type": "integer",
-            "title": "Flat",
-            "default": 0
           },
           "up_low": {
             "anyOf": [
@@ -9518,8 +10061,8 @@
         },
         "type": "object",
         "required": [
-          "target_n",
-          "n"
+          "n",
+          "target_n"
         ],
         "title": "PeriodStats",
         "description": "Complete past years only; ``target_n`` is how many were asked for."
@@ -10141,6 +10684,13 @@
       },
       "ResearchFreshness": {
         "properties": {
+          "sources": {
+            "items": {
+              "$ref": "#/components/schemas/CacheSource"
+            },
+            "type": "array",
+            "title": "Sources"
+          },
           "origin_id": {
             "type": "string",
             "title": "Origin Id"
@@ -11275,6 +11825,72 @@
           "storage"
         ],
         "title": "SystemOutput"
+      },
+      "TickerComparison": {
+        "properties": {
+          "count": {
+            "type": "integer",
+            "title": "Count"
+          },
+          "positive": {
+            "type": "integer",
+            "title": "Positive"
+          },
+          "high": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "High"
+          },
+          "high_ticker": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "High Ticker"
+          },
+          "low": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Low"
+          },
+          "low_ticker": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Low Ticker"
+          }
+        },
+        "type": "object",
+        "required": [
+          "count",
+          "positive",
+          "high",
+          "high_ticker",
+          "low",
+          "low_ticker"
+        ],
+        "title": "TickerComparison"
       },
       "TickerPrices": {
         "properties": {

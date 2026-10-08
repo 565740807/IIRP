@@ -1,7 +1,8 @@
 import { useTranslation } from "react-i18next";
 import { motion } from "motion/react";
 import { ChevronRight } from "lucide-react";
-import { conclusion, pct, periodName, type Period, type SeasonalKind } from "@/lib/analysis";
+import { conclusion, pct, share, periodName, type Period, type SeasonalKind } from "@/lib/analysis";
+import type { Schemas } from "@/lib/api-client";
 import { directionClass, formatDay } from "@/lib/format";
 
 /**
@@ -13,17 +14,15 @@ export function ConclusionCard({
   symbol,
   period,
   benchmark,
-  others,
+  across,
 }: {
   symbol: string;
   period: Period;
   benchmark: string | null;
-  others: { symbol: string; period: Period }[];
+  across?: Schemas["TickerComparison"];
 }) {
   const { t } = useTranslation();
   const current = period.years.find((candle) => candle.current);
-  const ranked = others.filter((item) => item.period.stats.median != null).sort((a, b) => Number(b.period.stats.median) - Number(a.period.stats.median));
-  const positive = ranked.filter((item) => Number(item.period.stats.median) > 0).length;
   return (
     <motion.section
       key={`${symbol}:${period.key}`}
@@ -33,6 +32,7 @@ export function ConclusionCard({
       className="rounded-lg border bg-card px-4 py-3"
     >
       <p className="text-base leading-relaxed font-medium">{conclusion(symbol, period, benchmark)}</p>
+      {period.stats.n > 0 && <p className="mt-1 text-xs text-muted-foreground">{t("ui.analysis.col.up_interval", { low: share(period.stats.up_low), high: share(period.stats.up_high) })}</p>}
       {current?.change != null && (
         <p className="mt-1 text-sm text-muted-foreground">
           {t(current.status === "in_progress" ? "ui.analysis.current_progress" : "ui.analysis.current_complete", {
@@ -49,16 +49,16 @@ export function ConclusionCard({
           )}
         </p>
       )}
-      {ranked.length > 1 && (
+      {across && across.count > 1 && (
         <p className="mt-1 text-sm text-muted-foreground">
           {t("ui.analysis.across", {
-            count: ranked.length,
+            count: across.count,
             period: periodName(period),
-            high: pct(ranked[0].period.stats.median),
-            high_ticker: ranked[0].symbol,
-            low: pct(ranked.at(-1)!.period.stats.median),
-            low_ticker: ranked.at(-1)!.symbol,
-            positive,
+            high: pct(across.high),
+            high_ticker: across.high_ticker,
+            low: pct(across.low),
+            low_ticker: across.low_ticker,
+            positive: across.positive,
           })}
         </p>
       )}

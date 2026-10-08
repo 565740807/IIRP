@@ -44,3 +44,15 @@ class NotFoundError(LookupError):
     def __init__(self, code: str, **params: Any):
         super().__init__(msg(code, **params))
         self.code, self.params = code, params
+
+
+def saved_name(code: str, *, language: str = "en", **params: Any) -> str:
+    """Materialize the initial editable name in the user's language, from i18n."""
+    import re
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[2]
+    catalog = json.loads((root / "frontend/src/locales" / ("zh" if language == "zh" else "en")
+                          / "translation.json").read_text())
+    return re.sub(r"{{(\w+)(?:, list)?}}", lambda match: catalog["format.list_separator"].join(params[match[1]])
+                  if isinstance(params[match[1]], list) else str(params[match[1]]), catalog[code])

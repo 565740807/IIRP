@@ -28,6 +28,7 @@ COPY migrations/ migrations/
 COPY alembic.ini ./
 COPY scripts/ scripts/
 COPY config/ config/
+COPY frontend/src/locales/ frontend/src/locales/
 COPY --from=frontend /build/dist frontend/dist
 RUN mkdir -p /app/runtime && chown -R 10001:10001 /app/runtime
 USER 10001:10001

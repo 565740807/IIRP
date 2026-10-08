@@ -2,12 +2,14 @@ import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { motion } from "motion/react";
 import { ChevronRight, Download, LoaderCircle } from "lucide-react";
-import { benchmarkName, pct } from "@/lib/analysis";
-import { conclusion, context, exportHref, type EventAnalysis, type EventKind, type EventResult } from "@/lib/events";
-import { formatDay, formatEt, formatLocal } from "@/lib/format";
+import { benchmarkName, pct, share } from "@/lib/analysis";
+import { conclusion, context, exportHref, type EventAnalysis, type EventKind, type EventResult, type EventFilters } from "@/lib/events";
+import { formatDay } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { PathChart, ReactionCandles } from "@/components/events/EventCharts";
+import { EventKline, PathChart, ReactionCandles } from "@/components/events/EventCharts";
+import { CacheTimes } from "@/components/analysis/CacheTimes";
+import { EventDistributions, WindowCards } from "@/components/events/EventDistributions";
 import { EventDetailTable, QuarterTable, TickerRankTable, WindowTable } from "@/components/events/EventTables";
 
 function Section({ title, actions, children }: { title: React.ReactNode; actions?: React.ReactNode; children: React.ReactNode }) {
@@ -23,9 +25,9 @@ function Section({ title, actions, children }: { title: React.ReactNode; actions
 }
 
 /** Fetched/expiry times (D14) and the CSV exports that keep a result after 24 hours. */
-export function EventDataLine({ analysis, refreshing }: { analysis: EventAnalysis; refreshing: boolean }) {
+export function EventDataLine({ analysis, refreshing, filters }: { analysis: EventAnalysis; refreshing: boolean; filters: EventFilters }) {
   const { t } = useTranslation();
-  const fresh = analysis.freshness as { expired?: boolean; price_fetched_at?: string | null; price_expires_at?: string | null; research_cutoff?: string | null };
+  const fresh = analysis.freshness;
   const ready = analysis.tickers.some((item) => item.result);
   return (
     <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
@@ -34,18 +36,14 @@ export function EventDataLine({ analysis, refreshing }: { analysis: EventAnalysi
           <LoaderCircle className="size-3.5 motion-safe:animate-spin" />
           {t("ui.analysis.expired_refetching")}
         </span>
-      ) : fresh.price_fetched_at ? (
-        <span title={t("ui.time.local", { time: formatLocal(fresh.price_fetched_at) })}>
-          {t("ui.analysis.fetched", { fetched: formatEt(fresh.price_fetched_at), expires: formatEt(fresh.price_expires_at) })}
-        </span>
-      ) : null}
+      ) : <CacheTimes sources={fresh.sources ?? []} expires={fresh.price_expires_at} />}
       <span>{t("ui.analysis.cutoff", { day: formatDay(analysis.cutoff_date, { year: true }) })}</span>
       {ready && (
         <span className="ml-auto inline-flex items-center gap-1">
           <span>{t("ui.analysis.export")}</span>
           {(["stats", "detail"] as const).map((table) => (
             <Button key={table} asChild size="sm" variant="outline" className="h-7 text-xs">
-              <a href={exportHref(analysis.id, table)} download>
+              <a href={exportHref(analysis.id, table, filters)} download>
                 <Download />
                 {t(`ui.analysis.export_${table}`)}
               </a>
@@ -58,22 +56,23 @@ export function EventDataLine({ analysis, refreshing }: { analysis: EventAnalysi
 }
 
 /** The answer first: one factual sentence (numbers from the server), the other windows, and where this ticker stands. */
-function ConclusionCard({ kind, result, results, benchmark }: { kind: EventKind; result: EventResult; results: EventResult[]; benchmark: string | null }) {
+function ConclusionCard({ kind, result, across, benchmark }: { kind: EventKind; result: EventResult; across: EventAnalysis["comparison"]; benchmark: string | null }) {
   const { t } = useTranslation();
-  const ranked = results.filter((item) => item.summary.reaction?.median != null).sort((a, b) => Number(b.summary.reaction.median) - Number(a.summary.reaction.median));
+
   const second = context(result, result.n, benchmark);
   return (
     <motion.section key={result.symbol} initial={{ opacity: 0.4 }} animate={{ opacity: 1 }} transition={{ duration: 0.2 }} className="rounded-lg border bg-card px-4 py-3">
       <p className="text-base leading-relaxed font-medium">{conclusion(result.symbol, kind, result)}</p>
+      {result.summary.reaction.n > 0 && <p className="mt-1 text-xs text-muted-foreground">{t("ui.analysis.col.up_interval", { low: share(result.summary.reaction.up_low), high: share(result.summary.reaction.up_high) })}</p>}
       {second && <p className="mt-1 text-sm text-muted-foreground">{second}</p>}
-      {ranked.length > 1 && (
+      {across.count > 1 && (
         <p className="mt-1 text-sm text-muted-foreground">
           {t("ui.events.conclusion.across", {
-            count: ranked.length,
-            high: pct(ranked[0].summary.reaction.median),
-            high_ticker: ranked[0].symbol,
-            low: pct(ranked.at(-1)!.summary.reaction.median),
-            low_ticker: ranked.at(-1)!.symbol,
+            count: across.count,
+            high: pct(across.high),
+            high_ticker: across.high_ticker,
+            low: pct(across.low),
+            low_ticker: across.low_ticker,
           })}
         </p>
       )}
@@ -107,6 +106,7 @@ export function EventMethod({ n }: { n: number }) {
  */
 export function EventResults({ analysis, kind, focused, onFocus }: { analysis: EventAnalysis; kind: EventKind; focused: string; onFocus: (symbol: string) => void }) {
   const { t } = useTranslation();
+  const [selected, setSelected] = useState<string | null>(null);
   const [showBenchmark, setShowBenchmark] = useState(true);
   const results = useMemo(() => analysis.tickers.flatMap((item) => (item.result ? [item.result] : [])), [analysis]);
   const result = results.find((item) => item.symbol === focused) ?? results[0];
@@ -114,15 +114,22 @@ export function EventResults({ analysis, kind, focused, onFocus }: { analysis: E
   const benchmark = analysis.benchmark ?? null;
   const pairing = result.benchmark;
   const n = result.n;
+  const selectedRow = result.rows.find((row) => row.id === selected);
+  const select = (id: string) => {
+    const owner = results.find((item) => item.rows.some((row) => row.id === id));
+    if (owner && owner.symbol !== focused) onFocus(owner.symbol);
+    setSelected(selected === id ? null : id);
+  };
   return (
     <>
-      <ConclusionCard kind={kind} result={result} results={results} benchmark={benchmark} />
+      <ConclusionCard kind={kind} result={result} across={analysis.comparison} benchmark={benchmark} />
+      <WindowCards result={result} selected={selected} onSelect={select} />
       {pairing && pairing.status !== "available" && (
         <p className="rounded-md border border-warn/30 bg-warn-soft px-3 py-2 text-xs text-warn">{t("ui.analysis.benchmark_pending", { name: benchmarkName(pairing.symbol) })}</p>
       )}
       <Section title={t("ui.events.chart_candles", { ticker: result.symbol, count: result.event_count })}>
         <div className="rounded-lg border bg-card px-2 pt-2">
-          <ReactionCandles result={result} benchmark={benchmark} title={`${result.symbol} ${t("ui.events.window.reaction")}`} />
+          <ReactionCandles selected={selected} onSelect={select} result={result} benchmark={benchmark} title={`${result.symbol} ${t("ui.events.window.reaction")}`} />
           <p className="px-2 pb-2 text-xs text-muted-foreground">{t(benchmark ? "ui.events.candles_legend_benchmark" : "ui.events.candles_legend")}</p>
         </div>
       </Section>
@@ -138,10 +145,12 @@ export function EventResults({ analysis, kind, focused, onFocus }: { analysis: E
         }
       >
         <div className="rounded-lg border bg-card px-2 pt-2">
-          <PathChart result={result} benchmark={benchmark} showBenchmark={showBenchmark} title={`${result.symbol} R−${n} … R+${n}`} />
+          <PathChart selected={selected} onSelect={select} result={result} benchmark={benchmark} showBenchmark={showBenchmark} title={t("ui.events.chart_path", { ticker: result.symbol, n })} />
           <p className="px-2 pb-2 text-xs text-muted-foreground">{t("ui.events.path_legend", { n })}</p>
         </div>
       </Section>
+      {selectedRow && <Section title={t("ui.events.kline_label", { name: selectedRow.name })}><div className="rounded-lg border bg-card px-2 py-2"><EventKline row={selectedRow} /><p className="px-2 text-xs text-muted-foreground">{t("ui.events.kline_legend", { n })}</p></div></Section>}
+      <EventDistributions result={result} results={results} benchmark={benchmark} selected={selected} onSelect={select} />
       <Section title={t("ui.events.stats_title", { ticker: result.symbol })}>
         <WindowTable result={result} benchmark={benchmark} />
       </Section>
@@ -157,7 +166,7 @@ export function EventResults({ analysis, kind, focused, onFocus }: { analysis: E
       )}
       <Section title={t("ui.events.detail_title", { ticker: result.symbol, count: result.event_count })}>
         <p className={cn("-mt-1 text-xs text-muted-foreground")}>{t("ui.events.detail_hint")}</p>
-        <EventDetailTable result={result} benchmark={benchmark} />
+        <EventDetailTable selected={selected} onSelect={select} result={result} benchmark={benchmark} />
       </Section>
     </>
   );

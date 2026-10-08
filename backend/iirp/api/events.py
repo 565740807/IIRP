@@ -1,11 +1,12 @@
 """Earnings and custom events: prompt templates, pasted JSON, saved sets, analyses (S3)."""
 
-from typing import Any, Literal
+from typing import Literal
 
 from fastapi import APIRouter, HTTPException, Query, Response
 from pydantic import BaseModel, ConfigDict, Field
 
-from iirp.api.schemas import TickerProgress
+from iirp.analysis.distributions import DistributionStatistics
+from iirp.api.schemas import ResearchFreshness, TickerComparison, TickerProgress
 from iirp.events import prompts as event_prompts
 from iirp.events import service as event_service
 
@@ -71,6 +72,7 @@ class EventValidateOutput(BaseModel):
 
 
 class EventSetInput(EventStrict):
+    language: Language = "en"
     kind: Kind
     text: str = Field(max_length=512 * 1024)
     title: str | None = Field(None, max_length=200)
@@ -82,6 +84,7 @@ class EventSetInput(EventStrict):
 
 
 class EventSetUpdate(EventStrict):
+    language: Language = "en"
     title: str | None = Field(None, max_length=200)
     text: str | None = Field(None, max_length=512 * 1024)
 
@@ -176,6 +179,8 @@ class EventCandle(BaseModel):
 
 
 class EventRow(BaseModel):
+    id: str
+    ranks: dict[str, int]
     ticker: str
     date: str
     session: Session
@@ -192,7 +197,8 @@ class EventRow(BaseModel):
     notes: list[str]
 
 
-class EventStatistics(BaseModel):
+class EventStatistics(DistributionStatistics):
+    benchmark_box: DistributionStatistics
     n: int
     median: str | None = None
     q25: str | None = None
@@ -228,6 +234,7 @@ class EventBenchmark(BaseModel):
 
 
 class EventQuarterSummary(BaseModel):
+    ranks: dict[str, int] = Field(default_factory=dict)
     fiscal_quarter: int
     event_count: int
     summary: dict[str, EventStatistics]
@@ -261,6 +268,8 @@ class EventTickerView(BaseModel):
 
 
 class EventAnalysisOutput(BaseModel):
+    comparison: TickerComparison
+    filtered_event_count: int
     id: str
     batch_id: str
     status: str
@@ -274,7 +283,7 @@ class EventAnalysisOutput(BaseModel):
     created_at: str
     tickers: list[EventTickerView]
     progress: list[TickerProgress]
-    freshness: dict[str, Any]
+    freshness: ResearchFreshness
 
 
 def _call(function, *args, **kwargs):
@@ -347,8 +356,11 @@ def create_analysis(set_id: str, body: EventAnalysisInput):
 
 
 @router.get("/analyses/{analysis_id}", response_model=EventAnalysisOutput)
-def analysis(analysis_id: str):
-    return _call(event_service.get_analysis, analysis_id)
+def analysis(analysis_id: str, quarter: int | None = Query(None, ge=1, le=4),
+             recent_years: int | None = Query(None, ge=1, le=30), session: Session | None = None,
+             direction: Literal["up", "down"] | None = None):
+    return _call(event_service.get_analysis, analysis_id, quarter=quarter, recent_years=recent_years,
+                 session=session, direction=direction)
 
 
 @router.post("/analyses/{analysis_id}/refresh", response_model=EventAnalysisOutput)
@@ -362,8 +374,11 @@ def variant(analysis_id: str, body: EventVariantInput):
 
 
 @router.get("/analyses/{analysis_id}/export")
-def export(analysis_id: str, table: str = Query(default="detail", pattern="^(stats|detail)$")):
-    content = _call(event_service.export_analysis, analysis_id, table)
+def export(analysis_id: str, table: str = Query(default="detail", pattern="^(stats|detail)$"),
+           quarter: int | None = Query(None, ge=1, le=4), recent_years: int | None = Query(None, ge=1, le=30),
+           session: Session | None = None, direction: Literal["up", "down"] | None = None):
+    content = _call(event_service.export_analysis, analysis_id, table, quarter=quarter,
+                    recent_years=recent_years, session=session, direction=direction)
     return Response(
         content,
         media_type="text/csv; charset=utf-8",
