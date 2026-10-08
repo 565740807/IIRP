@@ -4,14 +4,30 @@ on:
     branches: [main]
   pull_request:
   workflow_dispatch:
+  schedule:
+    # Weekly slow job; it only runs once the repository is public (see `visibility`).
+    - cron: "17 6 * * 1"
 permissions:
   contents: read
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 jobs:
+  visibility:
+    name: 仓库是否公开（仅定时触发）
+    if: github.event_name == 'schedule'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    outputs:
+      public: ${{ steps.check.outputs.public }}
+    steps:
+      - id: check
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: echo "public=$(gh api "repos/${{ github.repository }}" --jq '.private == false')" >> "$GITHUB_OUTPUT"
   backend:
     name: 后端（Ruff、pytest、OpenAPI）
+    if: github.event_name != 'schedule'
     runs-on: ubuntu-24.04
     timeout-minutes: 40
     services:
@@ -60,9 +76,10 @@ jobs:
       - name: OpenAPI 与应用一致
         run: uv run python scripts/check_openapi.py
   backend-slow:
-    name: 后端大型容量与基准（slow，仅手动）
-    # 私有仓库阶段为节省 Actions 用量不定时运行；公开后恢复每周定时
-    if: github.event_name == 'workflow_dispatch'
+    name: 后端大型容量与基准（slow，手动或每周）
+    # 私有仓库阶段为节省 Actions 用量只手动运行；公开后每周定时运行
+    needs: visibility
+    if: ${{ !cancelled() && (github.event_name == 'workflow_dispatch' || needs.visibility.outputs.public == 'true') }}
     runs-on: ubuntu-24.04
     timeout-minutes: 90
     services:
@@ -108,6 +125,7 @@ jobs:
         run: uv run python -m pytest tests -q -m slow
   frontend:
     name: 前端（类型、测试、构建）
+    if: github.event_name != 'schedule'
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     defaults:
@@ -130,6 +148,7 @@ jobs:
       - run: npm run build
   secrets:
     name: 秘密扫描（gitleaks）
+    if: github.event_name != 'schedule'
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
