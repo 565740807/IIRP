@@ -1,30 +1,35 @@
-# 安装（Docker Compose）
+# 安装说明（Docker Compose）
 
-需要 Docker：Linux 用 Docker Engine 与 Compose v2（支持 `up --wait`），macOS 用 Docker Desktop（Intel 与 Apple 芯片均可，镜像为多架构），Windows 请在 WSL2 中运行；宿主另需 Python 3（`./iirp` 入口仅用标准库）。运行镜像锁定 Python3.13.15、Node24.16.0、PostgreSQL18.6，镜像摘要在 Dockerfile / compose.yaml / image-lock.json；Python 和前端依赖按 uv.lock / package-lock.json 安装。宿主 Python3.14 不用于后端测试。不要传输宿主虚拟环境、node_modules 或旧 PostgreSQL 数据目录。
+快速开始见 [README](../README.zh-CN.md)。本文补充细节。
 
-## 新日常安装
+## 环境
 
-进入项目目录，确认默认项目 `iirp2` 和端口18081尚未被本项目旧安装占用。配置文件已存在时停止此流程，先识别其所属实例。
+需要 Docker：Linux 用 Docker Engine 与 Compose v2（支持 `up --wait`），macOS 用 Docker Desktop（Intel 与 Apple 芯片均可，镜像为多架构），Windows 在 WSL2 中运行（项目放在 Linux 文件系统里）；宿主另需 Python 3（`./iirp` 入口只用标准库）。运行镜像锁定 Python 3.13.15、Node 24.16.0、PostgreSQL 18.6，镜像摘要在 `Dockerfile`、`compose.yaml`、`image-lock.json`；Python 和前端依赖按 `uv.lock`、`package-lock.json` 安装。所有服务、测试和开发工具都在容器里运行，本机不需要安装 PostgreSQL、Node 或 Python 依赖。
+
+## 第一次启动
 
 ```sh
-install -m 600 deploy/.env.example deploy/.env
-# 在编辑器中填写 URL-safe 随机 IIRP_DB_PASSWORD 及已授权的 SEC 联系信息。
-# 注意：SEC 和行情自动更新在全新数据库中默认开启，行情启动后立即请求；
-# SEC 只有在 IIRP_SEC_USER_AGENT 含真实联系邮箱时才运行（模板值、example.com、
-# *.test/*.invalid/*.localhost 等保留域名视为未配置，界面提示“需配置 SEC User-Agent”）。
-# 不把填写后的内容粘贴到日志、Issue 或版本库。
-./iirp build --pull --no-cache
 ./iirp start
-./iirp status
-./iirp check
 ```
 
-`deploy/.env.example` 是唯一无秘密 Compose 模板。不要在已有文件上执行上述 install 命令。依赖首次安装需访问官方镜像、PyPI、npm 和 PGDG；保留构建日志，以区分下载、层缓存与失败重试。Python 依赖层在复制后端代码之前安装，只改代码时直接复用；`uv sync` 与 `npm ci` 使用 BuildKit 缓存挂载，`uv.lock` 变化时也只下载新增的包（缓存不进入镜像，安装仍按锁文件哈希校验）。基础镜像按摘要固定，apt 索引及 PGDG 客户端小版本尚未做快照锁定，不宣称字节级可重建。
+- 没有 `deploy/.env` 时，`./iirp start` 从 `deploy/.env.example` 生成它：权限 600，`IIRP_DB_PASSWORD` 为随机值（不打印），`IIRP_SEC_USER_AGENT` 留空。如果该项目的数据库卷已经存在而配置文件丢失，它拒绝生成新密码（新密码与卷里的库不匹配），请找回原文件。
+- 随后构建镜像、启动 PostgreSQL，等它健康后 web 执行 `alembic upgrade head` 并启动，web 健康后启动 worker。
+- 打开 <http://127.0.0.1:18081>，按首页提示填写 SEC 联系信息（名字和真实邮箱）。也可以写在 `deploy/.env` 的 `IIRP_SEC_USER_AGENT` 后 `./iirp restart`；配置文件优先。规则见[运行手册](../docs/RUNBOOK.zh-CN.md)的“SEC 联系信息”。
+- 全新数据库中 SEC 申报与首页行情两项自动更新默认开启（SEC 在填写联系信息后才真正运行），备份与清理默认关闭；都可在“数据与任务 → 自动更新”里开关。
 
-数据卷由项目名前缀隔离：`iirp2_postgres-data` 是 PG18 数据；`iirp2_app-runtime` 包含来源对象、备份、维护日志和独立恢复副本。容器内 `/app/runtime` 不等于宿主项目的 `runtime/`。`./iirp stop` 停服务并保留卷；切勿用 `down --volumes` 停日常实例。数据库、来源原文与备份必须一起规划空间和保留。
+`deploy/.env` 含数据库密码，已被 `.gitignore` 忽略，不要提交或粘贴到日志、Issue 中。依赖首次安装需访问官方镜像、PyPI、npm 和 PGDG。Python 依赖层在复制后端代码之前安装，只改代码时直接复用；`uv sync` 与 `npm ci` 使用 BuildKit 缓存挂载。基础镜像按摘要固定，apt 索引及 PGDG 客户端小版本没有快照锁定，不宣称字节级可重建。
+
+## 数据卷
+
+数据卷由项目名前缀隔离：`iirp2_postgres-data` 是数据库；`iirp2_app-runtime` 包含申报原文、备份、维护日志。容器内 `/app/runtime` 不等于宿主项目的 `runtime/`。`./iirp stop` 停服务并保留卷；不要用 `docker compose down --volumes` 停日常实例，那会删除全部数据。
 
 ## 独立实例
 
-要在同一台机器上另起一个互不影响的实例（例如全新克隆的安装验证），须同时指定 `IIRP_COMPOSE_PROJECT`、`IIRP_COMPOSE_ENV_FILE`、`IIRP_HTTP_PORT`、`IIRP_DB_NAME`（`iirp_v1_test_*`）；非默认项目拒绝缺省主库、主配置或 18081。命令行环境优先于 env 文件，独立镜像标签由入口强制计算。不能直接复制省略项目参数的 `docker compose up/stop` 命令。
+要在同一台机器上另起一个互不影响的实例（例如全新克隆的安装验证），同时指定 `IIRP_COMPOSE_PROJECT`、`IIRP_COMPOSE_ENV_FILE`、`IIRP_HTTP_PORT`（不能是 18081）和 `IIRP_DB_NAME`（`iirp_v1_test_*`）；缺任何一项入口都会拒绝，避免误用默认实例的配置、端口或数据库。`IIRP_COMPOSE_ENV_FILE` 指向的文件不存在时，`./iirp start` 同样从模板生成。独立实例的镜像标签由入口自动计算为 `<项目名>-app:local`。
 
-正式 `start` 先等待 PG 健康、迁移到head、等待网页健康，然后启动 worker。默认循环地址为 `http://127.0.0.1:18081`。外部桌面使用 SSH 转发，保持回环绑定和 Host/Origin 边界，不直接开放公网。
+```sh
+IIRP_COMPOSE_PROJECT=iirpdemo IIRP_COMPOSE_ENV_FILE=../iirpdemo.env \
+IIRP_HTTP_PORT=18091 IIRP_DB_NAME=iirp_v1_test_demo ./iirp start
+```
+
+页面只绑定本机回环地址。需要从别的电脑访问时用 SSH 端口转发，不要直接开放到公网或局域网。

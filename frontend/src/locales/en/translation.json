@@ -336,7 +336,7 @@
   "sec.scope.gaps": "Discovery, filings or indexes still have gaps; failed items can be retried.",
   "sec.source_object_missing": "The saved source object containing this ownership document is missing.",
   "sec.user_agent_configured": "SEC contact is set; automatic updates can reach SEC.",
-  "sec.user_agent_hint": "Add your SEC contact (name and e-mail) from the home page or Data → Automatic updates; SEC requires it. Nothing is requested from SEC until then.",
+  "sec.user_agent_hint": "Add your SEC contact (name and e-mail) from the home page or Data & tasks → Automatic updates; SEC requires it. Nothing is requested from SEC until then.",
   "sec.user_agent_required": "Add your SEC contact (name and a real e-mail) first.",
   "source.file_missing": "Source file missing; restore and check it.",
   "source.input_too_large": "Operation input exceeds the 16 MiB budget",
