@@ -9,7 +9,7 @@ const TABS = ["monthly", "interval", "earnings", "events"] as const;
 export type AnalysisTab = (typeof TABS)[number];
 const COLLAPSED = "iirp.analysis.conditions_collapsed";
 
-/** The four analysis tabs; monthly and interval reopen the research last viewed there. */
+/** The four analysis tabs; each reopens the analysis last viewed there. */
 export function AnalysisTabs({ current }: { current: AnalysisTab }) {
   const { t } = useTranslation();
   return (
@@ -17,7 +17,7 @@ export function AnalysisTabs({ current }: { current: AnalysisTab }) {
       {TABS.map((tab) => (
         <NavLink
           key={tab}
-          to={tab === "monthly" || tab === "interval" ? analysisHref(tab) : `/analysis/${tab}`}
+          to={analysisHref(tab)}
           className={cn(
             "-mb-px border-b-2 border-transparent px-3 py-2 text-sm text-muted-foreground transition-colors hover:text-foreground",
             tab === current && "border-primary font-medium text-foreground",

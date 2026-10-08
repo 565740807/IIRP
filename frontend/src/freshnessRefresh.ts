@@ -85,24 +85,3 @@ export function createFreshnessRefresher<T>(options: {
     },
   };
 }
-
-export function quoteStatusLabel(status: unknown) {
-  const labels: Record<string, string> = {
-    DELAYED: "延迟报价",
-    CLOSED: "休市报价",
-    STALE: "较早报价",
-    DAILY: "最近日线",
-  };
-  return labels[String(status)] ?? null;
-}
-
-export function quoteTime(quote: {
-  status?: unknown;
-  source_time?: string | null;
-  as_of?: string | null;
-}) {
-  // Older daily records may carry an unrelated metadata timestamp. Never pair it with their close.
-  return quote.status === "DAILY"
-    ? quote.as_of
-    : quote.source_time || quote.as_of;
-}

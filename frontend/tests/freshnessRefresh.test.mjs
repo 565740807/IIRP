@@ -254,24 +254,6 @@ function harness() {
   client.clear();
 }
 
-assert.equal(
-  helpers.quoteTime({
-    status: "DAILY",
-    source_time: "2026-09-17T14:00:00Z",
-    as_of: "2026-09-16",
-  }),
-  "2026-09-16",
-);
-assert.equal(
-  helpers.quoteTime({
-    status: "DELAYED",
-    source_time: "2026-09-17T14:00:00Z",
-    as_of: "2026-09-17",
-  }),
-  "2026-09-17T14:00:00Z",
-);
-assert.equal(helpers.quoteStatusLabel("STALE"), "较早报价");
-assert.equal(helpers.quoteStatusLabel("DELAYED"), "延迟报价");
 console.log(
-  "freshness presence, immediate feedback, coalescing, retained intent, hidden/unmount, late cache responses and quote timestamp checks passed",
+  "freshness presence, immediate feedback, coalescing, retained intent, hidden/unmount, and late cache responses checks passed",
 );
