@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { AlertTriangle, CheckCircle2, LoaderCircle, Mail } from "lucide-react";
@@ -28,13 +28,16 @@ export function SecContactDialog({ open, onOpenChange }: { open: boolean; onOpen
     },
   });
   const { reset } = save;
+  const data = contact.data;
+  // Fill the form each time the dialog opens; a save that updates the contact keeps its confirmation.
+  const saved = useRef(data);
+  saved.current = data;
   useEffect(() => {
     if (!open) return;
     reset();
-    setName(contact.data?.name ?? "");
-    setEmail(contact.data?.email ?? "");
-  }, [open, contact.data?.name, contact.data?.email, reset]);
-  const data = contact.data;
+    setName(saved.current?.name ?? "");
+    setEmail(saved.current?.email ?? "");
+  }, [open, reset]);
   const submit = (event: FormEvent) => {
     event.preventDefault();
     save.mutate();
