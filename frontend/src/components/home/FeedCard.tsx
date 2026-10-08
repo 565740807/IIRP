@@ -96,7 +96,7 @@ function TraderLine({ trader, anomalies, group }: { trader: TraderGroup; anomali
     <li className={cn(LINE_COLUMNS, "leading-6")}>
       <span className="flex min-w-0 items-baseline gap-1.5 overflow-hidden">
         {first ? (
-          <Link to={`/people/${first.id}`} state={sourceContext(location)} className="min-w-0 shrink truncate font-medium hover:underline"
+          <Link to={`/people/${first.id}`} state={sourceContext(location)} className="max-w-full shrink-0 truncate font-medium hover:underline"
             title={[readableCase(first.name), first.roles.length ? rolesText(first) : ""].filter(Boolean).join(" · ")}>
             {readableCase(first.name)}
           </Link>
@@ -110,7 +110,7 @@ function TraderLine({ trader, anomalies, group }: { trader: TraderGroup; anomali
           </Tooltip>
         )}
         {first && first.roles.length > 0 && (
-          <span className="min-w-0 shrink-[3] truncate text-xs text-muted-foreground max-[1400px]:hidden">{rolesText(first)}</span>
+          <span className="min-w-0 truncate text-xs text-muted-foreground">{rolesText(first)}</span>
         )}
       </span>
       {main ? <Action summary={main} others={others} /> : <span />}
