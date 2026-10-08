@@ -1,4 +1,8 @@
-"""Inventory exact locked versions; unavailable license metadata stays pending."""
+"""Inventory exact locked versions; unavailable license metadata stays pending.
+
+``python3 scripts/dependency_inventory.py > docs/THIRD_PARTY_INVENTORY.json`` after
+``python3 scripts/third_party_review.py`` (which refreshes the review it reads).
+"""
 
 import json
 import tomllib
@@ -56,9 +60,9 @@ def inventory():
                 row["license"] = "; ".join(review["license_classifiers"])
             row["notice_material"] = "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
     return {
-        "project_license": "Owner decision pending; no project license granted",
-        "scope": "Locked Python and npm packages; verified artifact/notice material in "
-        "docs/THIRD_PARTY_REVIEW.json is not publication or licensing approval",
+        "project_license": "MIT (see LICENSE)",
+        "scope": "Locked Python and npm packages; artifact and notice checks are in "
+        "docs/THIRD_PARTY_REVIEW.json",
         "packages": result,
     }
 
