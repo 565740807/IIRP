@@ -43,6 +43,9 @@ def _plan_market(s, scope, batch, capacity):
             "end_date": str(scope.end_date),
             "round": batch.request_id,
         }
+        if batch.params.get("history"):
+            # The detail page's six months of daily bars (24-hour, kept with the quote).
+            target["history"] = True
         saved_target = scope.checkpoint.get("quote_target")
         if not saved_target:
             shared = s.scalar(select(Job).where(Job.kind == "market_quote", Job.status.in_(ACTIVE),

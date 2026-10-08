@@ -5,11 +5,15 @@ Earnings and custom events share one flow: the user pastes the short JSON of
 prices once (the 24-hour cache, D14) and computes the D23 windows.
 
 An analysis is a batch with one scope per ticker. Its request freezes the
-events, n and the cutoff, so it stays readable after the set is edited or
-deleted. Each scope publishes its ticker's result as soon as its prices are
-cached; the result expires with that cache.
+events, n, the benchmark and the cutoff, so it stays readable after the set is
+edited or deleted. Each scope publishes its ticker's result once its prices
+(and the benchmark's, unless that cannot be had) are cached; the result
+expires with those caches. The same conditions on the same day reuse the
+analysis already made instead of starting another.
 """
 
+import csv
+import io
 import tomllib
 import uuid
 from datetime import date, timedelta
@@ -17,9 +21,11 @@ from functools import lru_cache
 
 from sqlalchemy import select
 
+from iirp.analysis.benchmarks import validate_benchmark
 from iirp.analysis.calendar import ET, last_completed_session
 from iirp.analysis.event_windows import (
     CALCULATION_VERSION,
+    WINDOWS,
     analyze_events,
     reaction_day,
     sessions_needed,
@@ -41,6 +47,8 @@ from iirp.models import (
 )
 
 KIND = "event_dates"
+DEFAULT_BENCHMARK = "^GSPC"
+PRESETS = [3, 5, 10, 20]
 
 
 @lru_cache
@@ -173,7 +181,7 @@ def _created(s, row, values):
     if values.get("analyze"):
         result["analysis"] = _create_analysis(
             s, row, request_id=f"{values.get('request_id') or uuid.uuid4().hex}:analysis",
-            n=values.get("n"))
+            n=values.get("n"), benchmark=values.get("benchmark", DEFAULT_BENCHMARK))
         result["set"] = _set_view(s, row)
     return result
 
@@ -218,7 +226,22 @@ def _scope_range(events, n, calendar="XNYS"):
     return first, max(first, min(last, today))
 
 
-def _new_analysis(s, params, *, request_id, title, parent_id=None):
+def _reusable(s, params):
+    """An analysis of the same conditions made today whose results have not lapsed."""
+    from iirp.analysis.freshness import freshness
+
+    for batch in s.scalars(select(Batch).where(Batch.kind == KIND, Batch.scope_key == digest(params),
+                                               Batch.status.not_in(("FAILED", "CANCELLED")))
+                           .order_by(Batch.created_at.desc()).limit(3)):
+        request = s.scalar(select(AnalysisRequest).where(AnalysisRequest.batch_id == batch.id))
+        if request and request.params == params and not freshness(s, request)["expired"]:
+            return request
+    return None
+
+
+def _new_analysis(s, params, *, request_id, title, parent_id=None, reuse=True):
+    if reuse and (existing := _reusable(s, params)):
+        return {"analysis_id": existing.id, "batch_id": existing.batch_id, "reused": True}
     batch = Batch(request_id=request_id, scope_key=digest(params), kind=KIND, title=title,
                   params=params, parent_id=parent_id)
     s.add(batch)
@@ -237,7 +260,21 @@ def _new_analysis(s, params, *, request_id, title, parent_id=None):
     return {"analysis_id": request.id, "batch_id": batch.id, "reused": False}
 
 
-def _create_analysis(s, row, *, request_id, n=None):
+def _params(*, kind, event_set_id, title, events, n, benchmark):
+    return {
+        "kind": KIND,
+        "event_kind": kind,
+        "event_set_id": event_set_id,
+        "title": title,
+        "n": _n(kind, n),
+        "benchmark": validate_benchmark(benchmark),
+        "cutoff_date": last_completed_session(as_of=now()).isoformat(),
+        "calculation_version": CALCULATION_VERSION,
+        "events": events,
+    }
+
+
+def _create_analysis(s, row, *, request_id, n=None, benchmark=DEFAULT_BENCHMARK):
     _lock(s, ["analysis", request_id])
     existing = s.scalar(select(Batch).where(Batch.request_id == request_id))
     if existing:
@@ -245,23 +282,39 @@ def _create_analysis(s, row, *, request_id, n=None):
         if request is None or request.params.get("event_set_id") != row.id:
             raise RuntimeError(msg("events.analysis_request_id_reused"))
         return {"analysis_id": request.id, "batch_id": existing.id, "reused": True}
-    params = {
-        "kind": KIND,
-        "event_kind": row.kind,
-        "event_set_id": row.id,
-        "title": row.title,
-        "n": _n(row.kind, n),
-        "cutoff_date": last_completed_session(as_of=now()).isoformat(),
-        "calculation_version": CALCULATION_VERSION,
-        "events": row.events,
-    }
+    params = _params(kind=row.kind, event_set_id=row.id, title=row.title, events=row.events,
+                     n=n, benchmark=benchmark)
+    _lock(s, ["conditions", digest(params)])
     return _new_analysis(s, params, request_id=request_id, title=row.title)
 
 
 def create_analysis(identifier, values):
     with session() as s, s.begin():
         row = _required(s, EventSet, identifier)
-        return _create_analysis(s, row, request_id=values["request_id"], n=values.get("n"))
+        return _create_analysis(s, row, request_id=values["request_id"], n=values.get("n"),
+                                benchmark=values.get("benchmark", DEFAULT_BENCHMARK))
+
+
+def analysis_variant(identifier, values):
+    """The same frozen events with another n or benchmark (the quick switches).
+
+    Switching back and forth on one day reopens the analyses already made.
+    """
+    with session() as s, s.begin():
+        request = _required(s, AnalysisRequest, identifier)
+        if request.params.get("kind") != KIND:
+            raise NotFoundError("events.not_event_analysis")
+        _lock(s, ["analysis", values["request_id"]])
+        existing = s.scalar(select(Batch).where(Batch.request_id == values["request_id"]))
+        if existing:
+            found = s.scalar(select(AnalysisRequest).where(AnalysisRequest.batch_id == existing.id))
+            return {"analysis_id": found.id, "batch_id": existing.id, "reused": True}
+        old = request.params
+        params = _params(kind=old["event_kind"], event_set_id=old.get("event_set_id"), title=old["title"],
+                         events=old["events"], n=values.get("n", old["n"]),
+                         benchmark=values.get("benchmark", old.get("benchmark")))
+        _lock(s, ["conditions", digest(params)])
+        return _new_analysis(s, params, request_id=values["request_id"], title=old["title"])
 
 
 def repeat_analysis(s, request, request_id, *, parent_id=None):
@@ -270,9 +323,12 @@ def repeat_analysis(s, request, request_id, *, parent_id=None):
     existing = s.scalar(select(Batch).where(Batch.request_id == request_id))
     if existing:
         return s.scalar(select(AnalysisRequest).where(AnalysisRequest.batch_id == existing.id))
-    params = {**request.params, "cutoff_date": last_completed_session(as_of=now()).isoformat()}
+    params = {**request.params, "cutoff_date": last_completed_session(as_of=now()).isoformat(),
+              "calculation_version": CALCULATION_VERSION}
+    # Analyses made before benchmarks existed get the default one.
+    params.setdefault("benchmark", DEFAULT_BENCHMARK)
     created = _new_analysis(s, params, request_id=request_id, title=request.params["title"],
-                            parent_id=parent_id)
+                            parent_id=parent_id, reuse=False)
     return s.get(AnalysisRequest, created["analysis_id"])
 
 
@@ -285,9 +341,15 @@ def clone_event_analysis(s, source_batch, request_id):
     return s.get(Batch, request.batch_id)
 
 
+def _benchmark_range(params, calendar="XNYS"):
+    """One benchmark range for every ticker of the analysis, so it is fetched once."""
+    return _scope_range(params["events"], params["n"], calendar)
+
+
 def _publish(s, request, scope, security, cache):
-    """Compute this ticker's windows from its cache and save the result."""
-    from iirp.market.cache import CACHE_HOURS, price_bars
+    """Compute this ticker's windows from its cache (and the benchmark's) and save the result."""
+    from iirp.analysis.benchmarks import benchmark_data, benchmark_snapshot
+    from iirp.market.cache import CACHE_HOURS, current_cache, price_bars
     from iirp.storage.maintenance import lock_analysis_references
 
     params = request.params
@@ -295,19 +357,26 @@ def _publish(s, request, scope, security, cache):
     events = [event for event in params["events"] if event["ticker"] == scope.symbol]
     bars, _ = price_bars(s, security.id, cache.id, ranges=[(scope.start_date, scope.end_date)]) \
         if cache else ([], None)
+    snapshot = benchmark_snapshot(params, security, s)
+    benchmark = benchmark_data(s, snapshot, ranges=[(scope.start_date, scope.end_date)])
     data = analyze_events(events, bars, n=params["n"], cutoff=date.fromisoformat(params["cutoff_date"]),
-                          calendar=calendar, kind=params["event_kind"])
+                          calendar=calendar, kind=params["event_kind"], benchmark=benchmark)
     data["symbol"] = scope.symbol
     data["price_fetched_at"] = cache.fetched_at.isoformat() if cache else None
     lock_analysis_references(s)
-    expires = cache.expires_at if cache else now() + timedelta(hours=CACHE_HOURS)
+    expires = [cache.expires_at if cache else now() + timedelta(hours=CACHE_HOURS)]
+    paired = current_cache(s, snapshot["security_id"]) if snapshot and snapshot.get("dataset_id") else None
+    if paired:
+        expires.append(paired.expires_at)
     row = AnalysisResult(
         analysis_id=request.id, security_id=security.id,
-        input_key=digest([request.id, security.id, cache.id if cache else None, CALCULATION_VERSION]),
+        input_key=digest([request.id, security.id, cache.id if cache else None,
+                          paired.id if paired else None, CALCULATION_VERSION]),
         inputs={"dataset_id": cache.id if cache else None, "calculation_version": CALCULATION_VERSION,
+                "benchmark_dataset_id": paired.id if paired else None,
                 "price_fetched_at": cache.fetched_at.isoformat() if cache else None,
                 "source": msg("market.source_cache")},
-        expires_at=expires)
+        expires_at=min(expires))
     row.data = data
     s.add(row)
     s.flush()
@@ -315,7 +384,11 @@ def _publish(s, request, scope, security, cache):
 
 
 def plan_event_scope(s, scope, batch, capacity):
-    """One ticker: verify identity, ensure one cached fetch, then publish its result."""
+    """One ticker: verify identity, ensure one cached fetch (and the benchmark's),
+    then publish its result. A benchmark that cannot be had does not hold the
+    stock's result back; the scope then stays PARTIAL with the reason."""
+    from iirp.analysis.benchmarks import plan_benchmark
+    from iirp.jobs.batch_views import linked_jobs
     from iirp.jobs.batches import add_job
     from iirp.market.cache import current_cache, ensure_prices, fetch_state
 
@@ -325,7 +398,8 @@ def plan_event_scope(s, scope, batch, capacity):
         AnalysisResult.analysis_id == request.id, AnalysisResult.security_id == security.id,
         AnalysisResult.expires_at > now()).limit(1))
     if published:
-        scope.status, scope.wait_reason = "READY", None
+        if scope.status not in ("READY", "PARTIAL"):
+            scope.status, scope.wait_reason = "READY", None
         return
     if security.status == "PENDING":
         job = add_job(s, scope, "market_identity", {"symbol": security.symbol, "security_id": security.id})
@@ -338,17 +412,26 @@ def plan_event_scope(s, scope, batch, capacity):
     ensured = ensure_prices(s, scope, security, scope.start_date, scope.end_date,
                             title=msg("job.title.event_prices", symbol=security.symbol))
     status, reason = fetch_state(ensured)
+    benchmark_reason = None
+    if request.params.get("benchmark"):
+        # Asked alongside the stock's prices, not after them.
+        benchmark_reason = plan_benchmark(s, scope, request, *_benchmark_range(request.params, security.calendar))
     if status != "READY":
         scope.status, scope.wait_reason = status, reason
         return
+    if benchmark_reason and any(job.status in ACTIVE and job.kind in ("market_history", "market_identity")
+                                for job in linked_jobs(s, scope.id)):
+        scope.status, scope.wait_reason = "RUNNING", benchmark_reason
+        return
     _publish(s, request, scope, security, current_cache(s, security.id))
-    scope.status, scope.wait_reason = "READY", None
+    scope.status, scope.wait_reason = ("PARTIAL", benchmark_reason) if benchmark_reason else ("READY", None)
     scope.checkpoint = {key: value for key, value in (scope.checkpoint or {}).items()
                         if key != "results_expired_at"}
 
 
 def analysis_view(s, request):
     from iirp.analysis.freshness import freshness
+    from iirp.analysis.requests import ticker_progress
 
     batch = s.get(Batch, request.batch_id)
     params = request.params
@@ -367,7 +450,11 @@ def analysis_view(s, request):
             "result": result.data if result else None,
         })
     order = list(dict.fromkeys(event["ticker"] for event in params["events"]))
-    tickers.sort(key=lambda item: order.index(item["symbol"]) if item["symbol"] in order else len(order))
+
+    def position(item):
+        return order.index(item["symbol"]) if item["symbol"] in order else len(order)
+
+    tickers.sort(key=position)
     return {
         "id": request.id,
         "batch_id": batch.id,
@@ -376,10 +463,12 @@ def analysis_view(s, request):
         "event_kind": params["event_kind"],
         "event_set_id": params.get("event_set_id"),
         "n": params["n"],
+        "benchmark": params.get("benchmark"),
         "cutoff_date": params["cutoff_date"],
         "event_count": len(params["events"]),
         "created_at": request.created_at.isoformat(),
         "tickers": tickers,
+        "progress": sorted(ticker_progress(s, batch, set(results)), key=position),
         "freshness": freshness(s, request),
     }
 
@@ -398,3 +487,48 @@ def refresh_analysis(identifier, force=False):
 
     created = refresh(identifier, force)
     return get_analysis(created["id"])
+
+
+STATS_COLUMNS = ("n", "median", "mean", "q25", "q75", "min", "max", "up", "flat", "up_low", "up_high",
+                 "coin_flip", "abs_median", "paired_n", "beat", "median_excess", "mean_excess",
+                 "benchmark_median")
+DETAIL_COLUMNS = ("ticker", "name", "date", "session", "fiscal_year", "fiscal_quarter", "reaction_date",
+                  "baseline_date")
+
+
+def export_analysis(identifier, table="detail"):
+    """The shown results as CSV: statistics per ticker, group and window, or one row per event.
+
+    Prices are deleted after 24 hours (D14); an export is how a result is kept.
+    Ratios are decimals (0.0123 = +1.23%).
+    """
+    if table not in {"stats", "detail"}:
+        raise UserError("analysis.export_format_invalid")
+    view = get_analysis(identifier)
+    results = [item["result"] for item in view["tickers"] if item["result"]]
+    if not results:
+        raise UserError("analysis.result_missing")
+    stream = io.StringIO()
+    writer = csv.writer(stream)
+    head = ["n_sessions", "benchmark"]
+    benchmark = view["benchmark"] or ""
+    if table == "stats":
+        writer.writerow(["ticker", "group", "window", *head, *STATS_COLUMNS])
+        for result in results:
+            groups = [("all", result["summary"])] + [
+                (f"Q{quarter['fiscal_quarter']}", quarter["summary"]) for quarter in result.get("quarters") or []]
+            for group, summary in groups:
+                for window in WINDOWS:
+                    writer.writerow([result["symbol"], group, window, result["n"], benchmark,
+                                     *(summary[window].get(column) for column in STATS_COLUMNS)])
+    else:
+        windows = [f"{window}{suffix}" for window in WINDOWS for suffix in ("", "_benchmark", "_excess")]
+        writer.writerow([*DETAIL_COLUMNS, *head, *windows, "status", "notes"])
+        for result in results:
+            for row in result["rows"]:
+                values = [row["windows"][window].get(field) for window in WINDOWS
+                          for field in ("value", "benchmark", "excess")]
+                statuses = sorted({row["windows"][window]["status"] for window in WINDOWS})
+                writer.writerow([*(row.get(column) for column in DETAIL_COLUMNS), result["n"], benchmark,
+                                 *values, " ".join(statuses), " ".join(row["notes"])])
+    return "\ufeff" + stream.getvalue()

@@ -118,7 +118,8 @@ def fetch_market(kind, target):
         # frozen completed-session cutoff used by research. Include one following
         # date for a futures session that has already opened across midnight.
         observed_day = now().date()
-        start = observed_day - timedelta(days=40)
+        start = (date.fromisoformat(target["start_date"]) if target.get("history")
+                 else observed_day - timedelta(days=40))
         end = observed_day + timedelta(days=1)
     else:
         start = date.fromisoformat(target["start_date"])

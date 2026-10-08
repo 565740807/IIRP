@@ -1808,7 +1808,57 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/GenericOutput"
+                  "$ref": "#/components/schemas/MarketDetailOutput"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/market/{symbol}/history": {
+      "post": {
+        "summary": "Market History",
+        "description": "Fetch six months of daily bars for the detail page once (24 hours).",
+        "operationId": "market_history_api_v1_market__symbol__history_post",
+        "parameters": [
+          {
+            "name": "symbol",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Symbol"
+            }
+          },
+          {
+            "name": "force",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Force"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MarketDetailOutput"
                 }
               }
             }
@@ -2668,6 +2718,109 @@
                 "schema": {
                   "$ref": "#/components/schemas/EventAnalysisOutput"
                 }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/events/analyses/{analysis_id}/variant": {
+      "post": {
+        "tags": [
+          "event research"
+        ],
+        "summary": "Variant",
+        "operationId": "variant_api_v1_events_analyses__analysis_id__variant_post",
+        "parameters": [
+          {
+            "name": "analysis_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Analysis Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EventVariantInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EventAnalysisCreated"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/events/analyses/{analysis_id}/export": {
+      "get": {
+        "tags": [
+          "event research"
+        ],
+        "summary": "Export",
+        "operationId": "export_api_v1_events_analyses__analysis_id__export_get",
+        "parameters": [
+          {
+            "name": "analysis_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Analysis Id"
+            }
+          },
+          {
+            "name": "table",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^(stats|detail)$",
+              "default": "detail",
+              "title": "Table"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
               }
             }
           },
@@ -4820,6 +4973,19 @@
               }
             ],
             "title": "N"
+          },
+          "benchmark": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 20
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Benchmark",
+            "default": "^GSPC"
           }
         },
         "additionalProperties": false,
@@ -4870,6 +5036,17 @@
             "type": "integer",
             "title": "N"
           },
+          "benchmark": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Benchmark"
+          },
           "cutoff_date": {
             "type": "string",
             "title": "Cutoff Date"
@@ -4889,6 +5066,13 @@
             "type": "array",
             "title": "Tickers"
           },
+          "progress": {
+            "items": {
+              "$ref": "#/components/schemas/TickerProgress"
+            },
+            "type": "array",
+            "title": "Progress"
+          },
           "freshness": {
             "additionalProperties": true,
             "type": "object",
@@ -4904,10 +5088,12 @@
           "event_kind",
           "event_set_id",
           "n",
+          "benchmark",
           "cutoff_date",
           "event_count",
           "created_at",
           "tickers",
+          "progress",
           "freshness"
         ],
         "title": "EventAnalysisOutput"
@@ -4946,6 +5132,24 @@
           "status"
         ],
         "title": "EventAnalysisReference"
+      },
+      "EventBenchmark": {
+        "properties": {
+          "symbol": {
+            "type": "string",
+            "title": "Symbol"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          }
+        },
+        "type": "object",
+        "required": [
+          "symbol",
+          "status"
+        ],
+        "title": "EventBenchmark"
       },
       "EventCandle": {
         "properties": {
@@ -5029,13 +5233,26 @@
           "max": {
             "type": "integer",
             "title": "Max"
+          },
+          "presets": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Presets"
+          },
+          "benchmark": {
+            "type": "string",
+            "title": "Benchmark"
           }
         },
         "type": "object",
         "required": [
           "window_sessions",
           "min",
-          "max"
+          "max",
+          "presets",
+          "benchmark"
         ],
         "title": "EventDefaultsOutput"
       },
@@ -5169,6 +5386,115 @@
         ],
         "title": "EventItem"
       },
+      "EventPathPoint": {
+        "properties": {
+          "offset": {
+            "type": "integer",
+            "title": "Offset"
+          },
+          "date": {
+            "type": "string",
+            "title": "Date"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value",
+            "description": "C(t)/C(R-1) - 1"
+          },
+          "benchmark": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Benchmark"
+          }
+        },
+        "type": "object",
+        "required": [
+          "offset",
+          "date",
+          "value",
+          "benchmark"
+        ],
+        "title": "EventPathPoint"
+      },
+      "EventPathStatistics": {
+        "properties": {
+          "offset": {
+            "type": "integer",
+            "title": "Offset"
+          },
+          "n": {
+            "type": "integer",
+            "title": "N"
+          },
+          "median": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Median"
+          },
+          "q25": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Q25"
+          },
+          "q75": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Q75"
+          },
+          "benchmark_median": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Benchmark Median"
+          }
+        },
+        "type": "object",
+        "required": [
+          "offset",
+          "n",
+          "median",
+          "q25",
+          "q75",
+          "benchmark_median"
+        ],
+        "title": "EventPathStatistics"
+      },
       "EventPromptInput": {
         "properties": {
           "text": {
@@ -5264,6 +5590,56 @@
         ],
         "title": "EventQuarterSummary"
       },
+      "EventReactionCandle": {
+        "properties": {
+          "open": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Open"
+          },
+          "high": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "High"
+          },
+          "low": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Low"
+          },
+          "close": {
+            "type": "string",
+            "title": "Close"
+          }
+        },
+        "type": "object",
+        "required": [
+          "open",
+          "high",
+          "low",
+          "close"
+        ],
+        "title": "EventReactionCandle",
+        "description": "The reaction day relative to C(R-1): open is the gap, close the reaction."
+      },
       "EventRow": {
         "properties": {
           "ticker": {
@@ -5336,6 +5712,23 @@
             "type": "object",
             "title": "Windows"
           },
+          "reaction_candle": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EventReactionCandle"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "path": {
+            "items": {
+              "$ref": "#/components/schemas/EventPathPoint"
+            },
+            "type": "array",
+            "title": "Path"
+          },
           "candles": {
             "items": {
               "$ref": "#/components/schemas/EventCandle"
@@ -5363,6 +5756,8 @@
           "reaction_date",
           "baseline_date",
           "windows",
+          "reaction_candle",
+          "path",
           "candles",
           "notes"
         ],
@@ -5445,6 +5840,20 @@
               }
             ],
             "title": "N"
+          },
+          "benchmark": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 20
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Benchmark",
+            "description": "^GSPC, ^IXIC or an ETF; null for no comparison",
+            "default": "^GSPC"
           }
         },
         "additionalProperties": false,
@@ -5746,7 +6155,7 @@
             "type": "integer",
             "title": "Flat"
           },
-          "up_ratio": {
+          "up_low": {
             "anyOf": [
               {
                 "type": "string"
@@ -5755,15 +6164,94 @@
                 "type": "null"
               }
             ],
-            "title": "Up Ratio"
+            "title": "Up Low",
+            "description": "Wilson 95% interval of the up share"
+          },
+          "up_high": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Up High"
+          },
+          "coin_flip": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Coin Flip",
+            "description": "The interval contains one half"
+          },
+          "abs_median": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Abs Median",
+            "description": "Median of the absolute changes"
+          },
+          "paired_n": {
+            "type": "integer",
+            "title": "Paired N",
+            "default": 0
+          },
+          "beat": {
+            "type": "integer",
+            "title": "Beat",
+            "description": "Events whose change exceeded the benchmark's",
+            "default": 0
+          },
+          "median_excess": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Median Excess"
+          },
+          "mean_excess": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mean Excess"
+          },
+          "benchmark_median": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Benchmark Median"
           }
         },
         "type": "object",
         "required": [
           "n",
           "up",
-          "flat",
-          "up_ratio"
+          "flat"
         ],
         "title": "EventStatistics"
       },
@@ -5813,6 +6301,16 @@
             ],
             "title": "Price Fetched At"
           },
+          "benchmark": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EventBenchmark"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "event_count": {
             "type": "integer",
             "title": "Event Count"
@@ -5824,6 +6322,13 @@
             "type": "object",
             "title": "Summary",
             "description": "before, reaction, gap and after windows"
+          },
+          "path": {
+            "items": {
+              "$ref": "#/components/schemas/EventPathStatistics"
+            },
+            "type": "array",
+            "title": "Path"
           },
           "quarters": {
             "anyOf": [
@@ -5857,8 +6362,10 @@
           "calendar",
           "calculation_version",
           "price_fetched_at",
+          "benchmark",
           "event_count",
           "summary",
+          "path",
           "rows"
         ],
         "title": "EventTickerResult"
@@ -6001,6 +6508,46 @@
         ],
         "title": "EventValidateOutput"
       },
+      "EventVariantInput": {
+        "properties": {
+          "request_id": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Request Id"
+          },
+          "n": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "N"
+          },
+          "benchmark": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 20
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Benchmark"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "request_id"
+        ],
+        "title": "EventVariantInput",
+        "description": "Another n and/or benchmark for the same frozen events; omitted fields keep theirs."
+      },
       "EventWindow": {
         "properties": {
           "value": {
@@ -6031,6 +6578,30 @@
               "missing_price"
             ],
             "title": "Status"
+          },
+          "benchmark": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Benchmark",
+            "description": "The benchmark's change over the same dates"
+          },
+          "excess": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Excess",
+            "description": "value - benchmark"
           }
         },
         "type": "object",
@@ -8272,6 +8843,247 @@
           "details"
         ],
         "title": "MaintenanceRecord"
+      },
+      "MarketBar": {
+        "properties": {
+          "date": {
+            "type": "string",
+            "title": "Date"
+          },
+          "open": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Open"
+          },
+          "high": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "High"
+          },
+          "low": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Low"
+          },
+          "close": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Close"
+          }
+        },
+        "type": "object",
+        "required": [
+          "date",
+          "open",
+          "high",
+          "low",
+          "close"
+        ],
+        "title": "MarketBar"
+      },
+      "MarketChart": {
+        "properties": {
+          "source": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "history",
+                  "cache",
+                  "quote"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source"
+          },
+          "start": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Start"
+          },
+          "end": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "End"
+          },
+          "fetched_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fetched At"
+          },
+          "expires_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires At"
+          },
+          "days": {
+            "type": "integer",
+            "title": "Days"
+          }
+        },
+        "type": "object",
+        "required": [
+          "source",
+          "start",
+          "end",
+          "fetched_at",
+          "expires_at",
+          "days"
+        ],
+        "title": "MarketChart",
+        "description": "Where the daily bars come from: ``history`` (the six-month fetch, 24 hours),\n``cache`` (a cached price range), ``quote`` (the quote's last 40 days) or none."
+      },
+      "MarketDetailOutput": {
+        "properties": {
+          "symbol": {
+            "type": "string",
+            "title": "Symbol"
+          },
+          "quote": {
+            "$ref": "#/components/schemas/HomeQuote"
+          },
+          "instrument": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Instrument"
+          },
+          "delay": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Delay"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source"
+          },
+          "bars": {
+            "items": {
+              "$ref": "#/components/schemas/MarketBar"
+            },
+            "type": "array",
+            "title": "Bars"
+          },
+          "chart": {
+            "$ref": "#/components/schemas/MarketChart"
+          },
+          "history": {
+            "$ref": "#/components/schemas/MarketHistoryState"
+          }
+        },
+        "type": "object",
+        "required": [
+          "symbol",
+          "quote",
+          "instrument",
+          "delay",
+          "source",
+          "bars",
+          "chart",
+          "history"
+        ],
+        "title": "MarketDetailOutput"
+      },
+      "MarketHistoryState": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "fresh",
+              "fetching",
+              "failed",
+              "missing"
+            ],
+            "title": "Status"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "reason"
+        ],
+        "title": "MarketHistoryState",
+        "description": "``missing``: the page should ask for six months; ``fetching``; ``failed`` today; ``fresh``."
       },
       "PendingFiling": {
         "properties": {
