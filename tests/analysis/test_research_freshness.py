@@ -1,5 +1,5 @@
 """24-hour price cache: reopening reuses results; lapsed results fetch again (D14)."""
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
 
 from iirp.analysis import requests
 from iirp.db import session
@@ -70,3 +70,64 @@ def test_manual_refetch_creates_one_new_research_while_it_runs():
     refetched = requests.refresh_analysis(created["id"], force=True)
     assert refetched["id"] != created["id"]
     assert requests.refresh_analysis(created["id"], force=True)["id"] == refetched["id"]
+
+
+def test_after_close_analysis_refetches_pre_close_cache_once(monkeypatch):
+    from iirp.analysis import calendar
+    from iirp.jobs import batches
+    from iirp.jobs.handlers import execute_business
+    from iirp.jobs.queue import claim
+    from iirp.market import cache
+    from iirp.models import PriceCacheBar
+
+    from tests.analysis.test_performance_pipeline import CountingYahoo
+    from tests.clock import set_clock
+
+    stamp = datetime(2026, 10, 8, 19, 35, tzinfo=timezone.utc)
+    def clock():
+        return stamp
+    set_clock(monkeypatch, clock)
+    monkeypatch.setattr(cache, "now", clock)
+    original = calendar.last_completed_session
+    monkeypatch.setattr(calendar, "last_completed_session", lambda as_of=None, calendar="XNYS":
+                        original(as_of=as_of or clock(), calendar=calendar))
+    security = seed_security()
+    batches.create_collection({"request_id": "before-close", "kind": "market_history",
+                               "tickers": ["AAPL"], "start_date": "2025-09-20",
+                               "end_date": "2026-10-08"})
+    planner.plan_tick()
+    class IntradayYahoo(CountingYahoo):
+        def run(self, kind, target, checkpoint):
+            result = super().run(kind, target, checkpoint)
+            if clock().hour < 20:
+                result["data"]["records"].append({"date": "2026-10-08",
+                    **dict.fromkeys(("open", "high", "low", "close", "adj_close"), "100"),
+                    "volume": "10", "splits": "0", "dividends": "0"})
+            return result
+
+    yahoo = IntradayYahoo()
+    job = claim({"market_history"})
+    assert job
+    execute_business(job, runner=yahoo)
+    planner.plan_tick()
+    with session() as s:
+        cached = s.scalar(select(PriceCache).where(PriceCache.security_id == security))
+        assert cached.complete_through == date(2026, 10, 7)
+        assert s.scalar(select(PriceCacheBar.status).where(
+            PriceCacheBar.cache_id == cached.id,
+            PriceCacheBar.session_date == date(2026, 10, 8))) == "UNCONFIRMED"
+
+    stamp = datetime(2026, 10, 8, 20, 29, tzinfo=timezone.utc)
+    created = requests.create_analysis(params(kind="interval", current_year=2026,
+                                              start_mmdd="09-20", end_mmdd="10-15"))
+    for _ in range(3):
+        planner.plan_tick()
+    refresh = claim({"market_history"})
+    assert refresh is not None, "the pre-close fetch must not count as the post-close fetch"
+    execute_business(refresh, runner=yahoo)
+    planner.plan_tick()
+    finish_compute()
+    view = requests.get_analysis(created["id"])
+    assert view["progress"] == [{"symbol": "AAPL", "step": "done", "reason": None}]
+    assert view["results"]
+    assert len(yahoo.calls) == 2 and _jobs("market_history") == 2

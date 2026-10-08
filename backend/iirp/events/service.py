@@ -376,6 +376,11 @@ def _publish(s, request, scope, security, cache):
                           paired.id if paired else None, CALCULATION_VERSION]),
         inputs={"dataset_id": cache.id if cache else None, "calculation_version": CALCULATION_VERSION,
                 "benchmark_dataset_id": paired.id if paired else None,
+                "price_sources": [{"symbol": item.symbol,
+                    "fetched_at": source.fetched_at.isoformat(),
+                    "expires_at": source.expires_at.isoformat()}
+                    for source in (cache, paired) if source
+                    for item in (s.get(Security, source.security_id),)],
                 "price_fetched_at": cache.fetched_at.isoformat() if cache else None,
                 "source": msg("market.source_cache")},
         expires_at=min(expires))

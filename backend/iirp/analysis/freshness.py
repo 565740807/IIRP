@@ -1,4 +1,6 @@
 """Price freshness of a research and the refetch command; reads never call providers."""
+from datetime import datetime, timedelta
+
 from sqlalchemy import select, text
 
 from iirp.db import session
@@ -8,6 +10,7 @@ from iirp.models import (
     AnalysisRequest,
     AnalysisResult,
     Batch,
+    Job,
     PriceCache,
     RequestScope,
     ResearchTrack,
@@ -39,13 +42,30 @@ def freshness(s, request, items=()):
     fetched = [row.fetched for row in live if row.fetched]
     expires = [row.expires_at for row in live if row.expires_at]
     inputs = s.scalars(select(AnalysisResult.inputs).where(AnalysisResult.analysis_id == request.id)).all()
-    cache_ids = {identifier for item in inputs
+    cache_ids = {identifier for item in inputs if not item.get("price_sources")
                  for identifier in (item.get("dataset_id"), item.get("benchmark_dataset_id"),
                                     (item.get("benchmark") or {}).get("dataset_id")) if identifier}
     caches = s.execute(select(PriceCache, Security.symbol).join(Security, Security.id == PriceCache.security_id)
                        .where(PriceCache.id.in_(cache_ids)).order_by(PriceCache.expires_at, Security.symbol)).all()
     sources = [{"symbol": symbol, "fetched_at": cache.fetched_at.isoformat(),
                 "expires_at": cache.expires_at.isoformat()} for cache, symbol in caches]
+    frozen = [source for item in inputs for source in item.get("price_sources", [])]
+    missing = cache_ids - {cache.id for cache, _ in caches}
+    # Pre-S6d results did not freeze input times. Finished fetches retain the
+    # exact deletion timestamp even after a wider response replaces the cache.
+    from iirp.market.cache import CACHE_HOURS
+
+    jobs = s.scalars(select(Job).where(Job.kind == "market_history",
+                                      Job.result["cache_id"].astext.in_(missing))).all() if missing else []
+    for job in jobs:
+        expires_at = job.result.get("expires_at")
+        if expires_at:
+            sources.append({"symbol": job.target["symbol"], "expires_at": expires_at,
+                            "fetched_at": (datetime.fromisoformat(expires_at)
+                                           - timedelta(hours=CACHE_HOURS)).isoformat()})
+    sources = list({(source["symbol"], source["fetched_at"]): source
+                    for source in [*sources, *frozen]}.values())
+    sources.sort(key=lambda source: (source["expires_at"], source["symbol"]))
     return {"sources": sources, "origin_id": origin, "latest_id": track.latest_id if track else request.id,
         "latest_completed_session": last_completed_session(as_of=stamp).isoformat(),
         "research_cutoff": request.params.get("cutoff_date"),

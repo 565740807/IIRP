@@ -240,6 +240,20 @@ def test_benchmark_is_fetched_once_and_quick_switches_reuse_analyses():
     with session() as s:
         assert all(row.expires_at.isoformat() == early for row in s.scalars(
             select(AnalysisResult).where(AnalysisResult.analysis_id == older_input["analysis_id"])))
+    # A later wider fetch replaces the benchmark cache. The existing result
+    # must still list the acquisition/deletion times of its original inputs.
+    from tests.jobs.test_lifecycle import refetch_prices
+    with session() as s, s.begin():
+        for row in s.scalars(select(AnalysisResult).where(AnalysisResult.analysis_id == analysis_id)):
+            row.inputs = {key: value for key, value in row.inputs.items() if key != "price_sources"}
+    refetch_prices(index, date(2023, 1, 3), date(2026, 10, 8))
+    with TestClient(app, headers=HEADERS) as client:
+        response = client.get(f"/api/v1/events/analyses/{older_input['analysis_id']}")
+        assert response.status_code == 200
+        assert response.json()["freshness"]["sources"] == old_view["freshness"]["sources"]
+        legacy = client.get(f"/api/v1/events/analyses/{analysis_id}")
+        assert legacy.status_code == 200
+        assert legacy.json()["freshness"]["sources"] == view["freshness"]["sources"]
     # Another n, then back: the second switch reopens the first analysis.
     wider = event_service.analysis_variant(analysis_id, {"request_id": "v1", "n": 5})
     assert not wider["reused"]
