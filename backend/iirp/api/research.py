@@ -33,6 +33,8 @@ from iirp.api.schemas import (
     PriceRangeView,
     RecentAnalysesOutput,
     RequestIdentity,
+    SecContactInput,
+    SecContactOutput,
     StrategyInput,
     StrategyOutput,
     TransactionSecurityInput,
@@ -43,6 +45,7 @@ from iirp.jobs import batches as job_batches
 from iirp.jobs import preferences as job_preferences
 from iirp.market import reads as market_reads
 from iirp.messages import msg
+from iirp.sec import contact as sec_contact
 
 router = APIRouter(prefix="/api/v1")
 
@@ -179,6 +182,16 @@ def preferences():
 @router.patch("/preferences", response_model=PreferenceOutput)
 def preferences_update(body: PreferenceInput):
     return invoke(job_preferences.update_preferences, body.model_dump())
+
+
+@router.get("/sec-contact", response_model=SecContactOutput)
+def sec_contact_view():
+    return sec_contact.state()
+
+
+@router.put("/sec-contact", response_model=SecContactOutput)
+def sec_contact_update(body: SecContactInput):
+    return invoke(sec_contact.save, body.name, body.email)
 
 
 @router.get("/coverage", response_model=GenericOutput)

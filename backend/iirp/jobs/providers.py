@@ -14,36 +14,15 @@ from defusedxml import ElementTree
 from iirp.config import settings
 from iirp.jobs.profiles import development_budget
 from iirp.messages import UserError, msg
+from iirp.sec import contact
 
 SEC_URL = f"https://www.sec.gov/cgi-bin/browse-edgar?action=getcurrent&owner=only&count={development_budget().sec_items_per_page}&start=0&output=atom"
 
-# The placeholder shipped in deploy/.env.example; a test keeps the two in sync.
-SEC_TEMPLATE_USER_AGENTS = frozenset({"IIRP contact@example.invalid"})
 SEC_USER_AGENT_HINT = msg("sec.user_agent_hint")
-
-# RFC 2606 names (and subdomains) can never reach a real mailbox.
-RESERVED_TLDS = frozenset({"test", "invalid", "localhost", "example"})
-RESERVED_DOMAINS = frozenset({"example.com", "example.org", "example.net"})
-
-
-def _reserved_domain(domain):
-    labels = domain.lower().rstrip(".").split(".")
-    return labels[-1] in RESERVED_TLDS or ".".join(labels[-2:]) in RESERVED_DOMAINS
-
-
-def sec_contact_ok(value):
-    """True when the User-Agent carries a contact address SEC can actually reach."""
-    value = (value or "").strip()
-    if not value or value in SEC_TEMPLATE_USER_AGENTS:
-        return False
-    return any(
-        not _reserved_domain(match.group(1))
-        for match in re.finditer(r"[\w.+-]+@([\w-]+(?:\.[\w-]+)*\.[A-Za-z]{2,})", value)
-    )
 
 
 def sec_configured():
-    return sec_contact_ok(settings().sec_user_agent)
+    return contact.configured()
 
 
 def sec_user_agent_state():
@@ -52,6 +31,7 @@ def sec_user_agent_state():
         "configured": configured,
         "status": "CONFIGURED" if configured else "NEEDS_CONFIG",
         "message": msg("sec.user_agent_configured") if configured else SEC_USER_AGENT_HINT,
+        "source": contact.state()["source"],
     }
 
 
@@ -62,7 +42,7 @@ def sec_probe():
         with client.stream(
             "GET",
             SEC_URL,
-            headers={"User-Agent": settings().sec_user_agent, "Accept": "application/atom+xml"},
+            headers={"User-Agent": contact.user_agent(), "Accept": "application/atom+xml"},
         ) as response:
             if response.status_code != 200:
                 # Never expose upstream text, credentials, or arbitrary headers.

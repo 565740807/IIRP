@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { actions, resultHref } from "@/components/shell/Tasks";
+import { SecContactDialog, useSecContact } from "@/components/shell/SecContact";
 
 type Batch = Schemas["BatchView"];
 type Group = Schemas["HealthGroup"];
@@ -27,6 +28,7 @@ function Health() {
   const visible = usePageVisible();
   const queryClient = useQueryClient();
   const [, setParams] = useSearchParams();
+  const [contactOpen, setContactOpen] = useState(false);
   const health = useQuery({
     queryKey: ["system-health"],
     queryFn: () => unwrap(client.GET("/api/v1/system/health")),
@@ -67,6 +69,12 @@ function Health() {
           {t("ui.health.retry")}
         </Button>
       );
+    if (group.action.kind === "sec_contact")
+      return (
+        <Button size="xs" variant="outline" onClick={() => setContactOpen(true)}>
+          {t("ui.sec_contact.add")}
+        </Button>
+      );
     if (group.action.kind === "tasks")
       return (
         <Button size="xs" variant="outline" onClick={() => setParams({ kind: group.action!.value ?? "all", category: "attention" })}>
@@ -103,6 +111,7 @@ function Health() {
         ))}
       </ul>
       {retry.data && <p className="border-t px-4 py-1.5 text-xs text-muted-foreground">{t("ui.health.retried", { count: retry.data.retried })}</p>}
+      <SecContactDialog open={contactOpen} onOpenChange={setContactOpen} />
     </section>
   );
 }
@@ -112,6 +121,8 @@ function Automatic() {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
   const policies = useQuery({ queryKey: ["collection-policy"], queryFn: () => unwrap(client.GET("/api/v1/collection-policy")) });
+  const contact = useSecContact();
+  const [contactOpen, setContactOpen] = useState(false);
   const update = useMutation({
     mutationFn: (body: { key: "sec" | "market" | "backup" | "maintenance"; enabled: boolean }) => unwrap(client.PATCH("/api/v1/collection-policy", { body })),
     onSuccess: (data) => queryClient.setQueryData(["collection-policy"], data),
@@ -147,7 +158,18 @@ function Automatic() {
           </Tooltip>
         );
       })}
+      {contact.data && (
+        <button type="button" onClick={() => setContactOpen(true)} className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground hover:underline">
+          {t("ui.sec_contact.title")}:
+          <span className={cn(!contact.data.configured && "text-warn")}>
+            {contact.data.source !== "none" && !contact.data.configured
+              ? t("ui.sec_contact.status.invalid")
+              : t(`ui.sec_contact.status.${contact.data.source}`)}
+          </span>
+        </button>
+      )}
       {update.error && <span className="text-xs text-destructive">{update.error.message}</span>}
+      <SecContactDialog open={contactOpen} onOpenChange={setContactOpen} />
     </div>
   );
 }

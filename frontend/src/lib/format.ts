@@ -29,8 +29,8 @@ export function formatNumber(value: unknown, digits = 2, language?: string) {
  */
 function zhUnits(absolute: number) {
   const wan = Math.round(absolute / 10_000);
-  if (wan < 10_000) return `${new Intl.NumberFormat("zh-CN").format(wan)}万`;
-  return `${new Intl.NumberFormat("zh-CN", { maximumFractionDigits: 2 }).format(absolute / 100_000_000)}亿`;
+  if (wan < 10_000) return i18n.t("ui.number.wan", { lng: "zh", value: new Intl.NumberFormat("zh-CN").format(wan) });
+  return i18n.t("ui.number.yi", { lng: "zh", value: new Intl.NumberFormat("zh-CN", { maximumFractionDigits: 2 }).format(absolute / 100_000_000) });
 }
 
 const chinese = (language?: string) => (language ?? i18n.language) === "zh";

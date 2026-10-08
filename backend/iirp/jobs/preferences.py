@@ -14,11 +14,16 @@ from iirp.models import (
 )
 
 
+def _public(values):
+    """The SEC contact shares the row but has its own endpoint (iirp.sec.contact)."""
+    return {key: value for key, value in values.items() if key != "sec_contact"}
+
+
 def get_preferences():
     with session() as s:
         p = s.get(Preferences, 1)
         return {
-            "values": p.values if p else product_preferences(),
+            "values": _public(p.values) if p else product_preferences(),
             "version": p.version if p else 1,
         }
 
@@ -50,7 +55,7 @@ def update_preferences(values):
         policy = s.get(CollectionStrategy, "sec", with_for_update=True)
         if policy.enabled:
             policy.next_run_at = now()
-        result = {"values": p.values, "version": p.version}
+        result = {"values": _public(p.values), "version": p.version}
     for identifier in ids:
         control_batch(identifier, "cancel")
     return result
