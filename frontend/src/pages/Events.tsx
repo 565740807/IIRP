@@ -1,13 +1,13 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import * as echarts from "echarts/core";
 import { CandlestickChart } from "echarts/charts";
 import { GridComponent, TooltipComponent } from "echarts/components";
 import { CanvasRenderer } from "echarts/renderers";
 import type { components } from "../generated/api";
 import { api, formatTime, percent, requestId } from "../api";
-import { researchHref } from "../researchStorage";
+import { AnalysisTabs } from "@/components/analysis/AnalysisLayout";
 import { useEventResearch, useEventSets } from "../researchQueries";
 import { researchKeys } from "../queryIdentity";
 import { Button, ErrorNotice, Loading, useNotice } from "../components/common";
@@ -26,12 +26,6 @@ type TickerResult = components["schemas"]["EventTickerResult"];
 type Stats = components["schemas"]["EventStatistics"];
 type Row = components["schemas"]["EventRow"];
 
-const tabs = [
-  { id: "monthly", label: "月度分析" },
-  { id: "interval", label: "区间分析" },
-  { id: "earnings", label: "财报行情" },
-  { id: "events", label: "自定义事件分析" },
-];
 const sessionLabels: Record<string, string> = {
   before_open: "盘前",
   during: "盘中",
@@ -64,23 +58,6 @@ function fill(template: string, values: Record<string, string>) {
   return Object.entries(values).reduce(
     (text, [key, value]) => (value.trim() ? text.split(`{{${key}}}`).join(value.trim()) : text),
     template,
-  );
-}
-
-function AnalysisTabs({ kind }: { kind: Kind }) {
-  const current = kind === "earnings" ? "earnings" : "events";
-  return (
-    <div className="analysis-tabs">
-      {tabs.map((t) => (
-        <Link
-          key={t.id}
-          to={t.id === "monthly" || t.id === "interval" ? researchHref(t.id) : `/analysis/${t.id}`}
-          className={current === t.id ? "selected" : ""}
-        >
-          {t.label}
-        </Link>
-      ))}
-    </div>
   );
 }
 
@@ -692,13 +669,8 @@ export function EventsPage({ kind }: { kind: Kind }) {
   );
   return (
     <>
-      <div className="page-heading">
-        <div>
-          <h1>分析中心</h1>
-          <p>{intro}</p>
-        </div>
-      </div>
-      <AnalysisTabs kind={kind} />
+      <AnalysisTabs current={kind === "earnings" ? "earnings" : "events"} />
+      <p className="mt-3 text-sm text-muted-foreground">{intro}</p>
       {analysis && <AnalysisView id={analysis} onReplace={(id) => navigate(`?a=${id}`, { replace: true })} />}
       <PromptPanel kind={kind} />
       <PastePanel

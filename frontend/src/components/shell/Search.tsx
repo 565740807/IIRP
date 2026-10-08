@@ -5,7 +5,7 @@ import { useTranslation } from "react-i18next";
 import { Search as SearchIcon, X } from "lucide-react";
 import { client, unwrap } from "@/lib/api-client";
 import { tm } from "@/i18n";
-import { sourceContext } from "@/researchStorage";
+import { sourceContext } from "@/lib/navigation";
 import { cn } from "@/lib/utils";
 
 /** Local search only: companies, people and securities already saved. */

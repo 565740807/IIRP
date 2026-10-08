@@ -2,21 +2,19 @@
 
 import csv
 import io
-import json
-from datetime import timedelta
 
 from sqlalchemy import select
 
 from iirp.db import session
-from iirp.jobs.batch_views import batch_view
+from iirp.jobs.batch_views import batch_view, linked_jobs
 from iirp.jobs.batches import ET, _create
 from iirp.jobs.planner import _plan_compute
 from iirp.messages import NotFoundError, UserError
 from iirp.models import (
+    ACTIVE,
     AnalysisRequest,
     AnalysisResult,
     Batch,
-    ExportManifest,
     RequestReceipt,
     RequestScope,
     Security,
@@ -28,11 +26,9 @@ def create_analysis(params, *, retry_generation=None):
     from iirp.analysis.calendar import last_completed_session
     from iirp.analysis.research import _interval_rules, plan_scope
 
-    submitted = {k: v for k, v in params.items() if k not in {"request_id", "research_label"}}
-
-    def comparable(value):
-        return value
-
+    # A month needs no interval dates; dropping them keeps equal questions equal.
+    ignored = {"request_id"} | ({"start_mmdd", "end_mmdd"} if params["kind"] == "monthly" else set())
+    submitted = {k: v for k, v in params.items() if k not in ignored}
     with session() as s:
         receipt = s.get(RequestReceipt, params["request_id"])
         if receipt:
@@ -40,20 +36,17 @@ def create_analysis(params, *, retry_generation=None):
                 select(AnalysisRequest).where(AnalysisRequest.batch_id == receipt.batch_id)
             )
             saved_batch = s.get(Batch, receipt.batch_id)
-            if not request or comparable(
-                saved_batch.params.get("analysis_input", request.params)
-            ) != comparable(submitted):
+            if not request or saved_batch.params.get("analysis_input", request.params) != submitted:
                 raise UserError("analysis.request_id_reused")
             return analysis_view(s, request)
     stamp = now()
     completed = last_completed_session(as_of=stamp)
-    effective = {**submitted, "cutoff_date": completed.isoformat()}
     as_of_date = stamp.astimezone(ET).date()
-    effective["current_year"] = (
-        _interval_rules({k: v for k, v in params.items() if v is not None}, as_of_date)[3]
-        if params["kind"] == "interval"
-        else params.get("current_year") or as_of_date.year
-    )
+    # Conditions are frozen with their cutoff and current year, so a refetch
+    # after 24 hours recomputes the same question up to the newest close.
+    effective = {**submitted, "cutoff_date": completed.isoformat(),
+                 "current_year": _interval_rules(submitted, as_of_date)[3]
+                 if params["kind"] == "interval" else params.get("current_year") or as_of_date.year}
     start, end = plan_scope(effective, today=completed)
     collection = {
         "request_id": params["request_id"],
@@ -74,8 +67,6 @@ def create_analysis(params, *, retry_generation=None):
     effective["price_range"] = collection["price_range"]
     with session() as s, s.begin():
         batch, _ = _create(s, collection)
-        if params.get("research_label"):
-            batch.title = str(params["research_label"]).strip()[:100] + " · " + "、".join(params["tickers"])
         request = s.scalar(select(AnalysisRequest).where(AnalysisRequest.batch_id == batch.id))
         if request is None:
             request = AnalysisRequest(batch_id=batch.id, params=effective)
@@ -114,61 +105,70 @@ def _reuse_analysis_cache(identifier):
                 _plan_compute(s, scope, batch, security, cache_only=True)
 
 
-def analysis_view(s, request, result_ids=""):
+MARKET_KINDS = {"market_identity", "market_history"}
+
+
+def ticker_progress(s, batch, done_ids):
+    """Each ticker's step, in the order the tickers were entered."""
+    output = []
+    for scope in s.scalars(select(RequestScope).where(RequestScope.batch_id == batch.id)):
+        if scope.security_id in done_ids:
+            output.append({"symbol": scope.symbol, "step": "done", "reason": None})
+            continue
+        active = [job for job in linked_jobs(s, scope.id) if job.status in ACTIVE]
+        if any(job.kind == "research_compute" for job in active):
+            step = "compute"
+        elif any(job.kind in MARKET_KINDS for job in active):
+            step = "download"
+        elif scope.status in ("FAILED", "PARTIAL", "CANCELLED") or batch.status in ("FAILED", "CANCELLED"):
+            step = "failed"
+        elif scope.status == "READY":
+            step = "compute"
+        else:
+            step = "queued"
+        output.append({"symbol": scope.symbol, "step": step,
+                       "reason": scope.wait_reason if step in ("failed", "queued") else None})
+    order = batch.params.get("tickers", [])
+    return sorted(output, key=lambda item: order.index(item["symbol"]) if item["symbol"] in order else len(order))
+
+
+def analysis_view(s, request):
     from iirp.analysis.freshness import freshness
 
-    # Results live as long as the price caches they used (D14).
+    # Results live as long as the price caches they used (D14); show the
+    # newest unexpired result of each security.
     results = s.execute(
-        select(AnalysisResult.id, AnalysisResult.security_id, AnalysisResult.input_key,
-               AnalysisResult.created_at, AnalysisResult.expires_at)
+        select(AnalysisResult.id, AnalysisResult.security_id, AnalysisResult.created_at)
         .where(AnalysisResult.analysis_id == request.id,
                AnalysisResult.expires_at.is_(None) | (AnalysisResult.expires_at > now()))
-        .order_by(AnalysisResult.created_at.desc())
+        .order_by(AnalysisResult.created_at.desc(), AnalysisResult.id.desc())
     ).all()
-    versions = [
-        {"id": r.id, "security_id": r.security_id, "created_at": r.created_at.isoformat()}
-        for r in results
-    ]
-    if result_ids:
-        requested = set(result_ids.split(","))
-        if not requested.issubset({r.id for r in results}):
-            raise NotFoundError("analysis.selected_result_gone")
-        results = [r for r in results if r.id in requested]
-        if len({r.security_id for r in results}) != len(results):
-            raise UserError("analysis.one_result_per_security")
     chosen = {}
-    for security_id in dict.fromkeys(r.security_id for r in results):
-        security = s.get(Security, security_id)
-        # Every unexpired result is current data; show the newest one.
-        best = max((r for r in results if r.security_id == security_id),
-                   key=lambda r: (r.created_at, r.id))
-        result = s.get(AnalysisResult, best.id)
-        chosen[security_id] = {
+    for row in results:
+        if row.security_id in chosen:
+            continue
+        security = s.get(Security, row.security_id)
+        result = s.get(AnalysisResult, row.id)
+        chosen[row.security_id] = {
             "symbol": security.symbol,
             "security_id": security.id,
             "result_id": result.id,
-            "input_version": result.input_key,
             "created_at": result.created_at,
             "data_published_at": result.inputs.get("price_fetched_at"),
             "expires_at": result.expires_at,
-            "is_current": True,
-            "coverage": result.inputs.get("coverage"),
-            "coverage_basis": "recorded" if result.inputs.get("coverage") else "unknown",
-            "result_cutoff": result.inputs.get("params", request.params).get("cutoff_date"),
             "data": result.data,
         }
     batch = s.get(Batch, request.batch_id)
+    order = request.params.get("tickers", [])
     return {
         "id": request.id,
         "batch_id": batch.id,
         "status": batch.status,
         "params": request.params,
-        "results": sorted(
-            chosen.values(),
-            key=lambda r: request.params.get("tickers", [r["symbol"]]).index(r["symbol"]),
-        ),
+        "results": sorted(chosen.values(), key=lambda r: order.index(r["symbol"])
+                          if r["symbol"] in order else len(order)),
+        "progress": ticker_progress(s, batch, set(chosen)),
         "batch": batch_view(s, batch),
-        "result_versions": versions,
         "freshness": freshness(s, request, list(chosen.values())),
     }
 
@@ -204,94 +204,53 @@ def recent_analyses(kind="monthly", ticker=""):
         }
 
 
-def get_analysis(analysis_id, result_ids=""):
+def get_analysis(analysis_id):
     with session() as s:
         request = s.get(AnalysisRequest, analysis_id)
         if not request:
             raise NotFoundError("analysis.not_found")
-        return analysis_view(s, request, result_ids)
+        return analysis_view(s, request)
 
 
-def export_analysis(analysis_id, result_ids="", format="csv"):
-    with session() as s, s.begin():
-        from iirp.storage.maintenance import lock_analysis_references
+STATS_COLUMNS = ("target_n", "n", "median", "mean", "q25", "q75", "best", "best_year", "worst",
+                 "worst_year", "up", "flat", "up_low", "up_high", "coin_flip", "paired_n", "beat",
+                 "median_excess", "mean_excess", "benchmark_median")
+DETAIL_COLUMNS = ("year", "current", "status", "period_start", "period_end", "start_date", "end_date",
+                  "sessions", "expected_sessions", "open", "high", "low", "close", "change",
+                  "high_change", "low_change",
+                  "benchmark_open", "benchmark_close", "benchmark_change", "excess", "missing_dates")
 
-        lock_analysis_references(s)
+
+def export_analysis(analysis_id, table="detail"):
+    """The shown results as CSV: per-period statistics, or every year's candle.
+
+    Prices are deleted after 24 hours (D14); an export is how a result is kept.
+    Ratios are decimals (0.0123 = +1.23%).
+    """
+    if table not in {"stats", "detail"}:
+        raise UserError("analysis.export_format_invalid")
+    with session() as s:
         request = s.get(AnalysisRequest, analysis_id)
         if not request:
             raise NotFoundError("analysis.not_found")
-        selected_ids = (
-            result_ids.split(",")
-            if result_ids
-            else [x["result_id"] for x in analysis_view(s, request)["results"]]
-        )
-        results = s.scalars(
-            select(AnalysisResult).where(
-                AnalysisResult.analysis_id == analysis_id, AnalysisResult.id.in_(selected_ids)
-            )
-        ).all()
-        if not results or len(results) != len(set(selected_ids)):
-            raise UserError("analysis.result_missing")
-        s.add(
-            ExportManifest(
-                result_ids=selected_ids, params=request.params, expires_at=now() + timedelta(days=7)
-            )
-        )
-        results.sort(key=lambda result: (s.get(Security, result.security_id).symbol, result.id))
-        if format == "json":
-            frozen = [{
-                "symbol": s.get(Security, result.security_id).symbol,
-                "security_id": result.security_id, "result_id": result.id,
-                "input_version": result.input_key,
-                "created_at": result.created_at.isoformat(),
-                "params": result.inputs.get("params", request.params),
-                "inputs": result.inputs, "data": result.data,
-            } for result in results]
-            return json.dumps({
-                "schema": "iirp.analysis-snapshot.v2", "id": request.id,
-                "result_ids": [item["result_id"] for item in frozen],
-                "results": frozen,
-            }, ensure_ascii=False, indent=2)
-        if format != "csv":
-            raise UserError("analysis.export_format_invalid")
-        stream = io.StringIO()
-        writer = csv.writer(stream)
-        writer.writerow(
-            [
-                "ticker",
-                "result_id",
-                "input_version",
-                "record_type",
-                "parameters",
-                "input_manifest",
-                "data",
-            ]
-        )
-        for result in results:
-            security = s.get(Security, result.security_id)
-            for record_type, records in (
-                ("metadata", [result.data.get("metadata", {})]),
-                ("summary", [result.data.get("summary", {})]),
-                ("distribution", result.data.get("distributions", [])),
-                ("monthly_ranking", result.data.get("monthly_rankings", [])),
-                ("benchmark", [result.data["benchmark"]] if result.data.get("benchmark") else []),
-                ("row", result.data.get("rows", [])),
-                ("cell", result.data.get("cells", [])),
-                ("series", result.data.get("series", [])),
-            ):
-                for row in records:
-                    writer.writerow(
-                        [
-                            security.symbol,
-                            result.id,
-                            result.input_key,
-                            record_type,
-                            json.dumps(result.inputs.get("params", request.params), ensure_ascii=False),
-                            json.dumps(result.inputs, ensure_ascii=False),
-                            json.dumps(row, ensure_ascii=False),
-                        ]
-                    )
-        return "\ufeff" + stream.getvalue()
+        view = analysis_view(s, request)
+    if not view["results"]:
+        raise UserError("analysis.result_missing")
+    benchmark = request.params.get("benchmark") or ""
+    stream = io.StringIO()
+    writer = csv.writer(stream)
+    columns = STATS_COLUMNS if table == "stats" else DETAIL_COLUMNS
+    writer.writerow(["ticker", "kind", "period", "start_mmdd", "end_mmdd", "benchmark", *columns])
+    for item in view["results"]:
+        data = item["data"]
+        for period in data["periods"]:
+            head = [item["symbol"], data["kind"], period["key"], period["start_mmdd"],
+                    period["end_mmdd"], benchmark]
+            rows = [period["stats"]] if table == "stats" else period["years"]
+            for row in rows:
+                writer.writerow([*head, *(" ".join(row[c]) if c == "missing_dates" else row.get(c)
+                                          for c in columns)])
+    return "﻿" + stream.getvalue()
 
 
 def refresh_analysis(analysis_id, force=False):

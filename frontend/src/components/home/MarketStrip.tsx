@@ -9,7 +9,7 @@ import type { Schemas } from "@/lib/api-client";
 import { formatDay, formatEt, formatLocal } from "@/lib/format";
 import { homeQuery } from "@/lib/queries";
 import { usePageVisible, useRefresh, useRefreshIntervals } from "@/lib/refresh";
-import { sourceContext } from "@/researchStorage";
+import { sourceContext } from "@/lib/navigation";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";

@@ -46,7 +46,8 @@ export function resultHref(batch: Batch) {
     ? batch.params.event_kind === "earnings" ? "earnings" : "events"
     : String(batch.params.purpose ?? "monthly");
   const kind = ["monthly", "interval", "earnings", "events"].includes(purpose) ? purpose : "monthly";
-  return `/analysis/${kind}?a=${batch.analysis_id}`;
+  // Monthly and interval pages read ?id=; the event pages still read ?a= (S6b).
+  return `/analysis/${kind}?${kind === "monthly" || kind === "interval" ? "id" : "a"}=${batch.analysis_id}`;
 }
 
 function TaskRow({ batch, onNavigate }: { batch: Batch; onNavigate: () => void }) {

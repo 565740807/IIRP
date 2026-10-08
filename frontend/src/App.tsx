@@ -23,8 +23,8 @@ const DataPage = lazy(() =>
 const DiagnosticsPage = lazy(() =>
   import("./pages/Diagnostics").then((m) => ({ default: m.DiagnosticsPage })),
 );
-const AnalysisPage = lazy(() =>
-  import("./pages/Analysis").then((m) => ({ default: m.AnalysisPage })),
+const SeasonalPage = lazy(() =>
+  import("./pages/Seasonal").then((m) => ({ default: m.SeasonalPage })),
 );
 const EventsPage = lazy(() =>
   import("./pages/Events").then((m) => ({ default: m.EventsPage })),
@@ -153,11 +153,11 @@ function Workbench() {
           <Route path="/insiders" element={<InsidersPage />} />
           <Route
             path="/analysis/monthly"
-            element={<AnalysisPage key="monthly" />}
+            element={<SeasonalPage key="monthly" kind="monthly" />}
           />
           <Route
             path="/analysis/interval"
-            element={<AnalysisPage key="interval" />}
+            element={<SeasonalPage key="interval" kind="interval" />}
           />
           <Route
             path="/analysis/earnings"

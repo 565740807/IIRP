@@ -23,7 +23,19 @@ export function formatNumber(value: unknown, digits = 2, language?: string) {
   return n === null ? "—" : new Intl.NumberFormat(intl(language), { maximumFractionDigits: digits }).format(n);
 }
 
-/** 20,678,630 → "20.68M" (en) / "2,068万" (zh); small counts stay exact. */
+/**
+ * Chinese large-number units for an absolute value ≥ 10,000: whole 万 below
+ * 1 亿 ("2,941万"), then 亿 with up to two decimals ("1.23亿").
+ */
+function zhUnits(absolute: number) {
+  const wan = Math.round(absolute / 10_000);
+  if (wan < 10_000) return `${new Intl.NumberFormat("zh-CN").format(wan)}万`;
+  return `${new Intl.NumberFormat("zh-CN", { maximumFractionDigits: 2 }).format(absolute / 100_000_000)}亿`;
+}
+
+const chinese = (language?: string) => (language ?? i18n.language) === "zh";
+
+/** 20,678,630 → "20.68M" (en) / "2067.86万" (zh); small counts stay exact. */
 export function formatCompact(value: unknown) {
   const n = toNumber(value);
   if (n === null) return "—";
@@ -31,18 +43,27 @@ export function formatCompact(value: unknown) {
   return new Intl.NumberFormat(locale(), { notation: "compact", maximumFractionDigits: 2 }).format(n);
 }
 
-/** A dollar amount, compact above 10,000; sign only when asked for. */
+/** "$" for USD in Chinese; the narrow symbol of other currencies. */
+function currencySymbol(currency: string) {
+  return new Intl.NumberFormat("zh-CN", { style: "currency", currency, currencyDisplay: "narrowSymbol" })
+    .formatToParts(0).find((part) => part.type === "currency")?.value ?? currency;
+}
+
+/** A dollar amount, compact above 10,000 ("$92.15M", "$9,215万"); sign only when asked for. */
 export function formatMoney(value: unknown, { signed = false, currency, language }: { signed?: boolean; currency?: string | null; language?: string } = {}) {
   const n = toNumber(value);
   if (n === null) return "—";
   const absolute = Math.abs(n);
-  const text = new Intl.NumberFormat(intl(language), {
-    style: "currency",
-    currency: currency || "USD",
-    currencyDisplay: "narrowSymbol",
-    notation: absolute >= 10_000 ? "compact" : "standard",
-    maximumFractionDigits: absolute >= 10_000 ? 2 : absolute >= 100 ? 0 : 2,
-  }).format(absolute);
+  const text =
+    absolute >= 10_000 && chinese(language)
+      ? currencySymbol(currency || "USD") + zhUnits(absolute)
+      : new Intl.NumberFormat(intl(language), {
+          style: "currency",
+          currency: currency || "USD",
+          currencyDisplay: "narrowSymbol",
+          notation: absolute >= 10_000 ? "compact" : "standard",
+          maximumFractionDigits: absolute >= 10_000 ? 2 : absolute >= 100 ? 0 : 2,
+        }).format(absolute);
   if (!signed || n === 0) return n < 0 ? MINUS + text : text;
   return (n > 0 ? "+" : MINUS) + text;
 }

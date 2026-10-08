@@ -63,21 +63,18 @@ class CollectionInput(Strict):
 
 
 class AnalysisInput(Strict):
-    research_label: str | None = Field(default=None, max_length=100)
+    """Monthly or interval research. Years are this year plus ``historical_years``
+    complete past years (D7); an interval end before its start crosses the year end."""
     request_id: str = Field(min_length=1, max_length=128)
     kind: Literal["monthly", "interval"] = "monthly"
     tickers: list[str] = Field(min_length=1, max_length=20)
-    historical_years: int = Field(default=8, ge=1)
-    years: list[int] | None = None
-    excluded_years: list[int] = Field(default_factory=list)
-    current_year: int | None = Field(default=None, ge=1, le=9998)
-    month: int = Field(default=1, ge=1, le=12)
-    comparison: Literal["same_progress", "complete"] = "same_progress"
-    alignment: Literal["calendar", "trading"] = "calendar"
-    start_mmdd: str = Field(default="01-01", pattern=r"^\d{2}-\d{2}$")
-    end_mmdd: str = Field(default="12-31", pattern=r"^\d{2}-\d{2}$")
-    cross_year: bool | None = None
-    benchmark: str | None = None
+    historical_years: int = Field(default=8, ge=1, le=30)
+    # Defaults to this year (for an interval, the latest one already begun).
+    current_year: int | None = Field(default=None, ge=1900, le=9998)
+    start_mmdd: str = Field(default="09-20", pattern=r"^\d{2}-\d{2}$")
+    end_mmdd: str = Field(default="10-15", pattern=r"^\d{2}-\d{2}$")
+    # S&P 500 unless null (no comparison).
+    benchmark: str | None = "^GSPC"
 
     @model_validator(mode="after")
     def validate_parameters(self):
@@ -91,10 +88,8 @@ class AnalysisInput(Strict):
             raise UserError("input.ticker_enter_valid")
         for x in (self.start_mmdd, self.end_mmdd):
             date.fromisoformat("2000-" + x)
-        if self.years is not None and not self.years:
-            raise UserError("input.years_required")
-        if any(y < 1 or y > 9998 for y in [*(self.years or []), *self.excluded_years]):
-            raise UserError("input.years_out_of_range")
+        if self.kind == "interval" and self.start_mmdd == self.end_mmdd:
+            raise UserError("input.interval_empty")
         return self
 
 
@@ -187,31 +182,22 @@ class BatchesOutput(BaseModel):
     counts: dict[str, int] = Field(default_factory=dict)
 
 
-class ResearchCoverage(BaseModel):
-    start_date: str
-    end_date: str
-    expected_sessions: int | None = None
-    valid_sessions: int | None = None
-    missing_dates: list[str] = Field(default_factory=list)
-    first_valid_date: str | None = None
-    last_valid_date: str | None = None
-    complete: bool
-
-
-class AnalysisItem(BaseModel):
+class AnalysisItem(Output):
     symbol: str
     security_id: str
     result_id: str
-    input_version: str
     created_at: datetime | None = None
     # When the prices behind this result were fetched; it expires with them.
     data_published_at: datetime | None = None
     expires_at: datetime | None = None
-    is_current: bool = False
-    coverage_basis: str = "unknown"
-    result_cutoff: str | None = None
-    coverage: ResearchCoverage | None = None
     data: ResearchResult
+
+
+class TickerProgress(Output):
+    """One ticker's step: download prices → compute → done (or failed / waiting)."""
+    symbol: str
+    step: Literal["queued", "download", "compute", "done", "failed"]
+    reason: str | None = None
 
 
 class ResearchFreshness(BaseModel):
@@ -234,13 +220,6 @@ class AnalysisRefreshOutput(BaseModel):
     freshness: ResearchFreshness | None = None
 
 
-class AnalysisVersionView(BaseModel):
-    model_config = ConfigDict(extra="allow")
-    id: str
-    security_id: str
-    created_at: str
-
-
 class RecentAnalysisView(BaseModel):
     model_config = ConfigDict(extra="allow")
     id: str
@@ -260,8 +239,8 @@ class AnalysisOutput(BaseModel):
     status: str
     params: dict[str, Any]
     results: list[AnalysisItem]
+    progress: list[TickerProgress] = Field(default_factory=list)
     batch: BatchView
-    result_versions: list[AnalysisVersionView] = Field(default_factory=list)
     freshness: ResearchFreshness | None = None
 
 

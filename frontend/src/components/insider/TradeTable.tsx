@@ -14,7 +14,7 @@ import type { Schemas } from "@/lib/api-client";
 import { formatDay, formatEt, formatLocal, formatMoney, formatNumber, formatPrice, formatSignedRatio } from "@/lib/format";
 import { actionLabel, readableCase, rolesText, side, sideClass } from "@/lib/insider";
 import type { Windows } from "@/lib/windows";
-import { sourceContext } from "@/researchStorage";
+import { sourceContext } from "@/lib/navigation";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -146,7 +146,11 @@ export function TradeTable({
       column.accessor((row) => `${row.table}${row.code}`, {
         id: "action",
         header: t("ui.trades.action"),
-        cell: ({ row }) => <span className={cn("block max-w-40 font-medium leading-tight", sideClass(row.original))}>{actionLabel(row.original, t)}</span>,
+        cell: ({ row }) => {
+          // Long labels ("Option exercise (M) (derivative)") stay on one line; hover shows all.
+          const label = actionLabel(row.original, t);
+          return <span title={label} className={cn("block max-w-40 truncate font-medium", sideClass(row.original))}>{label}</span>;
+        },
       }),
       column.accessor((row) => Number(row.shares ?? NaN), {
         id: "shares",

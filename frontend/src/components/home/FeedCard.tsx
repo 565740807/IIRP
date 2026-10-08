@@ -8,7 +8,7 @@ import { codeKey, primarySummary, readableCase, rolesText, side } from "@/lib/in
 import { formatCompact, formatDay, formatEt, formatLocal, formatMoney } from "@/lib/format";
 import type { FeedGroup } from "@/lib/feedStream";
 import type { Windows } from "@/lib/windows";
-import { sourceContext } from "@/researchStorage";
+import { sourceContext } from "@/lib/navigation";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";

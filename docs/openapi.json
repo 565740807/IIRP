@@ -1090,16 +1090,6 @@
               "type": "string",
               "title": "Analysis Id"
             }
-          },
-          {
-            "name": "result_ids",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "default": "",
-              "title": "Result Ids"
-            }
           }
         ],
         "responses": {
@@ -1190,24 +1180,14 @@
             }
           },
           {
-            "name": "result_ids",
+            "name": "table",
             "in": "query",
             "required": false,
             "schema": {
               "type": "string",
-              "default": "",
-              "title": "Result Ids"
-            }
-          },
-          {
-            "name": "format",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "pattern": "^(csv|json)$",
-              "default": "csv",
-              "title": "Format"
+              "pattern": "^(stats|detail)$",
+              "default": "detail",
+              "title": "Table"
             }
           }
         ],
@@ -3176,18 +3156,6 @@
       },
       "AnalysisInput": {
         "properties": {
-          "research_label": {
-            "anyOf": [
-              {
-                "type": "string",
-                "maxLength": 100
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Research Label"
-          },
           "request_id": {
             "type": "string",
             "maxLength": 128,
@@ -3214,37 +3182,17 @@
           },
           "historical_years": {
             "type": "integer",
+            "maximum": 30.0,
             "minimum": 1.0,
             "title": "Historical Years",
             "default": 8
-          },
-          "years": {
-            "anyOf": [
-              {
-                "items": {
-                  "type": "integer"
-                },
-                "type": "array"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Years"
-          },
-          "excluded_years": {
-            "items": {
-              "type": "integer"
-            },
-            "type": "array",
-            "title": "Excluded Years"
           },
           "current_year": {
             "anyOf": [
               {
                 "type": "integer",
                 "maximum": 9998.0,
-                "minimum": 1.0
+                "minimum": 1900.0
               },
               {
                 "type": "null"
@@ -3252,53 +3200,17 @@
             ],
             "title": "Current Year"
           },
-          "month": {
-            "type": "integer",
-            "maximum": 12.0,
-            "minimum": 1.0,
-            "title": "Month",
-            "default": 1
-          },
-          "comparison": {
-            "type": "string",
-            "enum": [
-              "same_progress",
-              "complete"
-            ],
-            "title": "Comparison",
-            "default": "same_progress"
-          },
-          "alignment": {
-            "type": "string",
-            "enum": [
-              "calendar",
-              "trading"
-            ],
-            "title": "Alignment",
-            "default": "calendar"
-          },
           "start_mmdd": {
             "type": "string",
             "pattern": "^\\d{2}-\\d{2}$",
             "title": "Start Mmdd",
-            "default": "01-01"
+            "default": "09-20"
           },
           "end_mmdd": {
             "type": "string",
             "pattern": "^\\d{2}-\\d{2}$",
             "title": "End Mmdd",
-            "default": "12-31"
-          },
-          "cross_year": {
-            "anyOf": [
-              {
-                "type": "boolean"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Cross Year"
+            "default": "10-15"
           },
           "benchmark": {
             "anyOf": [
@@ -3309,7 +3221,8 @@
                 "type": "null"
               }
             ],
-            "title": "Benchmark"
+            "title": "Benchmark",
+            "default": "^GSPC"
           }
         },
         "additionalProperties": false,
@@ -3318,7 +3231,8 @@
           "request_id",
           "tickers"
         ],
-        "title": "AnalysisInput"
+        "title": "AnalysisInput",
+        "description": "Monthly or interval research. Years are this year plus ``historical_years``\ncomplete past years (D7); an interval end before its start crosses the year end."
       },
       "AnalysisItem": {
         "properties": {
@@ -3333,10 +3247,6 @@
           "result_id": {
             "type": "string",
             "title": "Result Id"
-          },
-          "input_version": {
-            "type": "string",
-            "title": "Input Version"
           },
           "created_at": {
             "anyOf": [
@@ -3374,37 +3284,6 @@
             ],
             "title": "Expires At"
           },
-          "is_current": {
-            "type": "boolean",
-            "title": "Is Current",
-            "default": false
-          },
-          "coverage_basis": {
-            "type": "string",
-            "title": "Coverage Basis",
-            "default": "unknown"
-          },
-          "result_cutoff": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Result Cutoff"
-          },
-          "coverage": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/ResearchCoverage"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
           "data": {
             "$ref": "#/components/schemas/ResearchResult"
           }
@@ -3414,7 +3293,9 @@
           "symbol",
           "security_id",
           "result_id",
-          "input_version",
+          "created_at",
+          "data_published_at",
+          "expires_at",
           "data"
         ],
         "title": "AnalysisItem"
@@ -3445,15 +3326,15 @@
             "type": "array",
             "title": "Results"
           },
-          "batch": {
-            "$ref": "#/components/schemas/BatchView"
-          },
-          "result_versions": {
+          "progress": {
             "items": {
-              "$ref": "#/components/schemas/AnalysisVersionView"
+              "$ref": "#/components/schemas/TickerProgress"
             },
             "type": "array",
-            "title": "Result Versions"
+            "title": "Progress"
+          },
+          "batch": {
+            "$ref": "#/components/schemas/BatchView"
           },
           "freshness": {
             "anyOf": [
@@ -3510,30 +3391,6 @@
         ],
         "title": "AnalysisRefreshOutput",
         "description": "Command receipt shared by native and custom-event research kinds."
-      },
-      "AnalysisVersionView": {
-        "properties": {
-          "id": {
-            "type": "string",
-            "title": "Id"
-          },
-          "security_id": {
-            "type": "string",
-            "title": "Security Id"
-          },
-          "created_at": {
-            "type": "string",
-            "title": "Created At"
-          }
-        },
-        "additionalProperties": true,
-        "type": "object",
-        "required": [
-          "id",
-          "security_id",
-          "created_at"
-        ],
-        "title": "AnalysisVersionView"
       },
       "BackupEntry": {
         "properties": {
@@ -3923,6 +3780,24 @@
         ],
         "title": "BatchesOutput"
       },
+      "BenchmarkInfo": {
+        "properties": {
+          "symbol": {
+            "type": "string",
+            "title": "Symbol"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          }
+        },
+        "type": "object",
+        "required": [
+          "symbol",
+          "status"
+        ],
+        "title": "BenchmarkInfo"
+      },
       "BrowserRefresh": {
         "properties": {
           "home_poll_seconds": {
@@ -3946,6 +3821,207 @@
         ],
         "title": "BrowserRefresh",
         "description": "How often an open page re-reads and asks for fresh data (config/refresh.toml)."
+      },
+      "Candle": {
+        "properties": {
+          "year": {
+            "type": "integer",
+            "title": "Year"
+          },
+          "current": {
+            "type": "boolean",
+            "title": "Current"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "complete",
+              "in_progress",
+              "not_started",
+              "no_data",
+              "incomplete"
+            ],
+            "title": "Status"
+          },
+          "period_start": {
+            "type": "string",
+            "title": "Period Start"
+          },
+          "period_end": {
+            "type": "string",
+            "title": "Period End"
+          },
+          "start_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Start Date"
+          },
+          "end_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "End Date"
+          },
+          "sessions": {
+            "type": "integer",
+            "title": "Sessions",
+            "default": 0
+          },
+          "expected_sessions": {
+            "type": "integer",
+            "title": "Expected Sessions",
+            "default": 0
+          },
+          "missing_dates": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Missing Dates"
+          },
+          "open": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Open"
+          },
+          "high": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "High"
+          },
+          "low": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Low"
+          },
+          "close": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Close"
+          },
+          "change": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Change"
+          },
+          "high_change": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "High Change"
+          },
+          "low_change": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Low Change"
+          },
+          "benchmark_open": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Benchmark Open"
+          },
+          "benchmark_close": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Benchmark Close"
+          },
+          "benchmark_change": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Benchmark Change"
+          },
+          "excess": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Excess"
+          }
+        },
+        "type": "object",
+        "required": [
+          "year",
+          "current",
+          "status",
+          "period_start",
+          "period_end"
+        ],
+        "title": "Candle",
+        "description": "One year of one period."
       },
       "CollectionInput": {
         "properties": {
@@ -4322,328 +4398,6 @@
         ],
         "title": "DateAnomaly",
         "description": "Transaction dated after its own SEC acceptance date (D19); kept as reported."
-      },
-      "Distribution": {
-        "properties": {
-          "key": {
-            "type": "string",
-            "title": "Key"
-          },
-          "label": {
-            "type": "string",
-            "title": "Label"
-          },
-          "metric": {
-            "type": "string",
-            "title": "Metric"
-          },
-          "group": {
-            "type": "string",
-            "title": "Group"
-          },
-          "stock": {
-            "$ref": "#/components/schemas/DistributionStatistics"
-          },
-          "paired_stock": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/DistributionStatistics"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "benchmark": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/DistributionStatistics"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "difference": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/DistributionStatistics"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "years": {
-            "items": {
-              "type": "integer"
-            },
-            "type": "array",
-            "title": "Years"
-          },
-          "target_years": {
-            "items": {
-              "type": "integer"
-            },
-            "type": "array",
-            "title": "Target Years"
-          },
-          "missing": {
-            "additionalProperties": {
-              "type": "integer"
-            },
-            "type": "object",
-            "title": "Missing"
-          },
-          "samples": {
-            "items": {
-              "additionalProperties": true,
-              "type": "object"
-            },
-            "type": "array",
-            "title": "Samples"
-          },
-          "whiskers": {
-            "type": "string",
-            "title": "Whiskers",
-            "default": "sample_min_max"
-          },
-          "empty_reason": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Empty Reason"
-          },
-          "robustness": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/DistributionRobustness"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "paired_difference_robustness": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/DistributionRobustness"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "closing_max_drawdown": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/DistributionStatistics"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          }
-        },
-        "type": "object",
-        "required": [
-          "key",
-          "label",
-          "metric",
-          "group",
-          "stock"
-        ],
-        "title": "Distribution"
-      },
-      "DistributionRobustness": {
-        "properties": {
-          "sample_unit": {
-            "type": "string",
-            "enum": [
-              "annual_sample",
-              "event_sample",
-              "paired_sample"
-            ],
-            "title": "Sample Unit"
-          },
-          "n": {
-            "type": "integer",
-            "title": "N"
-          },
-          "sample_keys": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "title": "Sample Keys"
-          },
-          "proportion": {
-            "$ref": "#/components/schemas/ProportionUncertainty"
-          },
-          "leave_one_out": {
-            "$ref": "#/components/schemas/LeaveOneOutSensitivity"
-          },
-          "historical_segments": {
-            "$ref": "#/components/schemas/HistoricalSegments"
-          },
-          "overlapping_pairs": {
-            "items": {
-              "$ref": "#/components/schemas/OverlappingSamples"
-            },
-            "type": "array",
-            "title": "Overlapping Pairs"
-          },
-          "overlap_pair_count": {
-            "type": "integer",
-            "title": "Overlap Pair Count",
-            "default": 0
-          },
-          "overlap_details_truncated": {
-            "type": "boolean",
-            "title": "Overlap Details Truncated",
-            "default": false
-          },
-          "same_year_counts": {
-            "additionalProperties": {
-              "type": "integer"
-            },
-            "type": "object",
-            "title": "Same Year Counts"
-          },
-          "warnings": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "title": "Warnings"
-          }
-        },
-        "type": "object",
-        "required": [
-          "sample_unit",
-          "n",
-          "sample_keys",
-          "proportion",
-          "leave_one_out",
-          "historical_segments"
-        ],
-        "title": "DistributionRobustness"
-      },
-      "DistributionStatistics": {
-        "properties": {
-          "n": {
-            "type": "integer",
-            "title": "N"
-          },
-          "min": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Min"
-          },
-          "q25": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Q25"
-          },
-          "median": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Median"
-          },
-          "mean": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Mean"
-          },
-          "q75": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Q75"
-          },
-          "max": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Max"
-          },
-          "worst": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Worst"
-          },
-          "best": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Best"
-          },
-          "up": {
-            "type": "integer",
-            "title": "Up",
-            "default": 0
-          },
-          "flat": {
-            "type": "integer",
-            "title": "Flat",
-            "default": 0
-          }
-        },
-        "type": "object",
-        "required": [
-          "n"
-        ],
-        "title": "DistributionStatistics"
       },
       "EntityCompany": {
         "properties": {
@@ -7061,80 +6815,6 @@
         ],
         "title": "HealthOutput"
       },
-      "HistoricalSegment": {
-        "properties": {
-          "label": {
-            "type": "string",
-            "title": "Label"
-          },
-          "target_years": {
-            "items": {
-              "type": "integer"
-            },
-            "type": "array",
-            "title": "Target Years"
-          },
-          "sample_keys": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "title": "Sample Keys"
-          },
-          "statistics": {
-            "$ref": "#/components/schemas/DistributionStatistics"
-          }
-        },
-        "type": "object",
-        "required": [
-          "label",
-          "target_years",
-          "sample_keys",
-          "statistics"
-        ],
-        "title": "HistoricalSegment"
-      },
-      "HistoricalSegments": {
-        "properties": {
-          "policy": {
-            "type": "string",
-            "enum": [
-              "target_year_midpoint",
-              "candidate_year_midpoint"
-            ],
-            "title": "Policy"
-          },
-          "boundary_year": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Boundary Year"
-          },
-          "earlier": {
-            "$ref": "#/components/schemas/HistoricalSegment"
-          },
-          "later": {
-            "$ref": "#/components/schemas/HistoricalSegment"
-          },
-          "interpretation": {
-            "type": "string",
-            "title": "Interpretation",
-            "default": "{\"code\":\"method.segments.interpretation\",\"params\":{}}"
-          }
-        },
-        "type": "object",
-        "required": [
-          "policy",
-          "earlier",
-          "later"
-        ],
-        "title": "HistoricalSegments"
-      },
       "HomeOutput": {
         "properties": {
           "observed_at": {
@@ -8344,160 +8024,6 @@
         ],
         "title": "JobsResponse"
       },
-      "LeaveOneOutPoint": {
-        "properties": {
-          "omitted_key": {
-            "type": "string",
-            "title": "Omitted Key"
-          },
-          "omitted_year": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Omitted Year"
-          },
-          "omitted_return": {
-            "type": "string",
-            "title": "Omitted Return"
-          },
-          "n": {
-            "type": "integer",
-            "title": "N"
-          },
-          "mean": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Mean"
-          },
-          "median": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Median"
-          },
-          "mean_change": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Mean Change"
-          }
-        },
-        "type": "object",
-        "required": [
-          "omitted_key",
-          "omitted_return",
-          "n"
-        ],
-        "title": "LeaveOneOutPoint"
-      },
-      "LeaveOneOutSensitivity": {
-        "properties": {
-          "available": {
-            "type": "boolean",
-            "title": "Available"
-          },
-          "points": {
-            "items": {
-              "$ref": "#/components/schemas/LeaveOneOutPoint"
-            },
-            "type": "array",
-            "title": "Points"
-          },
-          "mean_min": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Mean Min"
-          },
-          "mean_max": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Mean Max"
-          },
-          "median_min": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Median Min"
-          },
-          "median_max": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Median Max"
-          },
-          "max_abs_mean_change": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Max Abs Mean Change"
-          },
-          "influential_sample_keys": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "title": "Influential Sample Keys"
-          },
-          "interpretation": {
-            "type": "string",
-            "title": "Interpretation",
-            "default": "{\"code\":\"method.leave_one_out.interpretation\",\"params\":{}}"
-          }
-        },
-        "type": "object",
-        "required": [
-          "available"
-        ],
-        "title": "LeaveOneOutSensitivity"
-      },
       "LocalCompany": {
         "properties": {
           "cik": {
@@ -8747,111 +8273,6 @@
         ],
         "title": "MaintenanceRecord"
       },
-      "MonthlyRanking": {
-        "properties": {
-          "month": {
-            "type": "integer",
-            "title": "Month"
-          },
-          "statistics": {
-            "$ref": "#/components/schemas/DistributionStatistics"
-          },
-          "valid_years": {
-            "items": {
-              "type": "integer"
-            },
-            "type": "array",
-            "title": "Valid Years"
-          },
-          "target_years": {
-            "items": {
-              "type": "integer"
-            },
-            "type": "array",
-            "title": "Target Years"
-          },
-          "mean_rank": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Mean Rank"
-          },
-          "median_rank": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Median Rank"
-          },
-          "mean_reverse_rank": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Mean Reverse Rank"
-          },
-          "median_reverse_rank": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Median Reverse Rank"
-          }
-        },
-        "type": "object",
-        "required": [
-          "month",
-          "statistics",
-          "valid_years",
-          "target_years"
-        ],
-        "title": "MonthlyRanking"
-      },
-      "OverlappingSamples": {
-        "properties": {
-          "first_key": {
-            "type": "string",
-            "title": "First Key"
-          },
-          "second_key": {
-            "type": "string",
-            "title": "Second Key"
-          },
-          "start_date": {
-            "type": "string",
-            "title": "Start Date"
-          },
-          "end_date": {
-            "type": "string",
-            "title": "End Date"
-          }
-        },
-        "type": "object",
-        "required": [
-          "first_key",
-          "second_key",
-          "start_date",
-          "end_date"
-        ],
-        "title": "OverlappingSamples"
-      },
       "PendingFiling": {
         "properties": {
           "accession": {
@@ -8992,6 +8413,250 @@
         ],
         "title": "PendingSummary",
         "description": "Filings seen at SEC but not yet parsed, by stage."
+      },
+      "Period": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "month": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Month"
+          },
+          "start_mmdd": {
+            "type": "string",
+            "title": "Start Mmdd"
+          },
+          "end_mmdd": {
+            "type": "string",
+            "title": "End Mmdd"
+          },
+          "cross_year": {
+            "type": "boolean",
+            "title": "Cross Year",
+            "default": false
+          },
+          "stats": {
+            "$ref": "#/components/schemas/PeriodStats"
+          },
+          "years": {
+            "items": {
+              "$ref": "#/components/schemas/Candle"
+            },
+            "type": "array",
+            "title": "Years"
+          }
+        },
+        "type": "object",
+        "required": [
+          "key",
+          "start_mmdd",
+          "end_mmdd",
+          "stats",
+          "years"
+        ],
+        "title": "Period"
+      },
+      "PeriodStats": {
+        "properties": {
+          "target_n": {
+            "type": "integer",
+            "title": "Target N"
+          },
+          "n": {
+            "type": "integer",
+            "title": "N"
+          },
+          "median": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Median"
+          },
+          "mean": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mean"
+          },
+          "q25": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Q25"
+          },
+          "q75": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Q75"
+          },
+          "best": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Best"
+          },
+          "worst": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Worst"
+          },
+          "best_year": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Best Year"
+          },
+          "worst_year": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Worst Year"
+          },
+          "up": {
+            "type": "integer",
+            "title": "Up",
+            "default": 0
+          },
+          "flat": {
+            "type": "integer",
+            "title": "Flat",
+            "default": 0
+          },
+          "up_low": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Up Low"
+          },
+          "up_high": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Up High"
+          },
+          "coin_flip": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Coin Flip"
+          },
+          "paired_n": {
+            "type": "integer",
+            "title": "Paired N",
+            "default": 0
+          },
+          "beat": {
+            "type": "integer",
+            "title": "Beat",
+            "default": 0
+          },
+          "median_excess": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Median Excess"
+          },
+          "mean_excess": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mean Excess"
+          },
+          "benchmark_median": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Benchmark Median"
+          }
+        },
+        "type": "object",
+        "required": [
+          "target_n",
+          "n"
+        ],
+        "title": "PeriodStats",
+        "description": "Complete past years only; ``target_n`` is how many were asked for."
       },
       "PolicyRequest": {
         "properties": {
@@ -9492,83 +9157,6 @@
         ],
         "title": "PricesOutput"
       },
-      "ProportionUncertainty": {
-        "properties": {
-          "n": {
-            "type": "integer",
-            "title": "N"
-          },
-          "up": {
-            "type": "integer",
-            "title": "Up"
-          },
-          "flat": {
-            "type": "integer",
-            "title": "Flat"
-          },
-          "observed": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Observed"
-          },
-          "lower": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Lower"
-          },
-          "upper": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Upper"
-          },
-          "method": {
-            "type": "string",
-            "const": "wilson_score",
-            "title": "Method",
-            "default": "wilson_score"
-          },
-          "confidence_level": {
-            "type": "string",
-            "title": "Confidence Level",
-            "default": "0.95"
-          },
-          "assumptions": {
-            "type": "string",
-            "title": "Assumptions",
-            "default": "{\"code\":\"method.proportion.assumptions\",\"params\":{}}"
-          },
-          "interpretation": {
-            "type": "string",
-            "title": "Interpretation",
-            "default": "{\"code\":\"method.proportion.interpretation\",\"params\":{}}"
-          }
-        },
-        "type": "object",
-        "required": [
-          "n",
-          "up",
-          "flat"
-        ],
-        "title": "ProportionUncertainty"
-      },
       "QuoteSession": {
         "properties": {
           "start": {
@@ -9685,80 +9273,6 @@
         ],
         "title": "RequestIdentity"
       },
-      "ResearchCoverage": {
-        "properties": {
-          "start_date": {
-            "type": "string",
-            "title": "Start Date"
-          },
-          "end_date": {
-            "type": "string",
-            "title": "End Date"
-          },
-          "expected_sessions": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Expected Sessions"
-          },
-          "valid_sessions": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Valid Sessions"
-          },
-          "missing_dates": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "title": "Missing Dates"
-          },
-          "first_valid_date": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "First Valid Date"
-          },
-          "last_valid_date": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Last Valid Date"
-          },
-          "complete": {
-            "type": "boolean",
-            "title": "Complete"
-          }
-        },
-        "type": "object",
-        "required": [
-          "start_date",
-          "end_date",
-          "complete"
-        ],
-        "title": "ResearchCoverage"
-      },
       "ResearchFreshness": {
         "properties": {
           "origin_id": {
@@ -9841,39 +9355,6 @@
       },
       "ResearchMetadata": {
         "properties": {
-          "source": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Source"
-          },
-          "dataset_id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Dataset Id"
-          },
-          "data_version": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Data Version"
-          },
           "params": {
             "additionalProperties": true,
             "type": "object",
@@ -9887,19 +9368,8 @@
             "title": "Historical Years"
           },
           "current_year": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Current Year"
-          },
-          "target_n": {
             "type": "integer",
-            "title": "Target N"
+            "title": "Current Year"
           },
           "cutoff_date": {
             "type": "string",
@@ -9916,32 +9386,17 @@
           "calculation_version": {
             "type": "string",
             "title": "Calculation Version",
-            "default": "research-v10-time-source-attribution"
+            "default": "research-v11-open-close"
           },
           "price_basis": {
             "type": "string",
             "title": "Price Basis",
             "default": "split_only"
           },
-          "alignment": {
-            "type": "string",
-            "title": "Alignment"
-          },
-          "comparison": {
-            "type": "string",
-            "title": "Comparison"
-          },
-          "warnings": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "title": "Warnings"
-          },
-          "methodology": {
+          "benchmark": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/ResearchMethodology"
+                "$ref": "#/components/schemas/BenchmarkInfo"
               },
               {
                 "type": "null"
@@ -9949,149 +9404,17 @@
             ]
           }
         },
+        "additionalProperties": true,
         "type": "object",
         "required": [
           "params",
           "historical_years",
           "current_year",
-          "target_n",
           "cutoff_date",
           "calendar",
-          "calendar_version",
-          "alignment",
-          "comparison"
+          "calendar_version"
         ],
         "title": "ResearchMetadata"
-      },
-      "ResearchMethodology": {
-        "properties": {
-          "price_basis": {
-            "type": "string",
-            "title": "Price Basis",
-            "default": "{\"code\":\"method.price_basis\",\"params\":{}}"
-          },
-          "baseline_rule": {
-            "type": "string",
-            "title": "Baseline Rule"
-          },
-          "sample_unit": {
-            "type": "string",
-            "enum": [
-              "annual_sample",
-              "event_sample"
-            ],
-            "title": "Sample Unit"
-          },
-          "path_n_rule": {
-            "type": "string",
-            "title": "Path N Rule",
-            "default": "{\"code\":\"method.path_n_rule\",\"params\":{}}"
-          },
-          "drawdown_rule": {
-            "type": "string",
-            "title": "Drawdown Rule",
-            "default": "{\"code\":\"method.drawdown_rule\",\"params\":{}}"
-          },
-          "benchmark_rule": {
-            "type": "string",
-            "title": "Benchmark Rule",
-            "default": "{\"code\":\"method.benchmark_rule\",\"params\":{}}"
-          },
-          "exploration_scope": {
-            "type": "string",
-            "title": "Exploration Scope"
-          },
-          "interpretation": {
-            "type": "string",
-            "title": "Interpretation",
-            "default": "{\"code\":\"method.interpretation\",\"params\":{}}"
-          }
-        },
-        "type": "object",
-        "required": [
-          "baseline_rule",
-          "sample_unit",
-          "exploration_scope"
-        ],
-        "title": "ResearchMethodology"
-      },
-      "ResearchPoint": {
-        "properties": {
-          "x": {
-            "type": "integer",
-            "title": "X"
-          },
-          "date": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Date"
-          },
-          "value": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Value"
-          },
-          "status": {
-            "type": "string",
-            "title": "Status"
-          },
-          "session": {
-            "type": "boolean",
-            "title": "Session",
-            "default": true
-          },
-          "benchmark": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Benchmark"
-          },
-          "difference": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Difference"
-          },
-          "benchmark_status": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Benchmark Status"
-          }
-        },
-        "type": "object",
-        "required": [
-          "x",
-          "status"
-        ],
-        "title": "ResearchPoint"
       },
       "ResearchResult": {
         "properties": {
@@ -10106,132 +9429,21 @@
           "metadata": {
             "$ref": "#/components/schemas/ResearchMetadata"
           },
-          "summary": {
-            "additionalProperties": true,
-            "type": "object",
-            "title": "Summary"
-          },
-          "cells": {
+          "periods": {
             "items": {
-              "additionalProperties": true,
-              "type": "object"
+              "$ref": "#/components/schemas/Period"
             },
             "type": "array",
-            "title": "Cells"
-          },
-          "series": {
-            "items": {
-              "$ref": "#/components/schemas/ResearchSeries"
-            },
-            "type": "array",
-            "title": "Series"
-          },
-          "rows": {
-            "items": {
-              "additionalProperties": true,
-              "type": "object"
-            },
-            "type": "array",
-            "title": "Rows"
-          },
-          "effective_n": {
-            "type": "integer",
-            "title": "Effective N"
-          },
-          "exclusions": {
-            "items": {
-              "additionalProperties": true,
-              "type": "object"
-            },
-            "type": "array",
-            "title": "Exclusions"
-          },
-          "distributions": {
-            "items": {
-              "$ref": "#/components/schemas/Distribution"
-            },
-            "type": "array",
-            "title": "Distributions"
-          },
-          "benchmark": {
-            "anyOf": [
-              {
-                "additionalProperties": true,
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Benchmark"
-          },
-          "monthly_rankings": {
-            "items": {
-              "$ref": "#/components/schemas/MonthlyRanking"
-            },
-            "type": "array",
-            "title": "Monthly Rankings"
+            "title": "Periods"
           }
         },
         "type": "object",
         "required": [
           "kind",
           "metadata",
-          "summary",
-          "cells",
-          "series",
-          "rows",
-          "effective_n",
-          "exclusions"
+          "periods"
         ],
         "title": "ResearchResult"
-      },
-      "ResearchSeries": {
-        "properties": {
-          "key": {
-            "type": "string",
-            "title": "Key"
-          },
-          "label": {
-            "type": "string",
-            "title": "Label"
-          },
-          "year": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Year"
-          },
-          "group": {
-            "type": "string",
-            "enum": [
-              "historical",
-              "current",
-              "observation"
-            ],
-            "title": "Group"
-          },
-          "points": {
-            "items": {
-              "$ref": "#/components/schemas/ResearchPoint"
-            },
-            "type": "array",
-            "title": "Points"
-          }
-        },
-        "type": "object",
-        "required": [
-          "key",
-          "label",
-          "group",
-          "points"
-        ],
-        "title": "ResearchSeries"
       },
       "RetryInput": {
         "properties": {
@@ -11198,6 +10410,44 @@
           "needed_start"
         ],
         "title": "TickerPrices"
+      },
+      "TickerProgress": {
+        "properties": {
+          "symbol": {
+            "type": "string",
+            "title": "Symbol"
+          },
+          "step": {
+            "type": "string",
+            "enum": [
+              "queued",
+              "download",
+              "compute",
+              "done",
+              "failed"
+            ],
+            "title": "Step"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          }
+        },
+        "type": "object",
+        "required": [
+          "symbol",
+          "step",
+          "reason"
+        ],
+        "title": "TickerProgress",
+        "description": "One ticker's step: download prices → compute → done (or failed / waiting)."
       },
       "TradeKey": {
         "properties": {

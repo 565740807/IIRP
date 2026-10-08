@@ -2,12 +2,13 @@ import { useEffect, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { ArrowRight, Building2, Globe, LoaderCircle, Search, User } from "lucide-react";
+import { ArrowRight, Building2, Globe, History, LoaderCircle, Search, User, X } from "lucide-react";
 import { tm } from "@/i18n";
 import { client, unwrap, type Schemas } from "@/lib/api-client";
 import { formatDay } from "@/lib/format";
 import { readableCase } from "@/lib/insider";
-import { sourceContext } from "@/researchStorage";
+import { sourceContext } from "@/lib/navigation";
+import { clearRecent, readRecent, type RecentEntity } from "@/lib/recent";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -121,6 +122,46 @@ function SecResults({ query }: { query: string }) {
   );
 }
 
+/** Companies and insiders opened recently in this browser; can be cleared. */
+function RecentlyViewed() {
+  const { t } = useTranslation();
+  const [items, setItems] = useState<RecentEntity[]>(() => readRecent());
+  if (!items.length) return null;
+  return (
+    <section className="rounded-lg border bg-card">
+      <header className="flex items-center gap-2 border-b px-4 py-2.5">
+        <History className="size-4 text-muted-foreground" strokeWidth={1.8} />
+        <h2 className="text-sm font-semibold">{t("ui.lookup.recent_title")}</h2>
+        <span className="text-xs text-muted-foreground">{t("ui.lookup.recent_hint")}</span>
+        <Button
+          type="button"
+          size="sm"
+          variant="ghost"
+          className="ml-auto h-7 text-xs text-muted-foreground"
+          onClick={() => {
+            clearRecent();
+            setItems([]);
+          }}
+        >
+          <X />
+          {t("ui.lookup.recent_clear")}
+        </Button>
+      </header>
+      <div className="grid gap-x-2 p-1.5 md:grid-cols-2">
+        {items.map((item) => (
+          <ResultRow
+            key={`${item.kind}:${item.id}`}
+            to={`/${item.kind === "company" ? "companies" : "people"}/${item.id}`}
+            icon={item.kind === "company" ? Building2 : User}
+            name={readableCase(item.name)}
+            detail={item.ticker}
+          />
+        ))}
+      </div>
+    </section>
+  );
+}
+
 /**
  * Insider lookup: a ticker, company name or insider name. Saved data answers
  * as you type; SEC is searched when nothing local matches (or on request).
@@ -186,6 +227,7 @@ export function InsidersPage() {
         </Button>
       </form>
       <p className="px-1 text-xs text-muted-foreground">{t("ui.lookup.hint")}</p>
+      {!term && !secQuery && <RecentlyViewed />}
 
       {term && (
         <section className="rounded-lg border bg-card">

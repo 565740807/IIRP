@@ -12,16 +12,10 @@ def price_range(params, as_of, *, collection=None):
     research = params.get("analysis_params")
     years = params.get("historical_years", 8)
     if research and research["kind"] in {"monthly", "interval"}:
-        from iirp.analysis.research import _selected_years, plan_scope
+        from iirp.analysis.research import plan_scope
 
         basis = "research_conditions"
-        if research["kind"] == "monthly":
-            current = research.get("current_year") or today.year
-            selected, _ = _selected_years(research, current)
-            start = date(min([*selected, current]), 1, 1)
-            end = min(today, date(current, 12, 31))
-        else:
-            start, end = plan_scope(research, today=today)
+        start, end = plan_scope(research, today=today)
         note = msg("price_range.research_conditions")
     elif params.get("start_date"):
         basis = "explicit_dates"

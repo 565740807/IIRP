@@ -1054,10 +1054,12 @@ export interface components {
              */
             action: "pause" | "resume" | "cancel" | "retry";
         };
-        /** AnalysisInput */
+        /**
+         * AnalysisInput
+         * @description Monthly or interval research. Years are this year plus ``historical_years``
+         *     complete past years (D7); an interval end before its start crosses the year end.
+         */
         AnalysisInput: {
-            /** Research Label */
-            research_label?: string | null;
             /** Request Id */
             request_id: string;
             /**
@@ -1073,43 +1075,23 @@ export interface components {
              * @default 8
              */
             historical_years: number;
-            /** Years */
-            years?: number[] | null;
-            /** Excluded Years */
-            excluded_years?: number[];
             /** Current Year */
             current_year?: number | null;
             /**
-             * Month
-             * @default 1
-             */
-            month: number;
-            /**
-             * Comparison
-             * @default same_progress
-             * @enum {string}
-             */
-            comparison: "same_progress" | "complete";
-            /**
-             * Alignment
-             * @default calendar
-             * @enum {string}
-             */
-            alignment: "calendar" | "trading";
-            /**
              * Start Mmdd
-             * @default 01-01
+             * @default 09-20
              */
             start_mmdd: string;
             /**
              * End Mmdd
-             * @default 12-31
+             * @default 10-15
              */
             end_mmdd: string;
-            /** Cross Year */
-            cross_year?: boolean | null;
-            /** Benchmark */
-            benchmark?: string | null;
+            /**
+             * Benchmark
+             * @default ^GSPC
+             */
+            benchmark: string | null;
         };
         /** AnalysisItem */
         AnalysisItem: {
@@ -1119,27 +1101,12 @@ export interface components {
             security_id: string;
             /** Result Id */
             result_id: string;
-            /** Input Version */
-            input_version: string;
             /** Created At */
-            created_at?: string | null;
+            created_at: string | null;
             /** Data Published At */
-            data_published_at?: string | null;
+            data_published_at: string | null;
             /** Expires At */
-            expires_at?: string | null;
-            /**
-             * Is Current
-             * @default false
-             */
-            is_current: boolean;
-            /**
-             * Coverage Basis
-             * @default unknown
-             */
-            coverage_basis: string;
-            /** Result Cutoff */
-            result_cutoff?: string | null;
-            coverage?: components["schemas"]["ResearchCoverage"] | null;
+            expires_at: string | null;
             data: components["schemas"]["ResearchResult"];
         };
         /** AnalysisOutput */
@@ -1156,9 +1123,9 @@ export interface components {
             };
             /** Results */
             results: components["schemas"]["AnalysisItem"][];
+            /** Progress */
+            progress?: components["schemas"]["TickerProgress"][];
             batch: components["schemas"]["BatchView"];
-            /** Result Versions */
-            result_versions?: components["schemas"]["AnalysisVersionView"][];
             freshness?: components["schemas"]["ResearchFreshness"] | null;
         };
         /**
@@ -1173,17 +1140,6 @@ export interface components {
             /** Status */
             status: string;
             freshness?: components["schemas"]["ResearchFreshness"] | null;
-        };
-        /** AnalysisVersionView */
-        AnalysisVersionView: {
-            /** Id */
-            id: string;
-            /** Security Id */
-            security_id: string;
-            /** Created At */
-            created_at: string;
-        } & {
-            [key: string]: unknown;
         };
         /** BackupEntry */
         BackupEntry: {
@@ -1297,6 +1253,13 @@ export interface components {
                 [key: string]: number;
             };
         };
+        /** BenchmarkInfo */
+        BenchmarkInfo: {
+            /** Symbol */
+            symbol: string;
+            /** Status */
+            status: string;
+        };
         /**
          * BrowserRefresh
          * @description How often an open page re-reads and asks for fresh data (config/refresh.toml).
@@ -1308,6 +1271,63 @@ export interface components {
             feed_poll_seconds: number;
             /** Ensure Seconds */
             ensure_seconds: number;
+        };
+        /**
+         * Candle
+         * @description One year of one period.
+         */
+        Candle: {
+            /** Year */
+            year: number;
+            /** Current */
+            current: boolean;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "complete" | "in_progress" | "not_started" | "no_data" | "incomplete";
+            /** Period Start */
+            period_start: string;
+            /** Period End */
+            period_end: string;
+            /** Start Date */
+            start_date?: string | null;
+            /** End Date */
+            end_date?: string | null;
+            /**
+             * Sessions
+             * @default 0
+             */
+            sessions: number;
+            /**
+             * Expected Sessions
+             * @default 0
+             */
+            expected_sessions: number;
+            /** Missing Dates */
+            missing_dates?: string[];
+            /** Open */
+            open?: string | null;
+            /** High */
+            high?: string | null;
+            /** Low */
+            low?: string | null;
+            /** Close */
+            close?: string | null;
+            /** Change */
+            change?: string | null;
+            /** High Change */
+            high_change?: string | null;
+            /** Low Change */
+            low_change?: string | null;
+            /** Benchmark Open */
+            benchmark_open?: string | null;
+            /** Benchmark Close */
+            benchmark_close?: string | null;
+            /** Benchmark Change */
+            benchmark_change?: string | null;
+            /** Excess */
+            excess?: string | null;
         };
         /** CollectionInput */
         CollectionInput: {
@@ -1442,107 +1462,6 @@ export interface components {
             transaction_date: string;
             /** Accepted Date */
             accepted_date: string;
-        };
-        /** Distribution */
-        Distribution: {
-            /** Key */
-            key: string;
-            /** Label */
-            label: string;
-            /** Metric */
-            metric: string;
-            /** Group */
-            group: string;
-            stock: components["schemas"]["DistributionStatistics"];
-            paired_stock?: components["schemas"]["DistributionStatistics"] | null;
-            benchmark?: components["schemas"]["DistributionStatistics"] | null;
-            difference?: components["schemas"]["DistributionStatistics"] | null;
-            /** Years */
-            years?: number[];
-            /** Target Years */
-            target_years?: number[];
-            /** Missing */
-            missing?: {
-                [key: string]: number;
-            };
-            /** Samples */
-            samples?: {
-                [key: string]: unknown;
-            }[];
-            /**
-             * Whiskers
-             * @default sample_min_max
-             */
-            whiskers: string;
-            /** Empty Reason */
-            empty_reason?: string | null;
-            robustness?: components["schemas"]["DistributionRobustness"] | null;
-            paired_difference_robustness?: components["schemas"]["DistributionRobustness"] | null;
-            closing_max_drawdown?: components["schemas"]["DistributionStatistics"] | null;
-        };
-        /** DistributionRobustness */
-        DistributionRobustness: {
-            /**
-             * Sample Unit
-             * @enum {string}
-             */
-            sample_unit: "annual_sample" | "event_sample" | "paired_sample";
-            /** N */
-            n: number;
-            /** Sample Keys */
-            sample_keys: string[];
-            proportion: components["schemas"]["ProportionUncertainty"];
-            leave_one_out: components["schemas"]["LeaveOneOutSensitivity"];
-            historical_segments: components["schemas"]["HistoricalSegments"];
-            /** Overlapping Pairs */
-            overlapping_pairs?: components["schemas"]["OverlappingSamples"][];
-            /**
-             * Overlap Pair Count
-             * @default 0
-             */
-            overlap_pair_count: number;
-            /**
-             * Overlap Details Truncated
-             * @default false
-             */
-            overlap_details_truncated: boolean;
-            /** Same Year Counts */
-            same_year_counts?: {
-                [key: string]: number;
-            };
-            /** Warnings */
-            warnings?: string[];
-        };
-        /** DistributionStatistics */
-        DistributionStatistics: {
-            /** N */
-            n: number;
-            /** Min */
-            min?: string | null;
-            /** Q25 */
-            q25?: string | null;
-            /** Median */
-            median?: string | null;
-            /** Mean */
-            mean?: string | null;
-            /** Q75 */
-            q75?: string | null;
-            /** Max */
-            max?: string | null;
-            /** Worst */
-            worst?: string | null;
-            /** Best */
-            best?: string | null;
-            /**
-             * Up
-             * @default 0
-             */
-            up: number;
-            /**
-             * Flat
-             * @default 0
-             */
-            flat: number;
         };
         /** EntityCompany */
         EntityCompany: {
@@ -2313,33 +2232,6 @@ export interface components {
             /** Groups */
             groups: components["schemas"]["HealthGroup"][];
         };
-        /** HistoricalSegment */
-        HistoricalSegment: {
-            /** Label */
-            label: string;
-            /** Target Years */
-            target_years: number[];
-            /** Sample Keys */
-            sample_keys: string[];
-            statistics: components["schemas"]["DistributionStatistics"];
-        };
-        /** HistoricalSegments */
-        HistoricalSegments: {
-            /**
-             * Policy
-             * @enum {string}
-             */
-            policy: "target_year_midpoint" | "candidate_year_midpoint";
-            /** Boundary Year */
-            boundary_year?: number | null;
-            earlier: components["schemas"]["HistoricalSegment"];
-            later: components["schemas"]["HistoricalSegment"];
-            /**
-             * Interpretation
-             * @default {"code":"method.segments.interpretation","params":{}}
-             */
-            interpretation: string;
-        };
         /** HomeOutput */
         HomeOutput: {
             /**
@@ -2675,47 +2567,6 @@ export interface components {
             /** Next Cursor */
             next_cursor?: string | null;
         };
-        /** LeaveOneOutPoint */
-        LeaveOneOutPoint: {
-            /** Omitted Key */
-            omitted_key: string;
-            /** Omitted Year */
-            omitted_year?: number | null;
-            /** Omitted Return */
-            omitted_return: string;
-            /** N */
-            n: number;
-            /** Mean */
-            mean?: string | null;
-            /** Median */
-            median?: string | null;
-            /** Mean Change */
-            mean_change?: string | null;
-        };
-        /** LeaveOneOutSensitivity */
-        LeaveOneOutSensitivity: {
-            /** Available */
-            available: boolean;
-            /** Points */
-            points?: components["schemas"]["LeaveOneOutPoint"][];
-            /** Mean Min */
-            mean_min?: string | null;
-            /** Mean Max */
-            mean_max?: string | null;
-            /** Median Min */
-            median_min?: string | null;
-            /** Median Max */
-            median_max?: string | null;
-            /** Max Abs Mean Change */
-            max_abs_mean_change?: string | null;
-            /** Influential Sample Keys */
-            influential_sample_keys?: string[];
-            /**
-             * Interpretation
-             * @default {"code":"method.leave_one_out.interpretation","params":{}}
-             */
-            interpretation: string;
-        };
         /** LocalCompany */
         LocalCompany: {
             /** Cik */
@@ -2797,35 +2648,6 @@ export interface components {
                 [key: string]: unknown;
             };
         };
-        /** MonthlyRanking */
-        MonthlyRanking: {
-            /** Month */
-            month: number;
-            statistics: components["schemas"]["DistributionStatistics"];
-            /** Valid Years */
-            valid_years: number[];
-            /** Target Years */
-            target_years: number[];
-            /** Mean Rank */
-            mean_rank?: number | null;
-            /** Median Rank */
-            median_rank?: number | null;
-            /** Mean Reverse Rank */
-            mean_reverse_rank?: number | null;
-            /** Median Reverse Rank */
-            median_reverse_rank?: number | null;
-        };
-        /** OverlappingSamples */
-        OverlappingSamples: {
-            /** First Key */
-            first_key: string;
-            /** Second Key */
-            second_key: string;
-            /** Start Date */
-            start_date: string;
-            /** End Date */
-            end_date: string;
-        };
         /** PendingFiling */
         PendingFiling: {
             /** Accession */
@@ -2876,6 +2698,83 @@ export interface components {
              * @default 0
              */
             preview_count: number;
+        };
+        /** Period */
+        Period: {
+            /** Key */
+            key: string;
+            /** Month */
+            month?: number | null;
+            /** Start Mmdd */
+            start_mmdd: string;
+            /** End Mmdd */
+            end_mmdd: string;
+            /**
+             * Cross Year
+             * @default false
+             */
+            cross_year: boolean;
+            stats: components["schemas"]["PeriodStats"];
+            /** Years */
+            years: components["schemas"]["Candle"][];
+        };
+        /**
+         * PeriodStats
+         * @description Complete past years only; ``target_n`` is how many were asked for.
+         */
+        PeriodStats: {
+            /** Target N */
+            target_n: number;
+            /** N */
+            n: number;
+            /** Median */
+            median?: string | null;
+            /** Mean */
+            mean?: string | null;
+            /** Q25 */
+            q25?: string | null;
+            /** Q75 */
+            q75?: string | null;
+            /** Best */
+            best?: string | null;
+            /** Worst */
+            worst?: string | null;
+            /** Best Year */
+            best_year?: number | null;
+            /** Worst Year */
+            worst_year?: number | null;
+            /**
+             * Up
+             * @default 0
+             */
+            up: number;
+            /**
+             * Flat
+             * @default 0
+             */
+            flat: number;
+            /** Up Low */
+            up_low?: string | null;
+            /** Up High */
+            up_high?: string | null;
+            /** Coin Flip */
+            coin_flip?: boolean | null;
+            /**
+             * Paired N
+             * @default 0
+             */
+            paired_n: number;
+            /**
+             * Beat
+             * @default 0
+             */
+            beat: number;
+            /** Median Excess */
+            median_excess?: string | null;
+            /** Mean Excess */
+            mean_excess?: string | null;
+            /** Benchmark Median */
+            benchmark_median?: string | null;
         };
         /** PolicyRequest */
         PolicyRequest: {
@@ -3034,42 +2933,6 @@ export interface components {
             /** Batch Ids */
             batch_ids: string[];
         };
-        /** ProportionUncertainty */
-        ProportionUncertainty: {
-            /** N */
-            n: number;
-            /** Up */
-            up: number;
-            /** Flat */
-            flat: number;
-            /** Observed */
-            observed?: string | null;
-            /** Lower */
-            lower?: string | null;
-            /** Upper */
-            upper?: string | null;
-            /**
-             * Method
-             * @default wilson_score
-             * @constant
-             */
-            method: "wilson_score";
-            /**
-             * Confidence Level
-             * @default 0.95
-             */
-            confidence_level: string;
-            /**
-             * Assumptions
-             * @default {"code":"method.proportion.assumptions","params":{}}
-             */
-            assumptions: string;
-            /**
-             * Interpretation
-             * @default {"code":"method.proportion.interpretation","params":{}}
-             */
-            interpretation: string;
-        };
         /** QuoteSession */
         QuoteSession: {
             /** Start */
@@ -3115,25 +2978,6 @@ export interface components {
             /** Request Id */
             request_id: string;
         };
-        /** ResearchCoverage */
-        ResearchCoverage: {
-            /** Start Date */
-            start_date: string;
-            /** End Date */
-            end_date: string;
-            /** Expected Sessions */
-            expected_sessions?: number | null;
-            /** Valid Sessions */
-            valid_sessions?: number | null;
-            /** Missing Dates */
-            missing_dates?: string[];
-            /** First Valid Date */
-            first_valid_date?: string | null;
-            /** Last Valid Date */
-            last_valid_date?: string | null;
-            /** Complete */
-            complete: boolean;
-        };
         /** ResearchFreshness */
         ResearchFreshness: {
             /** Origin Id */
@@ -3160,12 +3004,6 @@ export interface components {
         };
         /** ResearchMetadata */
         ResearchMetadata: {
-            /** Source */
-            source?: string | null;
-            /** Dataset Id */
-            dataset_id?: string | null;
-            /** Data Version */
-            data_version?: string | null;
             /** Params */
             params: {
                 [key: string]: unknown;
@@ -3173,9 +3011,7 @@ export interface components {
             /** Historical Years */
             historical_years: number[];
             /** Current Year */
-            current_year: number | null;
-            /** Target N */
-            target_n: number;
+            current_year: number;
             /** Cutoff Date */
             cutoff_date: string;
             /** Calendar */
@@ -3184,7 +3020,7 @@ export interface components {
             calendar_version: string;
             /**
              * Calculation Version
-             * @default research-v10-time-source-attribution
+             * @default research-v11-open-close
              */
             calculation_version: string;
             /**
@@ -3192,72 +3028,9 @@ export interface components {
              * @default split_only
              */
             price_basis: string;
-            /** Alignment */
-            alignment: string;
-            /** Comparison */
-            comparison: string;
-            /** Warnings */
-            warnings?: string[];
-            methodology?: components["schemas"]["ResearchMethodology"] | null;
-        };
-        /** ResearchMethodology */
-        ResearchMethodology: {
-            /**
-             * Price Basis
-             * @default {"code":"method.price_basis","params":{}}
-             */
-            price_basis: string;
-            /** Baseline Rule */
-            baseline_rule: string;
-            /**
-             * Sample Unit
-             * @enum {string}
-             */
-            sample_unit: "annual_sample" | "event_sample";
-            /**
-             * Path N Rule
-             * @default {"code":"method.path_n_rule","params":{}}
-             */
-            path_n_rule: string;
-            /**
-             * Drawdown Rule
-             * @default {"code":"method.drawdown_rule","params":{}}
-             */
-            drawdown_rule: string;
-            /**
-             * Benchmark Rule
-             * @default {"code":"method.benchmark_rule","params":{}}
-             */
-            benchmark_rule: string;
-            /** Exploration Scope */
-            exploration_scope: string;
-            /**
-             * Interpretation
-             * @default {"code":"method.interpretation","params":{}}
-             */
-            interpretation: string;
-        };
-        /** ResearchPoint */
-        ResearchPoint: {
-            /** X */
-            x: number;
-            /** Date */
-            date?: string | null;
-            /** Value */
-            value?: string | null;
-            /** Status */
-            status: string;
-            /**
-             * Session
-             * @default true
-             */
-            session: boolean;
-            /** Benchmark */
-            benchmark?: string | null;
-            /** Difference */
-            difference?: string | null;
-            /** Benchmark Status */
-            benchmark_status?: string | null;
+            benchmark?: components["schemas"]["BenchmarkInfo"] | null;
+        } & {
+            [key: string]: unknown;
         };
         /** ResearchResult */
         ResearchResult: {
@@ -3267,50 +3040,8 @@ export interface components {
              */
             kind: "monthly" | "interval";
             metadata: components["schemas"]["ResearchMetadata"];
-            /** Summary */
-            summary: {
-                [key: string]: unknown;
-            };
-            /** Cells */
-            cells: {
-                [key: string]: unknown;
-            }[];
-            /** Series */
-            series: components["schemas"]["ResearchSeries"][];
-            /** Rows */
-            rows: {
-                [key: string]: unknown;
-            }[];
-            /** Effective N */
-            effective_n: number;
-            /** Exclusions */
-            exclusions: {
-                [key: string]: unknown;
-            }[];
-            /** Distributions */
-            distributions?: components["schemas"]["Distribution"][];
-            /** Benchmark */
-            benchmark?: {
-                [key: string]: unknown;
-            } | null;
-            /** Monthly Rankings */
-            monthly_rankings?: components["schemas"]["MonthlyRanking"][];
-        };
-        /** ResearchSeries */
-        ResearchSeries: {
-            /** Key */
-            key: string;
-            /** Label */
-            label: string;
-            /** Year */
-            year?: number | null;
-            /**
-             * Group
-             * @enum {string}
-             */
-            group: "historical" | "current" | "observation";
-            /** Points */
-            points: components["schemas"]["ResearchPoint"][];
+            /** Periods */
+            periods: components["schemas"]["Period"][];
         };
         /** RetryInput */
         RetryInput: {
@@ -3586,6 +3317,21 @@ export interface components {
             expires_at: string | null;
             /** Needed Start */
             needed_start: string | null;
+        };
+        /**
+         * TickerProgress
+         * @description One ticker's step: download prices → compute → done (or failed / waiting).
+         */
+        TickerProgress: {
+            /** Symbol */
+            symbol: string;
+            /**
+             * Step
+             * @enum {string}
+             */
+            step: "queued" | "download" | "compute" | "done" | "failed";
+            /** Reason */
+            reason: string | null;
         };
         /** TradeKey */
         TradeKey: {
@@ -4582,9 +4328,7 @@ export interface operations {
     };
     analysis_api_v1_analyses__analysis_id__get: {
         parameters: {
-            query?: {
-                result_ids?: string;
-            };
+            query?: never;
             header?: never;
             path: {
                 analysis_id: string;
@@ -4649,8 +4393,7 @@ export interface operations {
     export_api_v1_analyses__analysis_id__export_get: {
         parameters: {
             query?: {
-                result_ids?: string;
-                format?: string;
+                table?: string;
             };
             header?: never;
             path: {

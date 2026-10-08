@@ -307,7 +307,7 @@ def test_missing_fields_and_missing_sessions_remain_explicit_and_out_of_statisti
     research = compute_research(
         {
             "kind": "interval",
-            "years": [2023],
+            "historical_years": 1,
             "current_year": 2024,
             "start_mmdd": "01-03",
             "end_mmdd": "01-05",
@@ -315,8 +315,10 @@ def test_missing_fields_and_missing_sessions_remain_explicit_and_out_of_statisti
         bars,
         today=date(2024, 2, 1),
     )
-    assert research["effective_n"] == 0
-    assert research["rows"][0]["max_drawdown"] is None
+    interval = research["periods"][0]
+    # 01-05 has no bar: no last close, so no change and no statistics.
+    assert interval["stats"]["n"] == 0
+    assert interval["years"][0]["status"] == "incomplete" and interval["years"][0]["change"] is None
 
 
 def test_duplicate_dates_roll_back_the_whole_response(security_id):
@@ -497,7 +499,7 @@ def research_lease(kind="interval"):
         current_year=2024,
         start_mmdd="01-03",
         end_mmdd="01-05",
-        comparison="complete",
+        benchmark=None,
     ).model_dump(mode="json")
     request = create_analysis(params)
     plan_tick()
@@ -538,7 +540,7 @@ def test_research_publish_records_cache_and_calculation_metadata(security_id):
         assert metadata["dataset_id"] == dataset_id and metadata["price_fetched_at"]
         assert metadata["source"] == "synthetic"
         assert metadata["price_basis"] == "SPLIT_ONLY"
-        assert metadata["calculation_version"] == "research-v10-time-source-attribution"
+        assert metadata["calculation_version"] == "research-v11-open-close"
 
 
 def test_result_from_a_replaced_cache_is_not_published(security_id):

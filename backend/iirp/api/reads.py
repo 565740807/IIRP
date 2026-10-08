@@ -12,6 +12,18 @@ from iirp.messages import UserError, msg
 from iirp.models import Issuer, Job, MarketQuote, Owner, Security, now
 
 
+def _overdue_seconds(quote, fetched):
+    """A quote is late after a multiple of the interval it was scheduled with
+    (1 minute in session, 5 minutes in extended hours), never sooner than the floor."""
+    cadence = refresh()["quotes"]
+    floor = cadence["overdue_seconds"]
+    due = quote.get("next_refresh_at")
+    if not due:
+        return floor
+    interval = (datetime.fromisoformat(due) - fetched).total_seconds()
+    return max(floor, cadence["overdue_factor"] * interval) if interval > 0 else floor
+
+
 def _quote_freshness(quote, failure, current):
     """(freshness, reason message) of a saved quote at ``current``."""
     session = quote.get("session") or {}
@@ -22,9 +34,9 @@ def _quote_freshness(quote, failure, current):
     if start and end and start <= current < end:
         if quote.get("status") == "STALE":
             return "delayed", msg("quote.delay.stale")
-        overdue = refresh()["quotes"]["overdue_seconds"]
+        overdue = _overdue_seconds(quote, fetched)
         if (current - fetched).total_seconds() > overdue:
-            return "delayed", msg("home.quote.overdue", minutes=overdue // 60)
+            return "delayed", msg("home.quote.overdue", minutes=round(overdue / 60))
         return "live", None
     if end and current >= end and fetched < end:
         return "delayed", msg("home.quote.close_pending")

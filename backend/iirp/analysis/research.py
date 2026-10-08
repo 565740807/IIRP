@@ -1,90 +1,125 @@
-"""Calendar-aware research from one already-qualified price version.
+"""Monthly and interval research: first session open → last session close (D6).
 
-This module neither fetches nor adjusts prices. Ratios are decimal strings (not
-percent points). Only bars marked VALID enter calculations, and every expected
-session remains represented even when its price is missing. The returned object
-is shared by graphs, tables and exports; a frontend must not recompute metrics."""
+Each year contributes one candle per period: the open of its first session,
+the close of its last session, and the high and low in between. The change is
+close / open − 1. Prices are the 24-hour cache's split-only adjusted bars; the
+provider applies one split factor to open, high, low and close alike, so open
+and close are on the same basis. The gap from the previous close to the first
+open is not included, so monthly changes do not compound to a yearly change.
+
+Ratios are decimal strings (not percent points). Statistics use the complete
+past years only (D7: the current year is shown separately). A benchmark change
+uses the stock's own first and last session dates. This module neither fetches
+nor adjusts prices; graphs, tables, the conclusion and the CSV export all read
+the result it returns, and the frontend does not recompute it.
+"""
 
 import calendar as gregorian
-from collections import defaultdict
-from datetime import date, datetime, timedelta
-from decimal import Decimal, InvalidOperation
+from datetime import date, datetime
+from decimal import Decimal, InvalidOperation, localcontext
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
-from iirp.analysis.calendar import (
-    ET,
-    calendar_version,
-    completed_through,
-    previous_session,
-    sessions,
-)
-from iirp.analysis.distributions import (
-    Distribution,
-    MonthlyRanking,
-    ResearchMethodology,
-    add_distributions,
-    statistics,
-)
-from iirp.analysis.prices import endpoint_change, maximum_drawdown
+from iirp.analysis.calendar import ET, calendar_version, completed_through, sessions
+from iirp.analysis.distributions import statistics, wilson_interval
+from iirp.analysis.prices import endpoint_change
 
-CALCULATION_VERSION = "research-v10-time-source-attribution"
+CALCULATION_VERSION = "research-v11-open-close"
+DEFAULT_YEARS = 8
+MAX_YEARS = 30
 
 
-WINDOWS = (1, 5, 20, 60)
+class Candle(BaseModel):
+    """One year of one period."""
+
+    year: int
+    current: bool
+    status: Literal["complete", "in_progress", "not_started", "no_data", "incomplete"]
+    period_start: str
+    period_end: str
+    start_date: str | None = None  # first session (actual)
+    end_date: str | None = None  # last session, or the last completed one while in progress
+    sessions: int = 0
+    expected_sessions: int = 0
+    missing_dates: list[str] = Field(default_factory=list)
+    open: str | None = None
+    high: str | None = None
+    low: str | None = None
+    close: str | None = None
+    change: str | None = None
+    # High and low relative to the open, for candles drawn from a common zero.
+    high_change: str | None = None
+    low_change: str | None = None
+    benchmark_open: str | None = None
+    benchmark_close: str | None = None
+    benchmark_change: str | None = None
+    excess: str | None = None
 
 
-class ResearchPoint(BaseModel):
-    x: int
-    date: str | None = None
-    value: str | None = None
-    status: str
-    session: bool = True
-    benchmark: str | None = None
-    difference: str | None = None
-    benchmark_status: str | None = None
+class PeriodStats(BaseModel):
+    """Complete past years only; ``target_n`` is how many were asked for."""
+
+    target_n: int
+    n: int
+    median: str | None = None
+    mean: str | None = None
+    q25: str | None = None
+    q75: str | None = None
+    best: str | None = None
+    worst: str | None = None
+    best_year: int | None = None
+    worst_year: int | None = None
+    up: int = 0
+    flat: int = 0
+    # Wilson score 95% interval of the share of up years.
+    up_low: str | None = None
+    up_high: str | None = None
+    # The interval contains one half: no different from a coin flip.
+    coin_flip: bool | None = None
+    paired_n: int = 0
+    beat: int = 0
+    median_excess: str | None = None
+    mean_excess: str | None = None
+    benchmark_median: str | None = None
 
 
-class ResearchSeries(BaseModel):
+class Period(BaseModel):
     key: str
-    label: str
-    year: int | None = None
-    group: Literal["historical", "current", "observation"]
-    points: list[ResearchPoint]
+    month: int | None = None
+    start_mmdd: str
+    end_mmdd: str
+    cross_year: bool = False
+    stats: PeriodStats
+    years: list[Candle]
+
+
+class BenchmarkInfo(BaseModel):
+    symbol: str
+    status: str
 
 
 class ResearchMetadata(BaseModel):
-    source: str | None = None
-    dataset_id: str | None = None
-    data_version: str | None = None
+    # Publication adds source, cache and dependency facts.
+    model_config = ConfigDict(extra="allow")
     params: dict[str, Any]
     historical_years: list[int]
-    current_year: int | None
-    target_n: int
+    current_year: int
     cutoff_date: str
     calendar: str
     calendar_version: str
     calculation_version: str = CALCULATION_VERSION
     price_basis: str = "split_only"
-    alignment: str
-    comparison: str
-    warnings: list[str] = Field(default_factory=list)
-    methodology: ResearchMethodology | None = None
+    benchmark: BenchmarkInfo | None = None
 
 
 class ResearchResult(BaseModel):
     kind: Literal["monthly", "interval"]
     metadata: ResearchMetadata
-    summary: dict[str, Any]
-    cells: list[dict[str, Any]]
-    series: list[ResearchSeries]
-    rows: list[dict[str, Any]]
-    effective_n: int
-    exclusions: list[dict[str, Any]]
-    distributions: list[Distribution] = Field(default_factory=list)
-    benchmark: dict[str, Any] | None = None
-    monthly_rankings: list[MonthlyRanking] = Field(default_factory=list)
+    periods: list[Period]
+
+
+# --- shared bar helpers (also used by the Insider before/after windows) --------
 
 
 def _text(value: Decimal | None) -> str | None:
@@ -126,16 +161,21 @@ def _price(index: dict, day: date, cutoff: date, field: str = "close") -> Decima
     return index.get(day, {}).get(field)
 
 
-def _year(value: Any) -> int:
-    if isinstance(value, bool) or not str(value).isdigit() or not 2 <= int(value) <= 9998:
-        raise ValueError("Year must be an integer between 2 and 9998")
-    return int(value)
+def _point(day: date, x: int, baseline: Decimal | None, index: dict, cutoff: date) -> dict:
+    value = _price(index, day, cutoff)
+    status = (
+        "not_yet_formed"
+        if day > cutoff
+        else "missing_baseline"
+        if baseline is None
+        else "missing_price"
+        if value is None
+        else "available"
+    )
+    return {"x": x, "date": day.isoformat(), "value": _ratio(baseline, value), "status": status}
 
 
-def _positive_int(value: Any, label: str) -> int:
-    if isinstance(value, bool) or not str(value).isdigit() or int(value) < 1:
-        raise ValueError(f"{label} must be a positive integer")
-    return int(value)
+# --- conditions ------------------------------------------------------------------
 
 
 def _mmdd(value: str) -> tuple[int, int]:
@@ -155,60 +195,36 @@ def _mapped_day(year: int, month_day: tuple[int, int]) -> date:
 
 
 def _interval_rules(params: dict, today: date) -> tuple[tuple, tuple, bool, int]:
-    start = _mmdd(params.get("start_mmdd", "03-15"))
-    end = _mmdd(params.get("end_mmdd", "04-30"))
-    cross = bool(params.get("cross_year", end < start))
-    if not cross and end < start:
-        raise ValueError("End precedes start; select cross_year")
-    default_year = today.year - int(cross and (today.month, today.day) <= end)
-    current = _year(params.get("anchor_start_year", params.get("current_year", default_year)))
-    return start, end, cross, current
+    """(start, end, crosses the year end, current year). An end before the start
+    crosses into the next year; the current year is the latest one already begun
+    or, before this year's start, this calendar year."""
+    start = _mmdd(params.get("start_mmdd", "09-20"))
+    end = _mmdd(params.get("end_mmdd", "10-15"))
+    cross = end < start
+    current = today.year - int(cross and (today.month, today.day) <= end)
+    return start, end, cross, int(params.get("current_year") or current)
 
 
-def _selected_years(params: dict, current: int | None) -> tuple[list[int], list[dict]]:
-    count = _positive_int(params.get("historical_years", 8), "historical_years")
-    excluded = {_year(value) for value in params.get("excluded_years", [])}
-    if "years" in params and params["years"] is not None:
-        candidates = sorted({_year(value) for value in params["years"]})
-    elif current is not None:
-        if current - count < 2:
-            raise ValueError("Requested history extends outside the supported date domain")
-        candidates = list(range(current - count, current))
-    else:
-        candidates = []
-    output, reasons = [], []
-    for year in candidates:
-        reason = (
-            "user_excluded"
-            if year in excluded
-            else "not_historical_year"
-            if current is not None and year >= current
-            else None
-        )
-        if reason:
-            reasons.append({"year": year, "reason": reason})
-        else:
-            output.append(year)
-    return output, reasons
+def _selected_years(params: dict, current: int) -> list[int]:
+    count = params.get("historical_years", DEFAULT_YEARS)
+    if isinstance(count, bool) or not isinstance(count, int) or not 1 <= count <= MAX_YEARS:
+        raise ValueError(f"historical_years must be between 1 and {MAX_YEARS}")
+    return list(range(current - count, current))
 
 
 def plan_scope(params: dict, today: date) -> tuple[date, date]:
-    """Inclusive collection bounds, including needed baseline, never future."""
+    """Inclusive price bounds of every year in the research, never in the future."""
     params = {key: value for key, value in params.items() if value is not None}
     kind = params.get("kind", "monthly")
-    name = params.get("calendar", "XNYS")
     if kind == "monthly":
-        current = _year(params.get("current_year", today.year))
-        years, _ = _selected_years(params, current)
-        all_years = [*years, current]
-        start = previous_session(date(min(all_years), 1, 1), name)
-        end = min(today, date(max(all_years), 12, 31))
+        current = int(params.get("current_year") or today.year)
+        years = [*_selected_years(params, current), current]
+        start, end = date(min(years), 1, 1), min(today, date(current, 12, 31))
     elif kind == "interval":
         start_md, end_md, cross, current = _interval_rules(params, today)
-        years, _ = _selected_years(params, current)
-        all_years = [*years, current]
-        start = min(_mapped_day(year, start_md) for year in all_years)
-        end = min(today, max(_mapped_day(year + int(cross), end_md) for year in all_years))
+        years = [*_selected_years(params, current), current]
+        start = _mapped_day(min(years), start_md)
+        end = min(today, _mapped_day(current + int(cross), end_md))
     else:
         raise ValueError(f"Unsupported research kind: {kind}")
     if start > end:
@@ -216,346 +232,131 @@ def plan_scope(params: dict, today: date) -> tuple[date, date]:
     return start, end
 
 
-def _statistics(values: list[str | None]) -> dict:
-    return statistics(values)
+def period_ranges(params: dict, today: date) -> list[tuple[date, date]]:
+    """Calendar bounds of each year's period(s), for reading only the bars needed."""
+    params = {key: value for key, value in params.items() if value is not None}
+    if params.get("kind", "monthly") == "monthly":
+        current = int(params.get("current_year") or today.year)
+        return [(date(year, 1, 1), date(year, 12, 31))
+                for year in [*_selected_years(params, current), current]]
+    start_md, end_md, cross, current = _interval_rules(params, today)
+    return [(_mapped_day(year, start_md), _mapped_day(year + int(cross), end_md))
+            for year in [*_selected_years(params, current), current]]
 
 
-def _path_statistics(series: list[dict]) -> list[dict]:
-    grouped = defaultdict(list)
-    for item in series:
-        if item["group"] == "historical":
-            for point in item["points"]:
-                grouped[point["x"]].append(point["value"])
-    return [{"x": x, **_statistics(grouped[x])} for x in sorted(grouped)]
+# --- computation -----------------------------------------------------------------
 
 
-def _point(day: date, x: int, baseline: Decimal | None, index: dict, cutoff: date) -> dict:
-    value = _price(index, day, cutoff)
-    status = (
-        "not_yet_formed"
-        if day > cutoff
-        else "missing_baseline"
-        if baseline is None
-        else "missing_price"
-        if value is None
-        else "available"
-    )
-    return {"x": x, "date": day.isoformat(), "value": _ratio(baseline, value), "status": status}
+def _candle(year, current, first, last, index, cutoff, calendar, benchmark) -> dict:
+    expected = sessions(first, last, calendar)
+    done = [day for day in expected if day <= cutoff]
+    row = {"year": year, "current": current, "period_start": first.isoformat(),
+           "period_end": last.isoformat(), "expected_sessions": len(expected)}
+    if not expected:
+        return {**row, "status": "no_data"}
+    if not done:
+        return {**row, "status": "not_started"}
+    in_progress = done[-1] < expected[-1]
+    end = done[-1]
+    if in_progress and index.get(end, {}).get("close") is None:
+        # A period still running ends at its latest close: today's bar can lack
+        # one until the provider settles it. A finished period never moves.
+        end = max((day for day in done if index.get(day, {}).get("close") is not None), default=end)
+    done = [day for day in done if day <= end]
+    present = [day for day in done if index.get(day, {}).get("close") is not None
+               and index[day].get("open") is not None]
+    if not present:
+        return {**row, "status": "no_data", "start_date": done[0].isoformat()}
+    opening, closing = index.get(done[0], {}).get("open"), index.get(end, {}).get("close")
+    high = max((index[day]["high"] for day in present if index[day].get("high") is not None), default=None)
+    low = min((index[day]["low"] for day in present if index[day].get("low") is not None), default=None)
+    row.update(start_date=done[0].isoformat(), end_date=end.isoformat(), sessions=len(present),
+               missing_dates=[day.isoformat() for day in done if day not in present],
+               open=_text(opening), close=_text(closing), high=_text(high), low=_text(low))
+    if opening is None or closing is None:
+        # Without the first open or the last close there is no change to report.
+        return {**row, "status": "incomplete"}
+    row.update(status="in_progress" if in_progress else "complete", change=_ratio(opening, closing),
+               high_change=_ratio(opening, high), low_change=_ratio(opening, low))
+    if benchmark is not None:
+        other_open = benchmark.get(done[0], {}).get("open")
+        other_close = benchmark.get(end, {}).get("close")
+        row.update(benchmark_open=_text(other_open), benchmark_close=_text(other_close),
+                   benchmark_change=_ratio(other_open, other_close))
+        if row["benchmark_change"] is not None:
+            with localcontext() as context:
+                context.prec = 34
+                row["excess"] = str(Decimal(row["change"]) - Decimal(row["benchmark_change"]))
+    return row
 
 
-def _calendar_points(
-    start: date,
-    end: date,
-    expected: list[date],
-    baseline_date: date | None,
-    baseline: Decimal | None,
-    index: dict,
-    cutoff: date,
-    *,
-    monthly: bool,
-) -> list[dict]:
-    output = []
-    expected_set = set(expected)
-    prior = baseline_date if monthly else None
-    cursor = start
-    while cursor <= end:
-        trading = cursor in expected_set
-        if trading:
-            prior = cursor
-        # A 366-position reference year aligns month-days through February;
-        # elapsed calendar days would shift March by one in leap samples.
-        x = (
-            cursor.day
-            if monthly
-            else (
-                (cursor.year - start.year) * 366
-                + date(2000, cursor.month, cursor.day).timetuple().tm_yday
-                - date(2000, start.month, start.day).timetuple().tm_yday
-            )
-        )
-        if prior is None:
-            point = {"x": x, "date": None, "value": None, "status": "no_session_yet"}
-        else:
-            point = _point(prior, x, baseline, index, cutoff)
-            if not trading and point["status"] == "available":
-                point["status"] = "non_session_carry"
-        point["session"] = trading
-        output.append(point)
-        cursor += timedelta(days=1)
-    return output
-
-
-def _period_row(
-    *,
-    year: int,
-    group: str,
-    start: date,
-    end: date,
-    view_end: date,
-    index: dict,
-    cutoff: date,
-    name: str,
-    monthly: bool,
-    alignment: str,
-) -> tuple[dict, list[dict]]:
-    full_sessions = sessions(start, end, name)
-    active_end = min(end, view_end, cutoff)
-    expected = [day for day in full_sessions if day <= active_end]
-    baseline_date = (
-        previous_session(start, name) if monthly else (full_sessions[0] if full_sessions else None)
-    )
-    baseline = _price(index, baseline_date, cutoff) if baseline_date is not None else None
-    prices = [_price(index, day, cutoff) for day in expected]
-    valid = sum(price is not None for price in prices)
-    complete = bool(expected) and baseline is not None and valid == len(expected)
-    if not full_sessions:
-        status = "no_sessions"
-    elif not expected:
-        status = "not_started" if start > cutoff else "not_yet_formed"
-    elif baseline is None:
-        status = "missing_baseline"
-    elif not complete:
-        status = "incomplete_path"
-    else:
-        status = "available" if end <= active_end else "in_progress"
-    end_price = prices[-1] if prices else None
-    normalized = [endpoint_change(baseline, price).value for price in prices]
-    row = {
-        "year": year,
-        "group": group,
-        "start_date": start.isoformat(),
-        "end_date": end.isoformat(),
-        "actual_start": expected[0].isoformat() if expected else None,
-        "actual_end": expected[-1].isoformat() if expected else None,
-        "baseline_date": baseline_date.isoformat() if baseline_date else None,
-        "endpoint": _ratio(baseline, end_price),
-        "relative_high": _text(max(normalized)) if complete else None,
-        "relative_low": _text(min(normalized)) if complete else None,
-        # Monthly returns include the prior month close; drawdown needs that same
-        # starting peak. Interval returns begin at their own first close.
-        "max_drawdown": _text(maximum_drawdown([baseline, *prices] if monthly else prices).value)
-        if complete
-        else None,
-        "expected_sessions": len(expected),
-        "valid_sessions": valid,
-        "full_period_sessions": len(full_sessions),
-        "complete": complete,
-        "period_ended": end <= cutoff,
-        "status": status,
-        "missing_dates": [day.isoformat() for day, price in zip(expected, prices) if price is None],
-        "single_session": len(expected) == 1,
+def period_stats(candles: list[dict], target_n: int) -> dict:
+    """Statistics of the complete past years of one period."""
+    sample = [c for c in candles if not c["current"] and c["status"] == "complete"]
+    values = statistics([c["change"] for c in sample])
+    paired = [c for c in sample if c.get("excess") is not None]
+    excess = statistics([c["excess"] for c in paired])
+    output = {
+        "target_n": target_n, "n": values["n"], "up": values["up"], "flat": values["flat"],
+        **{key: values.get(key) for key in ("median", "mean", "q25", "q75")},
+        "best": values.get("max"), "worst": values.get("min"),
+        "paired_n": excess["n"], "beat": excess["up"],
+        "median_excess": excess.get("median"), "mean_excess": excess.get("mean"),
+        "benchmark_median": statistics([c["benchmark_change"] for c in paired]).get("median"),
     }
-    if active_end < start:
-        points = []
-    elif alignment == "calendar":
-        points = _calendar_points(
-            start, active_end, expected, baseline_date, baseline, index, cutoff, monthly=monthly
-        )
-        if monthly:
-            points.insert(
-                0,
-                {
-                    "x": 0,
-                    "date": baseline_date.isoformat(),
-                    "value": "0" if baseline else None,
-                    "status": "available" if baseline else "missing_baseline",
-                    "session": True,
-                },
-            )
-    else:
-        points = [
-            _point(day, i + int(monthly), baseline, index, cutoff) for i, day in enumerate(expected)
-        ]
-        if monthly:
-            points.insert(
-                0,
-                {
-                    "x": 0,
-                    "date": baseline_date.isoformat(),
-                    "value": "0" if baseline else None,
-                    "status": "available" if baseline else "missing_baseline",
-                    "session": True,
-                },
-            )
-    return row, points
-
-
-def _same_progress_end(
-    start: date,
-    end: date,
-    current_start: date,
-    current_end: date,
-    cutoff: date,
-    name: str,
-    alignment: str,
-) -> date:
-    if cutoff < current_start:
-        return start - timedelta(days=1)
-    if cutoff >= current_end:
-        return end
-    if alignment == "trading":
-        count = len(sessions(current_start, cutoff, name))
-        available = sessions(start, end, name)
-        return (
-            available[min(count, len(available)) - 1]
-            if count and available
-            else (start - timedelta(days=1))
-        )
-    # Map month-day AND the cross-year position, not a fixed elapsed-day count:
-    # the latter is one day late after February in a leap-year comparison.
-    mapped = _mapped_day(start.year + cutoff.year - current_start.year, (cutoff.month, cutoff.day))
-    return min(end, mapped)
-
-
-def _period_research(params: dict, index: dict, today: date, cutoff: date) -> dict:
-    kind = params.get("kind", "monthly")
-    name = params.get("calendar", "XNYS")
-    alignment = params.get("alignment", "calendar")
-    if alignment not in {"calendar", "trading"}:
-        raise ValueError("alignment must be calendar or trading")
-    if kind == "monthly":
-        current = _year(params.get("current_year", today.year))
-        month = int(params.get("month", today.month))
-        if not 1 <= month <= 12:
-            raise ValueError("month must be between 1 and 12")
-
-        def bounds(year):
-            return date(year, month, 1), date(year, month, gregorian.monthrange(year, month)[1])
-    else:
-        start_md, end_md, cross, current = _interval_rules(params, today)
-
-        def bounds(year):
-            return _mapped_day(year, start_md), _mapped_day(year + int(cross), end_md)
-
-    years, exclusions = _selected_years(params, current)
-    current_start, current_end = bounds(current)
-    comparison = params.get(
-        "comparison", "same_progress" if current_start <= cutoff < current_end else "complete"
-    )
-    if comparison not in {"same_progress", "complete"}:
-        raise ValueError("comparison must be same_progress or complete")
-    rows, series, cells = [], [], []
-    for year in [*years, current]:
-        group = "current" if year == current else "historical"
-        start, end = bounds(year)
-        view_end = end
-        if comparison == "same_progress" and group == "historical":
-            view_end = _same_progress_end(
-                start, end, current_start, current_end, cutoff, name, alignment
-            )
-        row, points = _period_row(
-            year=year,
-            group=group,
-            start=start,
-            end=end,
-            view_end=view_end,
-            index=index,
-            cutoff=cutoff,
-            name=name,
-            monthly=kind == "monthly",
-            alignment=alignment,
-        )
-        row["eligible"] = (
-            group == "historical"
-            and row["complete"]
-            and (comparison == "same_progress" or row["period_ended"])
-        )
-        if kind == "monthly":
-            row["month"] = month
-        rows.append(row)
-        series.append(
-            {
-                "key": str(year),
-                "label": str(year) if start.year == end.year else f"{year}—{end.year}",
-                "year": year,
-                "group": group,
-                "points": points,
-            }
-        )
-        if group == "historical" and not row["eligible"]:
-            exclusions.append(
-                {"year": year, "reason": row["status"], "missing_dates": row["missing_dates"]}
-            )
-        if kind == "monthly":
-            for cell_month in range(1, 13):
-                cell_start = date(year, cell_month, 1)
-                cell_end = date(year, cell_month, gregorian.monthrange(year, cell_month)[1])
-                cell, _ = _period_row(
-                    year=year,
-                    group=group,
-                    start=cell_start,
-                    end=cell_end,
-                    view_end=cell_end,
-                    index=index,
-                    cutoff=cutoff,
-                    name=name,
-                    monthly=True,
-                    alignment="trading",
-                )
-                cell["month"] = cell_month
-                cells.append(cell)
-    eligible = [row for row in rows if row["eligible"]]
-    summary = _statistics([row["endpoint"] for row in eligible])
-    summary["current"] = next(row for row in rows if row["group"] == "current")
-    summary["path"] = _path_statistics(series)
-    summary["worst_drawdown"] = _text(
-        max(
-            (Decimal(row["max_drawdown"]) for row in eligible if row["max_drawdown"] is not None),
-            default=None,
-        )
-    )
-    if kind == "monthly":
-        summary["months"] = [
-            {
-                "month": cell_month,
-                **_statistics(
-                    [
-                        cell["endpoint"]
-                        for cell in cells
-                        if cell["month"] == cell_month
-                        and cell["group"] == "historical"
-                        and cell["complete"]
-                        and cell["period_ended"]
-                    ]
-                ),
-            }
-            for cell_month in range(1, 13)
-        ]
-    return {
-        "kind": kind,
-        "metadata": {
-            "params": params,
-            "historical_years": years,
-            "current_year": current,
-            "target_n": len(years),
-            "cutoff_date": cutoff.isoformat(),
-            "calendar": name,
-            "calendar_version": calendar_version(),
-            "alignment": alignment,
-            "comparison": comparison,
-        },
-        "summary": summary,
-        "cells": cells,
-        "series": series,
-        "rows": rows,
-        "effective_n": len(eligible),
-        "exclusions": exclusions,
-    }
+    if sample:
+        ranked = sorted(sample, key=lambda c: Decimal(c["change"]))
+        output["worst_year"], output["best_year"] = ranked[0]["year"], ranked[-1]["year"]
+        low, high = wilson_interval(values["up"], values["n"])
+        output.update(up_low=str(low), up_high=str(high), coin_flip=low <= Decimal("0.5") <= high)
+    return PeriodStats.model_validate(output).model_dump()
 
 
 def compute_research(
-    params: dict, bars: list[dict], today: date | None = None,
-    benchmark: dict | None = None,
+    params: dict, bars: list[dict], today: date | None = None, benchmark: dict | None = None,
 ) -> dict:
-    """Compute one security using a single qualified price/input version."""
+    """One security; ``today`` is the research cutoff (the last completed session)."""
     params = {key: value for key, value in params.items() if value is not None}
-    as_of = today or datetime.now(ET).date()
-    cutoff = completed_through(today, params.get("calendar", "XNYS"))
-    index = _bars_by_date(bars)
     kind = params.get("kind", "monthly")
-    if kind in {"monthly", "interval"}:
-        result = _period_research(params, index, as_of, cutoff)
+    calendar = params.get("calendar", "XNYS")
+    as_of = today or datetime.now(ET).date()
+    cutoff = completed_through(today, calendar)
+    index = _bars_by_date(bars)
+    paired = None
+    if benchmark is not None and benchmark.get("status") == "available":
+        paired = _bars_by_date(benchmark.get("bars", []))
+    if kind == "monthly":
+        current = int(params.get("current_year") or as_of.year)
+        bounds = [(month, f"{month:02d}-01", f"{month:02d}-{gregorian.monthrange(2001, month)[1]:02d}",
+                   lambda year, m=month: (date(year, m, 1), date(year, m, gregorian.monthrange(year, m)[1])),
+                   False)
+                  for month in range(1, 13)]
+    elif kind == "interval":
+        start_md, end_md, cross, current = _interval_rules(params, as_of)
+        bounds = [(None, f"{start_md[0]:02d}-{start_md[1]:02d}", f"{end_md[0]:02d}-{end_md[1]:02d}",
+                   lambda year: (_mapped_day(year, start_md), _mapped_day(year + int(cross), end_md)),
+                   cross)]
     else:
         raise ValueError(f"Unsupported research kind: {kind}")
-    add_distributions(result, benchmark)
+    years = _selected_years(params, current)
+    periods = []
+    for month, start_mmdd, end_mmdd, span, cross in bounds:
+        candles = [_candle(year, year == current, *span(year), index, cutoff, calendar, paired)
+                   for year in [*years, current]]
+        periods.append({
+            "key": str(month) if month else "interval", "month": month,
+            "start_mmdd": start_mmdd, "end_mmdd": end_mmdd, "cross_year": cross,
+            "stats": period_stats(candles, len(years)), "years": candles,
+        })
+    result = {
+        "kind": kind,
+        "metadata": {
+            "params": params, "historical_years": years, "current_year": current,
+            "cutoff_date": cutoff.isoformat(), "calendar": calendar,
+            "calendar_version": calendar_version(),
+            "benchmark": {"symbol": benchmark["symbol"], "status": benchmark.get("status", "unknown")}
+            if benchmark else None,
+        },
+        "periods": periods,
+    }
     return ResearchResult.model_validate(result).model_dump(mode="json")

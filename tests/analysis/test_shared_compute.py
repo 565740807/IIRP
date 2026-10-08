@@ -108,7 +108,7 @@ def test_simultaneous_requests_share_real_compute_and_keep_frozen_ownership(mode
     assert len(published) == 3
     assert {r.analysis_id for r in published} == {r[0] for r in requests}
     assert len({r.id for r in published}) == 3
-    assert all(r.data['rows'] == published[0].data['rows'] for r in published)
+    assert all(r.data['periods'] == published[0].data['periods'] for r in published)
     def numerical(value):
         if isinstance(value, dict):
             return {k: numerical(v) for k, v in value.items()
@@ -127,10 +127,9 @@ def test_simultaneous_requests_share_real_compute_and_keep_frozen_ownership(mode
     with TestClient(app) as client:
         for row in rows():
             url = f'/api/v1/analyses/{row.analysis_id}/export'
-            query = {'result_ids': row.id}
-            for fmt in ['json', 'csv']:
-                response = client.get(url, params={**query, 'format': fmt})
-                assert response.status_code == 200 and response.content
+            for table in ['stats', 'detail']:
+                response = client.get(url, params={'table': table})
+                assert response.status_code == 200 and response.text.startswith('\ufeffticker,')
 
 
 @pytest.mark.parametrize('action', ['pause', 'cancel', 'change'])
@@ -144,7 +143,7 @@ def test_running_join_and_creator_control_cannot_dominate_other_subscribers(acti
         if action == 'change':
             with session() as s, s.begin():
                 request = s.get(AnalysisRequest, first[0])
-                request.params = {**request.params, 'month': 2}
+                request.params = {**request.params, 'historical_years': 2}
         else:
             batches.control_batch(first[1], action)
     with closing(OperationPool()) as pool:
@@ -286,9 +285,9 @@ def test_fanout_rolls_back_all_results_then_retry_keeps_ownership(monkeypatch):
     assert {row.id: row.data for row in rows()} == before
 
 
-def test_label_and_request_time_envelope_are_owned_by_each_native_result():
+def test_request_time_envelope_is_owned_by_each_native_result():
     create = setup('monthly')
-    first, second = create(research_label='First label'), create(research_label='Second label')
+    first, second = create(), create()
     # A later request-time envelope has the same already-frozen mathematical
     # bounds. Only that non-numerical envelope may differ across shared work.
     with session() as s, s.begin():
@@ -304,8 +303,6 @@ def test_label_and_request_time_envelope_are_owned_by_each_native_result():
             request = s.get(AnalysisRequest, row.analysis_id)
             assert row.inputs['params'] == request.params
             assert row.data['metadata']['params']['price_range'] == request.params['price_range']
-        assert s.get(Batch, first[1]).title.startswith('First label')
-        assert s.get(Batch, second[1]).title.startswith('Second label')
 
 
 def test_completed_new_input_not_held_open_by_other_subscribers_old_work():

@@ -10,7 +10,7 @@
     "preview": "vite preview --host 127.0.0.1",
     "generate:api": "openapi-typescript ../docs/openapi.json -o src/generated/api.ts",
     "check:api": "node check-api.mjs",
-    "test": "node --test tests/*.test.mjs && node tests/analysisProgress.test.cjs"
+    "test": "node --test tests/*.test.mjs"
   },
   "dependencies": {
     "@fontsource-variable/geist": "^5.3.0",

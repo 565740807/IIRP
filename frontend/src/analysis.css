@@ -1,83 +1,10 @@
-.analysis-conditions > summary {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  cursor: pointer;
-  flex-wrap: wrap;
-}
-.analysis-conditions > summary > span:first-of-type {
-  flex: 1;
-  color: #56657a;
-}
-.analysis-conditions[open] > summary {
-  margin-bottom: 16px;
-}
-.analysis-version {
-  color: #56657a;
-  font-size: 13px;
-  overflow-wrap: anywhere;
-  padding: 8px 0 16px;
-}
-.analysis-version p {
-  margin: 4px 0;
-}
-.analysis-version details {
-  margin-top: 6px;
-}
-.analysis-version details p {
-  max-height: 120px;
-  overflow: auto;
-}
-.analysis-progress {
-  display: block;
-}
-@media (max-width: 640px) {
-  .analysis-conditions > summary {
-    gap: 8px;
-  }
-  .analysis-version {
-    font-size: 12px;
-  }
-}
-.analysis-conditions > summary { padding: 14px 18px; }
-.analysis-conditions[open] > summary { margin-bottom: 0; }
-@media (max-width: 640px) { .analysis-conditions > summary { padding: 12px 14px; } }
-
 .analysis-tabs { display:flex; gap:8px; overflow-x:auto; }
 .analysis-tabs a { white-space:nowrap; flex-shrink:0; word-break:keep-all; }
-.research-freshness { padding:14px 18px; border:1px solid #cbd5e1; border-radius:12px; background:#f8fafc; margin:12px 0; }
-.research-freshness p { margin:8px 0; }
-.research-freshness small { color:#475569; }
-.research-exports { position:relative; font-size:14px; }
-.research-exports summary { cursor:pointer; padding:8px; }
-.research-exports[open] .button-row { position:absolute; right:0; z-index:4; width:230px; padding:12px; background:white; border:1px solid #cbd5e1; box-shadow:0 6px 18px #0f172a18; }
-.analysis-version > summary { cursor:pointer; padding:6px 0; }
 @media(max-width:640px) {
- .research-freshness { padding:12px; }
- .research-freshness .section-heading { align-items:flex-start; }
- .research-freshness .button-row { flex-wrap:wrap; }
  .analysis-results .section-heading { flex-wrap:wrap; }
 }
-
-.research-version-detail { margin-top: 4px; color: #475569; font-size: 12px; }
-.research-version-detail summary { cursor: pointer; width: fit-content; }
-.research-version-detail small { display: block; margin-top: 6px; }
-.research-version-detail a { margin-left: 12px; }
-.research-question { margin: 4px 0 0; color: #405168; font-size: 13px; }
-.table-hint { margin: 8px 0 4px; color: #475569; font-size: 12px; }
 .table-scroll:focus-visible { outline: 3px solid #2563eb; outline-offset: 2px; }
 
-/* The freshness card already has padding; avoid nesting a second panel header. */
-@media (min-width: 900px) {
-  .research-freshness > .section-heading {
-    padding: 0;
-    min-height: 0;
-  }
-  .analysis-task-progress > summary.section-heading {
-    min-height: 0;
-    padding: 12px 18px;
-  }
-}
 /* Earnings and custom events (S3). Blue up, orange down, always with a sign. */
 .ev-up { color: #1d4ed8; font-variant-numeric: tabular-nums; }
 .ev-down { color: #c2410c; font-variant-numeric: tabular-nums; }

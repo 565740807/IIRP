@@ -297,7 +297,8 @@ def _matches(row: dict, kind: str) -> bool:
     if kind in {"all", "全部", ""}:
         return True
     if kind in {"focus", "重点"}:
-        return row.get("table") == "II" or row.get("code") in {"P", "S"}
+        # Open-market purchases and sales only; grants and exercises stay in "all".
+        return row.get("table") == "I" and row.get("code") in {"P", "S"}
     if kind in {"buy", "purchase", "P"}:
         return row.get("table") == "I" and row.get("code") == "P"
     if kind in {"sell", "sale", "S"}:

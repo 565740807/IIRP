@@ -27,7 +27,7 @@ from tests.jobs.test_lifecycle import clean_lifecycle, lifecycle_database  # noq
 
 
 def values(**overrides):
-    return params(kind="monthly", years=[2024], **overrides)
+    return params(kind="monthly", current_year=2025, historical_years=1, **overrides)
 
 
 @pytest.mark.parametrize("boundary", ["cache", "response"])
@@ -38,7 +38,7 @@ def test_slow_local_work_does_not_hold_creation_locks(monkeypatch, boundary, rel
     following_values = {
         **first_values,
         **({} if relation == "same_request" else {"request_id": str(uuid.uuid4())}),
-        **({"years": [2023]} if relation == "same_security" else {}),
+        **({"historical_years": 2} if relation == "same_security" else {}),
     }
     entered, release = threading.Event(), threading.Event()
     once = threading.Lock()
@@ -112,7 +112,7 @@ def test_first_response_still_includes_completed_cache():
     assert created["results"]
     assert created["id"] != original["id"]
     assert created["results"][0]["result_id"] != original["results"][0]["result_id"]
-    assert created["results"][0]["data"]["rows"] == original["results"][0]["data"]["rows"]
+    assert created["results"][0]["data"]["periods"] == original["results"][0]["data"]["periods"]
 
 
 @pytest.mark.parametrize("action", ["pause", "cancel"])
@@ -191,4 +191,4 @@ def test_post_commit_failure_keeps_the_same_recoverable_request(monkeypatch):
     replay = requests.create_analysis(submitted)
     assert replay["id"] == identifier and replay["batch_id"] == batch_id
     with pytest.raises(ValueError, match="analysis.request_id_reused"):
-        requests.create_analysis({**submitted, "years": [2023]})
+        requests.create_analysis({**submitted, "historical_years": 2})
