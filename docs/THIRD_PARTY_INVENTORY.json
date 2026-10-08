@@ -1,6 +1,6 @@
 {
-  "project_license": "Owner decision pending; no project license granted",
-  "scope": "Locked Python and npm packages; verified artifact/notice material in docs/THIRD_PARTY_REVIEW.json is not publication or licensing approval",
+  "project_license": "MIT (see LICENSE)",
+  "scope": "Locked Python and npm packages; artifact and notice checks are in docs/THIRD_PARTY_REVIEW.json",
   "packages": [
     {
       "ecosystem": "python",
@@ -1043,7 +1043,14 @@
       "name": "@babel/runtime",
       "version": "7.29.7",
       "license": "MIT",
-      "lock": "frontend/package-lock.json"
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/@babel/runtime/-/runtime-7.29.7.tgz",
+        "sha256": "4d7f1bd502a1a64d47625cc738d13284865f0666d2ed01f244de0adf05b69aa5",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
     },
     {
       "ecosystem": "npm",
@@ -1456,35 +1463,70 @@
       "name": "@floating-ui/core",
       "version": "1.8.0",
       "license": "MIT",
-      "lock": "frontend/package-lock.json"
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/@floating-ui/core/-/core-1.8.0.tgz",
+        "sha256": "c86371bdb19948a71591d36f23ec33d2b54e06503bd5c2e00a2dbbfa389622fd",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
     },
     {
       "ecosystem": "npm",
       "name": "@floating-ui/dom",
       "version": "1.8.0",
       "license": "MIT",
-      "lock": "frontend/package-lock.json"
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/@floating-ui/dom/-/dom-1.8.0.tgz",
+        "sha256": "b9511cc8fd8898c7c67143ff8dd93a3d427108632c801a546ae72ab1df3cd6a5",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
     },
     {
       "ecosystem": "npm",
       "name": "@floating-ui/react-dom",
       "version": "2.1.9",
       "license": "MIT",
-      "lock": "frontend/package-lock.json"
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/@floating-ui/react-dom/-/react-dom-2.1.9.tgz",
+        "sha256": "c60ae5915affc398222f7c24350069f2e4a3a18dd2ef641bc45ad6e0d4148739",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
     },
     {
       "ecosystem": "npm",
       "name": "@floating-ui/utils",
       "version": "0.2.12",
       "license": "MIT",
-      "lock": "frontend/package-lock.json"
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/@floating-ui/utils/-/utils-0.2.12.tgz",
+        "sha256": "fe0800a3de3d9c819bf63e525bf26080ce692969dda400c715780141a187928f",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
     },
     {
       "ecosystem": "npm",
       "name": "@fontsource-variable/geist",
       "version": "5.3.0",
       "license": "OFL-1.1",
-      "lock": "frontend/package-lock.json"
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/@fontsource-variable/geist/-/geist-5.3.0.tgz",
+        "sha256": "533dd66117795ac12316fb05fce27736c4bc63c31613b302d0a5285ca3a291d7",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
     },
     {
       "ecosystem": "npm",
@@ -1575,14 +1617,28 @@
       "name": "@number-flow/react",
       "version": "0.6.2",
       "license": "MIT",
-      "lock": "frontend/package-lock.json"
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/@number-flow/react/-/react-0.6.2.tgz",
+        "sha256": "e323fecdf82e51de5ec7d8f48c155c9f0f6383ed57b7a3475e3ed882049c25d2",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
     },
     {
       "ecosystem": "npm",
       "name": "@radix-ui/number",
       "version": "1.1.3",
       "license": "MIT",
-      "lock": "frontend/package-lock.json"
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/@radix-ui/number/-/number-1.1.3.tgz",
+        "sha256": "d671e5fbc4bd5713614cde634b1de6bbb3d8f26836d1ff8633178e74c0566ed6",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
     },
     {
       "ecosystem": "npm",
@@ -1603,63 +1659,126 @@
       "name": "@radix-ui/react-accessible-icon",
       "version": "1.1.16",
       "license": "MIT",
-      "lock": "frontend/package-lock.json"
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/@radix-ui/react-accessible-icon/-/react-accessible-icon-1.1.16.tgz",
+        "sha256": "a9bece7d4582b9cd6e11eeaa4beefe129f8597c92c11c03f602d0c52d3fdcd24",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
     },
     {
       "ecosystem": "npm",
       "name": "@radix-ui/react-accordion",
       "version": "1.2.21",
       "license": "MIT",
-      "lock": "frontend/package-lock.json"
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/@radix-ui/react-accordion/-/react-accordion-1.2.21.tgz",
+        "sha256": "c8c9f03f5d1af06bdb346ab8aee7be431f551b36438bf1ab325963903e437890",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
     },
     {
       "ecosystem": "npm",
       "name": "@radix-ui/react-alert-dialog",
       "version": "1.1.24",
       "license": "MIT",
-      "lock": "frontend/package-lock.json"
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/@radix-ui/react-alert-dialog/-/react-alert-dialog-1.1.24.tgz",
+        "sha256": "f73fd59a59e141546493e904dc246c06ba6214be9a7360e51eb382df42eb130a",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
     },
     {
       "ecosystem": "npm",
       "name": "@radix-ui/react-arrow",
       "version": "1.1.16",
       "license": "MIT",
-      "lock": "frontend/package-lock.json"
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/@radix-ui/react-arrow/-/react-arrow-1.1.16.tgz",
+        "sha256": "ef7b0aa6036dd795940a74ee89ffe04110e4808d7f5d5a1e17fcc0c16634940f",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
     },
     {
       "ecosystem": "npm",
       "name": "@radix-ui/react-aspect-ratio",
       "version": "1.1.16",
       "license": "MIT",
-      "lock": "frontend/package-lock.json"
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/@radix-ui/react-aspect-ratio/-/react-aspect-ratio-1.1.16.tgz",
+        "sha256": "2b2fb436f8782d42ad41252469c1fe26ead23ffdcb2a410be015cf8db5b9f87e",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
     },
     {
       "ecosystem": "npm",
       "name": "@radix-ui/react-avatar",
       "version": "1.2.7",
       "license": "MIT",
-      "lock": "frontend/package-lock.json"
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/@radix-ui/react-avatar/-/react-avatar-1.2.7.tgz",
+        "sha256": "ce915ae61c9e13025933bc6aede8d181630fa917563259e6c531d17e166cac35",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
     },
     {
       "ecosystem": "npm",
       "name": "@radix-ui/react-checkbox",
       "version": "1.3.12",
       "license": "MIT",
-      "lock": "frontend/package-lock.json"
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/@radix-ui/react-checkbox/-/react-checkbox-1.3.12.tgz",
+        "sha256": "2ce0b6e007b1a5c900665f65bdd2a35b6358abc1adae9b59b95fdc99fbf18042",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
     },
     {
       "ecosystem": "npm",
       "name": "@radix-ui/react-collapsible",
       "version": "1.1.21",
       "license": "MIT",
-      "lock": "frontend/package-lock.json"
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/@radix-ui/react-collapsible/-/react-collapsible-1.1.21.tgz",
+        "sha256": "701cadaabb2abd076934ebd1cf77775c4c91ab3b089a4448e1a5300359a2818a",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
     },
     {
       "ecosystem": "npm",
       "name": "@radix-ui/react-collection",
       "version": "1.1.16",
       "license": "MIT",
-      "lock": "frontend/package-lock.json"
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/@radix-ui/react-collection/-/react-collection-1.1.16.tgz",
+        "sha256": "0366bf961ff766430312516c12d0a4290bd996b0148db9cc6a0b594e658dcc49",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
     },
     {
       "ecosystem": "npm",
@@ -1694,35 +1813,70 @@
       "name": "@radix-ui/react-context-menu",
       "version": "2.3.8",
       "license": "MIT",
-      "lock": "frontend/package-lock.json"
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/@radix-ui/react-context-menu/-/react-context-menu-2.3.8.tgz",
+        "sha256": "1f2ae05b17f5b25a221c5a656fb4aea22b35e974f3299beb35e647916c9fa2a4",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
     },
     {
       "ecosystem": "npm",
       "name": "@radix-ui/react-dialog",
       "version": "1.2.0",
       "license": "MIT",
-      "lock": "frontend/package-lock.json"
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/@radix-ui/react-dialog/-/react-dialog-1.2.0.tgz",
+        "sha256": "535f2e39d1bfd6b8f45942674f6b4827416b5041e49335d3554e494ca73f3e40",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
     },
     {
       "ecosystem": "npm",
       "name": "@radix-ui/react-direction",
       "version": "1.1.5",
       "license": "MIT",
-      "lock": "frontend/package-lock.json"
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/@radix-ui/react-direction/-/react-direction-1.1.5.tgz",
+        "sha256": "a8550d9ec91156a180755f2c2e99e5b92f2bc9e0180dac8a13bab2304b15921d",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
     },
     {
       "ecosystem": "npm",
       "name": "@radix-ui/react-dismissable-layer",
       "version": "1.1.20",
       "license": "MIT",
-      "lock": "frontend/package-lock.json"
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/@radix-ui/react-dismissable-layer/-/react-dismissable-layer-1.1.20.tgz",
+        "sha256": "4a5d296a12e9705cdb3decc9e8a509997243d997a784c2f3b5042b5aa727b91b",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
     },
     {
       "ecosystem": "npm",
       "name": "@radix-ui/react-dropdown-menu",
       "version": "2.1.25",
       "license": "MIT",
-      "lock": "frontend/package-lock.json"
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/@radix-ui/react-dropdown-menu/-/react-dropdown-menu-2.1.25.tgz",
+        "sha256": "5c1f139882fb2ae2b20e0479f66585ede52a678b87f37d984a48a680e468a74c",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
     },
     {
       "ecosystem": "npm",
@@ -1743,21 +1897,42 @@
       "name": "@radix-ui/react-focus-scope",
       "version": "1.2.0",
       "license": "MIT",
-      "lock": "frontend/package-lock.json"
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/@radix-ui/react-focus-scope/-/react-focus-scope-1.2.0.tgz",
+        "sha256": "4c1046590a86decc0ec57639ceae2815c98f02fe4f95f976a24509bdd99a1c06",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
     },
     {
       "ecosystem": "npm",
       "name": "@radix-ui/react-form",
       "version": "0.2.0",
       "license": "MIT",
-      "lock": "frontend/package-lock.json"
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/@radix-ui/react-form/-/react-form-0.2.0.tgz",
+        "sha256": "d3db6c5251ea0a1faf11d514ed58ab21f9fb13282c3e4ffec28edb5ca5851435",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
     },
     {
       "ecosystem": "npm",
       "name": "@radix-ui/react-hover-card",
       "version": "1.1.24",
       "license": "MIT",
-      "lock": "frontend/package-lock.json"
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/@radix-ui/react-hover-card/-/react-hover-card-1.1.24.tgz",
+        "sha256": "61945cd2d8714ef3132e9adee1e8834142158f4b50c9447ddf3dd4ad97b28eb2",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
     },
     {
       "ecosystem": "npm",
@@ -1778,182 +1953,364 @@
       "name": "@radix-ui/react-label",
       "version": "2.1.16",
       "license": "MIT",
-      "lock": "frontend/package-lock.json"
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/@radix-ui/react-label/-/react-label-2.1.16.tgz",
+        "sha256": "b78a9d08959dbd53306014f5b35f38ffd61d22454cc45abf7d553ac1f044de66",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
     },
     {
       "ecosystem": "npm",
       "name": "@radix-ui/react-menu",
       "version": "2.1.25",
       "license": "MIT",
-      "lock": "frontend/package-lock.json"
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/@radix-ui/react-menu/-/react-menu-2.1.25.tgz",
+        "sha256": "7fcf5601529310e496e71998364cecc36acda73b2ffde8bdedae09e16d067d64",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
     },
     {
       "ecosystem": "npm",
       "name": "@radix-ui/react-menubar",
       "version": "1.1.25",
       "license": "MIT",
-      "lock": "frontend/package-lock.json"
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/@radix-ui/react-menubar/-/react-menubar-1.1.25.tgz",
+        "sha256": "8c4ff26f540a354f21c77101ee9e06eecb5a08aec9074f13634605644ff2f816",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
     },
     {
       "ecosystem": "npm",
       "name": "@radix-ui/react-navigation-menu",
       "version": "1.3.0",
       "license": "MIT",
-      "lock": "frontend/package-lock.json"
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/@radix-ui/react-navigation-menu/-/react-navigation-menu-1.3.0.tgz",
+        "sha256": "fc16ab9d0ff47385261f111fd3bc0777512b499c9eaa477cc83772496d1c913e",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
     },
     {
       "ecosystem": "npm",
       "name": "@radix-ui/react-one-time-password-field",
       "version": "0.1.17",
       "license": "MIT",
-      "lock": "frontend/package-lock.json"
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/@radix-ui/react-one-time-password-field/-/react-one-time-password-field-0.1.17.tgz",
+        "sha256": "30ad96529298eb2f24c2cc4c5686ff66f492f498b6938781781bd16b55eccce2",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
     },
     {
       "ecosystem": "npm",
       "name": "@radix-ui/react-password-toggle-field",
       "version": "0.1.12",
       "license": "MIT",
-      "lock": "frontend/package-lock.json"
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/@radix-ui/react-password-toggle-field/-/react-password-toggle-field-0.1.12.tgz",
+        "sha256": "1041318141ca4f88ba944f4728677ae0aff6eca18dd2f2d9734eaae9fcf8a62e",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
     },
     {
       "ecosystem": "npm",
       "name": "@radix-ui/react-popover",
       "version": "1.2.0",
       "license": "MIT",
-      "lock": "frontend/package-lock.json"
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/@radix-ui/react-popover/-/react-popover-1.2.0.tgz",
+        "sha256": "a0946a8f76f19587f9014406bdc5fcd30ffbd1662dd2d218d5c2496584046ce9",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
     },
     {
       "ecosystem": "npm",
       "name": "@radix-ui/react-popper",
       "version": "1.3.8",
       "license": "MIT",
-      "lock": "frontend/package-lock.json"
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/@radix-ui/react-popper/-/react-popper-1.3.8.tgz",
+        "sha256": "f60b6d4dc672e6ccd25d35353dc552f2f93025c514749788c2bb3e521f24a4d3",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
     },
     {
       "ecosystem": "npm",
       "name": "@radix-ui/react-portal",
       "version": "1.1.18",
       "license": "MIT",
-      "lock": "frontend/package-lock.json"
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/@radix-ui/react-portal/-/react-portal-1.1.18.tgz",
+        "sha256": "c4beb839d8e0b002cbf7e6fb71be4f865c945347fc2ce828e4da8109a0f69813",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
     },
     {
       "ecosystem": "npm",
       "name": "@radix-ui/react-presence",
       "version": "1.1.11",
       "license": "MIT",
-      "lock": "frontend/package-lock.json"
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/@radix-ui/react-presence/-/react-presence-1.1.11.tgz",
+        "sha256": "bf46b30f7890f14c8bc791ef5ffe47ca8517939f8c78993fc450bd69a9f0ee61",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
     },
     {
       "ecosystem": "npm",
       "name": "@radix-ui/react-primitive",
       "version": "2.1.11",
       "license": "MIT",
-      "lock": "frontend/package-lock.json"
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/@radix-ui/react-primitive/-/react-primitive-2.1.11.tgz",
+        "sha256": "cd0107911bb3f22e6c916c4f0e520230fe942ed47e5992e34f4674701a8d920c",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
     },
     {
       "ecosystem": "npm",
       "name": "@radix-ui/react-progress",
       "version": "1.1.17",
       "license": "MIT",
-      "lock": "frontend/package-lock.json"
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/@radix-ui/react-progress/-/react-progress-1.1.17.tgz",
+        "sha256": "60bec4a139ba17e78abd706a41e98d49420664bbfb6b1e4e3dcc138e31f230e8",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
     },
     {
       "ecosystem": "npm",
       "name": "@radix-ui/react-radio-group",
       "version": "1.4.8",
       "license": "MIT",
-      "lock": "frontend/package-lock.json"
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/@radix-ui/react-radio-group/-/react-radio-group-1.4.8.tgz",
+        "sha256": "3e6143a894d408a8e653b6ab76f40fad721e9aba408f1f1cc7190fddd23fe680",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
     },
     {
       "ecosystem": "npm",
       "name": "@radix-ui/react-roving-focus",
       "version": "1.1.20",
       "license": "MIT",
-      "lock": "frontend/package-lock.json"
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/@radix-ui/react-roving-focus/-/react-roving-focus-1.1.20.tgz",
+        "sha256": "bb6a218e2a344af1d72168ee00e8d7f039207263c386c54255e283c28af4f77e",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
     },
     {
       "ecosystem": "npm",
       "name": "@radix-ui/react-scroll-area",
       "version": "1.3.0",
       "license": "MIT",
-      "lock": "frontend/package-lock.json"
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/@radix-ui/react-scroll-area/-/react-scroll-area-1.3.0.tgz",
+        "sha256": "13cf23f0705569760a70c20a531d858a5db2fb57ba39e27e0f7872eb6717d413",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
     },
     {
       "ecosystem": "npm",
       "name": "@radix-ui/react-select",
       "version": "2.3.8",
       "license": "MIT",
-      "lock": "frontend/package-lock.json"
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/@radix-ui/react-select/-/react-select-2.3.8.tgz",
+        "sha256": "c4996dd3919efa9d8243216bb53e9cba188d182ea28d0902642c817f5a3324c9",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
     },
     {
       "ecosystem": "npm",
       "name": "@radix-ui/react-separator",
       "version": "1.1.16",
       "license": "MIT",
-      "lock": "frontend/package-lock.json"
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/@radix-ui/react-separator/-/react-separator-1.1.16.tgz",
+        "sha256": "7a32d12487e2b1b642c14947445d5a3a6bc7971554cd14269ac273a581074625",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
     },
     {
       "ecosystem": "npm",
       "name": "@radix-ui/react-slider",
       "version": "1.5.0",
       "license": "MIT",
-      "lock": "frontend/package-lock.json"
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/@radix-ui/react-slider/-/react-slider-1.5.0.tgz",
+        "sha256": "bc35abc65e14e0166cd88abc1bdd376014a63de0e1c969297ce5ee620efd53cd",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
     },
     {
       "ecosystem": "npm",
       "name": "@radix-ui/react-slot",
       "version": "1.4.0",
       "license": "MIT",
-      "lock": "frontend/package-lock.json"
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/@radix-ui/react-slot/-/react-slot-1.4.0.tgz",
+        "sha256": "00bdd8221e5534d8d2d0cbb831a79b1344b69521faef10245d7fe13e98893d7b",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
     },
     {
       "ecosystem": "npm",
       "name": "@radix-ui/react-switch",
       "version": "1.3.8",
       "license": "MIT",
-      "lock": "frontend/package-lock.json"
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/@radix-ui/react-switch/-/react-switch-1.3.8.tgz",
+        "sha256": "b214f1646b8434c2185e9e40e7ad0faa2e0a85145bd272d1e779c49eb3a97ced",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
     },
     {
       "ecosystem": "npm",
       "name": "@radix-ui/react-tabs",
       "version": "1.1.22",
       "license": "MIT",
-      "lock": "frontend/package-lock.json"
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/@radix-ui/react-tabs/-/react-tabs-1.1.22.tgz",
+        "sha256": "238efb1dc76379b8d4d80deae2f0d398c239fad97c3567a8e418854530cb2d3f",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
     },
     {
       "ecosystem": "npm",
       "name": "@radix-ui/react-toast",
       "version": "1.2.24",
       "license": "MIT",
-      "lock": "frontend/package-lock.json"
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/@radix-ui/react-toast/-/react-toast-1.2.24.tgz",
+        "sha256": "ae573ace2f5a8c6b6f0cc4ede8cf5016a2e60594cc3d248980ad5778b39a3371",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
     },
     {
       "ecosystem": "npm",
       "name": "@radix-ui/react-toggle",
       "version": "1.1.19",
       "license": "MIT",
-      "lock": "frontend/package-lock.json"
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/@radix-ui/react-toggle/-/react-toggle-1.1.19.tgz",
+        "sha256": "fda1a0a23f4c1e9e5403dd994778a92eff125c4ee0504a1c16d258451aeedbb9",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
     },
     {
       "ecosystem": "npm",
       "name": "@radix-ui/react-toggle-group",
       "version": "1.1.20",
       "license": "MIT",
-      "lock": "frontend/package-lock.json"
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/@radix-ui/react-toggle-group/-/react-toggle-group-1.1.20.tgz",
+        "sha256": "e15ea23219cdae7dda523133cd3194eed4fccd66481fbe03c8b87b8032aa2514",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
     },
     {
       "ecosystem": "npm",
       "name": "@radix-ui/react-toolbar",
       "version": "1.1.20",
       "license": "MIT",
-      "lock": "frontend/package-lock.json"
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/@radix-ui/react-toolbar/-/react-toolbar-1.1.20.tgz",
+        "sha256": "9fd768e661336881e01c9b60f537eface920fb8ea5d1ff502c597eb8736845b3",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
     },
     {
       "ecosystem": "npm",
       "name": "@radix-ui/react-tooltip",
       "version": "1.3.0",
       "license": "MIT",
-      "lock": "frontend/package-lock.json"
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/@radix-ui/react-tooltip/-/react-tooltip-1.3.0.tgz",
+        "sha256": "ac4d494247ce0042b15930a536a0927123f24a11680a3c39ca1364ce56a836bd",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
     },
     {
       "ecosystem": "npm",
@@ -2002,14 +2359,28 @@
       "name": "@radix-ui/react-use-escape-keydown",
       "version": "1.1.5",
       "license": "MIT",
-      "lock": "frontend/package-lock.json"
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/@radix-ui/react-use-escape-keydown/-/react-use-escape-keydown-1.1.5.tgz",
+        "sha256": "7b3dab6e7b74414fbe337176c3ecbdbbec6d7901018add05eb30c92d7fece907",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
     },
     {
       "ecosystem": "npm",
       "name": "@radix-ui/react-use-is-hydrated",
       "version": "0.1.3",
       "license": "MIT",
-      "lock": "frontend/package-lock.json"
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/@radix-ui/react-use-is-hydrated/-/react-use-is-hydrated-0.1.3.tgz",
+        "sha256": "cc309145b7f5ff83c68f0282bc0cb15df7bb32877d46b9f46b0a7120854e677f",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
     },
     {
       "ecosystem": "npm",
@@ -2030,35 +2401,70 @@
       "name": "@radix-ui/react-use-previous",
       "version": "1.1.4",
       "license": "MIT",
-      "lock": "frontend/package-lock.json"
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/@radix-ui/react-use-previous/-/react-use-previous-1.1.4.tgz",
+        "sha256": "893e6ce4eba1249d3bd6f308f1b350c4a572c60077b498e2d92144436cd90f98",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
     },
     {
       "ecosystem": "npm",
       "name": "@radix-ui/react-use-rect",
       "version": "1.1.4",
       "license": "MIT",
-      "lock": "frontend/package-lock.json"
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/@radix-ui/react-use-rect/-/react-use-rect-1.1.4.tgz",
+        "sha256": "cf7caba094c925dd58b7a175070682066a3d59b2c42b9fbc6d6baad3bbd234d9",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
     },
     {
       "ecosystem": "npm",
       "name": "@radix-ui/react-use-size",
       "version": "1.1.5",
       "license": "MIT",
-      "lock": "frontend/package-lock.json"
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/@radix-ui/react-use-size/-/react-use-size-1.1.5.tgz",
+        "sha256": "10f52a210fcb97780617c84af2d7dfdbb02e7f602e0311584826dafe1aa166e8",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
     },
     {
       "ecosystem": "npm",
       "name": "@radix-ui/react-visually-hidden",
       "version": "1.2.12",
       "license": "MIT",
-      "lock": "frontend/package-lock.json"
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/@radix-ui/react-visually-hidden/-/react-visually-hidden-1.2.12.tgz",
+        "sha256": "b93d5170f407c7ea7110fee8d0578057091717fa1b5dd6291de236ebdec75697",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
     },
     {
       "ecosystem": "npm",
       "name": "@radix-ui/rect",
       "version": "1.1.3",
       "license": "MIT",
-      "lock": "frontend/package-lock.json"
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/@radix-ui/rect/-/rect-1.1.3.tgz",
+        "sha256": "0dfd24afe3d0faf68408774f8c77d52a83d1188dbb38f082ddac12cce5c28953",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
     },
     {
       "ecosystem": "npm",
@@ -2706,17 +3112,59 @@
     },
     {
       "ecosystem": "npm",
+      "name": "@tanstack/react-table",
+      "version": "8.21.3",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/@tanstack/react-table/-/react-table-8.21.3.tgz",
+        "sha256": "3a8ef8748a46436ccfe7032ccd642b68eccabed57f3cbb4bc021813371fdec9c",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
       "name": "@tanstack/react-virtual",
       "version": "3.14.13",
       "license": "MIT",
-      "lock": "frontend/package-lock.json"
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/@tanstack/react-virtual/-/react-virtual-3.14.13.tgz",
+        "sha256": "b4dda29e12a94660e171d2aa6288d74cd85a04cf1eac01dffd32b9255aef3d4c",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "@tanstack/table-core",
+      "version": "8.21.3",
+      "license": "MIT",
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/@tanstack/table-core/-/table-core-8.21.3.tgz",
+        "sha256": "1e5b2f4f04c8c31100ebd0b966fae5eadbb1d11bd45517edb9fc15fbd6a8f2a0",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
     },
     {
       "ecosystem": "npm",
       "name": "@tanstack/virtual-core",
       "version": "3.17.11",
       "license": "MIT",
-      "lock": "frontend/package-lock.json"
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/@tanstack/virtual-core/-/virtual-core-3.17.11.tgz",
+        "sha256": "2c479d194b868c05a47881e381fbd9880a5c796e80bd9f022da276d2e5d58b57",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
     },
     {
       "ecosystem": "npm",
@@ -2793,7 +3241,14 @@
       "name": "@types/node",
       "version": "26.6.4",
       "license": "MIT",
-      "lock": "frontend/package-lock.json"
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/@types/node/-/node-26.6.4.tgz",
+        "sha256": "bf2dbf11cfccd34681fc4d5e4d150afce77fd6610224757dbe6c92c8e5149700",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
     },
     {
       "ecosystem": "npm",
@@ -2982,14 +3437,28 @@
       "name": "class-variance-authority",
       "version": "0.7.1",
       "license": "Apache-2.0",
-      "lock": "frontend/package-lock.json"
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/class-variance-authority/-/class-variance-authority-0.7.1.tgz",
+        "sha256": "a8bcf3309162b18c914f4f2440d0a5b176e3735e0787108b3be2d4ae7f470611",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
     },
     {
       "ecosystem": "npm",
       "name": "clsx",
       "version": "2.1.1",
       "license": "MIT",
-      "lock": "frontend/package-lock.json"
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/clsx/-/clsx-2.1.1.tgz",
+        "sha256": "6320104b491ca645120e8f99589ce663ff1fb337ba80066719a011bd95320303",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
     },
     {
       "ecosystem": "npm",
@@ -3178,7 +3647,14 @@
       "name": "esm-env",
       "version": "1.2.2",
       "license": "MIT",
-      "lock": "frontend/package-lock.json"
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/esm-env/-/esm-env-1.2.2.tgz",
+        "sha256": "426a193e24a734dc94bfe27c4d5595fcd91296562f23beaabc3650fc1446322e",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
     },
     {
       "ecosystem": "npm",
@@ -3213,7 +3689,14 @@
       "name": "framer-motion",
       "version": "14.0.0",
       "license": "MIT",
-      "lock": "frontend/package-lock.json"
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/framer-motion/-/framer-motion-14.0.0.tgz",
+        "sha256": "62adc71cdeb347e3d46d871439c7a0f4c4def99a95f8d63aa3a707d537abf8e2",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
     },
     {
       "ecosystem": "npm",
@@ -3276,7 +3759,14 @@
       "name": "html-parse-stringify",
       "version": "4.0.1",
       "license": "MIT",
-      "lock": "frontend/package-lock.json"
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/html-parse-stringify/-/html-parse-stringify-4.0.1.tgz",
+        "sha256": "a98cf41b2adc7750610acfe6557ef96330ed315bc2e02d9422b1007e9f4641cb",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
     },
     {
       "ecosystem": "npm",
@@ -3297,7 +3787,14 @@
       "name": "i18next",
       "version": "26.4.2",
       "license": "MIT",
-      "lock": "frontend/package-lock.json"
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/i18next/-/i18next-26.4.2.tgz",
+        "sha256": "09d165080388c774bdf240d15a1322efa7fe576bc37384bddb38650153bf706a",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
     },
     {
       "ecosystem": "npm",
@@ -3640,21 +4137,42 @@
       "name": "motion",
       "version": "14.0.0",
       "license": "MIT",
-      "lock": "frontend/package-lock.json"
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/motion/-/motion-14.0.0.tgz",
+        "sha256": "d370844958c813c53d45447354c8682c76acfc46f68f0e97a7861521c6890029",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
     },
     {
       "ecosystem": "npm",
       "name": "motion-dom",
       "version": "14.0.0",
       "license": "MIT",
-      "lock": "frontend/package-lock.json"
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/motion-dom/-/motion-dom-14.0.0.tgz",
+        "sha256": "d8fef8f7e3101f80efeb5f8e004c61fee36cbd0137cc389aee9daa067ab7c381",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
     },
     {
       "ecosystem": "npm",
       "name": "motion-utils",
       "version": "14.0.0",
       "license": "MIT",
-      "lock": "frontend/package-lock.json"
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/motion-utils/-/motion-utils-14.0.0.tgz",
+        "sha256": "4396a152897271d5287f21428ea187a88ed65cf57b47236f1b9903bf8c93feed",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
     },
     {
       "ecosystem": "npm",
@@ -3703,14 +4221,28 @@
       "name": "number-flow",
       "version": "0.6.2",
       "license": "MIT",
-      "lock": "frontend/package-lock.json"
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/number-flow/-/number-flow-0.6.2.tgz",
+        "sha256": "5c38339f87e82092b2045f13b6f17f2d9004524eb831e771e833661ab3a0a4e2",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
     },
     {
       "ecosystem": "npm",
       "name": "openapi-fetch",
       "version": "0.17.0",
       "license": "MIT",
-      "lock": "frontend/package-lock.json"
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/openapi-fetch/-/openapi-fetch-0.17.0.tgz",
+        "sha256": "5d39dd70b545f28dbcb77e14309f57ae9e2ae0b021eb7972f09af5d78425b1af",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
     },
     {
       "ecosystem": "npm",
@@ -3731,7 +4263,14 @@
       "name": "openapi-typescript-helpers",
       "version": "0.1.0",
       "license": "MIT",
-      "lock": "frontend/package-lock.json"
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/openapi-typescript-helpers/-/openapi-typescript-helpers-0.1.0.tgz",
+        "sha256": "3d8d5a86641dc3bedebdf0b366f25cbb0eec8fbf1256e4d8191f247b024a6775",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
     },
     {
       "ecosystem": "npm",
@@ -3808,7 +4347,14 @@
       "name": "radix-ui",
       "version": "1.7.0",
       "license": "MIT",
-      "lock": "frontend/package-lock.json"
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/radix-ui/-/radix-ui-1.7.0.tgz",
+        "sha256": "bf45961c18ed6db39f40cc0cec2b3101b88163111728818433d112537375e433",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
     },
     {
       "ecosystem": "npm",
@@ -3843,7 +4389,14 @@
       "name": "react-i18next",
       "version": "17.0.16",
       "license": "MIT",
-      "lock": "frontend/package-lock.json"
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/react-i18next/-/react-i18next-17.0.16.tgz",
+        "sha256": "54785321d9dfe499d7260d2ce792aae50a9caae4d10333fd12211e679e305cb9",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
     },
     {
       "ecosystem": "npm",
@@ -4032,7 +4585,14 @@
       "name": "tailwind-merge",
       "version": "3.7.0",
       "license": "MIT",
-      "lock": "frontend/package-lock.json"
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/tailwind-merge/-/tailwind-merge-3.7.0.tgz",
+        "sha256": "6b1add695cf419b29b82843cdcaaafe49157dc90d4d1772dcc0e7672da538c42",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
     },
     {
       "ecosystem": "npm",
@@ -4095,7 +4655,14 @@
       "name": "tw-animate-css",
       "version": "1.4.0",
       "license": "MIT",
-      "lock": "frontend/package-lock.json"
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/tw-animate-css/-/tw-animate-css-1.4.0.tgz",
+        "sha256": "6a69ca418446cae0c325ff7bccc7b56eeeea4b97e6d6dec4e7ba88586e8d844d",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
     },
     {
       "ecosystem": "npm",
@@ -4130,7 +4697,14 @@
       "name": "undici-types",
       "version": "8.9.0",
       "license": "MIT",
-      "lock": "frontend/package-lock.json"
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/undici-types/-/undici-types-8.9.0.tgz",
+        "sha256": "3a587851ccbf1021b20eac8a38eb819d7e2a1ab77aa477cb24cae5473a3e78c6",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
     },
     {
       "ecosystem": "npm",
@@ -4193,7 +4767,14 @@
       "name": "use-sync-external-store",
       "version": "1.7.0",
       "license": "MIT",
-      "lock": "frontend/package-lock.json"
+      "lock": "frontend/package-lock.json",
+      "distribution_review": {
+        "status": "integrity_and_notice_material_checked",
+        "url": "https://registry.npmjs.org/use-sync-external-store/-/use-sync-external-store-1.7.0.tgz",
+        "sha256": "4f62a44660396a55417322fb0c71c14413b784192e4cd18acfec6bdf3157e359",
+        "integrity_verified": true
+      },
+      "notice_material": "docs/THIRD_PARTY_LICENSE_TEXTS.txt"
     },
     {
       "ecosystem": "npm",
