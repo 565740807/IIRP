@@ -9453,6 +9453,11 @@
             "maxItems": 500,
             "minItems": 1,
             "title": "Items"
+          },
+          "foreground": {
+            "type": "boolean",
+            "title": "Foreground",
+            "default": false
           }
         },
         "additionalProperties": false,

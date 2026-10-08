@@ -3021,6 +3021,11 @@ export interface components {
             n: number;
             /** Items */
             items: components["schemas"]["TradeKey"][];
+            /**
+             * Foreground
+             * @default false
+             */
+            foreground: boolean;
         };
         /** PricesOutput */
         PricesOutput: {

@@ -193,6 +193,16 @@ def _persist(s, current, response, sources, source, observation_metadata=None):
     current.checkpoint = {**current.checkpoint, "committed_source": source["sha256"]}
 
 
+# Errors that are the source's answer rather than a fault: Yahoo has no such ticker.
+DEFINITE_ANSWERS = {"market_identity": {"market.identity_fields_missing"}}
+
+
+def definite_answer(kind, error):
+    from iirp.messages import decode
+
+    return (decode(error) or {}).get("code") in DEFINITE_ANSWERS.get(kind, set())
+
+
 def skip_obsolete_compute(job):
     """Only skip when every fenced subscriber has a cache or changed inputs."""
     skipped = []
@@ -299,6 +309,10 @@ def execute_business(job, stopping=lambda: False, runner=None):
         operation_seconds = time.perf_counter() - operation_started
         if not response.get("ok"):
             error = response.get("error") or msg("source.no_result")
+            if definite_answer(job.kind, error):
+                # The source answered (no such ticker); nothing to retry or cool down.
+                fenced(job, status="FAILED", error=error)
+                return
             delay = min(
                 3600, max(float(response.get("retry_seconds", 60)), 15 * 2 ** min(job.attempts, 6))
             ) + random.uniform(0, 3)

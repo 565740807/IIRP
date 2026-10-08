@@ -91,3 +91,23 @@ def test_local_lookup_by_ticker_and_name_words():
         assert by_ticker["companies"][0]["cik"] == issuer_id
         name = s.get(Issuer, issuer_id).name.split()[0]
         assert any(row["cik"] == issuer_id for row in local_lookup(s, name.lower())["companies"])
+
+
+def test_a_page_the_reader_opened_fetches_in_the_foreground():
+    _, security_id, issuer_id = _demo()
+    with session() as s, s.begin():
+        s.execute(update(Security).where(Security.id == security_id).values(symbol="DEMOY"))
+    item = {"ticker": "DEMOY", "date": (date.today() - timedelta(days=20)).isoformat(), "issuer_id": issuer_id}
+    with session() as s, s.begin():
+        result = request_trade_prices(s, [item], 5, foreground=True)
+    with session() as s:
+        assert s.get(Batch, result["batch_ids"][0]).trigger == "manual"
+
+
+def test_unknown_yahoo_ticker_is_an_answer_not_a_source_fault():
+    from iirp.jobs.handlers import definite_answer
+    from iirp.messages import msg
+
+    assert definite_answer("market_identity", msg("market.identity_fields_missing"))
+    assert not definite_answer("market_history", msg("market.identity_fields_missing"))
+    assert not definite_answer("market_identity", msg("source.no_result"))

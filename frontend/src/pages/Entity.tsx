@@ -177,7 +177,7 @@ export function EntityPage({ kind }: { kind: PageKind }) {
     () => rows.map((row) => ({ ticker: row.ticker, date: row.date_anomaly ? null : row.transaction_date, issuer_id: row.issuer_id })),
     [rows],
   );
-  const windows = useTradeWindows(keys, n);
+  const windows = useTradeWindows(keys, n, true, true);
 
   // The chart's company: the company itself, or on a person page the one chosen (most trades first).
   const companies = useMemo(() => {

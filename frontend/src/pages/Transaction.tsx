@@ -91,7 +91,7 @@ export function TransactionPage() {
   useEffect(() => {
     if (!row || !context || context.status !== "NOT_FETCHED" || asked.current || !row.ticker || !row.transaction_date) return;
     asked.current = true;
-    void unwrap(client.POST("/api/v1/insider/prices", { body: { n, items: [{ ticker: row.ticker, date: row.transaction_date, issuer_id: row.issuer_id }] } }))
+    void unwrap(client.POST("/api/v1/insider/prices", { body: { n, foreground: true, items: [{ ticker: row.ticker, date: row.transaction_date, issuer_id: row.issuer_id }] } }))
       .then(() => queryClient.invalidateQueries({ queryKey: ["transaction", id] }))
       .catch(() => undefined);
   }, [row, context, n, id, queryClient]);

@@ -52,7 +52,8 @@ function waiting(tickers: Record<string, TickerPrices> | undefined) {
     state.status === "fetching" || (state.status === "not_fetched" && Date.now() - (askedAt.get(symbol) ?? 0) < 60_000));
 }
 
-export function useTradeWindows(items: readonly TradeKey[], n: number, enabled = true) {
+/** ``foreground``: the reader opened this page (company, person), so its prices go first. */
+export function useTradeWindows(items: readonly TradeKey[], n: number, enabled = true, foreground = false) {
   const queryClient = useQueryClient();
   const keys = useMemo(() => {
     const unique = new Map<string, TradeKey>();
@@ -85,13 +86,13 @@ export function useTradeWindows(items: readonly TradeKey[], n: number, enabled =
       .slice(0, 500)
       .map((item) => ({ ticker: item.ticker!, date: item.date!.slice(0, 10), issuer_id: item.issuer_id ?? null }));
     if (!body.length) return;
-    void unwrap(client.POST("/api/v1/insider/prices", { body: { n, items: body } }))
+    void unwrap(client.POST("/api/v1/insider/prices", { body: { n, items: body, foreground } }))
       .then(() => queryClient.invalidateQueries({ queryKey: ["insider-windows", n] }))
       .catch(() => {
         /* The cells keep their "no prices" state; opening the page again asks again. */
         for (const symbol of due) asked.delete(`${symbol}|${n}|${tickers[symbol]?.needed_start}`);
       });
-  }, [tickers, n, keys, queryClient]);
+  }, [tickers, n, keys, queryClient, foreground]);
 
   const byKey = useMemo(() => {
     const map = new Map<string, WindowItem>();

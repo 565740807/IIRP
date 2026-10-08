@@ -128,6 +128,8 @@ class TradeKey(Strict):
 class PricesInput(Strict):
     n: int
     items: list[TradeKey] = Field(min_length=1, max_length=500)
+    # True for a page the reader opened; the home feed's prices stay in the background.
+    foreground: bool = False
 
 
 class PricesOutput(Output):
@@ -260,7 +262,7 @@ def prices(body: PricesInput):
     keys = [{"ticker": item.ticker, "date": item.date.isoformat(), "issuer_id": item.issuer_id}
             for item in body.items]
     with session() as s, s.begin():
-        return _invoke(request_trade_prices, s, keys, n)
+        return _invoke(request_trade_prices, s, keys, n, foreground=body.foreground)
 
 
 class Bar(Output):

@@ -181,7 +181,7 @@ def trade_windows(s, items: list[dict], n: int, *, today: date | None = None) ->
     return {"n": n, "items": output, "tickers": tickers}
 
 
-def request_trade_prices(s, items: list[dict], n: int) -> dict:
+def request_trade_prices(s, items: list[dict], n: int, *, foreground: bool = False) -> dict:
     """Plan one price fetch per ticker whose windows still lack prices.
 
     Fetches cover the default six-month view and the earliest t−n needed,
@@ -204,8 +204,11 @@ def request_trade_prices(s, items: list[dict], n: int) -> dict:
         chunk = due[offset:offset + FETCH_TICKERS]
         params = {"kind": "market_history", "tickers": chunk, "start_date": start.isoformat(),
                   "end_date": today.isoformat(), "purpose": "insider_window"}
-        params["request_id"] = "insider-prices-" + digest([params, today.isoformat()])[:40]
-        batch, reused = _create(s, params, trigger="automatic", policy_key="market")
+        params["request_id"] = "insider-prices-" + digest([params, today.isoformat(), foreground])[:40]
+        # A page the reader opened (company, person, transaction) goes first;
+        # the home feed's tickers follow as automatic work.
+        batch, reused = (_create(s, params) if foreground
+                         else _create(s, params, trigger="automatic", policy_key="market"))
         if not reused:
             batch.title = msg("batch.title.insider_prices", symbols=", ".join(chunk[:3]), count=len(chunk))
         batch_ids.append(batch.id)
