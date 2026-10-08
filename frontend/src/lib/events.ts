@@ -46,7 +46,8 @@ export function sessionLabel(session: string) {
 
 /** "R−5", "R", "R+3". */
 export function offsetLabel(offset: number) {
-  return offset === 0 ? "R" : offset > 0 ? `R+${offset}` : `R−${-offset}`;
+  const label = i18n.t("ui.events.window.reaction");
+  return offset === 0 ? label : `${label}${offset > 0 ? "+" : "−"}${Math.abs(offset)}`;
 }
 
 /** FY2025 Q4 for earnings, else empty. */
@@ -66,6 +67,7 @@ export function conclusion(symbol: string, kind: EventKind, result: EventResult)
   return t("ui.events.conclusion.sentence", {
     head,
     median: pct(reaction.median),
+    ratio: share(reaction.up_ratio),
     up: reaction.up,
     n: reaction.n,
     low: share(reaction.up_low),
@@ -80,8 +82,8 @@ export function context(result: EventResult, n: number, benchmark: string | null
   const t = i18n.t.bind(i18n);
   const { before, after, reaction } = result.summary;
   const parts = [];
-  if (before?.n) parts.push(t("ui.events.conclusion.window", { window: windowLabel("before", n), median: pct(before.median), up: before.up, n: before.n }));
-  if (after?.n) parts.push(t("ui.events.conclusion.window", { window: windowLabel("after", n), median: pct(after.median), up: after.up, n: after.n }));
+  if (before?.n) parts.push(t("ui.events.conclusion.window", { window: windowLabel("before", n), median: pct(before.median), up: before.up, n: before.n, ratio: share(before.up_ratio) }));
+  if (after?.n) parts.push(t("ui.events.conclusion.window", { window: windowLabel("after", n), median: pct(after.median), up: after.up, n: after.n, ratio: share(after.up_ratio) }));
   if (benchmark && reaction?.paired_n)
     parts.push(t("ui.events.conclusion.beat", { benchmark: benchmarkName(benchmark), beat: reaction.beat, n: reaction.paired_n, excess: pct(reaction.median_excess) }));
   return parts.length ? parts.join(t("ui.analysis.conclusion.join")) + t("ui.analysis.conclusion.end") : "";
@@ -97,12 +99,14 @@ export function isActive(analysis: EventAnalysis | undefined) {
  * (24 hours, D14) it is fetched again automatically and ``onReplaced`` moves
  * the page to the new analysis.
  */
-export function useEventAnalysis(id: string | null, onReplaced: (id: string) => void) {
+export type EventFilters = { quarter?: number; recent_years?: number; session?: EventItem["session"]; direction?: "up" | "down" };
+
+export function useEventAnalysis(id: string | null, onReplaced: (id: string) => void, filters: EventFilters = {}) {
   const queryClient = useQueryClient();
   const query = useQuery({
-    queryKey: ["event-analysis", id],
+    queryKey: ["event-analysis", id, filters],
     enabled: !!id,
-    queryFn: ({ signal }) => unwrap(client.GET("/api/v1/events/analyses/{analysis_id}", { params: { path: { analysis_id: id! } }, signal })),
+    queryFn: ({ signal }) => unwrap(client.GET("/api/v1/events/analyses/{analysis_id}", { params: { path: { analysis_id: id! }, query: filters }, signal })),
     refetchInterval: (state) => (isActive(state.state.data) ? (document.hidden ? 10_000 : 1_500) : false),
     placeholderData: keepPreviousData,
   });
@@ -146,8 +150,10 @@ export function useEventSets(kind: EventKind) {
   });
 }
 
-export function exportHref(id: string, table: "stats" | "detail") {
-  return `/api/v1/events/analyses/${encodeURIComponent(id)}/export?table=${table}`;
+export function exportHref(id: string, table: "stats" | "detail", filters: EventFilters = {}) {
+  const params = new URLSearchParams({ table });
+  Object.entries(filters).forEach(([key, value]) => { if (value != null) params.set(key, String(value)); });
+  return `/api/v1/events/analyses/${encodeURIComponent(id)}/export?${params}`;
 }
 
 /** The pasted JSON for a list of events (reaction dates dropped, empty fields left out). */

@@ -10,8 +10,9 @@ import {
   type SortingState,
 } from "@tanstack/react-table";
 import { ArrowDown, ArrowUp } from "lucide-react";
-import { benchmarkName, pct, periodName, share, yearLabel, type Candle, type Period, type PeriodStats } from "@/lib/analysis";
+import { benchmarkName, pct, periodName, yearLabel, type Candle, type Period, type PeriodStats } from "@/lib/analysis";
 import { directionClass, formatDay, formatPrice } from "@/lib/format";
+import { UpShare } from "@/components/analysis/UpShare";
 import { cn } from "@/lib/utils";
 
 // Column value types differ per column; TanStack needs `any` to hold them in one list.
@@ -30,6 +31,8 @@ export function SortableTable<T>({
   onSelect,
   rowKey,
   expanded,
+  rank,
+  rowTone,
 }: {
   data: T[];
   columns: ColumnDef<T, any>[];
@@ -38,7 +41,10 @@ export function SortableTable<T>({
   onSelect?: (key: string) => void;
   rowKey: (row: T) => string;
   expanded?: (row: T) => ReactNode;
+  rank?: (row: T, sorting: SortingState) => number | undefined;
+  rowTone?: (row: T, sorting: SortingState) => string;
 }) {
+  const { t } = useTranslation();
   const [sorting, setSorting] = useState<SortingState>(initial);
   const table = useReactTable({
     data,
@@ -56,6 +62,7 @@ export function SortableTable<T>({
         <thead>
           {table.getHeaderGroups().map((group) => (
             <tr key={group.id} className="border-b">
+              {rank && <th className="px-2 py-2 text-xs text-muted-foreground">{t("ui.analysis.col.rank")}</th>}
               {group.headers.map((header) => {
                 const meta = header.column.columnDef.meta as Meta | undefined;
                 const sorted = header.column.getIsSorted();
@@ -82,8 +89,9 @@ export function SortableTable<T>({
                 onClick={onSelect ? () => onSelect(row.id) : undefined}
                 aria-selected={selected === row.id}
                 aria-expanded={expanded ? selected === row.id : undefined}
-                className={cn("border-b last:border-b-0", onSelect && "cursor-pointer hover:bg-accent/50", selected === row.id && "bg-accent hover:bg-accent")}
+                className={cn("border-b last:border-b-0", onSelect && "cursor-pointer hover:bg-accent/50", rowTone?.(row.original, sorting), selected === row.id && "bg-accent hover:bg-accent ring-2 ring-inset ring-primary/50")}
               >
+                {rank && <td className="px-2 py-1.5 text-center tabular-nums">{rank(row.original, sorting) ?? "—"}</td>}
                 {row.getVisibleCells().map((cell) => {
                   const meta = cell.column.columnDef.meta as Meta | undefined;
                   return (
@@ -95,7 +103,7 @@ export function SortableTable<T>({
               </tr>
               {expanded && selected === row.id && (
                 <tr className="border-b bg-muted/30 last:border-b-0">
-                  <td colSpan={row.getVisibleCells().length} className="px-3 py-2">
+                  <td colSpan={row.getVisibleCells().length + (rank ? 1 : 0)} className="px-3 py-2">
                     {expanded(row.original)}
                   </td>
                 </tr>
@@ -140,23 +148,18 @@ function useStatColumns(benchmark: string | null) {
         meta: { numeric: true, tip: t("ui.analysis.col.quartiles_tip") },
         cell: ({ row }) => (row.original.stats.n ? <Quartiles low={row.original.stats.q25} high={row.original.stats.q75} /> : "—"),
       }),
-      column.accessor((row) => (row.stats.n ? row.stats.up / row.stats.n : -1), {
+      column.accessor((row) => (num(row.stats.up_ratio)), {
         id: "up",
         header: t("ui.analysis.col.up"),
         meta: { numeric: true, tip: t("ui.analysis.col.up_tip") },
         cell: ({ row }) => {
           const s = row.original.stats;
-          return s.n ? (
-            <span title={t("ui.analysis.col.up_interval", { low: share(s.up_low), high: share(s.up_high) })}>
-              {s.up}/{s.n}
-              <span className="ml-1 text-xs text-muted-foreground">{share(s.up_low)}–{share(s.up_high)}</span>
-            </span>
-          ) : "—";
+          return <UpShare stats={s} />;
         },
       }),
       ...(benchmark
         ? [
-            column.accessor((row) => (row.stats.paired_n ? row.stats.beat / row.stats.paired_n : -1), {
+            column.accessor((row) => (num(row.stats.beat_ratio)), {
               id: "beat",
               header: t("ui.analysis.col.beat", { benchmark: benchmarkName(benchmark) }),
               meta: { numeric: true },

@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import { CircleAlert, LoaderCircle } from "lucide-react";
 import { tm } from "@/i18n";
 import { benchmarkName } from "@/lib/analysis";
-import { TAB, useEventAnalysis, useEventChoices, useVariant, type EventAnalysis, type EventKind } from "@/lib/events";
+import { TAB, useEventAnalysis, useEventChoices, useVariant, type EventAnalysis, type EventKind, type EventFilters, SESSIONS, sessionLabel } from "@/lib/events";
 import { rememberAnalysis } from "@/lib/navigation";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -78,7 +78,13 @@ export function EventsPage({ kind }: { kind: EventKind }) {
     }, { replace });
   const choices = useEventChoices(kind);
   const [benchmark, setBenchmarkState] = useState<string | null>(choices.benchmark);
-  const { query, refresh } = useEventAnalysis(id, (next) => update({ a: next }));
+  const filters: EventFilters = {
+    quarter: params.get("q") ? Number(params.get("q")) : undefined,
+    recent_years: params.get("years") ? Number(params.get("years")) : undefined,
+    session: (params.get("session") || undefined) as EventFilters["session"],
+    direction: (params.get("direction") || undefined) as EventFilters["direction"],
+  };
+  const { query, refresh } = useEventAnalysis(id, (next) => update({ a: next }), filters);
   const analysis = query.data && query.data.id === id ? query.data : undefined;
   const open = (next: string) => update({ a: next, t: null }, false);
   const variant = useVariant(open);
@@ -135,13 +141,23 @@ export function EventsPage({ kind }: { kind: EventKind }) {
                 {t(analysis.benchmark ? "ui.events.heading_meta" : "ui.events.heading_meta_none", { count: analysis.event_count, n: analysis.n, benchmark: benchmarkName(analysis.benchmark) })}
               </span>
             </h1>
-            <EventDataLine analysis={analysis} refreshing={refresh.isPending} />
+            <EventDataLine filters={filters} analysis={analysis} refreshing={refresh.isPending} />
           </div>
           {refresh.error && <p className="text-sm text-destructive">{refresh.error.message}</p>}
           <Progress items={analysis.progress} onRetry={() => refresh.mutate(true)} retrying={refresh.isPending} />
+          <div className="flex flex-wrap items-center gap-2 rounded-lg border bg-card p-2" aria-busy={query.isFetching}>
+            <span className="text-xs font-semibold">{t("ui.events.filter.title")}</span>
+            <div className="inline-flex rounded border">{[0, 1, 2, 3, 4].filter((q) => kind === "earnings" || q === 0).map((q) => <button key={q} type="button" aria-pressed={(filters.quarter ?? 0) === q} onClick={() => update({ q: q ? String(q) : null })} className={cn("h-7 px-2 text-xs", (filters.quarter ?? 0) === q && "bg-primary text-primary-foreground")}>{q ? `Q${q}` : t("ui.events.filter.all")}</button>)}</div>
+            <label className="text-xs">{t("ui.events.filter.years")} <input type="number" min={1} max={30} placeholder={t("ui.events.filter.all")} value={filters.recent_years ?? ""} onChange={(e) => update({ years: e.target.value || null })} className="h-7 w-16 rounded border px-1" /></label>
+            <select aria-label={t("ui.events.filter.session")} value={filters.session ?? ""} onChange={(e) => update({ session: e.target.value || null })} className="h-7 rounded border bg-card px-1 text-xs"><option value="">{t("ui.events.filter.session")}</option>{SESSIONS.map((s) => <option key={s} value={s}>{sessionLabel(s)}</option>)}</select>
+            <select aria-label={t("ui.events.filter.direction")} value={filters.direction ?? ""} onChange={(e) => update({ direction: e.target.value || null })} className="h-7 rounded border bg-card px-1 text-xs"><option value="">{t("ui.events.filter.direction")}</option><option value="up">{t("ui.events.filter.up")}</option><option value="down">{t("ui.events.filter.down")}</option></select>
+            <button type="button" onClick={() => update({ q: null, years: null, session: null, direction: null })} className="text-xs underline">{t("ui.events.filter.reset")}</button>
+            <span className="ml-auto text-xs tabular-nums text-muted-foreground">{t("ui.events.filter.count", { count: analysis.filtered_event_count, total: analysis.event_count })}</span>
+            {query.isFetching && <LoaderCircle className="size-3 motion-safe:animate-spin" />}
+          </div>
           <TickerChips analysis={analysis} focused={focused} onFocus={(symbol) => update({ t: symbol })} />
           {ready ? (
-            <EventResults analysis={analysis} kind={kind} focused={focused} onFocus={(symbol) => update({ t: symbol })} />
+            <EventResults key={`${analysis.id}:${JSON.stringify(filters)}`} analysis={analysis} kind={kind} focused={focused} onFocus={(symbol) => update({ t: symbol })} />
           ) : (
             !analysis.progress.some((item) => item.step !== "failed") && (
               <p className="rounded-md border bg-card px-3 py-2 text-sm text-muted-foreground">

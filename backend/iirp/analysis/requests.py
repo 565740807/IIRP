@@ -134,6 +134,7 @@ def ticker_progress(s, batch, done_ids):
 
 def analysis_view(s, request):
     from iirp.analysis.freshness import freshness
+    from iirp.analysis.research import period_stats
 
     # Results live as long as the price caches they used (D14); show the
     # newest unexpired result of each security.
@@ -149,6 +150,9 @@ def analysis_view(s, request):
             continue
         security = s.get(Security, row.security_id)
         result = s.get(AnalysisResult, row.id)
+        data = {**result.data, "periods": [
+            {**p, "stats": period_stats(p["years"], p["stats"]["target_n"])}
+            for p in result.data["periods"]]} if "periods" in result.data else result.data
         chosen[row.security_id] = {
             "symbol": security.symbol,
             "security_id": security.id,
@@ -156,11 +160,16 @@ def analysis_view(s, request):
             "created_at": result.created_at,
             "data_published_at": result.inputs.get("price_fetched_at"),
             "expires_at": result.expires_at,
-            "data": result.data,
+            "data": data,
         }
     batch = s.get(Batch, request.batch_id)
     order = request.params.get("tickers", [])
-    return {
+    from iirp.analysis.distributions import comparison
+    keys = {p["key"] for item in chosen.values() for p in item["data"].get("periods", [])}
+    comparisons = {key: comparison((item["symbol"], p["stats"]["median"])
+                                   for item in chosen.values() for p in item["data"].get("periods", [])
+                                   if p["key"] == key) for key in keys}
+    return {"comparisons": comparisons,
         "id": request.id,
         "batch_id": batch.id,
         "status": batch.status,

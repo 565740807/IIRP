@@ -171,6 +171,13 @@ def test_each_ticker_is_fetched_once_and_results_publish_per_ticker():
     assert results["AAPL"]["event_count"] == 2 and results["MSFT"]["event_count"] == 1
     assert results["AAPL"]["rows"][0]["reaction_date"] == "2024-05-03"
     assert [q["fiscal_quarter"] for q in results["AAPL"]["quarters"]] == [2, 3]
+    filtered = TestClient(app).get(f"/api/v1/events/analyses/{view['id']}?quarter=3")
+    assert filtered.status_code == 200
+    selected = next(item["result"] for item in filtered.json()["tickers"] if item["symbol"] == "AAPL")
+    assert selected["event_count"] == 1 and selected["rows"][0]["fiscal_quarter"] == 3
+    assert Decimal(selected["summary"]["reaction"]["median"]) == Decimal(selected["rows"][0]["windows"]["reaction"]["value"])
+    assert len(yahoo.calls) == 2
+    assert TestClient(app).get(f"/api/v1/events/analyses/{view['id']}?quarter=5").status_code == 422
     # Within 24 hours another analysis of the same set downloads nothing.
     again = event_service.create_analysis(created["set"]["id"], {"request_id": str(uuid.uuid4()),
                                                                  "benchmark": None})
@@ -213,6 +220,26 @@ def test_benchmark_is_fetched_once_and_quick_switches_reuse_analyses():
     for item in view["tickers"]:
         assert item["result"]["benchmark"] == {"symbol": "^GSPC", "status": "available"}
         assert item["result"]["summary"]["reaction"]["paired_n"] == 1
+    # Reuse the already fetched caches with different acquisition times. Results
+    # must expire with the oldest input and report each input separately.
+    from iirp.models import AnalysisResult, PriceCache, now
+    with session() as s, s.begin():
+        benchmark_cache = s.scalar(select(PriceCache).where(PriceCache.security_id == index))
+        benchmark_cache.fetched_at = now() - timedelta(hours=18)
+        benchmark_cache.expires_at = benchmark_cache.fetched_at + timedelta(hours=24)
+        early = benchmark_cache.expires_at.isoformat()
+        fetched = benchmark_cache.fetched_at.isoformat()
+    older_input = event_service.analysis_variant(analysis_id, {"request_id": "older-input", "n": 4})
+    planner.plan_tick()
+    run_market(yahoo)
+    old_view = event_service.get_analysis(older_input["analysis_id"])
+    assert len(yahoo.calls) == 3
+    assert old_view["freshness"]["price_expires_at"].isoformat() == early
+    assert old_view["freshness"]["sources"][0] == {"symbol": "^GSPC", "fetched_at": fetched, "expires_at": early}
+    assert {source["symbol"] for source in old_view["freshness"]["sources"]} == {"AAPL", "MSFT", "^GSPC"}
+    with session() as s:
+        assert all(row.expires_at.isoformat() == early for row in s.scalars(
+            select(AnalysisResult).where(AnalysisResult.analysis_id == older_input["analysis_id"])))
     # Another n, then back: the second switch reopens the first analysis.
     wider = event_service.analysis_variant(analysis_id, {"request_id": "v1", "n": 5})
     assert not wider["reused"]

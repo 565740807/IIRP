@@ -1183,6 +1183,10 @@ export interface components {
         };
         /** AnalysisOutput */
         AnalysisOutput: {
+            /** Comparisons */
+            comparisons?: {
+                [key: string]: components["schemas"]["TickerComparison"];
+            };
             /** Id */
             id: string;
             /** Batch Id */
@@ -1343,6 +1347,15 @@ export interface components {
             feed_poll_seconds: number;
             /** Ensure Seconds */
             ensure_seconds: number;
+        };
+        /** CacheSource */
+        CacheSource: {
+            /** Symbol */
+            symbol: string;
+            /** Fetched At */
+            fetched_at: string;
+            /** Expires At */
+            expires_at: string;
         };
         /**
          * Candle
@@ -1535,6 +1548,47 @@ export interface components {
             /** Accepted Date */
             accepted_date: string;
         };
+        /** DistributionStatistics */
+        DistributionStatistics: {
+            /** N */
+            n: number;
+            /** Min */
+            min?: string | null;
+            /** Q25 */
+            q25?: string | null;
+            /** Median */
+            median?: string | null;
+            /** Mean */
+            mean?: string | null;
+            /** Q75 */
+            q75?: string | null;
+            /** Max */
+            max?: string | null;
+            /** Worst */
+            worst?: string | null;
+            /** Best */
+            best?: string | null;
+            /**
+             * Up
+             * @default 0
+             */
+            up: number;
+            /**
+             * Flat
+             * @default 0
+             */
+            flat: number;
+            /** Up Ratio */
+            up_ratio?: string | null;
+            /** Beat Ratio */
+            beat_ratio?: string | null;
+            /** Whisker Low */
+            whisker_low?: string | null;
+            /** Whisker High */
+            whisker_high?: string | null;
+            /** Outliers */
+            outliers?: string[];
+        };
         /** EntityCompany */
         EntityCompany: {
             /** Issuer Id */
@@ -1661,6 +1715,9 @@ export interface components {
         };
         /** EventAnalysisOutput */
         EventAnalysisOutput: {
+            comparison: components["schemas"]["TickerComparison"];
+            /** Filtered Event Count */
+            filtered_event_count: number;
             /** Id */
             id: string;
             /** Batch Id */
@@ -1690,10 +1747,7 @@ export interface components {
             tickers: components["schemas"]["EventTickerView"][];
             /** Progress */
             progress: components["schemas"]["TickerProgress"][];
-            /** Freshness */
-            freshness: {
-                [key: string]: unknown;
-            };
+            freshness: components["schemas"]["ResearchFreshness"];
         };
         /** EventAnalysisReference */
         EventAnalysisReference: {
@@ -1842,6 +1896,10 @@ export interface components {
         };
         /** EventQuarterSummary */
         EventQuarterSummary: {
+            /** Ranks */
+            ranks?: {
+                [key: string]: number;
+            };
             /** Fiscal Quarter */
             fiscal_quarter: number;
             /** Event Count */
@@ -1867,6 +1925,12 @@ export interface components {
         };
         /** EventRow */
         EventRow: {
+            /** Id */
+            id: string;
+            /** Ranks */
+            ranks: {
+                [key: string]: number;
+            };
             /** Ticker */
             ticker: string;
             /** Date */
@@ -1907,6 +1971,12 @@ export interface components {
         };
         /** EventSetInput */
         EventSetInput: {
+            /**
+             * Language
+             * @default en
+             * @enum {string}
+             */
+            language: "zh" | "en";
             /**
              * Kind
              * @enum {string}
@@ -1986,6 +2056,12 @@ export interface components {
         };
         /** EventSetUpdate */
         EventSetUpdate: {
+            /**
+             * Language
+             * @default en
+             * @enum {string}
+             */
+            language: "zh" | "en";
             /** Title */
             title?: string | null;
             /** Text */
@@ -2000,22 +2076,37 @@ export interface components {
         EventStatistics: {
             /** N */
             n: number;
-            /** Median */
-            median?: string | null;
-            /** Q25 */
-            q25?: string | null;
-            /** Q75 */
-            q75?: string | null;
-            /** Mean */
-            mean?: string | null;
             /** Min */
             min?: string | null;
+            /** Q25 */
+            q25?: string | null;
+            /** Median */
+            median?: string | null;
+            /** Mean */
+            mean?: string | null;
+            /** Q75 */
+            q75?: string | null;
             /** Max */
             max?: string | null;
+            /** Worst */
+            worst?: string | null;
+            /** Best */
+            best?: string | null;
             /** Up */
             up: number;
             /** Flat */
             flat: number;
+            /** Up Ratio */
+            up_ratio?: string | null;
+            /** Beat Ratio */
+            beat_ratio?: string | null;
+            /** Whisker Low */
+            whisker_low?: string | null;
+            /** Whisker High */
+            whisker_high?: string | null;
+            /** Outliers */
+            outliers?: string[];
+            benchmark_box: components["schemas"]["DistributionStatistics"];
             /**
              * Up Low
              * @description Wilson 95% interval of the up share
@@ -2985,26 +3076,24 @@ export interface components {
          * @description Complete past years only; ``target_n`` is how many were asked for.
          */
         PeriodStats: {
-            /** Target N */
-            target_n: number;
             /** N */
             n: number;
+            /** Min */
+            min?: string | null;
+            /** Q25 */
+            q25?: string | null;
             /** Median */
             median?: string | null;
             /** Mean */
             mean?: string | null;
-            /** Q25 */
-            q25?: string | null;
             /** Q75 */
             q75?: string | null;
-            /** Best */
-            best?: string | null;
+            /** Max */
+            max?: string | null;
             /** Worst */
             worst?: string | null;
-            /** Best Year */
-            best_year?: number | null;
-            /** Worst Year */
-            worst_year?: number | null;
+            /** Best */
+            best?: string | null;
             /**
              * Up
              * @default 0
@@ -3015,6 +3104,22 @@ export interface components {
              * @default 0
              */
             flat: number;
+            /** Up Ratio */
+            up_ratio?: string | null;
+            /** Beat Ratio */
+            beat_ratio?: string | null;
+            /** Whisker Low */
+            whisker_low?: string | null;
+            /** Whisker High */
+            whisker_high?: string | null;
+            /** Outliers */
+            outliers?: string[];
+            /** Target N */
+            target_n: number;
+            /** Best Year */
+            best_year?: number | null;
+            /** Worst Year */
+            worst_year?: number | null;
             /** Up Low */
             up_low?: string | null;
             /** Up High */
@@ -3242,6 +3347,8 @@ export interface components {
         };
         /** ResearchFreshness */
         ResearchFreshness: {
+            /** Sources */
+            sources?: components["schemas"]["CacheSource"][];
             /** Origin Id */
             origin_id: string;
             /** Latest Id */
@@ -3587,6 +3694,21 @@ export interface components {
             automatic_collection_scope: string;
             sec_user_agent: components["schemas"]["SecUserAgentState"];
             storage: components["schemas"]["StorageState"];
+        };
+        /** TickerComparison */
+        TickerComparison: {
+            /** Count */
+            count: number;
+            /** Positive */
+            positive: number;
+            /** High */
+            high: string | null;
+            /** High Ticker */
+            high_ticker: string | null;
+            /** Low */
+            low: string | null;
+            /** Low Ticker */
+            low_ticker: string | null;
         };
         /** TickerPrices */
         TickerPrices: {
@@ -5654,7 +5776,12 @@ export interface operations {
     };
     analysis_api_v1_events_analyses__analysis_id__get: {
         parameters: {
-            query?: never;
+            query?: {
+                quarter?: number | null;
+                recent_years?: number | null;
+                session?: ("before_open" | "during" | "after_close" | "unknown") | null;
+                direction?: ("up" | "down") | null;
+            };
             header?: never;
             path: {
                 analysis_id: string;
@@ -5755,6 +5882,10 @@ export interface operations {
         parameters: {
             query?: {
                 table?: string;
+                quarter?: number | null;
+                recent_years?: number | null;
+                session?: ("before_open" | "during" | "after_close" | "unknown") | null;
+                direction?: ("up" | "down") | null;
             };
             header?: never;
             path: {

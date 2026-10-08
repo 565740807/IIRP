@@ -6,6 +6,7 @@ import { tm } from "@/i18n";
 import {
   exportHref,
   monthName,
+  yearLabel,
   parseTickers,
   periodName,
   useAnalysis,
@@ -14,13 +15,15 @@ import {
   type SeasonalKind,
   type TickerResult,
 } from "@/lib/analysis";
-import { formatDay, formatEt, formatLocal } from "@/lib/format";
+import { formatDay } from "@/lib/format";
 import { rememberAnalysis } from "@/lib/navigation";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AnalysisLayout } from "@/components/analysis/AnalysisLayout";
 import { Conditions, DEFAULT_CONDITIONS, type ConditionValues } from "@/components/analysis/Conditions";
+import { BoxPlot } from "@/components/analysis/BoxPlot";
+import { CacheTimes } from "@/components/analysis/CacheTimes";
 import { MonthGrid } from "@/components/analysis/MonthGrid";
 import { Progress } from "@/components/analysis/Progress";
 import { ConclusionCard, Method } from "@/components/analysis/Summary";
@@ -92,11 +95,7 @@ function DataLine({ analysis, refreshing }: { analysis: Analysis; refreshing: bo
           <LoaderCircle className="size-3.5 motion-safe:animate-spin" />
           {t("ui.analysis.expired_refetching")}
         </span>
-      ) : fresh?.price_fetched_at ? (
-        <span title={t("ui.time.local", { time: formatLocal(fresh.price_fetched_at) })}>
-          {t("ui.analysis.fetched", { fetched: formatEt(fresh.price_fetched_at), expires: formatEt(fresh.price_expires_at) })}
-        </span>
-      ) : null}
+      ) : <CacheTimes sources={fresh?.sources ?? []} expires={fresh?.price_expires_at} />}
       {fresh?.research_cutoff && <span>{t("ui.analysis.cutoff", { day: formatDay(fresh.research_cutoff, { year: true }) })}</span>}
       {analysis.results.length > 0 && (
         <span className="ml-auto inline-flex items-center gap-1">
@@ -171,15 +170,19 @@ function Results({ kind, analysis, month, setMonth, focused, setFocused, view, s
   const pairing = result.data.metadata.benchmark;
   return (
     <>
-      <ConclusionCard symbol={result.symbol} period={period} benchmark={benchmark} others={others} />
+      <ConclusionCard symbol={result.symbol} period={period} benchmark={benchmark} across={analysis.comparisons?.[key]} />
       {pairing && pairing.status !== "available" && (
         <p className="rounded-md border border-warn/30 bg-warn-soft px-3 py-2 text-xs text-warn">{t("ui.analysis.benchmark_pending", { name: pairing.symbol })}</p>
       )}
       {kind === "monthly" && (
         <Section title={t("ui.analysis.grid_title", { ticker: result.symbol })}>
           <MonthGrid periods={result.data.periods} selected={month} onSelect={setMonth} />
+          <h2 className="text-sm font-semibold">{t("ui.analysis.box.months")}</h2>
+          <div className="rounded-lg border bg-card"><BoxPlot groups={result.data.periods.map((p) => ({ key: p.key, label: monthName(p.month!), stats: p.stats, points: p.years.filter((y) => y.status === "complete" || (y.current && y.status === "in_progress")).map((y) => ({ id: `${p.key}:${y.year}`, label: y.current ? t("ui.analysis.box.current", { year: y.year }) : String(y.year), value: y.change, current: y.current })) }))} title={t("ui.analysis.box.months")} onGroup={(key) => setMonth(Number(key))} /></div>
+          <p className="text-xs text-muted-foreground">{t("ui.analysis.box.legend")}</p>
         </Section>
       )}
+      {kind === "interval" && <Section title={t("ui.analysis.box.tickers")}><div className="rounded-lg border bg-card"><BoxPlot groups={others.map((item) => ({ key: item.symbol, label: item.symbol, stats: item.period.stats, points: item.period.years.filter((y) => y.status === "complete" || (y.current && y.status === "in_progress")).map((y) => ({ id: `${item.symbol}:${y.year}`, label: `${item.symbol} · ${y.current ? t("ui.analysis.box.current", { year: yearLabel(y, item.period.cross_year) }) : yearLabel(y, item.period.cross_year)}`, value: y.change, current: y.current })) }))} title={t("ui.analysis.box.tickers")} onGroup={setFocused} /></div><p className="text-xs text-muted-foreground">{t("ui.analysis.box.legend")}</p></Section>}
       <Section title={t("ui.analysis.chart_title", { ticker: result.symbol, period: name })}>
         <div className="rounded-lg border bg-card px-2 pt-2">
           <YearCandles candles={period.years} cross={period.cross_year} benchmark={benchmark} title={`${result.symbol} ${name}`} />

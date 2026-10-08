@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { createColumnHelper, type ColumnDef } from "@tanstack/react-table";
-import { benchmarkName, pct, share } from "@/lib/analysis";
+import { benchmarkName, pct } from "@/lib/analysis";
 import {
   WINDOWS,
   fiscalLabel,
@@ -17,22 +17,16 @@ import { formatDay } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { Quartiles, Signed, SortableTable, num } from "@/components/analysis/Tables";
 import { EventKline } from "@/components/events/EventCharts";
+import { UpShare } from "@/components/analysis/UpShare";
 
 // Column value types differ per column; TanStack needs `any` to hold them in one list.
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 function Up({ stats }: { stats: EventStats | undefined }) {
-  const { t } = useTranslation();
-  if (!stats?.n) return <>—</>;
-  return (
-    <span title={t("ui.analysis.col.up_interval", { low: share(stats.up_low), high: share(stats.up_high) })}>
-      {stats.up}/{stats.n}
-      <span className="ml-1 text-xs text-muted-foreground">{share(stats.up_low)}–{share(stats.up_high)}</span>
-    </span>
-  );
+  return stats ? <UpShare stats={stats} /> : <>—</>;
 }
 
-type StatsRow = { key: string; label: React.ReactNode; tip?: string; stats: EventStats };
+type StatsRow = { ranks?: Record<string, number>; key: string; label: React.ReactNode; tip?: string; stats: EventStats };
 
 /** N, median, mean, quartiles, up x/N with its 95% interval, |median| and the benchmark columns. */
 function useStatColumns(benchmark: string | null) {
@@ -49,7 +43,7 @@ function useStatColumns(benchmark: string | null) {
         meta: { numeric: true, tip: t("ui.analysis.col.quartiles_tip") },
         cell: ({ row }) => (row.original.stats.n ? <Quartiles low={row.original.stats.q25} high={row.original.stats.q75} /> : "—"),
       }),
-      column.accessor((row) => (row.stats.n ? row.stats.up / row.stats.n : -1), {
+      column.accessor((row) => (num(row.stats.up_ratio)), {
         id: "up",
         header: t("ui.events.col.up"),
         meta: { numeric: true, tip: t("ui.events.col.up_tip") },
@@ -63,7 +57,7 @@ function useStatColumns(benchmark: string | null) {
       }),
       ...(benchmark
         ? [
-            column.accessor((row) => (row.stats.paired_n ? row.stats.beat / row.stats.paired_n : -1), {
+            column.accessor((row) => (num(row.stats.beat_ratio)), {
               id: "beat",
               header: t("ui.analysis.col.beat", { benchmark: benchmarkName(benchmark) }),
               meta: { numeric: true },
@@ -119,7 +113,7 @@ export function QuarterTable({ result, benchmark }: { result: EventResult; bench
   const data = useMemo<StatsRow[]>(
     () => [
       { key: "all", label: t("ui.events.all_quarters"), stats: result.summary[window] },
-      ...(result.quarters ?? []).map((quarter) => ({ key: `Q${quarter.fiscal_quarter}`, label: `Q${quarter.fiscal_quarter}`, stats: quarter.summary[window] })),
+      ...(result.quarters ?? []).map((quarter) => ({ key: `Q${quarter.fiscal_quarter}`, label: `Q${quarter.fiscal_quarter}`, stats: quarter.summary[window], ranks: quarter.ranks })),
     ],
     [result, window, t],
   );
@@ -138,7 +132,7 @@ export function QuarterTable({ result, benchmark }: { result: EventResult; bench
           </button>
         ))}
       </div>
-      <SortableTable data={data} columns={columns} initial={[]} rowKey={(row) => row.key} />
+      <SortableTable data={data} columns={columns} initial={[{ id: "median", desc: true }]} rowKey={(row) => row.key} rank={(row, sorting) => row.ranks?.[`${window}_${sorting[0]?.id === "up" ? "up_ratio" : "median"}_${sorting[0]?.desc ? "desc" : "asc"}`]} />
     </div>
   );
 }
@@ -165,7 +159,7 @@ export function TickerRankTable({ results, benchmark, selected, onSelect }: { re
         meta: { numeric: true, tip: t("ui.events.col.abs_median_tip") },
         cell: ({ row }) => pct(row.original.summary.reaction?.abs_median).replace(/^\+/, ""),
       }),
-      column.accessor((row) => (row.summary.reaction?.n ? row.summary.reaction.up / row.summary.reaction.n : -1), {
+      column.accessor((row) => (num(row.summary.reaction?.up_ratio)), {
         id: "up",
         header: t("ui.events.col.up"),
         meta: { numeric: true, tip: t("ui.events.col.up_tip") },
@@ -175,7 +169,7 @@ export function TickerRankTable({ results, benchmark, selected, onSelect }: { re
       median("before", t("ui.events.col.before_median", { n: results[0]?.n ?? 0 })),
       median("after", t("ui.events.col.after_median", { n: results[0]?.n ?? 0 })),
       ...(benchmark
-        ? [column.accessor((row) => (row.summary.reaction?.paired_n ? row.summary.reaction.beat / row.summary.reaction.paired_n : -1), {
+        ? [column.accessor((row) => (num(row.summary.reaction?.beat_ratio)), {
             id: "beat",
             header: t("ui.analysis.col.beat", { benchmark: benchmarkName(benchmark) }),
             meta: { numeric: true },
@@ -206,9 +200,8 @@ function WindowCell({ row, window, benchmark }: { row: EventRow; window: WindowK
 }
 
 /** Every event: dates, session, R and the windows (benchmark under each); click a row for its K-line. */
-export function EventDetailTable({ result, benchmark }: { result: EventResult; benchmark: string | null }) {
+export function EventDetailTable({ result, benchmark, selected, onSelect }: { result: EventResult; benchmark: string | null; selected: string | null; onSelect: (id: string) => void }) {
   const { t } = useTranslation();
-  const [open, setOpen] = useState<string | null>(null);
   const columns = useMemo(() => {
     const column = createColumnHelper<EventRow>();
     return [
@@ -234,7 +227,7 @@ export function EventDetailTable({ result, benchmark }: { result: EventResult; b
           </span>
         ),
       }),
-      column.accessor("reaction_date", { id: "r", header: "R", cell: ({ row }) => <span className="whitespace-nowrap tabular-nums">{formatDay(row.original.reaction_date, { year: true })}</span> }),
+      column.accessor("reaction_date", { id: "r", header: t("ui.events.window.reaction"), cell: ({ row }) => <span className="whitespace-nowrap tabular-nums">{formatDay(row.original.reaction_date, { year: true })}</span> }),
       ...WINDOWS.map((key) =>
         column.accessor((row) => num(row.windows[key]?.value), {
           id: key,
@@ -245,21 +238,21 @@ export function EventDetailTable({ result, benchmark }: { result: EventResult; b
       ),
     ] as ColumnDef<EventRow, any>[];
   }, [t, benchmark, result.n]);
-  const key = (row: EventRow) => `${row.date}|${row.name}`;
+  const key = (row: EventRow) => row.id;
   return (
     <SortableTable
       data={result.rows}
       columns={columns}
-      initial={[{ id: "date", desc: true }]}
+      initial={[{ id: "reaction", desc: true }]}
       rowKey={key}
-      selected={open}
-      onSelect={(id) => setOpen(open === id ? null : id)}
-      expanded={(row) => (
-        <div>
-          <EventKline row={row} />
-          <p className="text-xs text-muted-foreground">{t("ui.events.kline_legend", { n: result.n })}</p>
-        </div>
-      )}
+      selected={selected}
+      onSelect={onSelect}
+      expanded={(row) => <div><EventKline row={row} /><p className="text-xs text-muted-foreground">{t("ui.events.kline_legend", { n: result.n })}</p></div>}
+      rank={(row, sorting) => row.ranks[`${WINDOWS.includes(sorting[0]?.id as WindowKey) ? sorting[0].id : "reaction"}_${sorting[0]?.desc ? "desc" : "asc"}`]}
+      rowTone={(row, sorting) => {
+        const window = WINDOWS.includes(sorting[0]?.id as WindowKey) ? sorting[0].id : "reaction";
+        return row.ranks[`${window}_desc`] <= 3 ? "bg-up-soft" : row.ranks[`${window}_asc`] <= 3 ? "bg-down-soft" : "";
+      }}
     />
   );
 }

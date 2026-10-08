@@ -2,7 +2,7 @@
 
 from decimal import Decimal, localcontext
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 # Two-sided 95% normal quantile.
 Z95 = Decimal("1.959963984540054")
@@ -20,6 +20,11 @@ class DistributionStatistics(BaseModel):
     best: str | None = None
     up: int = 0
     flat: int = 0
+    up_ratio: str | None = None
+    beat_ratio: str | None = None
+    whisker_low: str | None = None
+    whisker_high: str | None = None
+    outliers: list[str] = Field(default_factory=list)
 
 
 def statistics(values) -> dict:
@@ -39,7 +44,17 @@ def statistics(values) -> dict:
             "min": min(numbers), "q25": quantile(".25"), "median": quantile(".5"),
             "mean": sum(numbers) / len(numbers), "q75": quantile(".75"), "max": max(numbers),
         }.items()} if numbers else {}
-    return DistributionStatistics(n=len(numbers), **output, worst=output.get("min"), best=output.get("max"),
+    box = {}
+    if numbers:
+        with localcontext() as context:
+            context.prec = 34
+            q1, q3 = Decimal(output["q25"]), Decimal(output["q75"])
+            iqr = q3 - q1
+            inside = [v for v in numbers if q1 - Decimal("1.5") * iqr <= v <= q3 + Decimal("1.5") * iqr]
+            box = {"whisker_low": str(min(inside)), "whisker_high": str(max(inside)),
+                   "outliers": [str(v) for v in numbers if v < min(inside) or v > max(inside)],
+                   "up_ratio": str(Decimal(sum(v > 0 for v in numbers)) / len(numbers))}
+    return DistributionStatistics(**box, n=len(numbers), **output, worst=output.get("min"), best=output.get("max"),
                                   up=sum(x > 0 for x in numbers), flat=sum(x == 0 for x in numbers)).model_dump()
 
 
@@ -57,3 +72,18 @@ def wilson_interval(successes: int, n: int, z: Decimal = Z95) -> tuple[Decimal, 
         low = Decimal(0) if successes == 0 else max(Decimal(0), center - half)
         high = Decimal(1) if successes == n else min(Decimal(1), center + half)
     return low, high
+
+
+def paired_ratio(up, n):
+    with localcontext() as context:
+        context.prec = 34
+        return str(Decimal(up) / n) if n else None
+
+
+def comparison(values):
+    """Cross-ticker facts for the conclusion, computed in the backend."""
+    ranked = sorted(((symbol, Decimal(value)) for symbol, value in values if value is not None),
+                    key=lambda item: item[1], reverse=True)
+    return {"count": len(ranked), "positive": sum(value > 0 for _, value in ranked),
+            "high": str(ranked[0][1]) if ranked else None, "high_ticker": ranked[0][0] if ranked else None,
+            "low": str(ranked[-1][1]) if ranked else None, "low_ticker": ranked[-1][0] if ranked else None}

@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import * as echarts from "echarts/core";
 import { CandlestickChart, CustomChart, LineChart, ScatterChart } from "echarts/charts";
@@ -7,6 +7,7 @@ import { CanvasRenderer } from "echarts/renderers";
 import { useReducedMotion } from "motion/react";
 import { benchmarkName, pct } from "@/lib/analysis";
 import { fiscalLabel, offsetLabel, sessionLabel, type EventResult, type EventRow } from "@/lib/events";
+import { escapeHtml } from "@/components/analysis/BoxPlot";
 import { formatDay, formatPrice } from "@/lib/format";
 
 echarts.use([CandlestickChart, CustomChart, LineChart, ScatterChart, GridComponent, TooltipComponent, MarkLineComponent, ToolboxComponent, CanvasRenderer]);
@@ -20,7 +21,7 @@ const GRID = "#eef2f6";
 const AXIS = "#cbd5e1";
 
 /** One ECharts instance bound to a div, resized with it and disposed with it. */
-function useChart(option: () => echarts.EChartsCoreOption, deps: unknown[]) {
+function useChart(option: () => echarts.EChartsCoreOption, deps: unknown[], onClick?: (item: { dataIndex: number; seriesId: string }) => void, onHover?: (id: string | null) => void) {
   const element = useRef<HTMLDivElement>(null);
   const chart = useRef<echarts.ECharts | null>(null);
   useEffect(() => {
@@ -38,6 +39,15 @@ function useChart(option: () => echarts.EChartsCoreOption, deps: unknown[]) {
   useEffect(() => {
     chart.current?.setOption(option(), { notMerge: true });
   }, deps); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    const instance = chart.current;
+    if (!instance) return;
+    const click = (item: unknown) => onClick?.(item as { dataIndex: number; seriesId: string });
+    const hover = (item: unknown) => onHover?.((item as { seriesId: string }).seriesId);
+    const leave = () => onHover?.(null);
+    instance.on("click", click); instance.on("mouseover", hover); instance.on("globalout", leave);
+    return () => { instance.off("click", click); instance.off("mouseover", hover); instance.off("globalout", leave); };
+  }, [onClick, onHover]);
   return element;
 }
 
@@ -56,17 +66,16 @@ const percentAxis = (value: number) => pct(value, Math.abs(value) < 0.1 ? 1 : 0)
 /** "Oct 31, 2025" plus FY and session, for tooltips. */
 function eventHead(row: EventRow) {
   const fiscal = fiscalLabel(row);
-  return `<b>${row.name}</b>${fiscal ? ` · ${fiscal}` : ""}<br/>${formatDay(row.date, { year: true })} · ${sessionLabel(row.session)}`;
+  return `<b>${escapeHtml(row.name)}</b>${fiscal ? ` · ${fiscal}` : ""}<br/>${formatDay(row.date, { year: true })} · ${sessionLabel(row.session)}`;
 }
 
 /**
  * Main chart A: one candle per event, the reaction day R drawn from the
  * previous close C(R−1) = 0. The open is the gap, the body runs open → close,
  * the wicks are the day's high and low. The color is the reaction (blue up,
- * orange down against C(R−1)); hollow bodies closed above their open, filled
- * ones below. Ordered by date; the benchmark's reaction day is a gray dash.
+ * orange down against C(R−1)). Ordered by date; the benchmark's reaction day is a gray dash.
  */
-export function ReactionCandles({ result, benchmark, title, height = 300 }: { result: EventResult; benchmark: string | null; title: string; height?: number }) {
+export function ReactionCandles({ result, benchmark, title, selected, onSelect, height = 300 }: { result: EventResult; benchmark: string | null; title: string; selected: string | null; onSelect: (id: string) => void; height?: number }) {
   const { t, i18n } = useTranslation();
   const reduce = useReducedMotion();
   const element = useChart(() => {
@@ -77,11 +86,11 @@ export function ReactionCandles({ result, benchmark, title, height = 300 }: { re
       if (!candle) return { value: ["-", "-", "-", "-"] };
       const open = Number(candle.open ?? 0);
       const close = Number(candle.close);
-      // Color = the reaction (close against C(R−1)); hollow = closed above its open, filled = below.
+      // Color uses only the reaction against the previous close.
       const color = close >= 0 ? UP : DOWN;
       return {
         value: [open, close, Number(candle.low ?? Math.min(open, close)), Number(candle.high ?? Math.max(open, close))],
-        itemStyle: { color: "#ffffff", color0: color, borderColor: color, borderColor0: color, borderWidth: 1.5 },
+        itemStyle: { color, color0: color, borderColor: color, borderColor0: color, borderWidth: selected === row.id ? 3 : 1.5, opacity: selected && selected !== row.id ? 0.2 : 1 },
       };
     });
     return {
@@ -96,7 +105,7 @@ export function ReactionCandles({ result, benchmark, title, height = 300 }: { re
         formatter: (items: { dataIndex: number }[]) => {
           const row = rows[items[0]?.dataIndex ?? -1];
           if (!row) return "";
-          const head = `${eventHead(row)} · R ${formatDay(row.reaction_date, { year: true })}`;
+          const head = `${eventHead(row)} · ${t("ui.events.window.reaction")} ${formatDay(row.reaction_date, { year: true })}`;
           const candle = row.reaction_candle;
           if (!candle) return `${head}<br/>${t("ui.events.no_reaction_yet")}`;
           const lines = [
@@ -133,7 +142,7 @@ export function ReactionCandles({ result, benchmark, title, height = 300 }: { re
           : []),
       ],
     };
-  }, [result, benchmark, title, reduce, t, i18n.language]);
+  }, [result, benchmark, title, selected, reduce, t, i18n.language], (item) => { const row = result.rows[item.dataIndex]; if (row) onSelect(row.id); });
   return <div ref={element} style={{ height }} className="w-full" role="img" aria-label={title} />;
 }
 
@@ -142,9 +151,11 @@ export function ReactionCandles({ result, benchmark, title, height = 300 }: { re
  * line is the median of all events, the band the middle half (25th–75th
  * percentile); the benchmark's median path is dashed.
  */
-export function PathChart({ result, benchmark, showBenchmark, title, height = 280 }: { result: EventResult; benchmark: string | null; showBenchmark: boolean; title: string; height?: number }) {
+export function PathChart({ result, benchmark, showBenchmark, title, selected, onSelect, height = 280 }: { result: EventResult; benchmark: string | null; showBenchmark: boolean; title: string; selected: string | null; onSelect: (id: string) => void; height?: number }) {
   const { t, i18n } = useTranslation();
   const reduce = useReducedMotion();
+  const [hovered, setHovered] = useState<string | null>(null);
+  const active = hovered ?? selected;
   const element = useChart(() => {
     const points = result.path;
     const labels = points.map((point) => offsetLabel(point.offset));
@@ -157,10 +168,12 @@ export function PathChart({ result, benchmark, showBenchmark, title, height = 28
       grid: { left: 8, right: 56, top: 30, bottom: 28 },
       toolbox: toolbox(title, t("ui.analysis.save_png")),
       tooltip: {
-        trigger: "axis",
+        trigger: "item",
         confine: true,
-        formatter: (items: { dataIndex: number }[]) => {
-          const point = points[items[0]?.dataIndex ?? -1];
+        formatter: (item: { dataIndex: number; seriesId: string }) => {
+          const row = result.rows.find((row) => row.id === item.seriesId);
+          if (row) return `${eventHead(row)}<br/>${offsetLabel(row.path[item.dataIndex].offset)} <b>${pct(row.path[item.dataIndex].value, 2)}</b>`;
+          const point = points[item.dataIndex];
           if (!point) return "";
           const lines = [
             `<b>${offsetLabel(point.offset)}</b> · N ${point.n}`,
@@ -181,6 +194,14 @@ export function PathChart({ result, benchmark, showBenchmark, title, height = 28
       },
       yAxis: { type: "value", position: "right", splitLine: { lineStyle: { color: GRID } }, axisLabel: { color: MUTED, fontSize: 11, formatter: percentAxis } },
       series: [
+        ...result.rows.map((row) => ({
+          type: "line" as const, id: row.id, name: row.name,
+          triggerLineEvent: true, data: row.path.map((point) => value(point.value)), symbol: "circle", showSymbol: false,
+          symbolSize: 5, z: active === row.id ? 6 : 2,
+          lineStyle: { color: Number(row.windows.reaction.value) >= 0 ? UP : DOWN, width: active === row.id ? 3 : 1, opacity: active && active !== row.id ? 0.1 : 0.5 },
+          itemStyle: { color: Number(row.windows.reaction.value) >= 0 ? UP : DOWN },
+          emphasis: { focus: "series", lineStyle: { width: 3, opacity: 1 } },
+        })),
         {
           type: "custom",
           name: t("ui.events.middle_half"),
@@ -201,7 +222,8 @@ export function PathChart({ result, benchmark, showBenchmark, title, height = 28
           data: points.map((point) => value(point.median)),
           symbol: "circle",
           symbolSize: 5,
-          lineStyle: { color: INK, width: 2 },
+          lineStyle: { color: INK, width: 3.5 },
+          z: 5,
           itemStyle: { color: INK },
           markLine: {
             symbol: "none",
@@ -209,7 +231,7 @@ export function PathChart({ result, benchmark, showBenchmark, title, height = 28
             label: { show: false },
             data: [
               { yAxis: 0, lineStyle: { color: INK, width: 1, opacity: 0.4, type: "solid" } },
-              { xAxis: "R", lineStyle: { color: MUTED, width: 1, type: "dashed" } },
+              { xAxis: offsetLabel(0), lineStyle: { color: MUTED, width: 1, type: "dashed" } },
             ],
           },
         },
@@ -224,7 +246,7 @@ export function PathChart({ result, benchmark, showBenchmark, title, height = 28
           : []),
       ],
     };
-  }, [result, benchmark, showBenchmark, title, reduce, t, i18n.language]);
+  }, [result, benchmark, showBenchmark, title, active, reduce, t, i18n.language], (item) => { if (result.rows.some((row) => row.id === item.seriesId)) onSelect(item.seriesId); }, (id) => setHovered(result.rows.some((row) => row.id === id) ? id : null));
   return <div ref={element} style={{ height }} className="w-full" role="img" aria-label={title} />;
 }
 
