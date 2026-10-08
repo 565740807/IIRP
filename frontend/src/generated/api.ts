@@ -511,6 +511,24 @@ export interface paths {
         patch: operations["preferences_update_api_v1_preferences_patch"];
         trace?: never;
     };
+    "/api/v1/sec-contact": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Sec Contact View */
+        get: operations["sec_contact_view_api_v1_sec_contact_get"];
+        /** Sec Contact Update */
+        put: operations["sec_contact_update_api_v1_sec_contact_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/coverage": {
         parameters: {
             query?: never;
@@ -3359,6 +3377,32 @@ export interface components {
             items: components["schemas"]["SearchItem"][];
             data: components["schemas"]["SearchData"];
         };
+        /** SecContactInput */
+        SecContactInput: {
+            /** Name */
+            name: string;
+            /** Email */
+            email: string;
+        };
+        /**
+         * SecContactOutput
+         * @description SEC contact for the User-Agent; ``config_file`` (deploy/.env) wins and is read-only here.
+         */
+        SecContactOutput: {
+            /** Configured */
+            configured: boolean;
+            /**
+             * Source
+             * @enum {string}
+             */
+            source: "config_file" | "web" | "none";
+            /** Editable */
+            editable: boolean;
+            /** Name */
+            name: string | null;
+            /** Email */
+            email: string | null;
+        };
         /** SecUserAgentState */
         SecUserAgentState: {
             /** Configured */
@@ -3370,6 +3414,11 @@ export interface components {
             status: "CONFIGURED" | "NEEDS_CONFIG";
             /** Message */
             message: string;
+            /**
+             * Source
+             * @enum {string}
+             */
+            source: "config_file" | "web" | "none";
         };
         /**
          * SideTotal
@@ -4760,6 +4809,59 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PreferenceOutput"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    sec_contact_view_api_v1_sec_contact_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SecContactOutput"];
+                };
+            };
+        };
+    };
+    sec_contact_update_api_v1_sec_contact_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SecContactInput"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SecContactOutput"];
                 };
             };
             /** @description Validation Error */

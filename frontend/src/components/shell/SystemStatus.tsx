@@ -61,9 +61,11 @@ export function SystemStatus({ open, onOpenChange }: { open: boolean; onOpenChan
                 : data.worker.online ? t("ui.system.online") : t("ui.system.offline")}
               {data.worker.last_seen && <span className="text-muted-foreground"> · {formatEt(data.worker.last_seen)}</span>}
             </Row>
-            <Row label={t("ui.system.sec_user_agent")}>
+            <Row label={t("ui.sec_contact.title")}>
               <Dot ok={data.sec_user_agent.configured} />
-              {data.sec_user_agent.configured ? t("ui.system.configured") : tm(data.sec_user_agent.message)}
+              {data.sec_user_agent.configured
+                ? t(data.sec_user_agent.source === "config_file" ? "ui.sec_contact.status.config_file" : "ui.system.configured")
+                : tm(data.sec_user_agent.message)}
             </Row>
             <Row label={t("ui.system.free_disk")}>
               {typeof storage.free_bytes === "number" ? `${formatNumber(storage.free_bytes / GIB, 1)} GiB` : t("ui.system.unknown")}

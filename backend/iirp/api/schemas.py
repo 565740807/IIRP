@@ -377,6 +377,21 @@ class SecUserAgentState(Output):
     configured: bool
     status: Literal["CONFIGURED", "NEEDS_CONFIG"]
     message: str
+    source: Literal["config_file", "web", "none"]
+
+
+class SecContactInput(Strict):
+    name: str = Field(max_length=200)
+    email: str = Field(max_length=254)
+
+
+class SecContactOutput(Output):
+    """SEC contact for the User-Agent; ``config_file`` (deploy/.env) wins and is read-only here."""
+    configured: bool
+    source: Literal["config_file", "web", "none"]
+    editable: bool
+    name: str | None
+    email: str | None
 
 
 class WorkerState(Output):

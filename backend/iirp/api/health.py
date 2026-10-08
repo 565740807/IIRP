@@ -30,7 +30,8 @@ EXPECTED = {"market.identity_fields_missing"}
 
 class HealthAction(Output):
     kind: str
-    """``retry`` (POST /system/health/retry with the group key), ``tasks`` (filtered task list) or ``command``."""
+    """``retry`` (POST /system/health/retry with the group key), ``tasks`` (filtered task list),
+    ``sec_contact`` (the SEC contact dialog) or ``command``."""
     value: str | None = None
 
 
@@ -109,7 +110,7 @@ def health() -> dict:
         if sec is not None and sec.enabled:
             if not sec_configured():
                 groups.append({"key": "sec_contact", "severity": "warning", "message": msg("health.sec_contact_missing"),
-                               "action": {"kind": "command", "value": "IIRP_SEC_USER_AGENT"}})
+                               "action": {"kind": "sec_contact"}})
             else:
                 poll = s.get(SourcePoll, "sec_latest")
                 if poll is not None and poll.failures >= 3:

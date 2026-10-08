@@ -12,7 +12,6 @@ from pathlib import Path
 import httpx
 from sqlalchemy.dialects.postgresql import insert
 
-from iirp.config import settings
 from iirp.db import session
 from iirp.market.yahoo import fetch_market, plain
 from iirp.messages import UserError, msg
@@ -91,16 +90,16 @@ def fetch_sec(url):
     from iirp.sec.parse import validate_sec_url
 
     url = validate_sec_url(url)
-    from iirp.jobs.providers import sec_configured
+    from iirp.sec import contact
 
-    if not sec_configured():
+    if not contact.configured():
         raise ProviderFailure(msg("source.sec.not_configured"), 900)
     with httpx.Client(timeout=httpx.Timeout(15, connect=5), follow_redirects=False) as client:
         # Build everything first so the request starts right at its reserved slot.
         request = client.build_request(
             "GET",
             url,
-            headers={"User-Agent": settings().sec_user_agent, "Accept-Encoding": "gzip, deflate"},
+            headers={"User-Agent": contact.user_agent(), "Accept-Encoding": "gzip, deflate"},
         )
         wait_for_sec_slot()
         response = client.send(request, stream=True)

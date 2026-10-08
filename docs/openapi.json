@@ -1321,6 +1321,60 @@
         }
       }
     },
+    "/api/v1/sec-contact": {
+      "get": {
+        "summary": "Sec Contact View",
+        "operationId": "sec_contact_view_api_v1_sec_contact_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SecContactOutput"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "summary": "Sec Contact Update",
+        "operationId": "sec_contact_update_api_v1_sec_contact_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SecContactInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SecContactOutput"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/coverage": {
       "get": {
         "summary": "Coverage",
@@ -10453,6 +10507,80 @@
         "title": "SearchOutput",
         "description": "Local matches only; searching never starts a download."
       },
+      "SecContactInput": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 200,
+            "title": "Name"
+          },
+          "email": {
+            "type": "string",
+            "maxLength": 254,
+            "title": "Email"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "name",
+          "email"
+        ],
+        "title": "SecContactInput"
+      },
+      "SecContactOutput": {
+        "properties": {
+          "configured": {
+            "type": "boolean",
+            "title": "Configured"
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "config_file",
+              "web",
+              "none"
+            ],
+            "title": "Source"
+          },
+          "editable": {
+            "type": "boolean",
+            "title": "Editable"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email"
+          }
+        },
+        "type": "object",
+        "required": [
+          "configured",
+          "source",
+          "editable",
+          "name",
+          "email"
+        ],
+        "title": "SecContactOutput",
+        "description": "SEC contact for the User-Agent; ``config_file`` (deploy/.env) wins and is read-only here."
+      },
       "SecUserAgentState": {
         "properties": {
           "configured": {
@@ -10470,13 +10598,23 @@
           "message": {
             "type": "string",
             "title": "Message"
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "config_file",
+              "web",
+              "none"
+            ],
+            "title": "Source"
           }
         },
         "type": "object",
         "required": [
           "configured",
           "status",
-          "message"
+          "message",
+          "source"
         ],
         "title": "SecUserAgentState"
       },

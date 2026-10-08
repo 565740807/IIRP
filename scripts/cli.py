@@ -13,6 +13,40 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 
 
+def selected_project():
+    project = os.environ.get("IIRP_COMPOSE_PROJECT", "iirp2")
+    if not re.fullmatch(r"[a-z0-9][a-z0-9_-]{0,62}", project):
+        raise SystemExit("Invalid IIRP_COMPOSE_PROJECT")
+    return project
+
+
+def env_path():
+    env_file = Path(os.environ.get("IIRP_COMPOSE_ENV_FILE", ROOT / "deploy/.env"))
+    return env_file if env_file.is_absolute() else ROOT / env_file
+
+
+def create_env():
+    """First start: write the private config from deploy/.env.example (mode 600, random DB password).
+
+    Returns False when the file already exists. Refuses when the project's database
+    volume exists, since a new password would not match the one it was created with.
+    """
+    env_file = env_path()
+    if env_file.exists() or env_file.is_symlink():
+        return False
+    volume = selected_project() + "_postgres-data"
+    if subprocess.run(["docker", "volume", "inspect", volume], capture_output=True).returncode == 0:
+        raise SystemExit(f"{env_file} is missing but the database volume {volume} exists; restore the "
+                         "original file instead of creating a new password")
+    text = (ROOT / "deploy/.env.example").read_text()
+    text = text.replace("REPLACE_WITH_PRIVATE_URL_SAFE_PASSWORD", secrets.token_urlsafe(32))
+    env_file.parent.mkdir(parents=True, exist_ok=True)
+    with os.fdopen(os.open(env_file, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600), "w") as target:
+        target.write(text)
+    print(f"Created {env_file} (mode 600) with a random database password.")
+    return True
+
+
 def compose():
     """Explicit project selection also isolates images, ports, config and volumes.
 
@@ -20,14 +54,10 @@ def compose():
     supply a complete isolated profile; partial overrides fail before Docker.
     Never read or print credentials here; Compose owns private env parsing.
     """
-    project = os.environ.get("IIRP_COMPOSE_PROJECT", "iirp2")
-    if not re.fullmatch(r"[a-z0-9][a-z0-9_-]{0,62}", project):
-        raise SystemExit("Invalid IIRP_COMPOSE_PROJECT")
-    env_file = Path(os.environ.get("IIRP_COMPOSE_ENV_FILE", ROOT / "deploy/.env"))
-    if not env_file.is_absolute():
-        env_file = ROOT / env_file
+    project = selected_project()
+    env_file = env_path()
     if env_file.is_symlink() or not env_file.is_file():
-        raise SystemExit("Missing private Compose configuration; see deploy/README.zh-CN.md")
+        raise SystemExit(f"Missing private configuration {env_file}; run ./iirp start to create it")
     if project != "iirp2":
         if env_file.resolve() == (ROOT / "deploy/.env").resolve():
             raise SystemExit("An isolated project requires its own IIRP_COMPOSE_ENV_FILE")
@@ -217,9 +247,16 @@ def main():
     )
     parser.add_argument("args", nargs=argparse.REMAINDER)
     args = parser.parse_args()
+    created = args.action in ("init", "start") and create_env()
     selected = compose()
     if args.action in ("init", "start", "restart"):
         run(selected + ["up", "-d", "--build", "--wait"])
+        address = subprocess.run(selected + ["port", "web", "18081"], cwd=ROOT, capture_output=True,
+                                 text=True).stdout.strip()
+        print(f"IIRP is running at http://{address or '127.0.0.1:18081'}")
+        if created:
+            print("Next: open it and add your SEC contact (name and e-mail) from the notice on the home "
+                  "page. SEC requires it; Insider filings are not fetched until then.")
     elif args.action == "build":
         run(selected + ["build", *args.args, "web"])
     elif args.action == "stop":
