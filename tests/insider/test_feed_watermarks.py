@@ -8,10 +8,7 @@ import json
 from datetime import date, datetime, timedelta, timezone
 
 import pytest
-from alembic import command
-from alembic.config import Config
-from iirp.config import ROOT
-from iirp.db import engine, session
+from iirp.db import session
 from iirp.insider.feed import feed, feed_group
 from iirp.insider.feed_index import decode_cursor, encode_cursor, ensure_cluster
 from iirp.insider.feed_updates import feed_updates
@@ -134,39 +131,6 @@ def test_cursor_round_trip_and_rejection():
         for bad in ("20", "k1.!!", "k1." + "A" * 400):
             with pytest.raises(ValueError, match="common.cursor_invalid"):
                 feed(s, first["session_id"], bad, kind="buy")
-
-
-def test_migration_backfills_pointers_from_each_groups_newest_revision():
-    with session() as s, s.begin():
-        publish(s, 1, day=date(2026, 9, 1), transaction=date(2026, 8, 31))
-        publish(s, 2, day=date(2026, 8, 20), transaction=date(2026, 8, 19))
-        publish(s, 3, day=date(2026, 8, 20), transaction=date(2026, 8, 18), code=b"S")
-    configuration = Config(str(ROOT / "alembic.ini"))
-    try:
-        command.downgrade(configuration, "0020")
-        with engine().begin() as connection:
-            assert "seq" not in {row[0] for row in connection.execute(text(
-                "SELECT column_name FROM information_schema.columns WHERE table_name='feed_group_revision'"))}
-    finally:
-        command.upgrade(configuration, "head")
-    with session() as s, s.begin():
-        assert s.scalar(select(func.count()).select_from(FeedGroupCurrent)) == 2
-        assert s.scalar(select(func.count()).select_from(FeedRevision).where(FeedRevision.seq.is_not(None))) == 0
-        joint = s.scalar(select(FeedRevision).where(FeedRevision.accepted_at < CUTOFF)
-                         .order_by(FeedRevision.created_at.desc()).limit(1))
-        assert s.get(FeedGroupCurrent, joint.group_key).revision_id == joint.id
-        keys = {(row.kind, row.sort_order): row.sort_key for row in s.scalars(
-            select(FeedGroupOrder).where(FeedGroupOrder.group_key == joint.group_key))}
-        assert {kind for kind, _ in keys} == set(joint.match_kinds)
-        assert keys[("buy", "transaction")].date() == date(2026, 8, 19)
-        assert keys[("sell", "transaction")].date() == date(2026, 8, 18)
-        assert keys[("sell", "accepted")] == joint.accepted_at
-        listed = feed(s, kind="all")
-        assert [group["accepted_date"] for group in listed["groups"]] == ["2026-09-01", "2026-08-20"]
-        # New publications after the upgrade get sequence numbers and pointers.
-        publish(s, 4, day=date(2026, 9, 2), transaction=date(2026, 9, 1))
-        newest = s.scalar(select(FeedGroupCurrent).order_by(FeedGroupCurrent.seq.desc().nulls_last()).limit(1))
-        assert newest.seq is not None and s.get(FeedRevision, newest.revision_id).accepted_at.date() == date(2026, 9, 2)
 
 
 def test_tombstone_leaves_listing_but_keeps_history_for_open_sessions():

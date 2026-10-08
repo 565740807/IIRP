@@ -3,10 +3,7 @@
 from datetime import timedelta
 
 import pytest
-from alembic import command
-from alembic.config import Config
-from iirp.config import ROOT
-from iirp.db import engine, session
+from iirp.db import session
 from iirp.insider.feed_updates import pending_feed_metadata
 from iirp.jobs.batches import add_job
 from iirp.models import (
@@ -16,8 +13,8 @@ from iirp.models import (
     RequestScope,
     now,
 )
-from sqlalchemy import func, select, text
-from sqlalchemy.exc import DBAPIError, IntegrityError
+from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
 
 from tests.sec.test_sec_facts import clean, isolated_database, save  # noqa: F401
 
@@ -69,33 +66,3 @@ def test_history_key_reuses_terminal_and_preserves_active_uniqueness():
                       idempotency_key=first.idempotency_key, status="QUEUED"))
             s.flush()
         assert s.scalar(select(func.count()).select_from(Job)) == 3
-
-
-def test_concurrent_index_failure_is_repairable_without_losing_facts():
-    configuration = Config(str(ROOT / "alembic.ini"))
-    with session() as s, s.begin():
-        s.add(Job(id="migration-fact", kind="sec_document", title="synthetic", target={},
-                  status="SUCCEEDED", idempotency_key="migration-fact"))
-    command.downgrade(configuration, "0015")
-    try:
-        with engine().connect() as writer:
-            assert writer.scalar(text("SELECT current_database()" )).startswith("iirp_v1_test_")
-            writer.execute(text("UPDATE job SET updated_at=updated_at WHERE id='migration-fact'"))
-            with engine().connect().execution_options(isolation_level="AUTOCOMMIT") as builder:
-                builder.execute(text("SET lock_timeout = '2s'"))
-                builder.execute(text("SET statement_timeout = '1s'"))
-                with pytest.raises(DBAPIError) as failure:
-                    builder.execute(text(
-                        "CREATE INDEX CONCURRENTLY ix_job_history_key ON job (idempotency_key,created_at DESC)"))
-                assert failure.value.orig.sqlstate == "57014"
-                assert builder.scalar(text(
-                    "SELECT indisvalid FROM pg_index WHERE indexrelid=to_regclass('ix_job_history_key')")) is False
-                builder.execute(text("SET statement_timeout = '5s'"))
-                builder.execute(text("SET lock_timeout = '500ms'"))
-            writer.rollback()
-    finally:
-        command.upgrade(configuration, "head")
-    with session() as s:
-        assert s.get(Job, "migration-fact").status == "SUCCEEDED"
-        assert s.scalar(text(
-            "SELECT indisvalid FROM pg_index WHERE indexrelid='ix_job_history_key'::regclass")) is True

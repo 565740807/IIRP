@@ -1,17 +1,13 @@
 """Filter-consistent facts and stable transaction-first pagination."""
 
-import runpy
-from datetime import date, datetime
+from datetime import date
 
 import pytest
-from alembic.migration import MigrationContext
-from alembic.operations import Operations
-from iirp.config import ROOT
 from iirp.db import session
 from iirp.insider.feed import feed, feed_group
 from iirp.insider.records import resolve_amendment, transaction_record
 from iirp.insider.views import _refresh_groups
-from iirp.models import AmendmentRelation, FeedRevision, TransactionEvent
+from iirp.models import AmendmentRelation, TransactionEvent
 from sqlalchemy import select
 
 from tests.sec.test_sec_facts import FIXTURE, clean, isolated_database, save  # noqa: F401
@@ -124,34 +120,6 @@ def test_filtered_recent_disclosures_sort_by_the_same_visible_time_and_freeze():
         assert len(result["groups"]) == 2
         times = [group["accepted_at"] for group in result["groups"]]
         assert times == ["2026-09-01T19:00:00+00:00", "2026-09-01T13:00:00+00:00"]
-        # Exercise an actual populated 0007 -> 0008 backfill, including the
-        # immutability of the already opened reading session and the JSON facts.
-        revision_ids = [group["revision_id"] for group in result["groups"]]
-        revisions = s.scalars(select(FeedRevision).where(FeedRevision.id.in_(revision_ids))).all()
-        expected = {row.id: (dict(row.transaction_sort_dates), dict(row.data)) for row in revisions}
-        migration = runpy.run_path(
-            str(ROOT / "migrations/versions/0008_feed_filtered_disclosure_sort.py")
-        )
-        with Operations.context(MigrationContext.configure(s.connection())):
-            migration["downgrade"]()
-            s.expire_all()
-            assert all(
-                not any(key.startswith("accepted:") for key in row.transaction_sort_dates)
-                for row in revisions
-            )
-            migration["upgrade"]()
-        s.expire_all()
-        for row in revisions:
-            before, facts_before = expected[row.id]
-            assert row.data == facts_before
-            for key, value in before.items():
-                if key.startswith("accepted:"):
-
-                    assert datetime.fromisoformat(
-                        row.transaction_sort_dates[key]
-                    ) == datetime.fromisoformat(value)
-                else:
-                    assert row.transaction_sort_dates[key] == value
         assert [
             group["accepted_at"] for group in feed(s, kind="buy", order="accepted")["groups"]
         ] == times

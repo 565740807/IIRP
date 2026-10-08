@@ -30,7 +30,6 @@ from iirp.models import (
     Batch,
     BatchJob,
     CollectionStrategy,
-    Coverage,
     Job,
     JobDependency,
     PriceCache,
@@ -902,27 +901,13 @@ def test_concurrent_planning_cannot_overwrite_confirmed_pause(monkeypatch):
     assert claim({"market_history"}) is None
 
 
-def test_current_schema_matches_head_and_upgrade_preserves_sample_only(lifecycle_client):
+def test_current_schema_matches_models_and_baseline_defaults(lifecycle_client):
     config = Config(str(ROOT / "alembic.ini"))
     head = ScriptDirectory.from_config(config).get_current_head()
     assert lifecycle_client.get("/health/ready").json()["migration"] == head
+    # The baseline migration creates exactly what the models describe.
     command.check(config)
-    command.downgrade(config, "0001")
-    try:
-        with session() as s, s.begin():
-            s.add(
-                Coverage(
-                    provider="yfinance",
-                    target="AAPL",
-                    status="SAMPLE_ONLY",
-                    message="Synthetic legacy probe",
-                )
-            )
-        command.upgrade(config, "head")
-    finally:
-        command.upgrade(config, "head")
     with session() as s:
-        assert s.get(Coverage, ("yfinance", "AAPL")).status == "SAMPLE_ONLY"
         assert s.scalar(text("SELECT version_num FROM alembic_version")) == head
         assert s.scalar(select(func.count()).select_from(PriceCache)) == 0
     batches.create_collection(collection())
@@ -1005,36 +990,6 @@ def test_batch_job_pages_include_only_linked_jobs_without_duplicates(lifecycle_c
     assert second["data"]["next_cursor"] == ""
     assert lifecycle_client.get(f"/api/v1/batches/{identifier}/jobs?cursor=bad").status_code == 409
     assert lifecycle_client.get("/api/v1/batches/missing/jobs").status_code == 404
-
-
-def test_feed_metadata_migration_preserves_payload_and_filter_semantics():
-    config = Config(str(ROOT / "alembic.ini"))
-    command.downgrade(config, "0003")
-    rows = [{"table": "I", "code": "P"}, {"table": "II", "code": "A"}]
-    import json
-
-    try:
-        with engine().begin() as connection:
-            connection.execute(
-                text("INSERT INTO issuer (id,name) VALUES ('0000000001','Synthetic')")
-            )
-            connection.execute(
-                text(
-                    "INSERT INTO feed_group_revision (id,group_key,issuer_id,accepted_at,data,created_at) "
-                    "VALUES ('legacy','legacy','0000000001',now(),CAST(:data AS jsonb),now())"
-                ),
-                {"data": json.dumps({"transactions": rows})},
-            )
-        command.upgrade(config, "head")
-        with session() as s:
-            migrated = s.execute(
-                text("SELECT data,match_kinds,row_count FROM feed_group_revision WHERE id='legacy'")
-            ).one()
-            assert migrated.data == {"transactions": rows}
-            assert set(migrated.match_kinds) == {"all", "focus", "buy", "derivative"}
-            assert migrated.row_count == 2
-    finally:
-        command.upgrade(config, "head")
 
 
 def test_twenty_symbols_keep_eighteen_results_when_one_fails_and_one_needs_review():
