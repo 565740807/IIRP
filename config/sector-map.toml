@@ -1,0 +1,73 @@
+# Sectors and the ETFs that represent them on the sector page and the home strip.
+#
+# The SPDR sector ETFs track the matching sector of the S&P 500; they do not
+# cover the whole US stock market, and the page says so. Display names come
+# from the translation files (ui.sectors.name.<id>); the order here is the
+# order of the table before it is sorted.
+#
+# Each sector may later list industry groups:
+#
+#   [[sector.group]]
+#   id = "semiconductors"
+#   primary = "SOXX"          # the one ETF that is ranked
+#   alternates = ["SMH"]      # shown as reference rows only
+#   coverage = "partial"      # complete | partial | reference | pending
+#
+# A group marked "pending" has no ETF yet and is never ranked.
+
+[[sector]]
+id = "information_technology"
+etf = "XLK"
+
+[[sector]]
+id = "health_care"
+etf = "XLV"
+
+[[sector]]
+id = "financials"
+etf = "XLF"
+
+[[sector]]
+id = "consumer_discretionary"
+etf = "XLY"
+
+[[sector]]
+id = "consumer_staples"
+etf = "XLP"
+
+[[sector]]
+id = "communication_services"
+etf = "XLC"
+
+[[sector]]
+id = "industrials"
+etf = "XLI"
+
+[[sector]]
+id = "energy"
+etf = "XLE"
+
+[[sector]]
+id = "materials"
+etf = "XLB"
+
+[[sector]]
+id = "utilities"
+etf = "XLU"
+
+[[sector]]
+id = "real_estate"
+etf = "XLRE"
+
+[history]
+# Each ETF is fetched once as this year plus this many complete past years,
+# with the cache's usual month of buffer, so the monthly and interval analyses
+# opened from the sector page reuse the same fetch.
+years = 8
+
+[heatmap]
+# Tile area weight = min_weight + (1 − min_weight) × (r − r_min) / max(r_max − r_min, s),
+# so the smallest tile is min_weight of the largest. s (in percent) keeps a
+# day with tiny differences from looking like a day with large ones.
+min_weight = 0.2
+spread_floor_percent = { today = 1, "1w" = 2, "1m" = 4, "3m" = 8, ytd = 8 }

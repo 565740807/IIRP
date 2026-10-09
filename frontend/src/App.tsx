@@ -38,6 +38,9 @@ const EntityPage = lazy(() =>
 const TransactionPage = lazy(() =>
   import("./pages/Transaction").then((m) => ({ default: m.TransactionPage })),
 );
+const SectorsPage = lazy(() =>
+  import("./pages/Sectors").then((m) => ({ default: m.SectorsPage })),
+);
 const MarketDetailPage = lazy(() =>
   import("./pages/Market").then((m) => ({ default: m.MarketDetailPage })),
 );
@@ -158,6 +161,7 @@ function Workbench() {
         <Routes>
           <Route path="/" element={<HomePage />} />
           <Route path="/insiders" element={<InsidersPage />} />
+          <Route path="/sectors" element={<SectorsPage />} />
           <Route
             path="/analysis/monthly"
             element={<SeasonalPage key="monthly" kind="monthly" />}

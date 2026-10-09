@@ -2,7 +2,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { Link, NavLink, useLocation } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import { Activity, BarChart3, Database, Home, RefreshCw, Users } from "lucide-react";
+import { Activity, BarChart3, Database, Home, LayoutGrid, RefreshCw, Users } from "lucide-react";
 import { setLanguage, tm, type Language } from "@/i18n";
 import { formatEt } from "@/lib/format";
 import { useRefresh } from "@/lib/refresh";
@@ -18,6 +18,7 @@ import { TaskEntry } from "./Tasks";
 const NAVIGATION = [
   { to: "/", key: "home", icon: Home },
   { to: "/insiders", key: "insiders", icon: Users },
+  { to: "/sectors", key: "sectors", icon: LayoutGrid },
   { to: "/analysis/monthly", key: "analysis", icon: BarChart3 },
   { to: "/data", key: "data", icon: Database },
 ] as const;
@@ -26,6 +27,7 @@ const NAVIGATION = [
 function pageKey(pathname: string) {
   if (pathname === "/") return "home";
   if (pathname.startsWith("/insiders")) return "insiders";
+  if (pathname.startsWith("/sectors")) return "sectors";
   if (pathname.startsWith("/analysis")) return "analysis";
   if (pathname.startsWith("/data")) return "data";
   if (pathname.startsWith("/companies/")) return "company";

@@ -1,7 +1,8 @@
 """Read-path latency benchmark for one running IIRP instance (GET requests only).
 
 Measures home, the Insider feed (first page and pages 2/3 for all, buy and sell
-filters), the task list, company and person history and a transaction detail.
+filters), the Insider overview, the sector performance and its daily K-lines,
+the task list, company and person history and a transaction detail.
 The company and person pages are also measured as the browser loads them:
 six months of history, the before/after-5 windows of its rows and the cached
 daily bars of its ticker (``*_page`` adds the three request times).
@@ -33,7 +34,8 @@ from pathlib import Path
 
 MAX_RUNS = 20
 FEED_FILTERS = (("all", "feed"), ("buy", "feed_buy"), ("sell", "feed_sell"))
-GROUPS = ("home", "feed", "feed_buy", "feed_sell", "overview", "jobs", "company", "person", "transaction")
+GROUPS = ("home", "feed", "feed_buy", "feed_sell", "overview", "sectors", "jobs", "company", "person",
+          "transaction")
 
 
 def nearest_rank(values, percent):
@@ -190,6 +192,9 @@ def main():
             client.get("home", "/api/v1/home")
         if "overview" in only:
             client.get("insider_overview", "/api/v1/insider/overview")
+        if "sectors" in only:
+            client.get("sectors", "/api/v1/sectors")
+            client.get("sector_candles", "/api/v1/sectors/candles", {"range": "3m", "interval": "day"})
         for kind, prefix in FEED_FILTERS:
             if prefix not in only:
                 continue
