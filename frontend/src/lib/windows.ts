@@ -66,13 +66,13 @@ export function useTradeWindows(items: readonly TradeKey[], n: number, enabled =
     queryFn: ({ signal }) => unwrap(client.GET("/api/v1/insider/windows", { params: { query: { items: param, n } }, signal })),
     enabled: enabled && keys.length > 0,
     placeholderData: (previous) => previous,
-    refetchInterval: (state) => (waiting(state.state.data?.tickers) ? 3000 : false),
+    refetchInterval: (state) => (enabled && waiting(state.state.data?.tickers) ? 3000 : false),
   });
 
   // Ask once for prices of tickers that have none yet; the server fetches each ticker once.
   const tickers = query.data?.tickers;
   useEffect(() => {
-    if (!tickers) return;
+    if (!enabled || !tickers) return;
     const due = Object.entries(tickers)
       .filter(([symbol, state]) => state.status === "not_fetched" && !asked.has(`${symbol}|${n}|${state.needed_start}`))
       .map(([symbol, state]) => {
@@ -92,7 +92,7 @@ export function useTradeWindows(items: readonly TradeKey[], n: number, enabled =
         /* The cells keep their "no prices" state; opening the page again asks again. */
         for (const symbol of due) asked.delete(`${symbol}|${n}|${tickers[symbol]?.needed_start}`);
       });
-  }, [tickers, n, keys, queryClient, foreground]);
+  }, [tickers, n, keys, queryClient, foreground, enabled]);
 
   const byKey = useMemo(() => {
     const map = new Map<string, WindowItem>();

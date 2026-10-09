@@ -21,12 +21,12 @@ def home():
     return {"observed_at": current, "market": market, "refresh": browser}
 
 
-def feed(session_id="", cursor="", kind="all", order="transaction"):
+def feed(session_id="", cursor="", kind="all", order="transaction", index="all"):
     from iirp.insider.feed import feed as read_feed
     from iirp.insider.feed_updates import pending_feed_metadata
 
     with session() as s, s.begin():
-        result = read_feed(s, session_id, cursor, kind, order)
+        result = read_feed(s, session_id, cursor, kind, order, index)
         # Polling has its own scalar endpoint; ordinary page reads do not repeat
         # the full latest-revision scan just to report an update count.
         result["new_count"] = 0

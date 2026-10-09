@@ -115,6 +115,17 @@ def _persist(s, current, response, sources, source, observation_metadata=None):
                 s.add(MarketQuote(symbol=current.target["symbol"], data=quote))
         else:
             status, error = "PARTIAL", msg("market.no_quote")
+    elif kind == "market_stock_quotes":
+        from iirp.market.stock_quotes import persist_stock_quotes
+        result.update(persist_stock_quotes(s, current, response))
+    elif kind == "index_constituents":
+        from iirp.market.constituents import persist_failure, persist_success
+        if response.get("error"):
+            persist_failure(s, response["index_name"], response["error"])
+            status, error = "PARTIAL", response["error"]
+        else:
+            persist_success(s, response["index_name"], response["rows"])
+            result["constituents"] = len(response["rows"])
     elif kind == "sec_discover":
         from iirp.insider.facts import persist_discovery
 

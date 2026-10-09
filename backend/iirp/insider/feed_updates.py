@@ -110,12 +110,21 @@ def feed_updates(s, session_id, *, include_groups=False, target_session_id="", c
             raise UserError("feed.delta_target_missing")
         target = None
     changed, removed = changes(target)
+    index = saved.filters.get("index", "all")
+    if index != "all":
+        from iirp.insider.feed_index import _index_groups
+        allowed = set(s.scalars(_index_groups(index)))
+        changed = [entry for entry in changed if entry[1] in allowed]
+        removed = [key for key in removed if key in allowed]
     offset = _offset(cursor)
     # The first content read opens a target watermark; every delta page is then
     # computed between the same two watermarks and never shifts its boundary.
     if include_groups and target is None and (changed or removed):
-        target = open_feed_session(s, kind, order, delta_from=saved.id)
+        target = open_feed_session(s, kind, order, delta_from=saved.id, index=index)
         changed, removed = changes(target)
+        if index != "all":
+            changed = [entry for entry in changed if entry[1] in allowed]
+            removed = [key for key in removed if key in allowed]
     summary, preview = pending_feed_metadata(s, preview=include_groups and offset == 0)
     page = changed[offset:offset + 20]
     return {

@@ -227,11 +227,11 @@ def main():
             "sec": (2, {"sec_discover", "sec_document", "sec_identity"}),
             "market": (
                 1,
-                {"market_identity", "market_history", "market_quote"},
+                {"market_identity", "market_history", "market_quote", "market_stock_quotes"},
             ),
             "compute": (1, {"research_compute"}),
             "diagnostic": (1, {"fixture_check", "sec_probe", "market_probe"}),
-            "maintenance": (1, {"maintenance_backup", "maintenance_clean"}),
+            "maintenance": (1, {"maintenance_backup", "maintenance_clean", "index_constituents"}),
         }
         from iirp.sec.poll import poll_due, poll_once, release_stale_lease
 

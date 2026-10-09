@@ -67,7 +67,7 @@ def open_feed_session(s: Session, kind: str, order: str, **extra) -> FeedSession
     saved = FeedSession(
         revision_ids=[],
         filters={"purpose": "feed", "kind": kind, "order": order, "as_of": now().isoformat(),
-                 "watermark": watermark, "total_groups": count(s, watermark, _canonical_kind(kind), order),
+                 "watermark": watermark, "total_groups": count(s, watermark, _canonical_kind(kind), order, index=extra.get("index", "all")),
                  **extra},
         expires_at=now() + timedelta(hours=12),
     )
@@ -116,7 +116,7 @@ def feed_groups(s: Session, page_ids: list[str], kind: str, order: str) -> list[
     return groups
 
 
-def feed(s: Session, session_id: str = "", cursor: str = "", kind: str = "all", order="transaction") -> dict:
+def feed(s: Session, session_id: str = "", cursor: str = "", kind: str = "all", order="transaction", index="all") -> dict:
     """Return twenty company/date groups of one reading session; session creation is local only."""
     from iirp.insider.feed_index import PAGE_SIZE, decode_cursor, encode_cursor, listing
 
@@ -125,12 +125,12 @@ def feed(s: Session, session_id: str = "", cursor: str = "", kind: str = "all", 
         raise UserError("feed.order_invalid")
     if session_id:
         saved = _session(s, session_id, "feed")
-        if saved.filters.get("kind") != kind or saved.filters.get("order") != order:
+        if saved.filters.get("kind") != kind or saved.filters.get("order") != order or saved.filters.get("index", "all") != index:
             raise UserError("feed.filters_changed")
     else:
-        saved = open_feed_session(s, kind, order)
+        saved = open_feed_session(s, kind, order, index=index)
     entries = listing(s, feed_watermark(saved), _canonical_kind(kind), order,
-                      after=decode_cursor(cursor) if cursor else None)
+                      after=decode_cursor(cursor) if cursor else None, index=index)
     page = entries[:PAGE_SIZE]
     page_ids, total = [entry[2] for entry in page], saved.filters["total_groups"]
     next_cursor = encode_cursor(page[-1][0]) if len(entries) > PAGE_SIZE else None

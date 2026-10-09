@@ -48,6 +48,8 @@ from iirp.models.jobs import (  # noqa: F401
     WorkerHeartbeat,
 )
 from iirp.models.market import (  # noqa: F401
+    IndexConstituent,
+    IndexConstituentState,
     MarketQuote,
     PriceCache,
     PriceCacheBar,

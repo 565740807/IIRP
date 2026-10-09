@@ -87,3 +87,21 @@ class MarketQuote(Base):
     symbol: Mapped[str] = mapped_column(String(32), primary_key=True)
     data: Mapped[dict[str, Any]] = mapped_column(JSONB)
     fetched_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+
+
+class IndexConstituent(Base):
+    __tablename__ = "index_constituent"
+    index_name: Mapped[str] = mapped_column(String(16), primary_key=True)
+    ticker: Mapped[str] = mapped_column(String(32), primary_key=True)
+    cik: Mapped[str | None] = mapped_column(String(10), index=True)
+    name: Mapped[str] = mapped_column(Text)
+    industry: Mapped[str | None] = mapped_column(Text)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class IndexConstituentState(Base):
+    __tablename__ = "index_constituent_state"
+    index_name: Mapped[str] = mapped_column(String(16), primary_key=True)
+    updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    attempted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    error: Mapped[dict[str, Any] | None] = mapped_column(JSONB)

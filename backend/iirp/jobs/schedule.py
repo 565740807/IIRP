@@ -13,8 +13,10 @@ from iirp.messages import msg
 from iirp.models import (
     Batch,
     CollectionStrategy,
+    Job,
     RequestReceipt,
     RequestScope,
+    Subscription,
     now,
 )
 
@@ -156,6 +158,9 @@ def schedule_tick():
 
     with session() as s, s.begin():
         defaults(s)
+        market_policy = s.get(CollectionStrategy, "market")
+        if market_policy and market_policy.enabled:
+            schedule_indices(s)
         ensure_fresh_in_session(s, {"sources": ["market"], "reason": "scheduler"})
         current = now().astimezone(ET)
         strategies = s.scalars(
@@ -183,3 +188,27 @@ def schedule_tick():
                 )
                 policy.next_run_at = due if due > current else due + timedelta(days=1)
             policy.last_run_at = current
+
+
+def schedule_indices(s):
+    """One durable weekly request per index, serialized across coordinators."""
+    from sqlalchemy import text
+
+    from iirp.market.constituents import due_indices
+    from iirp.market.yahoo import digest
+    from iirp.models import ACTIVE
+
+    key = int(digest(["index_constituents"])[0:15], 16)
+    if not s.scalar(text("SELECT pg_try_advisory_xact_lock(:key)"), {"key": key}):
+        return
+    for index in due_indices(s):
+        if s.scalar(select(Job.id).where(Job.kind == "index_constituents", Job.status.in_(ACTIVE),
+                                         Job.target["index_name"].astext == index).limit(1)):
+            continue
+        target = {"index_name": index, "week": now().strftime("%G-W%V")}
+        job = Job(kind="index_constituents", title=msg("job.title.index_constituents", index=index),
+                  target=target, idempotency_key=digest(["index_constituents", target, str(uuid.uuid4())]),
+                  trigger="automatic", priority=50, progress_total=1)
+        s.add(job)
+        s.flush()
+        s.add(Subscription(job_id=job.id, source="automatic"))

@@ -272,7 +272,7 @@ def claim(allowed_kinds=None, *, prefer_latest=False):
         query = select(Job).where(
             ~blocked,
             ~(Job.kind.in_(("sec_discover", "sec_document", "sec_identity")) & sec_blocked),
-            ~(Job.kind.in_(("market_identity", "market_history", "market_quote")) & yahoo_blocked),
+            ~(Job.kind.in_(("market_identity", "market_history", "market_quote", "market_stock_quotes")) & yahoo_blocked),
         )
         # While manual work owns a provider lane, automatic work waits even if
         # that lane has another slot. Other provider lanes remain independent.
@@ -282,6 +282,9 @@ def claim(allowed_kinds=None, *, prefer_latest=False):
             .where(BatchJob.active.is_(True), Batch.trigger == "manual",
                    Batch.requested_action.is_(None),
                    Batch.status.in_(("QUEUED", "RUNNING", "RETRY_WAIT", "PARTIAL"))))
+        manual_links = manual_links.union(select(Subscription.job_id).join(Job, Job.id == Subscription.job_id).where(
+            Job.kind == "market_stock_quotes", Subscription.source == "manual", Subscription.active.is_(True),
+            Job.requested_action.is_(None)))
         for lane in SOURCE_LANES:
             if allowed_kinds is not None and not set(lane).intersection(allowed_kinds):
                 continue
@@ -452,7 +455,7 @@ def claim(allowed_kinds=None, *, prefer_latest=False):
 # Provider lanes, not all background work, yield to a manual request.
 SOURCE_LANES = (
     ("sec_discover", "sec_document", "sec_identity"),
-    ("market_identity", "market_history", "market_quote"),
+    ("market_identity", "market_history", "market_quote", "market_stock_quotes"),
 )
 
 
@@ -475,10 +478,14 @@ def should_yield_to_manual(job):
                    Batch.requested_action.is_(None),
                    Batch.status.in_(("QUEUED", "RUNNING", "RETRY_WAIT", "PARTIAL")))
         )
+        manual = manual.union(select(Subscription.job_id).join(Job, Job.id == Subscription.job_id).where(
+            Job.kind == "market_stock_quotes", Subscription.source == "manual", Subscription.active.is_(True),
+            Job.requested_action.is_(None)))
         # A shared download serving manual demand is already foreground work.
-        if s.scalar(manual.where(Job.id == job.id).limit(1)):
+        manual_ids = manual.subquery()
+        if s.scalar(select(manual_ids.c[0]).where(manual_ids.c[0] == job.id).limit(1)):
             return False
-        return s.scalar(manual.where(
+        return s.scalar(select(Job.id).where(Job.id.in_(select(manual_ids.c[0])),
             Job.kind.in_(kinds), Job.id != job.id,
             Job.status.in_(("QUEUED", "RUNNING", "RETRY_WAIT")),
             Job.requested_action.is_(None), Job.available_at <= now(),

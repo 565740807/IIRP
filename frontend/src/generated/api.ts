@@ -1077,6 +1077,74 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/insider/overview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read Overview */
+        get: operations["read_overview_api_v1_insider_overview_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/insider/indices": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read Indices */
+        get: operations["read_indices_api_v1_insider_indices_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/insider/feed-prices": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read Feed Prices */
+        get: operations["read_feed_prices_api_v1_insider_feed_prices_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/insider/quotes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Request Quotes */
+        post: operations["request_quotes_api_v1_insider_quotes_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/system/health": {
         parameters: {
             query?: never;
@@ -1487,6 +1555,41 @@ export interface components {
             /** Reused */
             reused: boolean;
             job: components["schemas"]["JobView"];
+        };
+        /** CompanyOverview */
+        CompanyOverview: {
+            /** Issuer Id */
+            issuer_id: string;
+            /** Name */
+            name: string;
+            /** Ticker */
+            ticker: string | null;
+            /** Buy People */
+            buy_people: number;
+            /** Sell People */
+            sell_people: number;
+            /** Buy Amount */
+            buy_amount: string | null;
+            /** Sell Amount */
+            sell_amount: string | null;
+            /** Net Amount */
+            net_amount: string | null;
+            /**
+             * Amount Estimated
+             * @default false
+             */
+            amount_estimated: boolean;
+            /**
+             * Missing Price Rows
+             * @default 0
+             */
+            missing_price_rows: number;
+            buy_price: components["schemas"]["PriceComparison"];
+            sell_price: components["schemas"]["PriceComparison"];
+            /** Start Date */
+            start_date: string;
+            /** End Date */
+            end_date: string;
         };
         /** CoverageView */
         CoverageView: {
@@ -2379,6 +2482,13 @@ export interface components {
             pending_filings: components["schemas"]["PendingFiling"][];
             pending_summary: components["schemas"]["PendingSummary"];
         };
+        /** FeedPrices */
+        FeedPrices: {
+            /** Items */
+            items: {
+                [key: string]: components["schemas"]["PriceComparison"];
+            };
+        };
         /** FeedUpdatesOutput */
         FeedUpdatesOutput: {
             /** Session Id */
@@ -2583,6 +2693,43 @@ export interface components {
             freshness: "live" | "closed" | "delayed" | "missing";
             /** Reason */
             reason: string | null;
+        };
+        /** IndexStatus */
+        IndexStatus: {
+            /** Index Name */
+            index_name: string;
+            /** Updated At */
+            updated_at: string | null;
+            /** Error */
+            error: string | null;
+        };
+        /** Indices */
+        Indices: {
+            /** Indices */
+            indices: components["schemas"]["IndexStatus"][];
+        };
+        /** InsiderOverview */
+        InsiderOverview: {
+            /** Indices */
+            indices: components["schemas"]["IndexStatus"][];
+            /** As Of */
+            as_of: string;
+            /** Cluster Buys */
+            cluster_buys: components["schemas"]["CompanyOverview"][];
+            /** Cluster Sales */
+            cluster_sales: components["schemas"]["CompanyOverview"][];
+            /** Large Buys */
+            large_buys: components["schemas"]["OverviewTrade"][];
+            /** Large Sales */
+            large_sales: components["schemas"]["OverviewTrade"][];
+            /** Executive Buys */
+            executive_buys: components["schemas"]["OverviewTrade"][];
+            /** Holding Increases */
+            holding_increases: components["schemas"]["OverviewTrade"][];
+            /** Companies */
+            companies: components["schemas"]["CompanyOverview"][];
+            /** Price Keys */
+            price_keys: components["schemas"]["OverviewPriceKey"][];
         };
         /**
          * InsiderOwner
@@ -3001,6 +3148,42 @@ export interface components {
             /** Reason */
             reason: string | null;
         };
+        /** OverviewPriceKey */
+        OverviewPriceKey: {
+            /** Ticker */
+            ticker: string;
+            /** Date */
+            date: string;
+            /** Issuer Id */
+            issuer_id: string;
+        };
+        /** OverviewTrade */
+        OverviewTrade: {
+            /** Id */
+            id: string;
+            /** Issuer Id */
+            issuer_id: string;
+            /** Name */
+            name: string;
+            /** Ticker */
+            ticker: string | null;
+            /** Owners */
+            owners: components["schemas"]["InsiderOwner"][];
+            /** Date */
+            date: string;
+            /** Shares */
+            shares: string | null;
+            /** Amount */
+            amount: string | null;
+            /**
+             * Amount Estimated
+             * @default false
+             */
+            amount_estimated: boolean;
+            /** Holding Change */
+            holding_change: string | null;
+            price: components["schemas"]["PriceComparison"];
+        };
         /** PendingFiling */
         PendingFiling: {
             /** Accession */
@@ -3193,6 +3376,37 @@ export interface components {
             values: components["schemas"]["PreferenceInput"];
             /** Version */
             version: number;
+        };
+        /** PriceComparison */
+        PriceComparison: {
+            /** Price */
+            price: string | null;
+            /**
+             * Estimated
+             * @default false
+             */
+            estimated: boolean;
+            /** Range Low */
+            range_low: string | null;
+            /** Range High */
+            range_high: string | null;
+            /** Current Price */
+            current_price: string | null;
+            /** Change Percent */
+            change_percent: string | null;
+            /** Relation */
+            relation: ("higher" | "near" | "lower") | null;
+            /** Quote Date */
+            quote_date: string | null;
+            /** Quote Status */
+            quote_status: string | null;
+            /** Amount */
+            amount: string | null;
+            /**
+             * Amount Estimated
+             * @default false
+             */
+            amount_estimated: boolean;
         };
         /**
          * PriceContext
@@ -3557,6 +3771,16 @@ export interface components {
             currencies: number;
             /** Currency */
             currency: string | null;
+        };
+        /** StockQuotesInput */
+        StockQuotesInput: {
+            /** Symbols */
+            symbols: string[];
+        };
+        /** StockQuotesOutput */
+        StockQuotesOutput: {
+            /** Requested */
+            requested: string[];
         };
         /** StoragePath */
         StoragePath: {
@@ -4206,6 +4430,7 @@ export interface operations {
                 cursor?: string;
                 type?: string;
                 order?: string;
+                index?: string;
             };
             header?: never;
             path?: never;
@@ -6180,6 +6405,128 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["BarsOutput"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_overview_api_v1_insider_overview_get: {
+        parameters: {
+            query?: {
+                index?: "all" | "sp500" | "nasdaq100";
+                days?: 7 | 30 | 90;
+                role?: "all" | "executive" | "director" | "ten_percent";
+                min_amount?: number | string;
+                exclude_plans?: boolean;
+                cluster_days?: 7 | 14 | 30;
+                cluster_people?: 2 | 3;
+                exclude_cluster_plans?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InsiderOverview"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_indices_api_v1_insider_indices_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Indices"];
+                };
+            };
+        };
+    };
+    read_feed_prices_api_v1_insider_feed_prices_get: {
+        parameters: {
+            query?: {
+                revisions?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FeedPrices"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    request_quotes_api_v1_insider_quotes_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StockQuotesInput"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StockQuotesOutput"];
                 };
             };
             /** @description Validation Error */

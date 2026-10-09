@@ -34,6 +34,8 @@ BUSINESS_KINDS = {
     "market_identity",
     "market_history",
     "market_quote",
+    "market_stock_quotes",
+    "index_constituents",
     "sec_discover",
     "sec_document",
     "sec_identity",

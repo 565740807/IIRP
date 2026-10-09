@@ -33,7 +33,7 @@ from pathlib import Path
 
 MAX_RUNS = 20
 FEED_FILTERS = (("all", "feed"), ("buy", "feed_buy"), ("sell", "feed_sell"))
-GROUPS = ("home", "feed", "feed_buy", "feed_sell", "jobs", "company", "person", "transaction")
+GROUPS = ("home", "feed", "feed_buy", "feed_sell", "overview", "jobs", "company", "person", "transaction")
 
 
 def nearest_rank(values, percent):
@@ -188,6 +188,8 @@ def main():
     for run in range(args.runs):
         if "home" in only:
             client.get("home", "/api/v1/home")
+        if "overview" in only:
+            client.get("insider_overview", "/api/v1/insider/overview")
         for kind, prefix in FEED_FILTERS:
             if prefix not in only:
                 continue
