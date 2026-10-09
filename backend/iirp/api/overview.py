@@ -37,7 +37,8 @@ class PriceComparison(Output):
     quote_status: str | None = None
     amount: str | None = None
     amount_estimated: bool = False
-    price_check: Literal["ok", "mismatch", "unchecked"] = "unchecked"
+    # "not_applicable": no positive price to check (option exercises, awards, $0 rows).
+    price_check: Literal["ok", "mismatch", "unchecked", "not_applicable"] = "unchecked"
     # Whole times the price differs from the market reference, for "mismatch" only.
     mismatch_ratio: str | None = None
 
@@ -124,10 +125,13 @@ class InsiderOverview(Indices):
     # and how many of them have never been quoted yet.
     quote_symbols: list[str]
     quotes_pending: int
+    # Ratio from which a reported price is marked as a mismatch, e.g. "10".
+    price_mismatch_ratio: str
 
 
 class FeedPrices(Output):
     items: dict[str, PriceComparison]
+    price_mismatch_ratio: str
 
 
 class StockQuotesInput(BaseModel):

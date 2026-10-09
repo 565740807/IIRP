@@ -9,11 +9,12 @@ every affected list or company reports how many trades were left out.
 Every list returns at most its configured number of rows plus its full count.
 """
 
+import re
 from collections import defaultdict
 from datetime import timedelta
 from decimal import Decimal
 
-from sqlalchemy import func, or_, select
+from sqlalchemy import func, or_, select, text
 
 from iirp.analysis.calendar import ET
 from iirp.insider.prices import (
@@ -22,6 +23,7 @@ from iirp.insider.prices import (
     display_ticker,
     effective_price,
     estimate_prices,
+    mismatch_ratio_text,
     money_text,
     overview_settings,
     percent_text,
@@ -42,6 +44,7 @@ from iirp.models import (
     TransactionEvent,
     now,
 )
+from iirp.models.insider import OVERVIEW_ROWS
 
 COMPANY_SORTS = ("net_buy", "net_sell", "buy", "sell", "people")
 
@@ -175,6 +178,12 @@ def cluster_sort_key(side):
     return key
 
 
+def overview_rows_clause():
+    """The index predicate OVERVIEW_ROWS, qualified with the table name."""
+    qualified = re.sub(r"\b(status|transaction_code|data)\b", r"transaction_event.\1", OVERVIEW_ROWS)
+    return text(qualified)
+
+
 def _section(items, total, mismatched=0):
     return {"total": total, "items": items, "price_mismatch_rows": mismatched}
 
@@ -182,23 +191,24 @@ def _section(items, total, mismatched=0):
 def _rows(s, *, index, days, role, exclude_plans, at):
     end = at.astimezone(ET).date()
     event = TransactionEvent
-    filing_ticker = event.data["ticker"].astext
+    # Every selected column and every condition except the accepted-date check
+    # is covered by the partial index ix_event_overview, so the rows come from
+    # that index alone instead of from the wide JSONB rows. The index predicate
+    # is literal SQL: with bound parameters a prepared statement's generic plan
+    # could not prove that the partial index applies.
     statement = select(
         event.id, event.issuer_id, event.version_id, event.transaction_date,
         event.transaction_code, event.trade_shares, event.reported_price, event.is_plan,
         event.is_ceo, event.is_cfo, event.is_president, event.is_chair, event.owner_ids,
-        event.price_range_low, event.price_range_high,
-        event.data["shares_after"].astext.label("shares_after"),
-        Issuer.name, Issuer.ticker.label("issuer_ticker"), filing_ticker.label("filing_ticker"),
+        event.price_range_low, event.price_range_high, event.shares_after,
+        Issuer.name, Issuer.ticker.label("issuer_ticker"), event.filing_ticker,
     ).join(Issuer, Issuer.id == event.issuer_id).join(
         Filing, Filing.accession == event.accession
     ).where(
-        event.status == "CURRENT", Filing.visible.is_(True),
-        event.transaction_code.in_(("P", "S")), event.data["table"].astext == "I",
-        or_(event.data["currency"].astext.is_(None), event.data["currency"].astext == "USD"),
+        overview_rows_clause(), Filing.visible.is_(True),
         event.transaction_date.between(end - timedelta(days=days - 1), end),
         event.transaction_date <= func.date(func.timezone("America/New_York", event.accepted_at)),
-        index_predicate(event.issuer_id, func.coalesce(filing_ticker, Issuer.ticker), index),
+        index_predicate(event.issuer_id, func.coalesce(event.filing_ticker, Issuer.ticker), index),
     )
     if exclude_plans:
         statement = statement.where(event.is_plan.is_(False))
@@ -351,6 +361,7 @@ def overview(s, *, index="all", days=30, role="all", min_amount=Decimal(0), excl
         "price_keys": [{"ticker": ticker, "date": day, "issuer_id": issuer}
                        for ticker, day, issuer in sorted(keys)],
         "quote_symbols": quote_symbols, "quotes_pending": pending,
+        "price_mismatch_ratio": mismatch_ratio_text(),
     }
 
 

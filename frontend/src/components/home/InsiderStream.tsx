@@ -26,7 +26,7 @@ import { useInsiderN, useTradeWindows } from "@/lib/windows";
 import { NControl } from "@/components/insider/NControl";
 import { INDICES, useOverviewChoice, useVisibleStocks, useStockQuotes, type IndexFilter as Index } from "@/lib/insiderOverview";
 import { IndexFilter, IndexStatus } from "@/components/insider/IndexFilter";
-import { CurrentQuoteStatus } from "@/components/insider/InsiderPrice";
+import { CurrentQuoteStatus, MismatchRatio } from "@/components/insider/InsiderPrice";
 import { CARD_COLUMNS, FeedCard, FeedWindows, FeedPrices, LINE_COLUMNS } from "./FeedCard";
 
 const FILTERS = ["focus", "buy", "sell", "derivative", "other", "all"] as const;
@@ -329,6 +329,7 @@ export function InsiderStream() {
       ) : (
         <FeedWindows.Provider value={shared}>
         <FeedPrices.Provider value={prices.data?.items ?? {}}>
+        <MismatchRatio.Provider value={prices.data?.price_mismatch_ratio ?? null}>
         <div ref={list} className="relative" style={{ height: virtual.getTotalSize() }} data-testid="feed-list">
           {items.map((item) => {
             const group = groups[item.index];
@@ -354,6 +355,7 @@ export function InsiderStream() {
             );
           })}
         </div>
+        </MismatchRatio.Provider>
         </FeedPrices.Provider>
         </FeedWindows.Provider>
       )}

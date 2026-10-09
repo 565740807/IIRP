@@ -26,7 +26,7 @@ import { sourceContext } from "@/lib/navigation";
 import { useInsiderN, useTradeWindows } from "@/lib/windows";
 import { cn } from "@/lib/utils";
 import { IndexFilter, IndexStatus } from "./IndexFilter";
-import { CurrentPrice, CurrentQuoteStatus, TradePrice } from "./InsiderPrice";
+import { CurrentPrice, CurrentQuoteStatus, MismatchRatio, TradePrice } from "./InsiderPrice";
 
 type Overview = Schemas["InsiderOverview"];
 type Role = "all" | "executive" | "director" | "ten_percent";
@@ -468,6 +468,8 @@ export function InsiderOverview() {
       ? <p className="flex items-center gap-2 py-8 text-sm text-muted-foreground">
         <LoaderCircle className="size-4 motion-safe:animate-spin"/>{t("ui.overview.loading")}
       </p>
-      : data && <Sections data={data} values={sectionValues} more={more}/>}
+      : data && <MismatchRatio.Provider value={data.price_mismatch_ratio}>
+        <Sections data={data} values={sectionValues} more={more}/>
+      </MismatchRatio.Provider>}
   </div>;
 }

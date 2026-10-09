@@ -1,8 +1,10 @@
 """Insider display prices from reported facts and the existing expiring daily cache.
 
 Every displayed price is checked against a reference: the close of the trade
-day in the 24-hour daily cache, otherwise the latest stock quote. When neither
-exists the price is "unchecked" and shown as is. A reported price whose ratio
+day in the 24-hour daily cache, otherwise the latest stock quote. A missing or
+non-positive price (option exercises, awards and other $0 rows) has nothing to
+check and is "not_applicable". When no reference exists the price is
+"unchecked" and shown as is. A reported price whose ratio
 max(price / reference, reference / price) reaches the configured limit is
 "mismatch": it stays visible as reported, and the overview leaves it out of
 amount rankings and totals.
@@ -115,27 +117,41 @@ def estimate_prices(s, keys, bars=None):
     return result
 
 
+def mismatch_ratio_text():
+    """The configured mismatch ratio as display text, e.g. "10"."""
+    value = Decimal(str(overview_settings()["price_mismatch_ratio"]))
+    return format(value.normalize(), "f")
+
+
 def price_check(price, bar=None, quote=None, *, limit=None):
     """Compare a price with the trade day's cached close, else the latest quote."""
     limit = Decimal(str(overview_settings()["price_mismatch_ratio"] if limit is None else limit))
+    price = decimal_value(price)
+    if price is None or price <= 0:
+        return {"status": "not_applicable", "ratio": None}
     close = decimal_value(bar[2]) if bar else None
     current = decimal_value((quote or {}).get("value"))
     reference = close if close is not None and close > 0 else (
         current if current is not None and current > 0 else None)
-    price = decimal_value(price)
-    if reference is None or price is None or price <= 0:
+    if reference is None:
         return {"status": "unchecked", "ratio": None}
     ratio = max(price / reference, reference / price)
     return {"status": "mismatch" if ratio >= limit else "ok", "ratio": ratio}
 
 
 def combined_check(checks):
-    """One trader's line: any mismatch wins, then any unchecked price."""
-    checks = list(checks)
+    """One trader's line: any mismatch wins, then any unchecked price.
+
+    Prices without anything to check are ignored; a line made only of them is
+    "not_applicable".
+    """
+    checks = [check for check in checks if check["status"] != "not_applicable"]
+    if not checks:
+        return {"status": "not_applicable", "ratio": None}
     mismatched = [check["ratio"] for check in checks if check["status"] == "mismatch"]
     if mismatched:
         return {"status": "mismatch", "ratio": max(mismatched)}
-    if not checks or any(check["status"] == "unchecked" for check in checks):
+    if any(check["status"] == "unchecked" for check in checks):
         return {"status": "unchecked", "ratio": None}
     return {"status": "ok", "ratio": None}
 
@@ -148,7 +164,7 @@ def price_comparison(price, quote=None, *, estimated=False, low=None, high=None,
     if current is not None and price is not None and price > 0:
         change = (current / price - 1) * 100
         relation = "near" if abs(change) <= 1 else "higher" if change > 0 else "lower"
-    check = check or {"status": "unchecked", "ratio": None}
+    check = check or price_check(price)
     mismatch = check["status"] == "mismatch"
     return {"price": price_text(price), "estimated": estimated,
             "range_low": price_text(low), "range_high": price_text(high),
@@ -231,4 +247,4 @@ def feed_prices(s, revision_ids):
                                        high=max(highs) if highs else None,
                                        amount=amount, amount_estimated=estimated,
                                        check=combined_check(item[7] for item in trades))
-    return {"items": output}
+    return {"items": output, "price_mismatch_ratio": mismatch_ratio_text()}
