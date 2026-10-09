@@ -1,17 +1,28 @@
 """Typed, local-only Insider overview reads and durable visible-stock quote requests."""
 
 from decimal import Decimal
-from typing import Literal
+from typing import Annotated, Literal
 
 from fastapi import APIRouter, HTTPException, Query
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, BeforeValidator, Field
 
 from iirp.api.insider_schemas import InsiderOwner, Output
 from iirp.db import session
+from iirp.insider.overview import overview
 from iirp.messages import UserError
 
 router = APIRouter(prefix="/api/v1/insider")
 Index = Literal["all", "sp500", "nasdaq100"]
+
+
+def _query_integer(value):
+    # Query strings arrive as text; Literal[int] alone does not coerce them.
+    return int(value) if isinstance(value, str) else value
+
+
+Period = Annotated[Literal[7, 30, 90], BeforeValidator(_query_integer)]
+ClusterWindow = Annotated[Literal[7, 14, 30], BeforeValidator(_query_integer)]
+ClusterPeople = Annotated[Literal[2, 3], BeforeValidator(_query_integer)]
 
 
 class PriceComparison(Output):
@@ -100,12 +111,11 @@ class StockQuotesOutput(Output):
 
 
 @router.get("/overview", response_model=InsiderOverview)
-def read_overview(index: Index = "all", days: Literal[7, 30, 90] = 30,
+def read_overview(index: Index = "all", days: Period = 30,
                   role: Literal["all", "executive", "director", "ten_percent"] = "all",
                   min_amount: Decimal = Query(default=Decimal(0), ge=0, le=Decimal("1e15")),
-                  exclude_plans: bool = False, cluster_days: Literal[7, 14, 30] = 7,
-                  cluster_people: Literal[2, 3] = 2, exclude_cluster_plans: bool = True):
-    from iirp.insider.overview import overview
+                  exclude_plans: bool = False, cluster_days: ClusterWindow = 7,
+                  cluster_people: ClusterPeople = 2, exclude_cluster_plans: bool = True):
     with session() as s:
         return overview(s, index=index, days=days, role=role, min_amount=min_amount,
                         exclude_plans=exclude_plans, cluster_days=cluster_days,

@@ -6,6 +6,8 @@ from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 
 import pytest
+from fastapi.testclient import TestClient
+from iirp.api.app import app
 from iirp.config import ROOT
 from iirp.db import session
 from iirp.insider.feed import feed as read_feed
@@ -80,6 +82,26 @@ def seed(s, *, ticker="TEST", issuer="0000000100", day=DAY, owners=("0000000200"
 def read(**kwargs):
     with session() as s:
         return overview(s, at=AT, **kwargs)
+
+
+@pytest.mark.parametrize("days,window,people", [(7, 7, 2), (30, 14, 3), (90, 30, 2)])
+def test_overview_browser_query_numbers(days, window, people):
+    with TestClient(app) as client:
+        response = client.get("/api/v1/insider/overview", params={
+            "days": days, "cluster_days": window, "cluster_people": people,
+            "index": "sp500", "role": "director", "min_amount": "1000",
+            "exclude_plans": "true", "exclude_cluster_plans": "false",
+        })
+    assert response.status_code == 200
+    assert response.json()["companies"] == []
+
+
+@pytest.mark.parametrize("parameter,value", [("days", "14"), ("cluster_days", "90"),
+                                              ("cluster_people", "4"), ("days", "7.0")])
+def test_overview_rejects_unsupported_browser_query(parameter, value):
+    with TestClient(app) as client:
+        response = client.get("/api/v1/insider/overview", params={parameter: value})
+    assert response.status_code == 422
 
 
 @pytest.mark.parametrize("offset,qualifies", [(6, True), (7, False)])

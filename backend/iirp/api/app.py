@@ -99,6 +99,10 @@ class PolicyView(BaseModel):
 
 @asynccontextmanager
 async def lifespan(_app):
+    # Build the local exchange calendar before serving S5c quote comparisons.
+    from iirp.market.stock_quotes import stock_session
+
+    stock_session(datetime.now().astimezone())
     # Readiness reports DB/migration failure; web can still explain an outage.
     try:
         ensure_defaults()

@@ -7,10 +7,14 @@ from decimal import Decimal
 from sqlalchemy import func, or_, select
 
 from iirp.analysis.calendar import ET
+from iirp.analysis.insider_windows import provider_symbol
 from iirp.insider.prices import effective_price, estimate_prices, price_comparison
 from iirp.insider.typed import decimal_value
+from iirp.insider.views import _owner_view
+from iirp.market.stock_quotes import stock_quote_views
 from iirp.models import (
     Filing,
+    FilingOwner,
     IndexConstituent,
     IndexConstituentState,
     Issuer,
@@ -93,11 +97,6 @@ def company_view(rows, quotes):
 
 def overview(s, *, index="all", days=30, role="all", min_amount=Decimal(0), exclude_plans=False,
              cluster_days=7, cluster_people=2, exclude_cluster_plans=True, at=None):
-    from iirp.analysis.insider_windows import provider_symbol
-    from iirp.insider.views import _owner_view
-    from iirp.market.stock_quotes import stock_quote_views
-    from iirp.models import FilingOwner
-
     at = at or now()
     end = at.astimezone(ET).date()
     event = TransactionEvent
