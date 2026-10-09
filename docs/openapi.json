@@ -7926,11 +7926,16 @@
             },
             "type": "object",
             "title": "Items"
+          },
+          "price_mismatch_ratio": {
+            "type": "string",
+            "title": "Price Mismatch Ratio"
           }
         },
         "type": "object",
         "required": [
-          "items"
+          "items",
+          "price_mismatch_ratio"
         ],
         "title": "FeedPrices"
       },
@@ -8723,6 +8728,10 @@
           "quotes_pending": {
             "type": "integer",
             "title": "Quotes Pending"
+          },
+          "price_mismatch_ratio": {
+            "type": "string",
+            "title": "Price Mismatch Ratio"
           }
         },
         "type": "object",
@@ -8740,7 +8749,8 @@
           "company_page_rows",
           "price_keys",
           "quote_symbols",
-          "quotes_pending"
+          "quotes_pending",
+          "price_mismatch_ratio"
         ],
         "title": "InsiderOverview"
       },
@@ -11017,7 +11027,8 @@
             "enum": [
               "ok",
               "mismatch",
-              "unchecked"
+              "unchecked",
+              "not_applicable"
             ],
             "title": "Price Check",
             "default": "unchecked"

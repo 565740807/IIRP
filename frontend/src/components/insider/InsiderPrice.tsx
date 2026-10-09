@@ -1,8 +1,12 @@
+import { createContext, useContext } from "react";
 import { useTranslation } from "react-i18next";
 import { formatCompact, formatDay, formatPrice, formatSignedPercent, directionClass } from "@/lib/format";
 import type { PriceComparison } from "@/lib/insiderOverview";
 import { cn } from "@/lib/utils";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+
+/** Ratio from which the backend marks a reported price as a mismatch; it comes with each response. */
+export const MismatchRatio = createContext<string | null>(null);
 
 /** The backend's check of a price against the market: mismatch or not yet checked. */
 function PriceCheckTag({ price }: { price?: PriceComparison | null }) {
@@ -23,12 +27,14 @@ function PriceCheckTag({ price }: { price?: PriceComparison | null }) {
 
 function PriceCheckNote({ price }: { price?: PriceComparison | null }) {
   const { t } = useTranslation();
-  if (price?.price == null) return null;
+  const limit = useContext(MismatchRatio);
+  // Missing and $0 prices (option exercises, awards) have nothing to check.
+  if (price?.price == null || price.price_check === "not_applicable") return null;
   const ratio = formatCompact(price.mismatch_ratio);
   return <>
     {price.price_check === "mismatch" && <p>{t("ui.overview.price_check.mismatch_rule", { ratio })}</p>}
     {price.price_check === "unchecked" && <p>{t("ui.overview.price_check.unchecked_rule")}</p>}
-    <p className="text-muted-foreground">{t("ui.overview.price_check.rule")}</p>
+    {limit != null && <p className="text-muted-foreground">{t("ui.overview.price_check.rule", { ratio: formatCompact(limit) })}</p>}
   </>;
 }
 

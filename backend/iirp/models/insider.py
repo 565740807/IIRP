@@ -6,6 +6,7 @@ from typing import Any
 from sqlalchemy import (
     BigInteger,
     Boolean,
+    Computed,
     Date,
     DateTime,
     ForeignKey,
@@ -24,6 +25,18 @@ from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.types import UserDefinedType
 
 from iirp.models.base import Base, now, uid
+
+# Rows and columns the Insider overview reads (iirp.insider.overview). The
+# partial index on transaction_date includes all of them, so the overview never
+# visits the table rows themselves.
+OVERVIEW_ROWS = ("status = 'CURRENT' AND transaction_code IN ('P', 'S') AND (data ->> 'table') = 'I' "
+                 "AND ((data ->> 'currency') IS NULL OR (data ->> 'currency') = 'USD')")
+OVERVIEW_COLUMNS = (
+    "id", "issuer_id", "accession", "version_id", "accepted_at", "transaction_code",
+    "trade_shares", "reported_price", "price_range_low", "price_range_high", "is_plan",
+    "is_ceo", "is_cfo", "is_president", "is_chair", "is_director", "is_ten_percent",
+    "owner_ids", "filing_ticker", "shares_after",
+)
 
 
 class Issuer(Base):
@@ -104,13 +117,18 @@ class TransactionEvent(Base):
     price_range_low: Mapped[Any | None] = mapped_column(Numeric(30, 12))
     price_range_high: Mapped[Any | None] = mapped_column(Numeric(30, 12))
     replaces_id: Mapped[str | None] = mapped_column(ForeignKey("transaction_event.id"))
+    # Copies of two JSON fields kept by PostgreSQL, so the overview index can cover them.
+    filing_ticker: Mapped[str | None] = mapped_column(
+        Text, Computed("data ->> 'ticker'", persisted=True))
+    shares_after: Mapped[str | None] = mapped_column(
+        Text, Computed("data ->> 'shares_after'", persisted=True))
     __table_args__ = (
         UniqueConstraint("version_id", "row_key"),
         Index("ix_event_issuer_date", "issuer_id", "transaction_date", "id"),
         Index("ix_event_recent_transaction_date", transaction_date.desc().nulls_last(), id.desc()),
         Index("ix_event_recent_accepted_at", accepted_at.desc().nulls_last(), id.desc()),
-        Index("ix_event_overview", "transaction_date", "issuer_id", "transaction_code",
-              postgresql_where=text("status = 'CURRENT' AND transaction_code IN ('P', 'S')")),
+        Index("ix_event_overview", "transaction_date", postgresql_include=list(OVERVIEW_COLUMNS),
+              postgresql_where=text(OVERVIEW_ROWS)),
     )
 
 

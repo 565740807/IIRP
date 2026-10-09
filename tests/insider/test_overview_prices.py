@@ -9,6 +9,7 @@ from iirp.api.app import app
 from iirp.db import session
 from iirp.insider.feed import feed as read_feed
 from iirp.insider.prices import (
+    combined_check,
     display_ticker,
     feed_prices,
     money_text,
@@ -70,7 +71,41 @@ def test_reference_price_prefers_trade_day_close_then_quote_then_unchecked():
     assert price_check(Decimal(100), (None, None, None), current)["status"] == "mismatch"
     assert price_check(Decimal(100), None, {"value": None})["status"] == "unchecked"
     assert price_check(Decimal(100))["status"] == "unchecked"
-    assert price_check(None, day_close, current)["status"] == "unchecked"
+    assert price_check(None, day_close, current)["status"] == "not_applicable"
+
+
+@pytest.mark.parametrize("price", [None, Decimal(0), Decimal("-1")])
+def test_missing_or_zero_prices_are_not_checked(price):
+    assert price_check(price, (None, None, Decimal(10)), {"value": "10"}) == {
+        "status": "not_applicable", "ratio": None}
+    assert price_check(price) == {"status": "not_applicable", "ratio": None}
+
+
+def test_trader_line_ignores_prices_without_anything_to_check():
+    na, ok = {"status": "not_applicable", "ratio": None}, {"status": "ok", "ratio": Decimal(1)}
+    unchecked = {"status": "unchecked", "ratio": None}
+    assert combined_check([na, na])["status"] == "not_applicable"
+    assert combined_check([])["status"] == "not_applicable"
+    assert combined_check([na, ok])["status"] == "ok"
+    assert combined_check([na, unchecked])["status"] == "unchecked"
+
+
+def test_zero_price_feed_rows_are_not_checked_and_the_ratio_is_reported():
+    with session() as s, s.begin():
+        seed(s, issuer="0000000101", ticker="AWD", code="A", price="0", data={"ticker": "AWD"})
+        seed(s, issuer="0000000102", ticker="OPT", code="M", price=None, data={"ticker": "OPT"})
+        _refresh_groups(s, {("0000000101", DAY), ("0000000102", DAY)})
+    with session() as s, s.begin():
+        revisions = [group["revision_id"] for group in read_feed(s)["groups"]]
+        result = feed_prices(s, revisions)
+    assert result["price_mismatch_ratio"] == "10"
+    assert {item["price_check"] for item in result["items"].values()} == {"not_applicable"}
+
+
+def test_overview_reports_the_configured_mismatch_ratio():
+    assert read()["price_mismatch_ratio"] == "10"
+    with TestClient(app) as client:
+        assert client.get("/api/v1/insider/overview").json()["price_mismatch_ratio"] == "10"
 
 
 def test_trade_day_bar_and_quote_reference_in_the_overview():

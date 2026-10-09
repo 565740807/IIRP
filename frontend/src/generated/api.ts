@@ -2514,6 +2514,8 @@ export interface components {
             items: {
                 [key: string]: components["schemas"]["PriceComparison"];
             };
+            /** Price Mismatch Ratio */
+            price_mismatch_ratio: string;
         };
         /** FeedUpdatesOutput */
         FeedUpdatesOutput: {
@@ -2760,6 +2762,8 @@ export interface components {
             quote_symbols: string[];
             /** Quotes Pending */
             quotes_pending: number;
+            /** Price Mismatch Ratio */
+            price_mismatch_ratio: string;
         };
         /**
          * InsiderOwner
@@ -3442,7 +3446,7 @@ export interface components {
              * @default unchecked
              * @enum {string}
              */
-            price_check: "ok" | "mismatch" | "unchecked";
+            price_check: "ok" | "mismatch" | "unchecked" | "not_applicable";
             /** Mismatch Ratio */
             mismatch_ratio: string | null;
         };

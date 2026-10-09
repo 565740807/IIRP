@@ -1191,7 +1191,7 @@
   "ui.overview.price_check.mismatch_rule": "The reported price differs from the market price by about {{ratio}}×. It is shown as filed but left out of amounts, rankings and totals.",
   "ui.overview.price_check.unchecked": "Unchecked",
   "ui.overview.price_check.unchecked_rule": "No daily price or quote yet to check this price against; it is counted as reported.",
-  "ui.overview.price_check.rule": "Prices are checked against the trade day’s close, otherwise the latest quote; a difference of 10× or more is marked.",
+  "ui.overview.price_check.rule": "Prices are checked against the trade day’s close, otherwise the latest quote; a difference of {{ratio}}× or more is marked.",
   "ui.overview.company_sort_label": "Sort by",
   "ui.overview.company_sort.net_buy": "Net bought",
   "ui.overview.company_sort.net_sell": "Net sold",

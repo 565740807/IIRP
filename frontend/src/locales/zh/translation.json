@@ -1173,7 +1173,7 @@
   "ui.overview.price_check.mismatch_rule": "申报价与市价相差约 {{ratio}} 倍：按申报原样显示，但不计入金额、排名和合计。",
   "ui.overview.price_check.unchecked": "未核对",
   "ui.overview.price_check.unchecked_rule": "暂无当日日线或报价可用于核对此价格；按申报价计入。",
-  "ui.overview.price_check.rule": "价格与交易日收盘价核对，没有时与最新报价核对；相差 10 倍及以上时标出。",
+  "ui.overview.price_check.rule": "价格与交易日收盘价核对，没有时与最新报价核对；相差 {{ratio}} 倍及以上时标出。",
   "ui.overview.company_sort_label": "排序",
   "ui.overview.company_sort.net_buy": "净买入额",
   "ui.overview.company_sort.net_sell": "净卖出额",
