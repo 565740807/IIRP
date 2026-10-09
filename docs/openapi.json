@@ -3567,6 +3567,41 @@
               "default": true,
               "title": "Exclude Cluster Plans"
             }
+          },
+          {
+            "name": "company_sort",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "net_buy",
+                "net_sell",
+                "buy",
+                "sell",
+                "people"
+              ],
+              "type": "string",
+              "default": "net_buy",
+              "title": "Company Sort"
+            }
+          },
+          {
+            "name": "company_limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "maximum": 2000,
+                  "minimum": 1
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Company Limit"
+            }
           }
         ],
         "responses": {
@@ -4434,13 +4469,18 @@
           "ensure_seconds": {
             "type": "integer",
             "title": "Ensure Seconds"
+          },
+          "overview_poll_seconds": {
+            "type": "integer",
+            "title": "Overview Poll Seconds"
           }
         },
         "type": "object",
         "required": [
           "home_poll_seconds",
           "feed_poll_seconds",
-          "ensure_seconds"
+          "ensure_seconds",
+          "overview_poll_seconds"
         ],
         "title": "BrowserRefresh",
         "description": "How often an open page re-reads and asks for fresh data (config/refresh.toml)."
@@ -4915,6 +4955,10 @@
             ],
             "title": "Ticker"
           },
+          "people": {
+            "type": "integer",
+            "title": "People"
+          },
           "buy_people": {
             "type": "integer",
             "title": "Buy People"
@@ -4966,6 +5010,11 @@
             "title": "Missing Price Rows",
             "default": 0
           },
+          "price_mismatch_rows": {
+            "type": "integer",
+            "title": "Price Mismatch Rows",
+            "default": 0
+          },
           "buy_price": {
             "$ref": "#/components/schemas/PriceComparison"
           },
@@ -4986,6 +5035,7 @@
           "issuer_id",
           "name",
           "ticker",
+          "people",
           "buy_people",
           "sell_people",
           "buy_amount",
@@ -4993,12 +5043,41 @@
           "net_amount",
           "amount_estimated",
           "missing_price_rows",
+          "price_mismatch_rows",
           "buy_price",
           "sell_price",
           "start_date",
           "end_date"
         ],
         "title": "CompanyOverview"
+      },
+      "CompanySection": {
+        "properties": {
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/CompanyOverview"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "price_mismatch_rows": {
+            "type": "integer",
+            "title": "Price Mismatch Rows",
+            "default": 0
+          }
+        },
+        "type": "object",
+        "required": [
+          "total",
+          "items",
+          "price_mismatch_rows"
+        ],
+        "title": "CompanySection",
+        "description": "The first rows of one list, its full count and the trades left out of its amounts."
       },
       "CoverageView": {
         "properties": {
@@ -7567,6 +7646,17 @@
             ],
             "title": "Issuer Ticker Raw"
           },
+          "quote_symbol": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Quote Symbol"
+          },
           "accepted_at": {
             "anyOf": [
               {
@@ -7685,6 +7775,7 @@
           "company",
           "ticker",
           "issuer_ticker_raw",
+          "quote_symbol",
           "accepted_at",
           "accepted_date",
           "transaction_dates",
@@ -8580,53 +8671,40 @@
             "title": "As Of"
           },
           "cluster_buys": {
-            "items": {
-              "$ref": "#/components/schemas/CompanyOverview"
-            },
-            "type": "array",
-            "title": "Cluster Buys"
+            "$ref": "#/components/schemas/CompanySection"
           },
           "cluster_sales": {
-            "items": {
-              "$ref": "#/components/schemas/CompanyOverview"
-            },
-            "type": "array",
-            "title": "Cluster Sales"
+            "$ref": "#/components/schemas/CompanySection"
           },
           "large_buys": {
-            "items": {
-              "$ref": "#/components/schemas/OverviewTrade"
-            },
-            "type": "array",
-            "title": "Large Buys"
+            "$ref": "#/components/schemas/TradeSection"
           },
           "large_sales": {
-            "items": {
-              "$ref": "#/components/schemas/OverviewTrade"
-            },
-            "type": "array",
-            "title": "Large Sales"
+            "$ref": "#/components/schemas/TradeSection"
           },
           "executive_buys": {
-            "items": {
-              "$ref": "#/components/schemas/OverviewTrade"
-            },
-            "type": "array",
-            "title": "Executive Buys"
+            "$ref": "#/components/schemas/TradeSection"
           },
           "holding_increases": {
-            "items": {
-              "$ref": "#/components/schemas/OverviewTrade"
-            },
-            "type": "array",
-            "title": "Holding Increases"
+            "$ref": "#/components/schemas/TradeSection"
           },
           "companies": {
-            "items": {
-              "$ref": "#/components/schemas/CompanyOverview"
-            },
-            "type": "array",
-            "title": "Companies"
+            "$ref": "#/components/schemas/CompanySection"
+          },
+          "company_sort": {
+            "type": "string",
+            "enum": [
+              "net_buy",
+              "net_sell",
+              "buy",
+              "sell",
+              "people"
+            ],
+            "title": "Company Sort"
+          },
+          "company_page_rows": {
+            "type": "integer",
+            "title": "Company Page Rows"
           },
           "price_keys": {
             "items": {
@@ -8634,6 +8712,17 @@
             },
             "type": "array",
             "title": "Price Keys"
+          },
+          "quote_symbols": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Quote Symbols"
+          },
+          "quotes_pending": {
+            "type": "integer",
+            "title": "Quotes Pending"
           }
         },
         "type": "object",
@@ -8647,7 +8736,11 @@
           "executive_buys",
           "holding_increases",
           "companies",
-          "price_keys"
+          "company_sort",
+          "company_page_rows",
+          "price_keys",
+          "quote_symbols",
+          "quotes_pending"
         ],
         "title": "InsiderOverview"
       },
@@ -10918,6 +11011,27 @@
             "type": "boolean",
             "title": "Amount Estimated",
             "default": false
+          },
+          "price_check": {
+            "type": "string",
+            "enum": [
+              "ok",
+              "mismatch",
+              "unchecked"
+            ],
+            "title": "Price Check",
+            "default": "unchecked"
+          },
+          "mismatch_ratio": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mismatch Ratio"
           }
         },
         "type": "object",
@@ -10932,7 +11046,9 @@
           "quote_date",
           "quote_status",
           "amount",
-          "amount_estimated"
+          "amount_estimated",
+          "price_check",
+          "mismatch_ratio"
         ],
         "title": "PriceComparison"
       },
@@ -12845,6 +12961,33 @@
           "date"
         ],
         "title": "TradeKey"
+      },
+      "TradeSection": {
+        "properties": {
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/OverviewTrade"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "price_mismatch_rows": {
+            "type": "integer",
+            "title": "Price Mismatch Rows",
+            "default": 0
+          }
+        },
+        "type": "object",
+        "required": [
+          "total",
+          "items",
+          "price_mismatch_rows"
+        ],
+        "title": "TradeSection"
       },
       "TradeSummary": {
         "properties": {

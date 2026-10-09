@@ -82,7 +82,7 @@ docs/            本文、运行手册、openapi.json、README 截图（images/�
 
 ### 首页刷新
 
-间隔只写在 `config/refresh.toml`：SEC 轮询节奏、行情的开盘/盘前盘后/休市规则，以及浏览器端的三个间隔（重读本地行情、检查新申报、询问服务器是否该更新）。浏览器端间隔随 `/api/v1/home` 下发。外部请求只由 worker 发出；页面打开、回到前台和可见期间每隔一段时间调用 `POST /api/v1/freshness/ensure`，服务器用咨询锁、“60 秒内已请求”和每个品种的 `next_refresh_at` 合并请求，所以多个标签页不会让 SEC 或 Yahoo 请求成倍增加；标签页隐藏时不轮询。行情是否“交易中 / 已休市 / 延迟”在读取时按当时时间判断（`api/reads.py`），延迟会写明原因（超时未更新、来源报价滞后、最近一次更新失败、收盘价尚未取回）。
+间隔只写在 `config/refresh.toml`：SEC 轮询节奏、行情的开盘/盘前盘后/休市规则，以及浏览器端的间隔（重读本地行情、检查新申报、询问服务器是否该更新、重读 Insider 总览）。浏览器端间隔随 `/api/v1/home` 下发。外部请求只由 worker 发出；页面打开、回到前台和可见期间每隔一段时间调用 `POST /api/v1/freshness/ensure`，服务器用咨询锁、“60 秒内已请求”和每个品种的 `next_refresh_at` 合并请求，所以多个标签页不会让 SEC 或 Yahoo 请求成倍增加；标签页隐藏时不轮询。行情是否“交易中 / 已休市 / 延迟”在读取时按当时时间判断（`api/reads.py`），延迟会写明原因（超时未更新、来源报价滞后、最近一次更新失败、收盘价尚未取回）。
 
 ### 瀑布流
 
@@ -92,6 +92,7 @@ docs/            本文、运行手册、openapi.json、README 截图（images/�
 
 - **查询**（`insider/lookup.py`）：先查本地（`issuer.ticker` 精确匹配，或名字包含每个词）；本地没有时由 worker 的 `sec_identity` 任务去 SEC 查：像 ticker 的输入查 `company_tickers_exchange.json`，名字查 EDGAR 公司与人员搜索（`efts.sec.gov/LATEST/search-index?keysTyped=…`，即 sec.gov 搜索框背后的公开接口），同一查询每天只请求一次。选中一项后建 `sec_entity` 批次：`sec_discover`（mode=entity）读该 CIK 的 `data.sec.gov/submissions` 文件（Form 3/4/5 同时列在发行人和每位申报人名下），只为范围内的申报建 `sec_document` 任务。全部走现有 SEC 限速（每秒 ≤ 2 次）和 User-Agent。
 - **前后 n 日**（`analysis/insider_windows.py`）：以交易日 t（非交易日顺延）收盘为基准，前 n 日 = C(t)/C(t−n) − 1，后 n 日 = C(t+n)/C(t) − 1；尚未到来的交易日留空并给出预计日期，当天未收盘标“盘中”。价格来自申报里写的 ticker 的 24 小时缓存；该证券未经 SEC ticker 列表确认属于该发行人时照常计算并标“待核对”。`GET /insider/windows` 只读缓存；缺价时页面调用一次 `POST /insider/prices`，每只股票一次请求取“默认 6 个月与最早 t−n 的较早者 − 1 个月余量”到当天，所以随后打开公司页不再取价。n 默认值在 `config/analysis-defaults.toml`，页面上切换并记住。
+- **总览**（`insider/overview.py`，`/insider` 页）：多人买入/卖出、最大买入/卖出、高管买入、持股大增和按公司汇总，按 issuer 归组；显示和报价用的代码取发行人 ticker 中第一个有效代码，没有时取申报 ticker 文本中的第一个。每笔价格先核对（`insider/prices.py`）：参考价是 24 小时缓存里交易日的收盘价，没有时用最新报价，都没有标“未核对”；申报价与参考价相差达到配置的倍数（默认 10 倍）时照常显示申报价，但不计入金额排名、合计和公司汇总，并注明未计入的笔数。每个列表只返回前若干行和总数（`config/analysis-defaults.toml` 的 `[insider_overview]`），响应同时给出需要报价的代码，页面一次合并请求。
 - **SEC 联系信息**（`sec/contact.py`）：SEC 要求自动访问在 User-Agent 中写名字和真实邮箱。`deploy/.env` 的 `IIRP_SEC_USER_AGENT` 有值时用它（界面显示“由配置文件设定”，不可改）；否则用界面填写、保存在 `user_preferences.values.sec_contact` 的名字和邮箱（`GET/PUT /api/v1/sec-contact`）。没有真实邮箱（空、旧模板值、`example.com` 等 RFC 2606 保留域名）时 SEC 策略保持开启但不发任何请求，首页顶部提示填写。保存后 worker 在数秒内（读取缓存 5 秒）开始轮询，不需要重启。
 - **数据页健康检查**（`api/health.py`）：只看当前问题——worker、SEC 联系方式与轮询、来源冷却、磁盘、备份、最近 24 小时失败的任务（按类型和原因分组，可一键重试）；没有问题时只显示一行“All systems normal”。超过 7 天未处理的部分完成批次归入“已完成”。
 

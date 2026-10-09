@@ -25,3 +25,4 @@ overdue_seconds = 180
 home_poll_seconds = 10      # re-read the saved quotes (local database only)
 feed_poll_seconds = 5       # check for newly published Insider filings (local database only)
 ensure_seconds = 30         # ask the server whether a SEC or quote refresh is due
+overview_poll_seconds = 60  # re-read the Insider overview; new filings and quotes change it slowly

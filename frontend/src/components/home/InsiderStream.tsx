@@ -210,7 +210,7 @@ export function InsiderStream() {
   });
   const items = virtual.getVirtualItems();
   const stocks = useVisibleStocks(list, items.map((item) => groups[item.index].revision_id).join(","));
-  const quoteError = useStockQuotes(stocks.symbols);
+  const { error: quoteError } = useStockQuotes(stocks.symbols);
   const revisions = stocks.ids.join(",");
   const prices = useQuery({
     queryKey: ["insider-feed-prices", revisions],
@@ -337,7 +337,7 @@ export function InsiderStream() {
               <div
                 key={item.key}
                 data-index={item.index}
-                data-quote-symbol={group.ticker ?? ""}
+                data-quote-symbol={group.quote_symbol ?? ""}
                 data-price-ids={group.revision_id}
                 ref={virtual.measureElement}
                 className={cn("absolute inset-x-0 top-0", gliding && "transition-transform duration-300 ease-out")}

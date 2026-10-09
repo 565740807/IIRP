@@ -45,7 +45,9 @@ def test_overdue_threshold_and_browser_intervals_come_from_the_config_file():
     cadence = refresh()
     assert cadence["quotes"]["overdue_seconds"] == 180
     assert cadence["sec"]["session_seconds"] == 60 and cadence["quotes"]["extended_seconds"] == 300
-    assert set(cadence["browser"]) == {"home_poll_seconds", "feed_poll_seconds", "ensure_seconds"}
+    assert set(cadence["browser"]) == {"home_poll_seconds", "feed_poll_seconds", "ensure_seconds",
+                                       "overview_poll_seconds"}
+    assert cadence["browser"]["overview_poll_seconds"] >= cadence["sec"]["session_seconds"]
     fetched = datetime(2026, 10, 7, 15, tzinfo=timezone.utc)
     reason = _quote_freshness(quote(fetched.isoformat()), None, fetched + timedelta(seconds=181))[1]
     assert decode(reason) == {"code": "home.quote.overdue", "params": {"minutes": 3}}

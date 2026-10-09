@@ -382,6 +382,7 @@ class BrowserRefresh(Output):
     home_poll_seconds: int
     feed_poll_seconds: int
     ensure_seconds: int
+    overview_poll_seconds: int
 
 
 class HomeOutput(Output):

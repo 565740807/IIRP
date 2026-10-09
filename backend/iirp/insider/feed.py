@@ -7,6 +7,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from iirp.insider.common import VISIBLE
+from iirp.insider.prices import display_ticker, quote_symbol
 from iirp.insider.views import (
     _compact_row,
     _matches,
@@ -23,6 +24,7 @@ from iirp.models import (
     FeedRevision,
     FeedSession,
     Filing,
+    Issuer,
     TransactionEvent,
     now,
 )
@@ -94,12 +96,21 @@ def feed_groups(s: Session, page_ids: list[str], kind: str, order: str) -> list[
     # One relation read for the complete page; immutable filing-time roles.
     enriched = {revision.id: copy.deepcopy(revision.data["transactions"]) for revision in revisions_by_id.values()}
     _with_filing_owners(s, [row for rows in enriched.values() for row in rows])
+    issuer_ids = {revision.issuer_id for revision in revisions_by_id.values()}
+    issuer_tickers = (
+        dict(s.execute(select(Issuer.id, Issuer.ticker).where(Issuer.id.in_(issuer_ids))).all())
+        if issuer_ids
+        else {}
+    )
     for revision_id in page_ids:
         revision = revisions_by_id[revision_id]
         data = _ticker_read_view(copy.deepcopy(revision.data))
         filtered = _ordered_rows([row for row in enriched[revision_id] if _matches(row, kind)], order)
+        # Quotes use the issuer's first usable symbol, as the Insider overview does.
+        ticker = display_ticker(issuer_tickers.get(revision.issuer_id), data.get("ticker"))
         data.update(
             {
+                "quote_symbol": quote_symbol(ticker),
                 "revision_id": revision.id,
                 "revision_created_at": revision.created_at.isoformat(),
                 "transactions": [_compact_row(row) for row in filtered[:20]],
