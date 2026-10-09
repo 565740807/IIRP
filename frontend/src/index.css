@@ -1,0 +1,119 @@
+@layer theme, base, components, utilities;
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "./shadcn.css";
+@import "@fontsource-variable/geist";
+
+@custom-variant dark (&:is(.dark *));
+
+/*
+ * Color tokens. Up/buy is blue and down/sell is orange everywhere, always with
+ * an explicit + or − sign (the owner has red-green color weakness). The
+ * primary action color is near-black ink so it never reads as up or down.
+ * Text pairs meet WCAG AA (4.5:1) on the card and page backgrounds; checked
+ * with Chrome's deuteranopia emulation (see docs/ARCHITECTURE.zh-CN.md).
+ */
+:root {
+  --background: oklch(0.985 0.002 250);
+  --foreground: oklch(0.21 0.02 260);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.21 0.02 260);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.21 0.02 260);
+  --primary: oklch(0.27 0.03 260);
+  --primary-foreground: oklch(0.985 0 0);
+  --secondary: oklch(0.955 0.005 250);
+  --secondary-foreground: oklch(0.27 0.03 260);
+  --muted: oklch(0.955 0.005 250);
+  --muted-foreground: oklch(0.48 0.02 255);
+  --accent: oklch(0.945 0.007 250);
+  --accent-foreground: oklch(0.21 0.02 260);
+  --destructive: oklch(0.5 0.17 30);
+  --border: oklch(0.91 0.006 250);
+  --input: oklch(0.89 0.008 250);
+  --ring: oklch(0.55 0.03 260);
+  --radius: 0.5rem;
+
+  /* Up / buy (blue) and down / sell (orange): text, soft background, flash. */
+  --up: oklch(0.5 0.19 258);
+  --up-soft: oklch(0.95 0.03 255);
+  --up-flash: oklch(0.925 0.055 255);
+  --down: oklch(0.53 0.16 47);
+  --down-soft: oklch(0.96 0.035 60);
+  --down-flash: oklch(0.945 0.05 60);
+  --neutral-mark: oklch(0.7 0.01 255);
+  /* Delayed data: amber-free so it never looks like "down". */
+  --warn: oklch(0.43 0.09 300);
+  --warn-soft: oklch(0.95 0.025 300);
+}
+
+@theme inline {
+  --font-sans: "Geist Variable", system-ui, -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+  --font-heading: var(--font-sans);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-up: var(--up);
+  --color-up-soft: var(--up-soft);
+  --color-up-flash: var(--up-flash);
+  --color-down: var(--down);
+  --color-down-soft: var(--down-soft);
+  --color-down-flash: var(--down-flash);
+  --color-neutral-mark: var(--neutral-mark);
+  --color-warn: var(--warn);
+  --color-warn-soft: var(--warn-soft);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --animate-breathe: breathe 2.4s ease-in-out infinite;
+  --animate-progress: progress 1.2s ease-in-out infinite;
+}
+
+@keyframes breathe {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.45; }
+}
+
+/* Indeterminate thin progress line. */
+@keyframes progress {
+  0% { transform: translateX(-100%) scaleX(0.4); }
+  100% { transform: translateX(250%) scaleX(0.4); }
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html {
+    @apply font-sans;
+    font-synthesis: none;
+    -webkit-font-smoothing: antialiased;
+  }
+  body {
+    @apply bg-background text-foreground text-sm;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, ::before, ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

@@ -1,0 +1,30 @@
+# Normal product defaults. Development probe budgets are separate.
+#
+# SEC filings and the transactions parsed from them are kept permanently.
+# Daily prices are a 24-hour cache: each security is fetched as one
+# request for the needed range plus a month of buffer, reused by every view
+# for 24 hours after the fetch, and then deleted with the results computed
+# from it. Home-page quotes keep their own short cache.
+[normal_usage]
+timezone = "America/New_York"
+initial_sec_business_days = 5
+insider_history_months = 6
+price_history_years = 8
+include_current_year = true
+price_cache_hours = 24
+price_buffer_days = 31
+max_tickers_per_batch = 20
+sec_requests_per_second = 2
+sec_concurrency = 2
+market_concurrency = 1
+sec_chunk_filings = 100
+
+[development_tests]
+sec_pages_per_probe = 1
+sec_items_per_page = 10
+market_tickers_per_probe = 1
+market_period = "5d"
+provider_deadline_seconds = 25
+source_cooldown_seconds = 60
+failure_cooldown_seconds = 900
+scheduled_probe_interval_minutes = 30

@@ -1,0 +1,15 @@
+# Per-feature analysis defaults. Each page can override them in place.
+#
+# n is the number of trading sessions shown before and after an event. For
+# earnings and custom events the windows are centered on the reaction day R:
+# before = C(R-1)/C(R-1-n) - 1, reaction = C(R)/C(R-1) - 1,
+# after = C(R+n)/C(R) - 1.
+[window_sessions]
+insider = 5
+earnings = 5
+custom = 5
+
+# Accepted range for an n passed to an analysis.
+[window_sessions_limits]
+min = 1
+max = 60

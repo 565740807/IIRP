@@ -1,0 +1,46 @@
+{
+  "symbol": "AAPL",
+  "fetched_at": "2026-09-06T21:32:23.165430+00:00",
+  "provider": "yfinance",
+  "library_version": "1.7.0",
+  "parameters": {
+    "start": "2020-08-01",
+    "end": "2020-09-11",
+    "interval": "1d",
+    "actions": true,
+    "auto_adjust": false,
+    "back_adjust": false,
+    "repair": false,
+    "keepna": true,
+    "rounding": false,
+    "prepost": false,
+    "timeout": 12,
+    "raise_errors": true
+  },
+  "records": [
+    {
+      "date": "2020-08-28",
+      "open": "126.01249694824219",
+      "high": "126.44249725341797",
+      "low": "124.57749938964844",
+      "close": "124.80750274658203",
+      "adj_close": "120.95568084716797",
+      "volume": "187630000.0",
+      "dividends": "0.0",
+      "splits": "0.0"
+    },
+    {
+      "date": "2020-08-31",
+      "open": "127.58000183105469",
+      "high": "131.0",
+      "low": "126.0",
+      "close": "129.0399932861328",
+      "adj_close": "125.05754852294922",
+      "volume": "225702700.0",
+      "dividends": "0.0",
+      "splits": "4.0"
+    }
+  ],
+  "raw_sha256": "fc96cedb2dd97db316e42ef3786c22be677182bae21847130bfe824d3102aab5",
+  "official_action_source": "https://www.apple.com/newsroom/2020/07/apple-reports-third-quarter-results/"
+}

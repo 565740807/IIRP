@@ -1,0 +1,21 @@
+.env
+.env.*
+!.env.example
+.venv/
+.tools/
+runtime/
+frontend/node_modules/
+frontend/dist/
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+*.pyc
+.DS_Store
+test-results/
+playwright-report/
+
+frontend/*.tsbuildinfo
+
+# 本机工作笔记与过程记录（不纳入版本库）
+work/
+docs/dev/

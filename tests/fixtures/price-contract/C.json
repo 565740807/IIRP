@@ -1,0 +1,46 @@
+{
+  "symbol": "C",
+  "fetched_at": "2026-09-06T21:32:24.847950+00:00",
+  "provider": "yfinance",
+  "library_version": "1.7.0",
+  "parameters": {
+    "start": "2011-05-01",
+    "end": "2011-05-21",
+    "interval": "1d",
+    "actions": true,
+    "auto_adjust": false,
+    "back_adjust": false,
+    "repair": false,
+    "keepna": true,
+    "rounding": false,
+    "prepost": false,
+    "timeout": 12,
+    "raise_errors": true
+  },
+  "records": [
+    {
+      "date": "2011-05-06",
+      "open": "45.5",
+      "high": "45.79999923706055",
+      "low": "45.0",
+      "close": "45.20000076293945",
+      "adj_close": "33.039554595947266",
+      "volume": "5131670.0",
+      "dividends": "0.0",
+      "splits": "0.0"
+    },
+    {
+      "date": "2011-05-09",
+      "open": "44.88999938964844",
+      "high": "45.119998931884766",
+      "low": "43.849998474121094",
+      "close": "44.15999984741211",
+      "adj_close": "32.279354095458984",
+      "volume": "49168100.0",
+      "dividends": "0.0",
+      "splits": "0.1"
+    }
+  ],
+  "raw_sha256": "82a196b287a1be59a22a644e1fb86d43cb2452ed67758ae8a7bdf55ae8f078ac",
+  "official_action_source": "https://www.citigroup.com/global/investors/stockholder-services/stock-split-history"
+}

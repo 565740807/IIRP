@@ -1,0 +1,46 @@
+{
+  "symbol": "KO",
+  "fetched_at": "2026-09-06T21:32:26.518337+00:00",
+  "provider": "yfinance",
+  "library_version": "1.7.0",
+  "parameters": {
+    "start": "2024-05-01",
+    "end": "2024-06-26",
+    "interval": "1d",
+    "actions": true,
+    "auto_adjust": false,
+    "back_adjust": false,
+    "repair": false,
+    "keepna": true,
+    "rounding": false,
+    "prepost": false,
+    "timeout": 12,
+    "raise_errors": true
+  },
+  "records": [
+    {
+      "date": "2024-06-13",
+      "open": "62.86000061035156",
+      "high": "63.040000915527344",
+      "low": "62.45000076293945",
+      "close": "62.9900016784668",
+      "adj_close": "59.05644989013672",
+      "volume": "9668900.0",
+      "dividends": "0.0",
+      "splits": "0.0"
+    },
+    {
+      "date": "2024-06-14",
+      "open": "62.380001068115234",
+      "high": "62.689998626708984",
+      "low": "62.09000015258789",
+      "close": "62.54999923706055",
+      "adj_close": "59.098968505859375",
+      "volume": "8179200.0",
+      "dividends": "0.485",
+      "splits": "0.0"
+    }
+  ],
+  "raw_sha256": "3e1bd4d89f2883bb4ab5954f9a99c6029018f350b4f457f6c41add339e91c048",
+  "official_action_source": "https://www.coca-colacompany.com/media-center/board-of-directors-of-the-coca-cola-company-approves-62nd-consecutive-annual-dividend-increase"
+}
