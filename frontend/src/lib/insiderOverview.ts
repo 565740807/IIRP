@@ -58,7 +58,10 @@ export function useVisibleStocks(container: RefObject<HTMLElement | null>, revis
   return rows;
 }
 
-/** One merged durable quote request; server-side due checks coalesce all tabs. */
+/**
+ * One merged durable quote request; server-side due checks coalesce all tabs.
+ * Returns the last error and when the last request was accepted.
+ */
 export function useStockQuotes(symbols: readonly string[]) {
   const visible = usePageVisible();
   const intervals = useRefreshIntervals();
@@ -66,13 +69,20 @@ export function useStockQuotes(symbols: readonly string[]) {
   const signature = symbols.join(",");
   const active = useRef(false);
   const [error, setError] = useState<Error | null>(null);
+  const [askedAt, setAskedAt] = useState<number | null>(null);
   useEffect(() => {
     if (!visible || !signature) return;
+    const accepted = () => {
+      setError(null);
+      setAskedAt(Date.now());
+      void queryClient.invalidateQueries({ queryKey: ["insider-feed-prices"] });
+      void queryClient.invalidateQueries({ queryKey: ["insider-overview"] });
+    };
     const request = () => {
       if (active.current) return;
       active.current = true;
       void unwrap(client.POST("/api/v1/insider/quotes", { body: { symbols: signature.split(",") } }))
-        .then(() => { setError(null); void queryClient.invalidateQueries({ queryKey: ["insider-feed-prices"] }); void queryClient.invalidateQueries({ queryKey: ["insider-overview"] }); })
+        .then(accepted)
         .catch((reason: Error) => setError(reason))
         .finally(() => { active.current = false; });
     };
@@ -81,5 +91,5 @@ export function useStockQuotes(symbols: readonly string[]) {
     const timer = window.setInterval(request, intervals.ensure_seconds * 1000);
     return () => { window.clearTimeout(initial); window.clearInterval(timer); };
   }, [signature, visible, intervals.ensure_seconds, queryClient]);
-  return error;
+  return { error, askedAt };
 }

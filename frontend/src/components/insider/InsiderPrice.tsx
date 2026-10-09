@@ -1,15 +1,45 @@
 import { useTranslation } from "react-i18next";
-import { formatDay, formatPrice, formatSignedPercent, directionClass } from "@/lib/format";
+import { formatCompact, formatDay, formatPrice, formatSignedPercent, directionClass } from "@/lib/format";
 import type { PriceComparison } from "@/lib/insiderOverview";
 import { cn } from "@/lib/utils";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
+/** The backend's check of a price against the market: mismatch or not yet checked. */
+function PriceCheckTag({ price }: { price?: PriceComparison | null }) {
+  const { t } = useTranslation();
+  if (price?.price == null) return null;
+  if (price.price_check === "mismatch") {
+    return <span className="mr-1 rounded bg-secondary px-1 text-[10px] text-warn">
+      {t("ui.overview.price_check.mismatch", { ratio: formatCompact(price.mismatch_ratio) })}
+    </span>;
+  }
+  if (price.price_check === "unchecked") {
+    return <span className="mr-1 text-[10px] text-muted-foreground">
+      {t("ui.overview.price_check.unchecked")}
+    </span>;
+  }
+  return null;
+}
+
+function PriceCheckNote({ price }: { price?: PriceComparison | null }) {
+  const { t } = useTranslation();
+  if (price?.price == null) return null;
+  const ratio = formatCompact(price.mismatch_ratio);
+  return <>
+    {price.price_check === "mismatch" && <p>{t("ui.overview.price_check.mismatch_rule", { ratio })}</p>}
+    {price.price_check === "unchecked" && <p>{t("ui.overview.price_check.unchecked_rule")}</p>}
+    <p className="text-muted-foreground">{t("ui.overview.price_check.rule")}</p>
+  </>;
+}
+
 export function TradePrice({ price, average = false }: { price?: PriceComparison | null; average?: boolean }) {
   const { t } = useTranslation();
   const range = price?.range_low != null && price.range_high != null;
+  const rangeKey = price?.estimated ? "ui.overview.day_range" : "ui.overview.weighted_range";
   return <Tooltip>
     <TooltipTrigger asChild>
       <span className="cursor-default whitespace-nowrap tabular-nums">
+        <PriceCheckTag price={price}/>
         {price?.estimated && <span className="mr-1 text-[10px] text-muted-foreground">{t("ui.overview.estimated")}</span>}
         {formatPrice(price?.price)}
       </span>
@@ -17,7 +47,8 @@ export function TradePrice({ price, average = false }: { price?: PriceComparison
     <TooltipContent className="max-w-xs">
       {average && <p>{t("ui.overview.average_method")}</p>}
       <p>{t(price?.estimated ? "ui.overview.estimate_method" : "ui.overview.reported_price")}</p>
-      {range && <p>{t(price?.estimated ? "ui.overview.day_range" : "ui.overview.weighted_range", { low: formatPrice(price.range_low), high: formatPrice(price.range_high) })}</p>}
+      {range && <p>{t(rangeKey, { low: formatPrice(price.range_low), high: formatPrice(price.range_high) })}</p>}
+      <PriceCheckNote price={price}/>
     </TooltipContent>
   </Tooltip>;
 }

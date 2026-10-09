@@ -121,6 +121,8 @@ class FeedGroup(Output):
     company: str | None = None
     ticker: str | None = None
     issuer_ticker_raw: str | None = None
+    # Yahoo symbol for the current quote; None when no usable ticker is known.
+    quote_symbol: str | None = None
     accepted_at: str | None = None
     accepted_date: str | None = None
     transaction_dates: list[str] = Field(default_factory=list)

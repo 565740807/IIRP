@@ -93,7 +93,7 @@ def test_overview_browser_query_numbers(days, window, people):
             "exclude_plans": "true", "exclude_cluster_plans": "false",
         })
     assert response.status_code == 200
-    assert response.json()["companies"] == []
+    assert response.json()["companies"]["items"] == []
 
 
 @pytest.mark.parametrize("parameter,value", [("days", "14"), ("cluster_days", "90"),
@@ -110,9 +110,9 @@ def test_cluster_seven_calendar_day_boundary(offset, qualifies):
         seed(s, owners=("0000000200",))
         seed(s, owners=("0000000201",), day=DAY - timedelta(days=offset))
     result = read()
-    assert bool(result["cluster_buys"]) is qualifies
+    assert bool(result["cluster_buys"]["items"]) is qualifies
     if qualifies:
-        company = result["cluster_buys"][0]
+        company = result["cluster_buys"]["items"][0]
         assert company["buy_people"] == 2
         assert Decimal(company["buy_amount"]) == 2000
         assert company["start_date"] == "2026-10-02"
@@ -124,33 +124,33 @@ def test_cluster_counts_distinct_owners_and_each_joint_transaction_amount_once()
         seed(s, owners=("0000000200", "0000000201"), shares="100", price="10")
         seed(s, owners=("0000000200",), shares="200", price="20")
     result = read()
-    company = result["cluster_buys"][0]
+    company = result["cluster_buys"]["items"][0]
     assert company["buy_people"] == 2
     assert Decimal(company["buy_amount"]) == 5000
-    assert Decimal(company["buy_price"]["price"]) == Decimal(5000) / 300
-    assert read(cluster_people=3)["cluster_buys"] == []
-    assert Decimal(result["companies"][0]["net_amount"]) == 5000
+    assert company["buy_price"]["price"] == "16.67"
+    assert read(cluster_people=3)["cluster_buys"]["items"] == []
+    assert Decimal(result["companies"]["items"][0]["net_amount"]) == 5000
 
 
 def test_repeated_owner_is_not_multiple_insiders():
     with session() as s, s.begin():
         for offset in (0, 1, 2):
             seed(s, day=DAY - timedelta(days=offset))
-    assert read()["cluster_buys"] == []
+    assert read()["cluster_buys"]["items"] == []
 
 
 def test_sale_clusters_exclude_plan_trades_by_default_and_toggle_explicitly():
     with session() as s, s.begin():
         seed(s, code="S", owners=("0000000200",))
         seed(s, code="S", owners=("0000000201",), plan=True)
-    assert read()["cluster_sales"] == []
+    assert read()["cluster_sales"]["items"] == []
     included = read(exclude_cluster_plans=False)
-    assert included["cluster_sales"][0]["sell_people"] == 2
-    assert Decimal(included["cluster_sales"][0]["sell_amount"]) == 2000
+    assert included["cluster_sales"]["items"][0]["sell_people"] == 2
+    assert Decimal(included["cluster_sales"]["items"][0]["sell_amount"]) == 2000
     excluded = read(exclude_plans=True, exclude_cluster_plans=False)
-    assert len(excluded["large_sales"]) == 1
-    assert excluded["companies"][0]["sell_people"] == 1
-    assert excluded["cluster_sales"] == []
+    assert len(excluded["large_sales"]["items"]) == 1
+    assert excluded["companies"]["items"][0]["sell_people"] == 1
+    assert excluded["cluster_sales"]["items"] == []
 
 
 def test_all_sections_obey_index_role_amount_and_time_filters():
@@ -165,17 +165,17 @@ def test_all_sections_obey_index_role_amount_and_time_filters():
         s.add(IndexConstituent(index_name="nasdaq100", ticker="DIR", cik=None,
                                name="Director company", industry="Technology", updated_at=AT))
         ids = {"executive": ceo.id, "director": director.id, "ten_percent": holder.id}
-    assert len(read()["companies"]) == 3
-    assert len(read(days=90)["companies"]) == 4
+    assert len(read()["companies"]["items"]) == 3
+    assert len(read(days=90)["companies"]["items"]) == 4
     for role, identifier in ids.items():
         filtered = read(role=role)
-        assert [item["id"] for item in filtered["large_buys"]] == [identifier]
-        assert len(filtered["companies"]) == 1
-    assert read(index="sp500")["companies"][0]["ticker"] == "CEO"
-    assert read(index="nasdaq100")["companies"][0]["ticker"] == "DIR"
-    assert read(index="sp500", role="director")["companies"] == []
-    assert [item["id"] for item in read(min_amount=Decimal(3000))["large_buys"]] == [ids["executive"]]
-    assert read(min_amount=Decimal(3001))["companies"] == []
+        assert [item["id"] for item in filtered["large_buys"]["items"]] == [identifier]
+        assert len(filtered["companies"]["items"]) == 1
+    assert read(index="sp500")["companies"]["items"][0]["ticker"] == "CEO"
+    assert read(index="nasdaq100")["companies"]["items"][0]["ticker"] == "DIR"
+    assert read(index="sp500", role="director")["companies"]["items"] == []
+    assert [item["id"] for item in read(min_amount=Decimal(3000))["large_buys"]["items"]] == [ids["executive"]]
+    assert read(min_amount=Decimal(3001))["companies"]["items"] == []
 
 
 def test_large_top_ten_sort_and_company_net_sort_are_backend_calculations():
@@ -184,11 +184,11 @@ def test_large_top_ten_sort_and_company_net_sort_are_backend_calculations():
             seed(s, issuer=f"{number:010d}", ticker=f"T{number}", price=str(number))
         seed(s, issuer="0000000012", ticker="T12", code="S", price="20")
     result = read()
-    assert len(result["large_buys"]) == 10
-    assert [Decimal(item["amount"]) for item in result["large_buys"]] == [Decimal(number * 100) for number in range(12, 2, -1)]
-    assert result["companies"][0]["ticker"] == "T11"
-    assert result["companies"][-1]["ticker"] == "T12"
-    assert Decimal(result["companies"][-1]["net_amount"]) == -800
+    assert len(result["large_buys"]["items"]) == 10
+    assert [Decimal(item["amount"]) for item in result["large_buys"]["items"]] == [Decimal(number * 100) for number in range(12, 2, -1)]
+    assert result["companies"]["items"][0]["ticker"] == "T11"
+    assert result["companies"]["items"][-1]["ticker"] == "T12"
+    assert Decimal(result["companies"]["items"][-1]["net_amount"]) == -800
 
 
 @pytest.mark.parametrize("kwargs", [
@@ -202,7 +202,7 @@ def test_ineligible_facts_never_enter_any_overview_section(kwargs):
     result = read()
     for section in ("cluster_buys", "cluster_sales", "large_buys", "large_sales",
                     "executive_buys", "holding_increases", "companies"):
-        assert result[section] == []
+        assert result[section]["items"] == []
 
 
 def test_holding_increase_twenty_percent_boundary_and_executive_filing_roles():
@@ -214,9 +214,9 @@ def test_holding_increase_twenty_percent_boundary_and_executive_filing_roles():
         seed(s, data={"shares_after": None})
         seed(s, roles={"is_officer": "1", "officer_title": "Vice President"})
     result = read()
-    assert [item["id"] for item in result["holding_increases"]] == [boundary.id]
-    assert Decimal(result["holding_increases"][0]["holding_change"]) == 20
-    assert [item["id"] for item in result["executive_buys"]] == [boundary.id]
+    assert [item["id"] for item in result["holding_increases"]["items"]] == [boundary.id]
+    assert Decimal(result["holding_increases"]["items"][0]["holding_change"]) == 20
+    assert [item["id"] for item in result["executive_buys"]["items"]] == [boundary.id]
 
 
 def test_typical_price_uses_full_ohlc_only_live_valid_daily_cache():
@@ -232,7 +232,7 @@ def test_typical_price_uses_full_ohlc_only_live_valid_daily_cache():
         s.add(PriceCacheBar(cache_id=cache.id, session_date=DAY, high=15, low=9, close=12,
                             status="VALID"))
     result = read()
-    item = result["large_buys"][0]
+    item = result["large_buys"]["items"][0]
     assert Decimal(item["price"]["price"]) == 12
     assert item["price"]["estimated"] and item["amount_estimated"]
     assert Decimal(item["price"]["range_low"]) == 9
@@ -244,8 +244,8 @@ def test_typical_price_uses_full_ohlc_only_live_valid_daily_cache():
     with session() as s:
         assert estimate_prices(s, [("TEST", DAY)]) == {}
     result = read()
-    assert result["large_buys"] == []
-    assert result["companies"][0]["buy_amount"] is None
+    assert result["large_buys"]["items"] == []
+    assert result["companies"]["items"][0]["buy_amount"] is None
     assert result["price_keys"] == [{"ticker": "TEST", "date": DAY.isoformat(), "issuer_id": "0000000100"}]
 
 
@@ -367,7 +367,7 @@ def test_invalid_filing_ticker_still_allows_overview_and_feed_prices():
         seed(s, ticker="INVALID/SYMBOL", data={"ticker": "INVALID/SYMBOL"})
         _refresh_groups(s, {("0000000100", DAY)})
         revision = s.scalar(select(FeedRevision)).id
-    assert len(read()["companies"]) == 1
+    assert len(read()["companies"]["items"]) == 1
     with session() as s:
         prices = feed_prices(s, [revision])["items"]
     assert len(prices) == 1
@@ -397,6 +397,6 @@ def test_vice_president_with_whitespace_or_case_is_not_president(title):
 def test_overview_owner_name_and_roles_come_from_filing_relationship():
     with session() as s, s.begin():
         seed(s, roles={"is_officer": "1", "officer_title": "CFO", "name": "Synthetic Officer"})
-    item = read()["large_buys"][0]
+    item = read()["large_buys"]["items"][0]
     assert item["owners"][0]["name"] == "Synthetic Officer"
     assert item["owners"][0]["roles"] == ["CFO"]

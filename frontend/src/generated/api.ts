@@ -1415,6 +1415,8 @@ export interface components {
             feed_poll_seconds: number;
             /** Ensure Seconds */
             ensure_seconds: number;
+            /** Overview Poll Seconds */
+            overview_poll_seconds: number;
         };
         /** CacheSource */
         CacheSource: {
@@ -1564,6 +1566,8 @@ export interface components {
             name: string;
             /** Ticker */
             ticker: string | null;
+            /** People */
+            people: number;
             /** Buy People */
             buy_people: number;
             /** Sell People */
@@ -1584,12 +1588,32 @@ export interface components {
              * @default 0
              */
             missing_price_rows: number;
+            /**
+             * Price Mismatch Rows
+             * @default 0
+             */
+            price_mismatch_rows: number;
             buy_price: components["schemas"]["PriceComparison"];
             sell_price: components["schemas"]["PriceComparison"];
             /** Start Date */
             start_date: string;
             /** End Date */
             end_date: string;
+        };
+        /**
+         * CompanySection
+         * @description The first rows of one list, its full count and the trades left out of its amounts.
+         */
+        CompanySection: {
+            /** Total */
+            total: number;
+            /** Items */
+            items: components["schemas"]["CompanyOverview"][];
+            /**
+             * Price Mismatch Rows
+             * @default 0
+             */
+            price_mismatch_rows: number;
         };
         /** CoverageView */
         CoverageView: {
@@ -2388,6 +2412,8 @@ export interface components {
             ticker: string | null;
             /** Issuer Ticker Raw */
             issuer_ticker_raw: string | null;
+            /** Quote Symbol */
+            quote_symbol: string | null;
             /** Accepted At */
             accepted_at: string | null;
             /** Accepted Date */
@@ -2714,22 +2740,26 @@ export interface components {
             indices: components["schemas"]["IndexStatus"][];
             /** As Of */
             as_of: string;
-            /** Cluster Buys */
-            cluster_buys: components["schemas"]["CompanyOverview"][];
-            /** Cluster Sales */
-            cluster_sales: components["schemas"]["CompanyOverview"][];
-            /** Large Buys */
-            large_buys: components["schemas"]["OverviewTrade"][];
-            /** Large Sales */
-            large_sales: components["schemas"]["OverviewTrade"][];
-            /** Executive Buys */
-            executive_buys: components["schemas"]["OverviewTrade"][];
-            /** Holding Increases */
-            holding_increases: components["schemas"]["OverviewTrade"][];
-            /** Companies */
-            companies: components["schemas"]["CompanyOverview"][];
+            cluster_buys: components["schemas"]["CompanySection"];
+            cluster_sales: components["schemas"]["CompanySection"];
+            large_buys: components["schemas"]["TradeSection"];
+            large_sales: components["schemas"]["TradeSection"];
+            executive_buys: components["schemas"]["TradeSection"];
+            holding_increases: components["schemas"]["TradeSection"];
+            companies: components["schemas"]["CompanySection"];
+            /**
+             * Company Sort
+             * @enum {string}
+             */
+            company_sort: "net_buy" | "net_sell" | "buy" | "sell" | "people";
+            /** Company Page Rows */
+            company_page_rows: number;
             /** Price Keys */
             price_keys: components["schemas"]["OverviewPriceKey"][];
+            /** Quote Symbols */
+            quote_symbols: string[];
+            /** Quotes Pending */
+            quotes_pending: number;
         };
         /**
          * InsiderOwner
@@ -3407,6 +3437,14 @@ export interface components {
              * @default false
              */
             amount_estimated: boolean;
+            /**
+             * Price Check
+             * @default unchecked
+             * @enum {string}
+             */
+            price_check: "ok" | "mismatch" | "unchecked";
+            /** Mismatch Ratio */
+            mismatch_ratio: string | null;
         };
         /**
          * PriceContext
@@ -3983,6 +4021,18 @@ export interface components {
             date: string;
             /** Issuer Id */
             issuer_id?: string | null;
+        };
+        /** TradeSection */
+        TradeSection: {
+            /** Total */
+            total: number;
+            /** Items */
+            items: components["schemas"]["OverviewTrade"][];
+            /**
+             * Price Mismatch Rows
+             * @default 0
+             */
+            price_mismatch_rows: number;
         };
         /**
          * TradeSummary
@@ -6429,6 +6479,8 @@ export interface operations {
                 cluster_days?: 7 | 14 | 30;
                 cluster_people?: 2 | 3;
                 exclude_cluster_plans?: boolean;
+                company_sort?: "net_buy" | "net_sell" | "buy" | "sell" | "people";
+                company_limit?: number | null;
             };
             header?: never;
             path?: never;

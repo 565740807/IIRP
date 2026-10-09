@@ -13,3 +13,21 @@ custom = 5
 [window_sessions_limits]
 min = 1
 max = 60
+
+# Insider overview (/insider). Display rules only; nothing here scores a trade.
+[insider_overview]
+# A price is checked against the trade day's close in the 24-hour daily cache,
+# otherwise against the latest stock quote. When max(price / reference,
+# reference / price) reaches this ratio the reported price is still shown, but
+# the trade is left out of amount rankings, amount totals and company totals.
+price_mismatch_ratio = 10
+# Rows returned per list; each list also reports its full count.
+cluster_rows = 20
+large_rows = 10
+executive_rows = 20
+holding_rows = 20
+company_page_rows = 50
+# Unchecked prices among the first candidate_factor × rows of each ranking ask
+# for a quote, at most max_quote_symbols per response, in one merged request.
+candidate_factor = 3
+max_quote_symbols = 200

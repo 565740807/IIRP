@@ -24,6 +24,7 @@ export const DEFAULT_REFRESH: BrowserRefresh = {
   home_poll_seconds: 10,
   feed_poll_seconds: 5,
   ensure_seconds: 30,
+  overview_poll_seconds: 60,
 };
 
 export function usePageVisible() {

@@ -1,4 +1,4 @@
-"""Typed, local-only Insider overview reads and durable visible-stock quote requests."""
+"""Typed, local-only Insider overview reads and durable stock quote requests."""
 
 from decimal import Decimal
 from typing import Annotated, Literal
@@ -37,12 +37,16 @@ class PriceComparison(Output):
     quote_status: str | None = None
     amount: str | None = None
     amount_estimated: bool = False
+    price_check: Literal["ok", "mismatch", "unchecked"] = "unchecked"
+    # Whole times the price differs from the market reference, for "mismatch" only.
+    mismatch_ratio: str | None = None
 
 
 class CompanyOverview(Output):
     issuer_id: str
     name: str
     ticker: str | None = None
+    people: int
     buy_people: int
     sell_people: int
     buy_amount: str | None = None
@@ -50,6 +54,7 @@ class CompanyOverview(Output):
     net_amount: str | None = None
     amount_estimated: bool = False
     missing_price_rows: int = 0
+    price_mismatch_rows: int = 0
     buy_price: PriceComparison
     sell_price: PriceComparison
     start_date: str
@@ -86,16 +91,39 @@ class OverviewPriceKey(Output):
     issuer_id: str
 
 
+class CompanySection(Output):
+    """The first rows of one list, its full count and the trades left out of its amounts."""
+    total: int
+    items: list[CompanyOverview]
+    price_mismatch_rows: int = 0
+
+
+class TradeSection(Output):
+    total: int
+    items: list[OverviewTrade]
+    price_mismatch_rows: int = 0
+
+
+CompanySort = Literal["net_buy", "net_sell", "buy", "sell", "people"]
+
+
 class InsiderOverview(Indices):
     as_of: str
-    cluster_buys: list[CompanyOverview]
-    cluster_sales: list[CompanyOverview]
-    large_buys: list[OverviewTrade]
-    large_sales: list[OverviewTrade]
-    executive_buys: list[OverviewTrade]
-    holding_increases: list[OverviewTrade]
-    companies: list[CompanyOverview]
+    cluster_buys: CompanySection
+    cluster_sales: CompanySection
+    large_buys: TradeSection
+    large_sales: TradeSection
+    executive_buys: TradeSection
+    holding_increases: TradeSection
+    companies: CompanySection
+    company_sort: CompanySort
+    # Rows per "show more" step of the company list.
+    company_page_rows: int
     price_keys: list[OverviewPriceKey]
+    # Symbols whose quotes this response needs, for one merged quote request,
+    # and how many of them have never been quoted yet.
+    quote_symbols: list[str]
+    quotes_pending: int
 
 
 class FeedPrices(Output):
@@ -115,11 +143,14 @@ def read_overview(index: Index = "all", days: Period = 30,
                   role: Literal["all", "executive", "director", "ten_percent"] = "all",
                   min_amount: Decimal = Query(default=Decimal(0), ge=0, le=Decimal("1e15")),
                   exclude_plans: bool = False, cluster_days: ClusterWindow = 7,
-                  cluster_people: ClusterPeople = 2, exclude_cluster_plans: bool = True):
+                  cluster_people: ClusterPeople = 2, exclude_cluster_plans: bool = True,
+                  company_sort: CompanySort = "net_buy",
+                  company_limit: int | None = Query(default=None, ge=1, le=2000)):
     with session() as s:
         return overview(s, index=index, days=days, role=role, min_amount=min_amount,
                         exclude_plans=exclude_plans, cluster_days=cluster_days,
-                        cluster_people=cluster_people, exclude_cluster_plans=exclude_cluster_plans)
+                        cluster_people=cluster_people, exclude_cluster_plans=exclude_cluster_plans,
+                        company_sort=company_sort, company_limit=company_limit)
 
 
 @router.get("/indices", response_model=Indices)
