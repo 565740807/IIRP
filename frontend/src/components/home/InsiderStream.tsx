@@ -24,13 +24,16 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { useInsiderN, useTradeWindows } from "@/lib/windows";
 import { NControl } from "@/components/insider/NControl";
-import { CARD_COLUMNS, FeedCard, FeedWindows, LINE_COLUMNS } from "./FeedCard";
+import { INDICES, useOverviewChoice, useVisibleStocks, useStockQuotes, type IndexFilter as Index } from "@/lib/insiderOverview";
+import { IndexFilter, IndexStatus } from "@/components/insider/IndexFilter";
+import { CurrentQuoteStatus } from "@/components/insider/InsiderPrice";
+import { CARD_COLUMNS, FeedCard, FeedWindows, FeedPrices, LINE_COLUMNS } from "./FeedCard";
 
 const FILTERS = ["focus", "buy", "sell", "derivative", "other", "all"] as const;
 type Filter = (typeof FILTERS)[number];
 
-function streamKey(filter: Filter, order: FeedOrder) {
-  return ["feed-stream", filter, order] as const;
+function streamKey(filter: Filter, order: FeedOrder, index: Index) {
+  return ["feed-stream", filter, order, index] as const;
 }
 
 /** Reads every delta page between the list's watermark and a new one. */
@@ -67,7 +70,12 @@ export function InsiderStream() {
   const [params, setParams] = useSearchParams();
   const filter = (FILTERS as readonly string[]).includes(params.get("filter") ?? "") ? (params.get("filter") as Filter) : "focus";
   const order: FeedOrder = params.get("order") === "transaction" ? "transaction" : "accepted";
-  const key = streamKey(filter, order);
+  const [indexChoice, setIndex] = useOverviewChoice("index", INDICES, "all", "home");
+  const index = indexChoice as Index;
+  useEffect(() => {
+    if (!params.has("index")) setIndex(index);
+  }, [params, index]);
+  const key = streamKey(filter, order, index);
   const visible = usePageVisible();
   const intervals = useRefreshIntervals();
   const reduceMotion = useReducedMotion();
@@ -76,7 +84,7 @@ export function InsiderStream() {
   const stream = useQuery({
     queryKey: key,
     queryFn: async (): Promise<FeedStream> => {
-      const page = await unwrap(client.GET("/api/v1/feed", { params: { query: { type: filter, order } } }));
+      const page = await unwrap(client.GET("/api/v1/feed", { params: { query: { type: filter, order, index } } }));
       return {
         session: page.session_id, latest: page.session_id, order, groups: page.groups,
         nextCursor: page.next_cursor, asOf: page.as_of, fresh: {}, dropped: [],
@@ -89,7 +97,7 @@ export function InsiderStream() {
   const data = stream.data;
   const update = useCallback(
     (change: (current: FeedStream) => FeedStream) => queryClient.setQueryData<FeedStream>(key, (current) => (current ? change(current) : current)),
-    [queryClient, filter, order],
+    [queryClient, filter, order, index],
   );
 
   // How many groups changed since the list's watermark (local read only).
@@ -120,7 +128,7 @@ export function InsiderStream() {
   const scope = useRef(0);
   useEffect(() => {
     scope.current += 1;
-  }, [filter, order]);
+  }, [filter, order, index]);
   const apply = useCallback(async () => {
     const current = queryClient.getQueryData<FeedStream>(key);
     if (!current || applying.current) return;
@@ -138,7 +146,7 @@ export function InsiderStream() {
       applying.current = false;
       setMerging(false);
     }
-  }, [queryClient, update, filter, order]);
+  }, [queryClient, update, filter, order, index]);
 
   // At the top (and nothing selected), new filings drop in without asking.
   useEffect(() => {
@@ -175,7 +183,7 @@ export function InsiderStream() {
     setMoreError(null);
     try {
       const page = await unwrap(client.GET("/api/v1/feed", {
-        params: { query: { session_id: current.session, cursor: current.nextCursor, type: filter, order } },
+        params: { query: { session_id: current.session, cursor: current.nextCursor, type: filter, order, index } },
       }));
       update((latest) => appendPage(latest, page.groups, page.next_cursor));
     } catch (error) {
@@ -183,18 +191,11 @@ export function InsiderStream() {
     } finally {
       setLoadingMore(false);
     }
-  }, [queryClient, update, loadingMore, filter, order]);
+  }, [queryClient, update, loadingMore, filter, order, index]);
 
   const groups = data?.groups ?? [];
-  // Before/after-n of every loaded line, read from the 24-hour price cache.
-  const { n } = useInsiderN();
-  const keys = useMemo(
-    () => groups.flatMap((group) => group.trader_groups.map((trader) => ({ ticker: group.ticker, date: trader.transaction_date, issuer_id: group.issuer_id }))),
-    [groups],
-  );
-  const windows = useTradeWindows(keys, n, visible);
-  const shared = useMemo(() => ({ windows, n }), [windows, n]);
   const list = useRef<HTMLDivElement>(null);
+  const { n } = useInsiderN();
   const [offset, setOffset] = useState(0);
   useLayoutEffect(() => {
     setOffset(list.current ? list.current.getBoundingClientRect().top + window.scrollY : 0);
@@ -208,6 +209,18 @@ export function InsiderStream() {
     getItemKey: (index) => groups[index].id,
   });
   const items = virtual.getVirtualItems();
+  const stocks = useVisibleStocks(list, items.map((item) => groups[item.index].revision_id).join(","));
+  const quoteError = useStockQuotes(stocks.symbols);
+  const revisions = stocks.ids.join(",");
+  const prices = useQuery({
+    queryKey: ["insider-feed-prices", revisions],
+    queryFn: ({ signal }) => unwrap(client.GET("/api/v1/insider/feed-prices", { params: { query: { revisions } }, signal })),
+    enabled: visible && !!revisions,
+    refetchInterval: visible ? intervals.home_poll_seconds * 1000 : false,
+  });
+  const keys = useMemo(() => groups.filter((group) => stocks.ids.includes(group.revision_id)).flatMap((group) => group.trader_groups.map((trader) => ({ ticker: group.ticker, date: trader.transaction_date, issuer_id: group.issuer_id }))), [groups, revisions]);
+  const windows = useTradeWindows(keys, n, visible);
+  const shared = useMemo(() => ({ windows, n }), [windows, n]);
   const last = items.at(-1)?.index ?? -1;
   useEffect(() => {
     if (data?.nextCursor && !moreError && last >= groups.length - 5) void loadMore();
@@ -248,6 +261,7 @@ export function InsiderStream() {
           </span>
         )}
         <div className="ml-auto flex flex-wrap items-center gap-2">
+          <IndexFilter value={index} choose={setIndex}/>
           <NControl />
           <ToggleGroup type="single" size="sm" variant="outline" spacing={0} value={filter} aria-label={t("ui.feed.filter_label")}
             onValueChange={(value) => value && choose("filter", value)}>
@@ -263,6 +277,7 @@ export function InsiderStream() {
         </div>
       </div>
 
+      <div className="mb-2 flex flex-wrap items-center gap-x-4 gap-y-1"><IndexStatus value={index}/><CurrentQuoteStatus prices={Object.values(prices.data?.items ?? {})}/></div>
       <AnimatePresence>
         {pending > 0 && !atTop && (
           <motion.div
@@ -281,6 +296,8 @@ export function InsiderStream() {
         )}
       </AnimatePresence>
 
+      {quoteError && <p className="text-xs text-warn">{quoteError.message}</p>}
+      {prices.error && <p className="text-xs text-warn">{prices.error.message}</p>}
       {stream.error && <p className="text-sm text-destructive">{stream.error.message}</p>}
       <div className={cn(CARD_COLUMNS, "border-l-[3px] border-transparent px-3 pb-1 text-[11px] font-medium text-muted-foreground")} aria-hidden>
         <span>{t("ui.feed.column.company")}</span>
@@ -289,6 +306,8 @@ export function InsiderStream() {
           <span>{t("ui.feed.column.action")}</span>
           <span className="text-right">{t("ui.feed.column.shares")}</span>
           <span className="text-right">{t("ui.feed.column.amount")}</span>
+          <span className="text-right">{t("ui.overview.column.trade_price")}</span>
+          <span className="text-right">{t("ui.overview.column.current")}</span>
           <span className="text-right">{t("ui.feed.column.traded")}</span>
           <span className="text-right" title={t("ui.window.before_head_long", { n })}>{t("ui.window.before_head", { n })}</span>
           <span className="text-right" title={t("ui.window.after_head_long", { n })}>{t("ui.window.after_head", { n })}</span>
@@ -309,6 +328,7 @@ export function InsiderStream() {
         <p className="rounded-lg border bg-card px-4 py-10 text-center text-sm text-muted-foreground">{t("ui.feed.empty")}</p>
       ) : (
         <FeedWindows.Provider value={shared}>
+        <FeedPrices.Provider value={prices.data?.items ?? {}}>
         <div ref={list} className="relative" style={{ height: virtual.getTotalSize() }} data-testid="feed-list">
           {items.map((item) => {
             const group = groups[item.index];
@@ -317,6 +337,8 @@ export function InsiderStream() {
               <div
                 key={item.key}
                 data-index={item.index}
+                data-quote-symbol={group.ticker ?? ""}
+                data-price-ids={group.revision_id}
                 ref={virtual.measureElement}
                 className={cn("absolute inset-x-0 top-0", gliding && "transition-transform duration-300 ease-out")}
                 style={{ transform: `translateY(${item.start - virtual.options.scrollMargin}px)` }}
@@ -332,6 +354,7 @@ export function InsiderStream() {
             );
           })}
         </div>
+        </FeedPrices.Provider>
         </FeedWindows.Provider>
       )}
       {groups.length > 0 && (

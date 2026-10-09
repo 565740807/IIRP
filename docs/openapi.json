@@ -332,6 +332,17 @@
               "default": "transaction",
               "title": "Order"
             }
+          },
+          {
+            "name": "index",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^(all|sp500|nasdaq100)$",
+              "default": "all",
+              "title": "Index"
+            }
           }
         ],
         "responses": {
@@ -3437,6 +3448,248 @@
         }
       }
     },
+    "/api/v1/insider/overview": {
+      "get": {
+        "summary": "Read Overview",
+        "operationId": "read_overview_api_v1_insider_overview_get",
+        "parameters": [
+          {
+            "name": "index",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "all",
+                "sp500",
+                "nasdaq100"
+              ],
+              "type": "string",
+              "default": "all",
+              "title": "Index"
+            }
+          },
+          {
+            "name": "days",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                7,
+                30,
+                90
+              ],
+              "type": "integer",
+              "default": 30,
+              "title": "Days"
+            }
+          },
+          {
+            "name": "role",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "all",
+                "executive",
+                "director",
+                "ten_percent"
+              ],
+              "type": "string",
+              "default": "all",
+              "title": "Role"
+            }
+          },
+          {
+            "name": "min_amount",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "number",
+                  "maximum": 1000000000000000.0,
+                  "minimum": 0.0
+                },
+                {
+                  "type": "string",
+                  "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+                }
+              ],
+              "default": "0",
+              "title": "Min Amount"
+            }
+          },
+          {
+            "name": "exclude_plans",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Exclude Plans"
+            }
+          },
+          {
+            "name": "cluster_days",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                7,
+                14,
+                30
+              ],
+              "type": "integer",
+              "default": 7,
+              "title": "Cluster Days"
+            }
+          },
+          {
+            "name": "cluster_people",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                2,
+                3
+              ],
+              "type": "integer",
+              "default": 2,
+              "title": "Cluster People"
+            }
+          },
+          {
+            "name": "exclude_cluster_plans",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": true,
+              "title": "Exclude Cluster Plans"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InsiderOverview"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/insider/indices": {
+      "get": {
+        "summary": "Read Indices",
+        "operationId": "read_indices_api_v1_insider_indices_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Indices"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/insider/feed-prices": {
+      "get": {
+        "summary": "Read Feed Prices",
+        "operationId": "read_feed_prices_api_v1_insider_feed_prices_get",
+        "parameters": [
+          {
+            "name": "revisions",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 8000,
+              "default": "",
+              "title": "Revisions"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FeedPrices"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/insider/quotes": {
+      "post": {
+        "summary": "Request Quotes",
+        "operationId": "request_quotes_api_v1_insider_quotes_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StockQuotesInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StockQuotesOutput"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/system/health": {
       "get": {
         "summary": "Health View",
@@ -4640,6 +4893,112 @@
           "job"
         ],
         "title": "CollectionResponse"
+      },
+      "CompanyOverview": {
+        "properties": {
+          "issuer_id": {
+            "type": "string",
+            "title": "Issuer Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "ticker": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ticker"
+          },
+          "buy_people": {
+            "type": "integer",
+            "title": "Buy People"
+          },
+          "sell_people": {
+            "type": "integer",
+            "title": "Sell People"
+          },
+          "buy_amount": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Buy Amount"
+          },
+          "sell_amount": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sell Amount"
+          },
+          "net_amount": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Net Amount"
+          },
+          "amount_estimated": {
+            "type": "boolean",
+            "title": "Amount Estimated",
+            "default": false
+          },
+          "missing_price_rows": {
+            "type": "integer",
+            "title": "Missing Price Rows",
+            "default": 0
+          },
+          "buy_price": {
+            "$ref": "#/components/schemas/PriceComparison"
+          },
+          "sell_price": {
+            "$ref": "#/components/schemas/PriceComparison"
+          },
+          "start_date": {
+            "type": "string",
+            "title": "Start Date"
+          },
+          "end_date": {
+            "type": "string",
+            "title": "End Date"
+          }
+        },
+        "type": "object",
+        "required": [
+          "issuer_id",
+          "name",
+          "ticker",
+          "buy_people",
+          "sell_people",
+          "buy_amount",
+          "sell_amount",
+          "net_amount",
+          "amount_estimated",
+          "missing_price_rows",
+          "buy_price",
+          "sell_price",
+          "start_date",
+          "end_date"
+        ],
+        "title": "CompanyOverview"
       },
       "CoverageView": {
         "properties": {
@@ -7468,6 +7827,22 @@
         ],
         "title": "FeedOutput"
       },
+      "FeedPrices": {
+        "properties": {
+          "items": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/PriceComparison"
+            },
+            "type": "object",
+            "title": "Items"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "title": "FeedPrices"
+      },
       "FeedUpdatesOutput": {
         "properties": {
           "session_id": {
@@ -8137,6 +8512,144 @@
         ],
         "title": "HomeQuote",
         "description": "One index (or gold futures) quote as saved from its latest fetch.\n\n``freshness`` is judged at read time: ``live`` in session and on time,\n``closed`` outside the session (``as_of`` is the last trading day),\n``delayed`` when overdue, stale at the source or the last refresh failed\n(``reason`` says which), ``missing`` before the first fetch."
+      },
+      "IndexStatus": {
+        "properties": {
+          "index_name": {
+            "type": "string",
+            "title": "Index Name"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          }
+        },
+        "type": "object",
+        "required": [
+          "index_name",
+          "updated_at",
+          "error"
+        ],
+        "title": "IndexStatus"
+      },
+      "Indices": {
+        "properties": {
+          "indices": {
+            "items": {
+              "$ref": "#/components/schemas/IndexStatus"
+            },
+            "type": "array",
+            "title": "Indices"
+          }
+        },
+        "type": "object",
+        "required": [
+          "indices"
+        ],
+        "title": "Indices"
+      },
+      "InsiderOverview": {
+        "properties": {
+          "indices": {
+            "items": {
+              "$ref": "#/components/schemas/IndexStatus"
+            },
+            "type": "array",
+            "title": "Indices"
+          },
+          "as_of": {
+            "type": "string",
+            "title": "As Of"
+          },
+          "cluster_buys": {
+            "items": {
+              "$ref": "#/components/schemas/CompanyOverview"
+            },
+            "type": "array",
+            "title": "Cluster Buys"
+          },
+          "cluster_sales": {
+            "items": {
+              "$ref": "#/components/schemas/CompanyOverview"
+            },
+            "type": "array",
+            "title": "Cluster Sales"
+          },
+          "large_buys": {
+            "items": {
+              "$ref": "#/components/schemas/OverviewTrade"
+            },
+            "type": "array",
+            "title": "Large Buys"
+          },
+          "large_sales": {
+            "items": {
+              "$ref": "#/components/schemas/OverviewTrade"
+            },
+            "type": "array",
+            "title": "Large Sales"
+          },
+          "executive_buys": {
+            "items": {
+              "$ref": "#/components/schemas/OverviewTrade"
+            },
+            "type": "array",
+            "title": "Executive Buys"
+          },
+          "holding_increases": {
+            "items": {
+              "$ref": "#/components/schemas/OverviewTrade"
+            },
+            "type": "array",
+            "title": "Holding Increases"
+          },
+          "companies": {
+            "items": {
+              "$ref": "#/components/schemas/CompanyOverview"
+            },
+            "type": "array",
+            "title": "Companies"
+          },
+          "price_keys": {
+            "items": {
+              "$ref": "#/components/schemas/OverviewPriceKey"
+            },
+            "type": "array",
+            "title": "Price Keys"
+          }
+        },
+        "type": "object",
+        "required": [
+          "indices",
+          "as_of",
+          "cluster_buys",
+          "cluster_sales",
+          "large_buys",
+          "large_sales",
+          "executive_buys",
+          "holding_increases",
+          "companies",
+          "price_keys"
+        ],
+        "title": "InsiderOverview"
       },
       "InsiderOwner": {
         "properties": {
@@ -9609,6 +10122,123 @@
         "title": "MarketHistoryState",
         "description": "``missing``: the page should ask for six months; ``fetching``; ``failed`` today; ``fresh``."
       },
+      "OverviewPriceKey": {
+        "properties": {
+          "ticker": {
+            "type": "string",
+            "title": "Ticker"
+          },
+          "date": {
+            "type": "string",
+            "title": "Date"
+          },
+          "issuer_id": {
+            "type": "string",
+            "title": "Issuer Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "ticker",
+          "date",
+          "issuer_id"
+        ],
+        "title": "OverviewPriceKey"
+      },
+      "OverviewTrade": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "issuer_id": {
+            "type": "string",
+            "title": "Issuer Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "ticker": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ticker"
+          },
+          "owners": {
+            "items": {
+              "$ref": "#/components/schemas/InsiderOwner"
+            },
+            "type": "array",
+            "title": "Owners"
+          },
+          "date": {
+            "type": "string",
+            "title": "Date"
+          },
+          "shares": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Shares"
+          },
+          "amount": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Amount"
+          },
+          "amount_estimated": {
+            "type": "boolean",
+            "title": "Amount Estimated",
+            "default": false
+          },
+          "holding_change": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Holding Change"
+          },
+          "price": {
+            "$ref": "#/components/schemas/PriceComparison"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "issuer_id",
+          "name",
+          "ticker",
+          "owners",
+          "date",
+          "shares",
+          "amount",
+          "amount_estimated",
+          "holding_change",
+          "price"
+        ],
+        "title": "OverviewTrade"
+      },
       "PendingFiling": {
         "properties": {
           "accession": {
@@ -10172,6 +10802,139 @@
           "version"
         ],
         "title": "PreferenceOutput"
+      },
+      "PriceComparison": {
+        "properties": {
+          "price": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Price"
+          },
+          "estimated": {
+            "type": "boolean",
+            "title": "Estimated",
+            "default": false
+          },
+          "range_low": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Range Low"
+          },
+          "range_high": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Range High"
+          },
+          "current_price": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current Price"
+          },
+          "change_percent": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Change Percent"
+          },
+          "relation": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "higher",
+                  "near",
+                  "lower"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Relation"
+          },
+          "quote_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Quote Date"
+          },
+          "quote_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Quote Status"
+          },
+          "amount": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Amount"
+          },
+          "amount_estimated": {
+            "type": "boolean",
+            "title": "Amount Estimated",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "price",
+          "estimated",
+          "range_low",
+          "range_high",
+          "current_price",
+          "change_percent",
+          "relation",
+          "quote_date",
+          "quote_status",
+          "amount",
+          "amount_estimated"
+        ],
+        "title": "PriceComparison"
       },
       "PriceContext": {
         "properties": {
@@ -11240,6 +12003,40 @@
         ],
         "title": "SideTotal",
         "description": "Open-market purchases (buy) or sales (sell) in the range: owners, shares, known amount."
+      },
+      "StockQuotesInput": {
+        "properties": {
+          "symbols": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 200,
+            "minItems": 1,
+            "title": "Symbols"
+          }
+        },
+        "type": "object",
+        "required": [
+          "symbols"
+        ],
+        "title": "StockQuotesInput"
+      },
+      "StockQuotesOutput": {
+        "properties": {
+          "requested": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Requested"
+          }
+        },
+        "type": "object",
+        "required": [
+          "requested"
+        ],
+        "title": "StockQuotesOutput"
       },
       "StoragePath": {
         "properties": {

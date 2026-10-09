@@ -20,6 +20,7 @@ from iirp.insider.common import (
     transaction_kind,
 )
 from iirp.insider.tickers import normalized_ticker
+from iirp.insider.typed import typed_fields
 from iirp.insider.views import _refresh_groups
 from iirp.messages import UserError, msg
 from iirp.models import (
@@ -387,6 +388,7 @@ def persist_document(s: Session, job, response: dict, sources: dict[str, str]) -
             if observation.is_amendment or not owner_ids or row.action_category == "needs_review"
             else "CURRENT",
             replaces_id=previous.id if previous else None,
+            **typed_fields(row_data),
         )
         s.add(event)
         s.flush()

@@ -12,6 +12,7 @@ import { clearRecent, readRecent, type RecentEntity } from "@/lib/recent";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { InsiderOverview } from "@/components/insider/InsiderOverview";
 
 type Candidate = Schemas["LookupCandidate"];
 
@@ -204,7 +205,7 @@ export function InsidersPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [term]);
   return (
-    <div className="mx-auto max-w-4xl space-y-4">
+    <div className="mx-auto space-y-4">
       <form
         className="relative"
         onSubmit={(event) => {
@@ -261,6 +262,7 @@ export function InsidersPage() {
         </section>
       )}
       {secQuery && <SecResults query={secQuery} />}
+      <InsiderOverview />
     </div>
   );
 }

@@ -297,11 +297,12 @@ def home():
 
 
 @app.get("/api/v1/feed", response_model=FeedOutput)
-def feed(session_id: str = "", cursor: str = "", type: str = "all", order: str = "transaction"):
+def feed(session_id: str = "", cursor: str = "", type: str = "all", order: str = "transaction",
+         index: str = Query(default="all", pattern="^(all|sp500|nasdaq100)$")):
     from iirp.api.reads import feed
 
     try:
-        return feed(session_id, cursor, type, order)
+        return feed(session_id, cursor, type, order, index)
     except ValueError as exc:
         raise HTTPException(409, str(exc)) from exc
 
@@ -392,6 +393,10 @@ app.include_router(event_router)
 from iirp.api.insider import router as insider_router  # noqa: E402
 
 app.include_router(insider_router)
+
+from iirp.api.overview import router as overview_router  # noqa: E402
+
+app.include_router(overview_router)
 
 from iirp.api.health import router as health_router  # noqa: E402
 

@@ -139,6 +139,16 @@ def fetch_sec(url):
 
 
 def operation(kind, target):
+    if kind == "market_stock_quotes":
+        from iirp.market.stock_quotes import fetch_stock_quotes
+        return fetch_stock_quotes(target)
+    if kind == "index_constituents":
+        from iirp.market.constituents import fetch_index
+        index = target["index_name"]
+        try:
+            return {"index_name": index, "rows": fetch_index(index)}
+        except UserError as exc:
+            return {"index_name": index, "error": str(exc)}
     if kind in ("market_identity", "market_history", "market_quote"):
         return fetch_market(kind, target)
     if kind in ("sec_discover", "sec_document", "sec_identity"):

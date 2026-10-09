@@ -140,7 +140,15 @@ def in_listing(row, kind, order):
     return _asof_key(row, kind, order) is not None
 
 
-def listing(s, watermark, kind, order, *, after=None, limit=PAGE_SIZE):
+def _index_groups(index):
+    from iirp.insider.overview import index_predicate
+    from iirp.models import Issuer
+
+    return select(FeedGroupCurrent.group_key).join(Issuer, Issuer.id == FeedGroupCurrent.issuer_id).where(
+        index_predicate(Issuer.id, Issuer.ticker, index))
+
+
+def listing(s, watermark, kind, order, *, after=None, limit=PAGE_SIZE, index="all"):
     """Ordered (key, group_key, revision_id) entries of the watermark after ``after``.
 
     Returns up to ``limit + 1`` entries so the caller can tell whether more
@@ -154,11 +162,15 @@ def listing(s, watermark, kind, order, *, after=None, limit=PAGE_SIZE):
     )
     if after is not None:
         query = query.where(tuple_(o.sort_key, o.accepted_at, o.group_key) < tuple_(*after))
+    if index != "all":
+        query = query.where(o.group_key.in_(_index_groups(index)))
     if limit is not None:
         query = query.limit(limit + 1)
     entries = [((row.sort_key, row.accepted_at, row.group_key), row.group_key, row.revision_id)
                for row in s.execute(query)]
     changed = changed_groups(s, watermark)
+    if index != "all" and changed:
+        changed &= set(s.scalars(_index_groups(index).where(FeedGroupCurrent.group_key.in_(changed))))
     if changed:
         entries = [entry for entry in entries if entry[1] not in changed]
         for group_key, row in asof_revisions(s, watermark, changed).items():
@@ -169,11 +181,15 @@ def listing(s, watermark, kind, order, *, after=None, limit=PAGE_SIZE):
     return entries if limit is None else entries[: limit + 1]
 
 
-def count(s, watermark, kind, order):
+def count(s, watermark, kind, order, index="all"):
     o = FeedGroupOrder
-    total = s.scalar(select(func.count()).select_from(o).where(
-        o.kind == kind, o.sort_order == order, visible(o, watermark)))
+    query = select(func.count()).select_from(o).where(o.kind == kind, o.sort_order == order, visible(o, watermark))
+    if index != "all":
+        query = query.where(o.group_key.in_(_index_groups(index)))
+    total = s.scalar(query)
     changed = changed_groups(s, watermark)
+    if index != "all" and changed:
+        changed &= set(s.scalars(_index_groups(index).where(FeedGroupCurrent.group_key.in_(changed))))
     return total + sum(
         _asof_key(row, kind, order) is not None
         for row in asof_revisions(s, watermark, changed).values()

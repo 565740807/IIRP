@@ -11,6 +11,7 @@ from sqlalchemy import (
     ForeignKey,
     Index,
     Integer,
+    Numeric,
     Sequence,
     String,
     Text,
@@ -87,12 +88,29 @@ class TransactionEvent(Base):
     data: Mapped[dict[str, Any]] = mapped_column(JSONB)
     owner_ids: Mapped[list] = mapped_column(JSONB)
     status: Mapped[str] = mapped_column(String(32), default="CURRENT")
+    transaction_code: Mapped[str | None] = mapped_column(String(8))
+    trade_direction: Mapped[str | None] = mapped_column(String(8))
+    trade_shares: Mapped[Any | None] = mapped_column(Numeric(30, 12))
+    reported_price: Mapped[Any | None] = mapped_column(Numeric(30, 12))
+    reported_amount: Mapped[Any | None] = mapped_column(Numeric(60, 24))
+    ownership_type: Mapped[str | None] = mapped_column(String(8))
+    is_plan: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
+    is_ceo: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
+    is_cfo: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
+    is_president: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
+    is_chair: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
+    is_director: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
+    is_ten_percent: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
+    price_range_low: Mapped[Any | None] = mapped_column(Numeric(30, 12))
+    price_range_high: Mapped[Any | None] = mapped_column(Numeric(30, 12))
     replaces_id: Mapped[str | None] = mapped_column(ForeignKey("transaction_event.id"))
     __table_args__ = (
         UniqueConstraint("version_id", "row_key"),
         Index("ix_event_issuer_date", "issuer_id", "transaction_date", "id"),
         Index("ix_event_recent_transaction_date", transaction_date.desc().nulls_last(), id.desc()),
         Index("ix_event_recent_accepted_at", accepted_at.desc().nulls_last(), id.desc()),
+        Index("ix_event_overview", "transaction_date", "issuer_id", "transaction_code",
+              postgresql_where=text("status = 'CURRENT' AND transaction_code IN ('P', 'S')")),
     )
 
 
