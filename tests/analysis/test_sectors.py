@@ -1,8 +1,9 @@
 """Sector performance: period anchors, listing dates, heatmap weights, candles and reads.
 
-The hand-checked samples use XLK and XLV daily bars from Yahoo (split-only
-adjusted, as the 24-hour cache stores them, rounded to the cache's 12
-decimals) in data/sector_etf_sample.csv: 2025-09-02 through 2025-11-03.
+The hand-checked samples use XLK and XLV (sectors) and SOXX and KBE (industry
+groups) daily bars from Yahoo (split-only adjusted, as the 24-hour cache stores
+them, rounded to the cache's 12 decimals) in data/sector_etf_sample.csv:
+2025-09-02 through 2025-11-03.
 """
 
 import csv
@@ -17,9 +18,13 @@ from iirp.analysis.research import compute_research
 from iirp.analysis.sectors import (
     aggregate,
     candles,
+    check_sector_map,
     closing_periods,
     full_years,
+    group_etfs,
+    group_performance,
     heatmap_weights,
+    industry_groups,
     months_back,
     performance,
     request_prices,
@@ -30,7 +35,17 @@ from iirp.analysis.sectors import (
 from iirp.db import session
 from iirp.market import stock_quotes, yahoo
 from iirp.market.stock_quotes import KIND, request_stock_quotes
-from iirp.models import Batch, Job, MarketQuote, PriceCache, PriceCacheBar, Security, now
+from iirp.messages import msg
+from iirp.models import (
+    Batch,
+    Job,
+    MarketQuote,
+    PriceCache,
+    PriceCacheBar,
+    RequestScope,
+    Security,
+    now,
+)
 from sqlalchemy import func, select
 
 from tests.jobs.test_lifecycle import clean_lifecycle, lifecycle_database  # noqa: F401
@@ -77,7 +92,71 @@ def test_sector_map_lists_the_eleven_spdr_sector_etfs():
     assert sector_etfs() == ["XLK", "XLV", "XLF", "XLY", "XLP", "XLC", "XLI", "XLE", "XLB",
                              "XLU", "XLRE"]
     assert sector_map()["history"]["years"] == 8
-    assert all(not item.get("group") for item in sector_map()["sector"])
+
+
+def test_sector_map_lists_the_25_industry_groups():
+    groups = industry_groups()
+    assert len(groups) == 25
+    by_id = {group["id"]: group for group in groups}
+    assert [group["id"] for group in industry_groups("information_technology")] == [
+        "software_services", "technology_hardware", "semiconductors"]
+    assert by_id["semiconductors"] == {"id": "semiconductors", "sector": "information_technology",
+                                       "primary": "SOXX", "alternates": ["SMH"],
+                                       "coverage": "partial", "same_as_sector": False}
+    pending = {group["id"] for group in groups if group["coverage"] == "pending"}
+    assert pending == {"technology_hardware", "automobiles_components", "consumer_staples_retail",
+                       "household_personal_products", "media_entertainment",
+                       "commercial_professional_services", "real_estate_management_development"}
+    assert all(by_id[name]["primary"] is None for name in pending)
+    assert by_id["media_entertainment"]["alternates"] == ["FDN"]
+    # Energy, materials and utilities have one group: the sector itself.
+    same = {group["id"]: group["primary"] for group in groups if group["same_as_sector"]}
+    assert same == {"energy": "XLE", "materials": "XLB", "utilities": "XLU"}
+    assert by_id["energy"]["alternates"] == ["XOP", "XES"]
+    # Primaries and reference rows never repeat; only the equal-to-sector ETFs are sector ETFs.
+    etfs = group_etfs()
+    assert len(etfs) == len(set(etfs)) == 29
+    assert set(etfs) & set(sector_etfs()) == {"XLE", "XLB", "XLU"}
+
+
+def config_with(*groups, sector_groups=None):
+    config = {"sector": [{"id": "a", "etf": "AAA", "group": list(groups)},
+                         {"id": "b", "etf": "BBB", "group": sector_groups or []}],
+              "heatmap": {"spread_floor_percent": dict.fromkeys(("today", "1w", "1m", "3m", "ytd"), 1)}}
+    return config
+
+
+@pytest.mark.parametrize("groups,sector_groups,problem", [
+    # pending ⇔ no primary
+    ([{"id": "x", "coverage": "pending", "primary": "XXX"}], None, "needs a primary"),
+    ([{"id": "x", "coverage": "partial"}], None, "needs a primary"),
+    ([{"id": "x", "coverage": "unknown", "primary": "XXX"}], None, "unknown coverage"),
+    # equal to the sector: the sector's single group, with the sector's ETF
+    ([{"id": "x", "coverage": "complete", "primary": "XXX", "same_as_sector": True}], None,
+     "equals its sector"),
+    ([{"id": "x", "coverage": "complete", "primary": "AAA", "same_as_sector": True},
+      {"id": "y", "coverage": "pending"}], None, "equals its sector"),
+    # no ETF twice
+    ([{"id": "x", "coverage": "complete", "primary": "AAA"}], None, "more than once"),
+    ([{"id": "x", "coverage": "complete", "primary": "XXX"},
+      {"id": "y", "coverage": "partial", "primary": "YYY", "alternates": ["XXX"]}], None,
+     "more than once"),
+    ([{"id": "x", "coverage": "complete", "primary": "XXX"}],
+     [{"id": "z", "coverage": "pending", "alternates": ["XXX"]}], "more than once"),
+    ([{"id": "x", "coverage": "complete", "primary": "XXX"}],
+     [{"id": "x", "coverage": "complete", "primary": "ZZZ"}], "repeated"),
+])
+def test_sector_map_rejects_inconsistent_groups(groups, sector_groups, problem):
+    with pytest.raises(ValueError, match=problem):
+        check_sector_map(config_with(*groups, sector_groups=sector_groups))
+
+
+def test_sector_map_accepts_pending_reference_rows_and_a_group_equal_to_its_sector():
+    check_sector_map(config_with(
+        {"id": "x", "coverage": "complete", "primary": "AAA", "alternates": ["XA"],
+         "same_as_sector": True},
+        sector_groups=[{"id": "y", "coverage": "pending", "alternates": ["YA"]},
+                       {"id": "z", "coverage": "reference", "primary": "ZZZ"}]))
 
 
 # --- period anchors ----------------------------------------------------------
@@ -209,6 +288,174 @@ def test_sector_read_matches_the_hand_samples():
     assert set(result["prices_pending"]) == set(sector_etfs())
     assert [item["etf"] for item in result["items"][:2]] in (["XLK", "XLV"], ["XLV", "XLK"])
     assert items["XLF"]["periods"]["1m"]["status"] == "no_prices"
+
+
+@pytest.mark.parametrize("symbol,start_close,end_close,expected", [
+    # 306.549987792969 / 271.119995117188 − 1 = +13.0680%
+    ("SOXX", "271.119995117188", "306.549987792969", "0.130680"),
+    # 56.740001678467 / 59.419998168945 − 1 = −4.5103%
+    ("KBE", "59.419998168945", "56.740001678467", "-0.045103"),
+])
+def test_industry_group_one_month_by_hand(symbol, start_close, end_close, expected):
+    bars = closes(sample(symbol))
+    result = closing_periods(bars, min(bars), date(2025, 10, 31), min(bars))["1m"]
+    assert (result["start_date"], result["end_date"]) == ("2025-09-30", "2025-10-31")
+    assert (bars[date(2025, 9, 30)], bars[date(2025, 10, 31)]) == (Decimal(start_close), Decimal(end_close))
+    assert result["value"] == expected
+
+
+@pytest.mark.parametrize("symbol,opening,closing,high,low,change", [
+    # Oct 1 open → Oct 31 close: 306.549987792969 / 269.380004882812 − 1 = +13.7983%
+    ("SOXX", "269.380004882812", "306.549987792969", "312.790008544922", "268.880004882812",
+     "0.13798345"),
+    # 56.740001678467 / 59.139999389648 − 1 = −4.0582%
+    ("KBE", "59.139999389648", "56.740001678467", "60.459999084473", "54.639999389648",
+     "-0.04058163"),
+])
+def test_industry_group_october_2025_open_to_close_by_hand(symbol, opening, closing, high, low, change):
+    result = compute_research({"kind": "monthly", "historical_years": 1, "current_year": 2026},
+                              sample(symbol), today=date(2026, 10, 6))
+    october = next(item for item in result["periods"] if item["key"] == "10")
+    candle = next(item for item in october["years"] if item["year"] == 2025)
+    assert (candle["start_date"], candle["end_date"], candle["sessions"]) == ("2025-10-01", "2025-10-31", 23)
+    assert (Decimal(candle["open"]), Decimal(candle["close"])) == (Decimal(opening), Decimal(closing))
+    assert (Decimal(candle["high"]), Decimal(candle["low"])) == (Decimal(high), Decimal(low))
+    assert round(Decimal(candle["change"]), 8) == Decimal(change)
+
+
+# --- industry groups -----------------------------------------------------------
+
+def test_group_read_ranks_primaries_only_and_lists_pending_groups_last():
+    with session() as s, s.begin():
+        save_cache(s, "SOXX", sample("SOXX"), start=date(2025, 8, 1))
+        # SMH is SOXX's reference row: given a larger change, it must still not rank.
+        save_cache(s, "SMH", [{**bar, "close": str(Decimal(bar["close"]) * (2 if bar["date"] == "2025-10-31" else 1))}
+                              for bar in sample("XLK")], start=date(2025, 8, 1))
+        save_cache(s, "IGV", sample("XLV"), start=date(2025, 8, 1))
+    with session() as s:
+        result = group_performance(s, sector="information_technology", at=et("2025-11-01T12:00:00"))
+    assert [item["id"] for item in result["items"]] == ["semiconductors", "software_services",
+                                                        "technology_hardware"]
+    semis, software, hardware = result["items"]
+    assert semis["etf"] == "SOXX" and semis["periods"]["1m"]["value"] == "0.130680"
+    assert semis["ranks"]["1m"] == 1 and software["ranks"]["1m"] == 2
+    assert semis["weights"]["1m"] == 1.0 and software["weights"]["1m"] == 0.2
+    [smh] = semis["alternates"]
+    assert smh["etf"] == "SMH" and Decimal(smh["periods"]["1m"]["value"]) > 1
+    assert "ranks" not in smh and "weights" not in smh
+    assert hardware["coverage"] == "pending" and hardware["etf"] is None
+    assert (hardware["periods"], hardware["ranks"], hardware["weights"]) == (None, None, None)
+    assert result["quote_symbols"] == ["IGV", "SOXX", "SMH"]
+    # All 25 groups: ranked across sectors, pending groups after every ranked one.
+    with session() as s:
+        everything = group_performance(s, at=et("2025-11-01T12:00:00"))
+    assert len(everything["items"]) == 25
+    assert [item["id"] for item in everything["items"][:2]] == ["semiconductors", "software_services"]
+    tail = [item["coverage"] == "pending" for item in everything["items"]]
+    assert tail == sorted(tail) and sum(tail) == 7
+    ranked = [item["ranks"]["1m"] for item in everything["items"] if item["ranks"]]
+    assert ranked[:2] == [1, 2] and set(ranked[2:]) == {None}
+
+
+def test_group_prices_are_asked_for_only_by_the_group_level():
+    at = et("2026-10-09T10:00:00")
+    with session() as s, s.begin():
+        sectors = request_prices(s, foreground=True, at=at)
+        assert sectors["requested"] == sector_etfs()
+        # The sector level and the home strip never quote or fetch group ETFs.
+        assert performance(s, at=at)["quote_symbols"] == sector_etfs()
+        tech = request_prices(s, foreground=True, level="group", sector="information_technology", at=at)
+        assert tech["requested"] == ["IGV", "SOXX", "SMH"]
+        batch = s.get(Batch, tech["batch_ids"][0])
+        assert batch.params["start_date"] == "2018-01-01" and batch.params["purpose"] == "sector_groups"
+        everything = request_prices(s, foreground=True, level="group", at=at)
+        # Every group ETF without a covering cache, XLE, XLB and XLU included; the
+        # fetch itself is shared with the sector level's request for them.
+        assert len(everything["requested"]) == 29
+        assert request_prices(s, foreground=True, level="group", at=at) == everything
+        with pytest.raises(ValueError):
+            request_prices(s, level="group", sector="unknown", at=at)
+
+
+def test_group_fetch_progress_per_etf():
+    with session() as s, s.begin():
+        save_cache(s, "SOXX", sample("SOXX"), start=date(2017, 12, 1))
+        planned = request_prices(s, foreground=True, level="group", sector="information_technology")
+        assert "SOXX" in planned["requested"]
+        scopes = {scope.symbol: scope for scope in s.scalars(
+            select(RequestScope).where(RequestScope.batch_id == planned["batch_ids"][0]))}
+        scopes["IGV"].status = "RUNNING"
+        scopes["SMH"].status, scopes["SMH"].wait_reason = "PARTIAL", msg("market.empty_response")
+    with session() as s:
+        result = group_performance(s, sector="information_technology")
+    fetch = {row["etf"]: row["fetch"]["status"] for item in result["items"] if item["etf"]
+             for row in (item, *item["alternates"])}
+    assert fetch == {"SOXX": "fetching", "IGV": "fetching", "SMH": "no_data"}
+
+
+def test_switching_levels_and_sectors_never_requests_a_provider(monkeypatch):
+    def forbidden(*args, **kwargs):
+        raise AssertionError("a sector read must not call a provider")
+
+    monkeypatch.setattr(yahoo, "fetch_market", forbidden)
+    monkeypatch.setattr(stock_quotes, "fetch_stock_quotes", forbidden)
+    with session() as s, s.begin():
+        save_cache(s, "SOXX", sample("SOXX"))
+        save_cache(s, "KBE", sample("KBE"))
+    with TestClient(app()) as client:
+        for sector in (None, "information_technology", "financials", "energy"):
+            params = {"sector": sector} if sector else {}
+            body = client.get("/api/v1/sectors/groups", params=params).json()
+            assert body["sector"] == sector and body["items"]
+            for interval in ("day", "week"):
+                response = client.get("/api/v1/sectors/candles",
+                                      params={**params, "level": "group", "interval": interval})
+                assert response.status_code == 200
+        charts = client.get("/api/v1/sectors/candles", params={"level": "group"}).json()["items"]
+        # Charts hold the 18 groups with a primary ETF; pending groups have none.
+        assert len(charts) == 18 and "XOP" not in {item["etf"] for item in charts}
+        energy = client.get("/api/v1/sectors/groups", params={"sector": "energy"}).json()["items"]
+        assert [(item["id"], item["etf"], item["same_as_sector"]) for item in energy] == [("energy", "XLE", True)]
+        assert client.get("/api/v1/sectors/groups", params={"sector": "nope"}).status_code == 404
+        assert client.get("/api/v1/sectors").status_code == 200
+    with session() as s:
+        assert s.scalar(select(func.count()).select_from(Job)) == 0
+        assert s.scalar(select(func.count()).select_from(Batch)) == 0
+
+
+def test_a_selection_across_levels_reuses_both_caches_for_the_analysis():
+    from iirp.analysis.calendar import last_completed_session
+    from iirp.analysis.requests import create_analysis
+    from iirp.jobs.planner import plan_tick
+
+    at = datetime.now(timezone.utc)
+    today = at.astimezone(ET).date()
+    completed = last_completed_session(at)
+    start = date(today.year - 8, 1, 1) - timedelta(days=31)
+    bars = [{"date": day.isoformat(), "open": "1", "high": "1", "low": "1", "close": "1"}
+            for day in sessions(completed - timedelta(days=10), completed)]
+    with session() as s, s.begin():
+        for etf in ("XLK", "SOXX", "KBE"):
+            save_cache(s, etf, bars, start=start)
+        # The page's own requests find nothing to fetch for any of them.
+        assert request_prices(s, level="group", sector="financials", at=at)["requested"] == ["KCE", "KIE", "KRE"]
+    created = create_analysis({"request_id": "sector-mix", "kind": "monthly",
+                               "tickers": ["XLK", "SOXX", "KBE"], "historical_years": 8,
+                               "benchmark": None})
+    for _ in range(3):
+        plan_tick(time_budget_seconds=1.0)
+    with session() as s:
+        fetches = s.scalars(select(Job.target["symbol"].astext).where(Job.kind == "market_history")).all()
+        assert set(fetches) <= {"KCE", "KIE", "KRE"}
+        assert s.scalar(select(func.count()).select_from(Job).where(Job.kind == "research_compute")) == 3
+    assert created["id"]
+    # One analysis takes at most 20 ETFs.
+    with TestClient(app()) as client:
+        tickers = sector_etfs() + group_etfs()[:10]
+        response = client.post("/api/v1/analyses", json={"request_id": "too-many", "kind": "monthly",
+                                                          "tickers": tickers},
+                               headers={"X-IIRP-Client": "web"})
+        assert len(tickers) == 21 and response.status_code == 422
 
 
 # --- today -------------------------------------------------------------------

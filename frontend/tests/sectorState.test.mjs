@@ -11,7 +11,7 @@ test("defaults leave the link empty", () => {
 });
 
 test("view, period, sort, selection and chart choices round-trip through the link", () => {
-  const state = { view: "kline", period: "3m", sort: "ytd", desc: false, selected: ["XLK", "XLC"],
+  const state = { level: "sector", sector: null, view: "kline", period: "3m", sort: "ytd", desc: false, selected: ["XLK", "XLC"],
     onlySelected: true, range: "1y", interval: "week" };
   const search = sectorSearch(state);
   assert.equal(search, "view=kline&period=3m&sort=ytd.asc&selected=XLK%2CXLC&only=1&range=1y&interval=week");
@@ -28,4 +28,20 @@ test("unknown values fall back and only-selected needs a selection", () => {
 test("analysis links name the ETFs for the monthly and interval pages", () => {
   assert.deepEqual(analysisLinks(["XLK", "XLV"]), {
     monthly: "/analysis/monthly?tickers=XLK%2CXLV", interval: "/analysis/interval?tickers=XLK%2CXLV" });
+});
+
+test("the industry group level and its sector round-trip, and a selection spans both levels", () => {
+  const groups = ["SOXX", "SMH", "KBE"];
+  const state = { ...DEFAULT_STATE, level: "group", sector: "information_technology", view: "heatmap",
+    selected: ["XLK", "SOXX", "SMH"] };
+  const search = sectorSearch(state);
+  assert.equal(search, "level=group&sector=information_technology&view=heatmap&selected=XLK%2CSOXX%2CSMH");
+  assert.deepEqual(parseSectorState(new URLSearchParams(search), [...ETFS, ...groups], ["information_technology"]), state);
+  // Back at the sector level the group ETFs stay selected and the sector is dropped.
+  const back = parseSectorState(new URLSearchParams(sectorSearch({ ...state, level: "sector" })), [...ETFS, ...groups]);
+  assert.deepEqual(back, { ...state, level: "sector", sector: null });
+  // All groups, and an unknown sector, have no sector.
+  assert.equal(parseSectorState(new URLSearchParams("level=group"), ETFS).sector, null);
+  assert.equal(parseSectorState(new URLSearchParams("level=group&sector=nope"), ETFS, ["energy"]).sector, null);
+  assert.equal(parseSectorState(new URLSearchParams("sector=energy"), ETFS, ["energy"]).sector, null);
 });

@@ -2,62 +2,196 @@
 #
 # The SPDR sector ETFs track the matching sector of the S&P 500; they do not
 # cover the whole US stock market, and the page says so. Display names come
-# from the translation files (ui.sectors.name.<id>); the order here is the
-# order of the table before it is sorted.
+# from the translation files (ui.sectors.name.<id> and ui.sectors.group.<id>);
+# the order here is the order of the table before it is sorted.
 #
-# Each sector may later list industry groups:
+# Each sector lists its GICS industry groups:
 #
 #   [[sector.group]]
 #   id = "semiconductors"
 #   primary = "SOXX"          # the one ETF that is ranked
-#   alternates = ["SMH"]      # shown as reference rows only
+#   alternates = ["SMH"]      # shown as reference rows only, never ranked
 #   coverage = "partial"      # complete | partial | reference | pending
 #
-# A group marked "pending" has no ETF yet and is never ranked.
+# A group marked "pending" has no primary ETF and is never ranked; it may
+# still list reference rows. A sector with a single industry group sets
+# same_as_sector = true on it, and its primary is the sector's own ETF. No
+# other ETF appears twice in this file. The industry group ETFs are fetched
+# only when the reader opens the industry group level.
 
 [[sector]]
 id = "information_technology"
 etf = "XLK"
 
+[[sector.group]]
+id = "software_services"
+primary = "IGV"
+coverage = "reference"
+
+[[sector.group]]
+id = "technology_hardware"
+coverage = "pending"
+
+[[sector.group]]
+id = "semiconductors"
+primary = "SOXX"
+alternates = ["SMH"]
+coverage = "partial"
+
 [[sector]]
 id = "health_care"
 etf = "XLV"
+
+[[sector.group]]
+id = "health_care_equipment_services"
+primary = "IHI"
+alternates = ["IHF"]
+coverage = "partial"
+
+[[sector.group]]
+id = "pharma_biotech_life_sciences"
+primary = "IHE"
+alternates = ["IBB", "XBI"]
+coverage = "partial"
 
 [[sector]]
 id = "financials"
 etf = "XLF"
 
+[[sector.group]]
+id = "banks"
+primary = "KBE"
+alternates = ["KRE"]
+coverage = "reference"
+
+[[sector.group]]
+id = "financial_services"
+primary = "KCE"
+coverage = "partial"
+
+[[sector.group]]
+id = "insurance"
+primary = "KIE"
+coverage = "complete"
+
 [[sector]]
 id = "consumer_discretionary"
 etf = "XLY"
+
+[[sector.group]]
+id = "automobiles_components"
+coverage = "pending"
+
+[[sector.group]]
+id = "consumer_durables_apparel"
+primary = "XHB"
+coverage = "reference"
+
+[[sector.group]]
+id = "consumer_services"
+primary = "PEJ"
+coverage = "partial"
+
+[[sector.group]]
+id = "consumer_discretionary_retail"
+primary = "XRT"
+coverage = "reference"
 
 [[sector]]
 id = "consumer_staples"
 etf = "XLP"
 
+[[sector.group]]
+id = "consumer_staples_retail"
+coverage = "pending"
+
+[[sector.group]]
+id = "food_beverage_tobacco"
+primary = "PBJ"
+coverage = "reference"
+
+[[sector.group]]
+id = "household_personal_products"
+coverage = "pending"
+
 [[sector]]
 id = "communication_services"
 etf = "XLC"
+
+[[sector.group]]
+id = "telecommunication_services"
+primary = "IYZ"
+coverage = "complete"
+
+[[sector.group]]
+id = "media_entertainment"
+alternates = ["FDN"]
+coverage = "pending"
 
 [[sector]]
 id = "industrials"
 etf = "XLI"
 
+[[sector.group]]
+id = "capital_goods"
+primary = "ITA"
+alternates = ["XAR"]
+coverage = "partial"
+
+[[sector.group]]
+id = "commercial_professional_services"
+coverage = "pending"
+
+[[sector.group]]
+id = "transportation"
+primary = "XTN"
+alternates = ["IYT"]
+coverage = "complete"
+
 [[sector]]
 id = "energy"
 etf = "XLE"
+
+[[sector.group]]
+id = "energy"
+primary = "XLE"
+alternates = ["XOP", "XES"]
+coverage = "complete"
+same_as_sector = true
 
 [[sector]]
 id = "materials"
 etf = "XLB"
 
+[[sector.group]]
+id = "materials"
+primary = "XLB"
+alternates = ["XME"]
+coverage = "complete"
+same_as_sector = true
+
 [[sector]]
 id = "utilities"
 etf = "XLU"
 
+[[sector.group]]
+id = "utilities"
+primary = "XLU"
+coverage = "complete"
+same_as_sector = true
+
 [[sector]]
 id = "real_estate"
 etf = "XLRE"
+
+[[sector.group]]
+id = "equity_reits"
+primary = "SCHH"
+coverage = "complete"
+
+[[sector.group]]
+id = "real_estate_management_development"
+coverage = "pending"
 
 [history]
 # Each ETF is fetched once as this year plus this many complete past years,

@@ -1162,6 +1162,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/sectors/groups": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read Groups
+         * @description Industry groups of one sector, or all of them; reads the local cache only.
+         */
+        get: operations["read_groups_api_v1_sectors_groups_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/sectors/candles": {
         parameters: {
             query?: never;
@@ -1869,6 +1889,30 @@ export interface components {
             ticker: string | null;
             /** Issuer Ticker Raw */
             issuer_ticker_raw: string | null;
+        };
+        /** EtfPerformance */
+        EtfPerformance: {
+            /** Etf */
+            etf: string;
+            periods: components["schemas"]["SectorPeriods"];
+            /** First Date */
+            first_date: string | null;
+            /** Full Years */
+            full_years: number;
+            /**
+             * Quote Status
+             * @enum {string}
+             */
+            quote_status: "live" | "closed" | "delayed" | "missing";
+            /** Quote Time */
+            quote_time: string | null;
+            /** Price Fetched At */
+            price_fetched_at: string | null;
+            /** Price Expires At */
+            price_expires_at: string | null;
+            /** Prices Current */
+            prices_current: boolean;
+            fetch: components["schemas"]["PriceFetch"];
         };
         /** EventAnalysisCreated */
         EventAnalysisCreated: {
@@ -3529,6 +3573,16 @@ export interface components {
         } & {
             [key: string]: unknown;
         };
+        /** PriceFetch */
+        PriceFetch: {
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "ready" | "fetching" | "no_data" | "failed" | "not_requested";
+            /** Reason */
+            reason: string | null;
+        };
         /** PricePoint */
         PricePoint: {
             /** X */
@@ -3857,6 +3911,8 @@ export interface components {
         SectorCandles: {
             /** Id */
             id: string;
+            /** Sector */
+            sector: string;
             /** Etf */
             etf: string;
             /** Candles */
@@ -3878,6 +3934,13 @@ export interface components {
              * @enum {string}
              */
             interval: "day" | "week" | "month";
+            /**
+             * Level
+             * @enum {string}
+             */
+            level: "sector" | "group";
+            /** Sector */
+            sector: string | null;
             /** Start Date */
             start_date: string;
             /** End Date */
@@ -3899,14 +3962,81 @@ export interface components {
              */
             status: "available" | "missing" | "before_listing" | "no_prices";
         };
-        /** SectorItem */
-        SectorItem: {
+        /** SectorGroupItem */
+        SectorGroupItem: {
             /** Id */
             id: string;
+            /** Sector */
+            sector: string;
+            /**
+             * Coverage
+             * @enum {string}
+             */
+            coverage: "complete" | "partial" | "reference" | "pending";
+            /** Same As Sector */
+            same_as_sector: boolean;
+            /** Etf */
+            etf: string | null;
+            periods: components["schemas"]["SectorPeriods"] | null;
+            /** First Date */
+            first_date: string | null;
+            /**
+             * Full Years
+             * @default 0
+             */
+            full_years: number;
+            /**
+             * Quote Status
+             * @default missing
+             * @enum {string}
+             */
+            quote_status: "live" | "closed" | "delayed" | "missing";
+            /** Quote Time */
+            quote_time: string | null;
+            /** Price Fetched At */
+            price_fetched_at: string | null;
+            /** Price Expires At */
+            price_expires_at: string | null;
+            /**
+             * Prices Current
+             * @default false
+             */
+            prices_current: boolean;
+            fetch: components["schemas"]["PriceFetch"] | null;
+            weights: components["schemas"]["SectorWeights"] | null;
+            ranks: components["schemas"]["SectorRanks"] | null;
+            /** Alternates */
+            alternates: components["schemas"]["EtfPerformance"][];
+        };
+        /** SectorGroups */
+        SectorGroups: {
+            /** As Of */
+            as_of: string;
+            /**
+             * Market Period
+             * @enum {string}
+             */
+            market_period: "regular" | "pre" | "post" | "closed";
+            /** Last Completed Session */
+            last_completed_session: string;
+            /** History Start */
+            history_start: string;
+            /** History Years */
+            history_years: number;
+            /** Sector */
+            sector: string | null;
+            /** Items */
+            items: components["schemas"]["SectorGroupItem"][];
+            /** Quote Symbols */
+            quote_symbols: string[];
+            /** Prices Pending */
+            prices_pending: string[];
+        };
+        /** SectorItem */
+        SectorItem: {
             /** Etf */
             etf: string;
             periods: components["schemas"]["SectorPeriods"];
-            weights: components["schemas"]["SectorWeights"];
             /** First Date */
             first_date: string | null;
             /** Full Years */
@@ -3924,6 +4054,12 @@ export interface components {
             price_expires_at: string | null;
             /** Prices Current */
             prices_current: boolean;
+            fetch: components["schemas"]["PriceFetch"];
+            /** Id */
+            id: string;
+            weights: components["schemas"]["SectorWeights"];
+            /** Groups */
+            groups: number;
         };
         /** SectorPerformance */
         SectorPerformance: {
@@ -3942,8 +4078,12 @@ export interface components {
             history_years: number;
             /** Items */
             items: components["schemas"]["SectorItem"][];
+            /** Sector Ids */
+            sector_ids: string[];
             /** Quote Symbols */
             quote_symbols: string[];
+            /** Group Etfs */
+            group_etfs: string[];
             /** Prices Pending */
             prices_pending: string[];
         };
@@ -3962,6 +4102,14 @@ export interface components {
              * @default false
              */
             foreground: boolean;
+            /**
+             * Level
+             * @default sector
+             * @enum {string}
+             */
+            level: "sector" | "group";
+            /** Sector */
+            sector?: string | null;
         };
         /** SectorPricesOutput */
         SectorPricesOutput: {
@@ -3969,6 +4117,19 @@ export interface components {
             requested: string[];
             /** Batch Ids */
             batch_ids: string[];
+        };
+        /** SectorRanks */
+        SectorRanks: {
+            /** Today */
+            today: number | null;
+            /** Week */
+            week: number | null;
+            /** Month */
+            month: number | null;
+            /** Quarter */
+            quarter: number | null;
+            /** Ytd */
+            ytd: number | null;
         };
         /** SectorToday */
         SectorToday: {
@@ -6842,11 +7003,44 @@ export interface operations {
             };
         };
     };
+    read_groups_api_v1_sectors_groups_get: {
+        parameters: {
+            query?: {
+                sector?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SectorGroups"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     read_candles_api_v1_sectors_candles_get: {
         parameters: {
             query?: {
                 range?: "3m" | "6m" | "1y" | "ytd";
                 interval?: "day" | "week" | "month";
+                level?: "sector" | "group";
+                sector?: string | null;
             };
             header?: never;
             path?: never;

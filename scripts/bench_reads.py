@@ -2,6 +2,7 @@
 
 Measures home, the Insider feed (first page and pages 2/3 for all, buy and sell
 filters), the Insider overview, the sector performance and its daily K-lines,
+the industry groups (all, and one sector's) and their daily K-lines,
 the task list, company and person history and a transaction detail.
 The company and person pages are also measured as the browser loads them:
 six months of history, the before/after-5 windows of its rows and the cached
@@ -195,6 +196,10 @@ def main():
         if "sectors" in only:
             client.get("sectors", "/api/v1/sectors")
             client.get("sector_candles", "/api/v1/sectors/candles", {"range": "3m", "interval": "day"})
+            client.get("sector_groups", "/api/v1/sectors/groups")
+            client.get("sector_groups_one", "/api/v1/sectors/groups", {"sector": "information_technology"})
+            client.get("sector_group_candles", "/api/v1/sectors/candles",
+                       {"range": "3m", "interval": "day", "level": "group"})
         for kind, prefix in FEED_FILTERS:
             if prefix not in only:
                 continue

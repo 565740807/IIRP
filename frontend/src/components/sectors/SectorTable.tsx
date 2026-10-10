@@ -9,7 +9,7 @@ import {
   type SortingState,
 } from "@tanstack/react-table";
 import { motion, useReducedMotion } from "motion/react";
-import { ArrowDown, ArrowUp } from "lucide-react";
+import { ArrowDown, ArrowUp, ChevronRight } from "lucide-react";
 import { formatDay, formatSignedRatio } from "@/lib/format";
 import { PERIODS, periodChange, type Period, type SectorChange, type SectorItem, type SortColumn } from "@/lib/sectors";
 import { cn } from "@/lib/utils";
@@ -23,7 +23,7 @@ function changeNumber(change: SectorChange) {
   return change.value == null ? null : Number(change.value);
 }
 
-function ChangeCell({ change, period }: { change: SectorChange; period: Period }) {
+export function ChangeCell({ change, period }: { change: SectorChange; period: Period }) {
   const { t } = useTranslation();
   const value = changeNumber(change);
   const flash = useFlash(period === "today" ? value : null);
@@ -50,10 +50,11 @@ function ChangeCell({ change, period }: { change: SectorChange; period: Period }
 }
 
 /** The comparison date shared by most rows of a period, for its column header. */
-function commonStart(items: readonly SectorItem[], period: Period) {
+export function commonStart(items: readonly { periods?: SectorItem["periods"] | null }[], period: Period) {
   const counts = new Map<string, number>();
   for (const item of items) {
-    const change = periodChange(item, period);
+    if (!item.periods) continue;
+    const change = periodChange({ periods: item.periods }, period);
     if (change.value != null && change.start_date) counts.set(change.start_date, (counts.get(change.start_date) ?? 0) + 1);
   }
   return [...counts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
@@ -63,7 +64,7 @@ function commonStart(items: readonly SectorItem[], period: Period) {
  * One row per sector with every period; sorting by a column header changes
  * the URL. Numbers come from the backend; the table only orders them.
  */
-export function SectorTable({ items, historyYears, sort, desc, setSort, selected, toggle }: {
+export function SectorTable({ items, historyYears, sort, desc, setSort, selected, toggle, drill }: {
   items: SectorItem[];
   historyYears: number;
   sort: SortColumn;
@@ -71,6 +72,8 @@ export function SectorTable({ items, historyYears, sort, desc, setSort, selected
   setSort: (column: SortColumn, desc: boolean) => void;
   selected: readonly string[];
   toggle: (etf: string) => void;
+  /** Opens the sector's industry groups. */
+  drill: (sector: string) => void;
 }) {
   const { t } = useTranslation();
   const reduce = useReducedMotion();
@@ -92,8 +95,13 @@ export function SectorTable({ items, historyYears, sort, desc, setSort, selected
       id: "name",
       header: () => t("ui.sectors.column.name"),
       cell: ({ row, getValue }) => (
-        <span className="flex flex-col">
-          <span className="font-medium">{getValue()}</span>
+        <span className="flex flex-col items-start">
+          <button type="button" onClick={() => drill(row.original.id)} className="group inline-flex items-center gap-1 text-left font-medium hover:underline"
+            title={t("ui.sectors.drill", { count: row.original.groups })}>
+            {getValue()}
+            <ChevronRight className="size-3.5 text-muted-foreground group-hover:text-foreground" aria-hidden/>
+          </button>
+          <span className="text-[11px] text-muted-foreground">{t("ui.sectors.drill", { count: row.original.groups })}</span>
           <SinceNote item={row.original} years={historyYears}/>
         </span>
       ),
@@ -113,7 +121,7 @@ export function SectorTable({ items, historyYears, sort, desc, setSort, selected
       meta: { numeric: true },
       cell: ({ row }) => <ChangeCell change={periodChange(row.original, period)} period={period}/>,
     })),
-  ], [t, starts, selected, toggle, historyYears]);
+  ], [t, starts, selected, toggle, historyYears, drill]);
   // A new array on every render would re-sort and reset table state in a loop.
   const sorting: SortingState = useMemo(() => [{ id: sort, desc }], [sort, desc]);
   const table = useReactTable({

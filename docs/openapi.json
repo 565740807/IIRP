@@ -3743,6 +3743,54 @@
         }
       }
     },
+    "/api/v1/sectors/groups": {
+      "get": {
+        "summary": "Read Groups",
+        "description": "Industry groups of one sector, or all of them; reads the local cache only.",
+        "operationId": "read_groups_api_v1_sectors_groups_get",
+        "parameters": [
+          {
+            "name": "sector",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 64
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Sector"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SectorGroups"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/sectors/candles": {
       "get": {
         "summary": "Read Candles",
@@ -3777,6 +3825,37 @@
               "type": "string",
               "default": "day",
               "title": "Interval"
+            }
+          },
+          {
+            "name": "level",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "sector",
+                "group"
+              ],
+              "type": "string",
+              "default": "sector",
+              "title": "Level"
+            }
+          },
+          {
+            "name": "sector",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 64
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Sector"
             }
           }
         ],
@@ -5888,6 +5967,96 @@
           "issuer_ticker_raw"
         ],
         "title": "EntityRef"
+      },
+      "EtfPerformance": {
+        "properties": {
+          "etf": {
+            "type": "string",
+            "title": "Etf"
+          },
+          "periods": {
+            "$ref": "#/components/schemas/SectorPeriods"
+          },
+          "first_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "First Date"
+          },
+          "full_years": {
+            "type": "integer",
+            "title": "Full Years"
+          },
+          "quote_status": {
+            "type": "string",
+            "enum": [
+              "live",
+              "closed",
+              "delayed",
+              "missing"
+            ],
+            "title": "Quote Status"
+          },
+          "quote_time": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Quote Time"
+          },
+          "price_fetched_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Price Fetched At"
+          },
+          "price_expires_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Price Expires At"
+          },
+          "prices_current": {
+            "type": "boolean",
+            "title": "Prices Current"
+          },
+          "fetch": {
+            "$ref": "#/components/schemas/PriceFetch"
+          }
+        },
+        "type": "object",
+        "required": [
+          "etf",
+          "periods",
+          "first_date",
+          "full_years",
+          "quote_status",
+          "quote_time",
+          "price_fetched_at",
+          "price_expires_at",
+          "prices_current",
+          "fetch"
+        ],
+        "title": "EtfPerformance"
       },
       "EventAnalysisCreated": {
         "properties": {
@@ -11309,6 +11478,38 @@
         "title": "PriceContext",
         "description": "Price change around a transaction; status explains when it is unavailable."
       },
+      "PriceFetch": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "ready",
+              "fetching",
+              "no_data",
+              "failed",
+              "not_requested"
+            ],
+            "title": "Status"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "reason"
+        ],
+        "title": "PriceFetch"
+      },
       "PricePoint": {
         "properties": {
           "x": {
@@ -12236,6 +12437,10 @@
             "type": "string",
             "title": "Id"
           },
+          "sector": {
+            "type": "string",
+            "title": "Sector"
+          },
           "etf": {
             "type": "string",
             "title": "Etf"
@@ -12273,6 +12478,7 @@
         "type": "object",
         "required": [
           "id",
+          "sector",
           "etf",
           "candles",
           "first_date",
@@ -12301,6 +12507,25 @@
             ],
             "title": "Interval"
           },
+          "level": {
+            "type": "string",
+            "enum": [
+              "sector",
+              "group"
+            ],
+            "title": "Level"
+          },
+          "sector": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sector"
+          },
           "start_date": {
             "type": "string",
             "title": "Start Date"
@@ -12321,6 +12546,8 @@
         "required": [
           "range",
           "interval",
+          "level",
+          "sector",
           "start_date",
           "end_date",
           "items"
@@ -12382,21 +12609,259 @@
         ],
         "title": "SectorChange"
       },
-      "SectorItem": {
+      "SectorGroupItem": {
         "properties": {
           "id": {
             "type": "string",
             "title": "Id"
           },
+          "sector": {
+            "type": "string",
+            "title": "Sector"
+          },
+          "coverage": {
+            "type": "string",
+            "enum": [
+              "complete",
+              "partial",
+              "reference",
+              "pending"
+            ],
+            "title": "Coverage"
+          },
+          "same_as_sector": {
+            "type": "boolean",
+            "title": "Same As Sector"
+          },
+          "etf": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Etf"
+          },
+          "periods": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SectorPeriods"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "first_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "First Date"
+          },
+          "full_years": {
+            "type": "integer",
+            "title": "Full Years",
+            "default": 0
+          },
+          "quote_status": {
+            "type": "string",
+            "enum": [
+              "live",
+              "closed",
+              "delayed",
+              "missing"
+            ],
+            "title": "Quote Status",
+            "default": "missing"
+          },
+          "quote_time": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Quote Time"
+          },
+          "price_fetched_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Price Fetched At"
+          },
+          "price_expires_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Price Expires At"
+          },
+          "prices_current": {
+            "type": "boolean",
+            "title": "Prices Current",
+            "default": false
+          },
+          "fetch": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PriceFetch"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "weights": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SectorWeights"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "ranks": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SectorRanks"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "alternates": {
+            "items": {
+              "$ref": "#/components/schemas/EtfPerformance"
+            },
+            "type": "array",
+            "title": "Alternates"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "sector",
+          "coverage",
+          "same_as_sector",
+          "etf",
+          "periods",
+          "first_date",
+          "full_years",
+          "quote_status",
+          "quote_time",
+          "price_fetched_at",
+          "price_expires_at",
+          "prices_current",
+          "fetch",
+          "weights",
+          "ranks",
+          "alternates"
+        ],
+        "title": "SectorGroupItem"
+      },
+      "SectorGroups": {
+        "properties": {
+          "as_of": {
+            "type": "string",
+            "title": "As Of"
+          },
+          "market_period": {
+            "type": "string",
+            "enum": [
+              "regular",
+              "pre",
+              "post",
+              "closed"
+            ],
+            "title": "Market Period"
+          },
+          "last_completed_session": {
+            "type": "string",
+            "title": "Last Completed Session"
+          },
+          "history_start": {
+            "type": "string",
+            "title": "History Start"
+          },
+          "history_years": {
+            "type": "integer",
+            "title": "History Years"
+          },
+          "sector": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sector"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/SectorGroupItem"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "quote_symbols": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Quote Symbols"
+          },
+          "prices_pending": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Prices Pending"
+          }
+        },
+        "type": "object",
+        "required": [
+          "as_of",
+          "market_period",
+          "last_completed_session",
+          "history_start",
+          "history_years",
+          "sector",
+          "items",
+          "quote_symbols",
+          "prices_pending"
+        ],
+        "title": "SectorGroups"
+      },
+      "SectorItem": {
+        "properties": {
           "etf": {
             "type": "string",
             "title": "Etf"
           },
           "periods": {
             "$ref": "#/components/schemas/SectorPeriods"
-          },
-          "weights": {
-            "$ref": "#/components/schemas/SectorWeights"
           },
           "first_date": {
             "anyOf": [
@@ -12459,21 +12924,37 @@
           "prices_current": {
             "type": "boolean",
             "title": "Prices Current"
+          },
+          "fetch": {
+            "$ref": "#/components/schemas/PriceFetch"
+          },
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "weights": {
+            "$ref": "#/components/schemas/SectorWeights"
+          },
+          "groups": {
+            "type": "integer",
+            "title": "Groups"
           }
         },
         "type": "object",
         "required": [
-          "id",
           "etf",
           "periods",
-          "weights",
           "first_date",
           "full_years",
           "quote_status",
           "quote_time",
           "price_fetched_at",
           "price_expires_at",
-          "prices_current"
+          "prices_current",
+          "fetch",
+          "id",
+          "weights",
+          "groups"
         ],
         "title": "SectorItem"
       },
@@ -12512,12 +12993,26 @@
             "type": "array",
             "title": "Items"
           },
+          "sector_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Sector Ids"
+          },
           "quote_symbols": {
             "items": {
               "type": "string"
             },
             "type": "array",
             "title": "Quote Symbols"
+          },
+          "group_etfs": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Group Etfs"
           },
           "prices_pending": {
             "items": {
@@ -12535,7 +13030,9 @@
           "history_start",
           "history_years",
           "items",
+          "sector_ids",
           "quote_symbols",
+          "group_etfs",
           "prices_pending"
         ],
         "title": "SectorPerformance"
@@ -12574,6 +13071,27 @@
             "type": "boolean",
             "title": "Foreground",
             "default": false
+          },
+          "level": {
+            "type": "string",
+            "enum": [
+              "sector",
+              "group"
+            ],
+            "title": "Level",
+            "default": "sector"
+          },
+          "sector": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 64
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sector"
           }
         },
         "type": "object",
@@ -12602,6 +13120,74 @@
           "batch_ids"
         ],
         "title": "SectorPricesOutput"
+      },
+      "SectorRanks": {
+        "properties": {
+          "today": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Today"
+          },
+          "week": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Week"
+          },
+          "month": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Month"
+          },
+          "quarter": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Quarter"
+          },
+          "ytd": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ytd"
+          }
+        },
+        "type": "object",
+        "required": [
+          "today",
+          "week",
+          "month",
+          "quarter",
+          "ytd"
+        ],
+        "title": "SectorRanks"
       },
       "SectorToday": {
         "properties": {

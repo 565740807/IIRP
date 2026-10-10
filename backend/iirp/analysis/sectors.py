@@ -18,6 +18,12 @@ cache holds:
   the close of L against the close of the session before it.
 
 A start before an ETF's first daily bar has no value; history is never filled in.
+
+Industry groups: each group ranks only its primary ETF. Alternates are
+reference rows and pending groups (no primary ETF) are listed last; neither
+is ranked, weighted on the heatmap or charted. The group ETFs are fetched only
+when the industry group level is opened, never for the sector level or the
+home strip.
 """
 
 import calendar as gregorian
@@ -40,31 +46,84 @@ COVERAGE = ("complete", "partial", "reference", "pending")
 CHANGE_STEP = Decimal("0.000001")
 
 
-@lru_cache
-def sector_map() -> dict:
-    """config/sector-map.toml, checked once."""
-    with (ROOT / "config/sector-map.toml").open("rb") as source:
-        config = tomllib.load(source)
+def check_sector_map(config: dict) -> dict:
+    """Reject a sector map that would rank the wrong ETF or show one ETF twice.
+
+    Each group has a known coverage; a pending group has no primary and every
+    other group has one. A group equal to its sector (same_as_sector) is the
+    sector's only group and uses the sector's ETF; apart from that no ETF
+    appears twice across sectors, primaries and alternates.
+    """
+    problem = "config/sector-map.toml: "
     sectors = config["sector"]
     ids = [item["id"] for item in sectors]
     etfs = [item["etf"] for item in sectors]
     if len(set(ids)) != len(ids) or len(set(etfs)) != len(etfs):
-        raise ValueError("config/sector-map.toml: sector ids and ETFs must be unique")
+        raise ValueError(problem + "sector ids and ETFs must be unique")
+    seen = set(etfs)
+    group_ids = set()
     for item in sectors:
-        for group in item.get("group", []):
+        groups = item.get("group", [])
+        for group in groups:
+            name = group.get("id")
+            if not name or name in group_ids:
+                raise ValueError(problem + f"group id {name!r} is missing or repeated")
+            group_ids.add(name)
             if group.get("coverage") not in COVERAGE:
-                raise ValueError(f"config/sector-map.toml: unknown coverage for {group.get('id')}")
-            if (group["coverage"] == "pending") != (group.get("primary") is None):
-                raise ValueError(f"config/sector-map.toml: {group['id']} needs a primary ETF "
-                                 "unless its coverage is pending")
+                raise ValueError(problem + f"unknown coverage for {name}")
+            primary = group.get("primary")
+            if (group["coverage"] == "pending") != (primary is None):
+                raise ValueError(problem + f"{name} needs a primary ETF unless its coverage is pending")
+            alternates = group.get("alternates", [])
+            if not isinstance(alternates, list) or not all(isinstance(etf, str) and etf for etf in alternates):
+                raise ValueError(problem + f"{name}: alternates must be a list of ETFs")
+            if group.get("same_as_sector"):
+                if len(groups) != 1 or primary != item["etf"]:
+                    raise ValueError(problem + f"{name} equals its sector only as the sector's "
+                                     "single group with the sector's ETF")
+                group_etfs = alternates
+            else:
+                group_etfs = ([primary] if primary else []) + alternates
+            for etf in group_etfs:
+                if etf in seen:
+                    raise ValueError(problem + f"ETF {etf} appears more than once")
+                seen.add(etf)
     floors = config["heatmap"]["spread_floor_percent"]
     if set(floors) != set(PERIODS):
-        raise ValueError("config/sector-map.toml: one heatmap spread floor per period")
+        raise ValueError(problem + "one heatmap spread floor per period")
     return config
+
+
+@lru_cache
+def sector_map() -> dict:
+    """config/sector-map.toml, checked once."""
+    with (ROOT / "config/sector-map.toml").open("rb") as source:
+        return check_sector_map(tomllib.load(source))
 
 
 def sector_etfs() -> list[str]:
     return [item["etf"] for item in sector_map()["sector"]]
+
+
+def sector_ids() -> list[str]:
+    return [item["id"] for item in sector_map()["sector"]]
+
+
+def industry_groups(sector: str | None = None) -> list[dict]:
+    """Industry groups in config order, of one sector or of all of them."""
+    return [{"id": group["id"], "sector": item["id"], "primary": group.get("primary"),
+             "alternates": list(group.get("alternates", [])), "coverage": group["coverage"],
+             "same_as_sector": bool(group.get("same_as_sector"))}
+            for item in sector_map()["sector"] if sector in (None, item["id"])
+            for group in item.get("group", [])]
+
+
+def group_etfs(sector: str | None = None) -> list[str]:
+    """Every ETF the industry group level shows: primaries, then reference rows."""
+    groups = industry_groups(sector)
+    etfs = [group["primary"] for group in groups if group["primary"]]
+    etfs += [etf for group in groups for etf in group["alternates"]]
+    return list(dict.fromkeys(etfs))
 
 
 def history_start(today: date) -> date:
@@ -231,15 +290,44 @@ def _bars(s, cache_ids, since: date, *, ohlc=False) -> dict[str, list[dict]]:
     return result
 
 
-def performance(s, *, at: datetime | None = None) -> dict:
-    """Every sector's periods, the heatmap weights and what the page still needs."""
+QUOTE_STATUS = {"LIVE": "live", "CLOSED": "closed", "STALE": "delayed"}
+
+
+def _fetch_status(s, etfs: list[str], at: datetime) -> dict[str, dict]:
+    """Today's daily-price request of each ETF without a current cache.
+
+    Read from the request scopes of today's market_history batches; an ETF
+    nobody has asked for today is "not_requested".
+    """
+    from iirp.models import Batch, RequestScope
+
+    if not etfs:
+        return {}
+    day_start = datetime.combine(at.astimezone(ET).date(), datetime.min.time(), ET)
+    rows = s.execute(select(RequestScope.symbol, RequestScope.status, RequestScope.wait_reason)
+                     .join(Batch, Batch.id == RequestScope.batch_id)
+                     .where(Batch.kind == "market_history", Batch.created_at >= day_start,
+                            RequestScope.symbol.in_(etfs))
+                     .order_by(Batch.created_at)).all()
+    result = {}
+    for symbol, status, reason in rows:
+        if status in ("FAILED", "PARTIAL", "CANCELLED"):
+            empty = reason is not None and "market.empty_response" in reason
+            result[symbol] = {"status": "no_data" if empty else "failed", "reason": reason}
+        elif status in ("READY", "SUCCEEDED"):
+            result.setdefault(symbol, {"status": "not_requested", "reason": None})
+        else:
+            result[symbol] = {"status": "fetching", "reason": None}
+    return result
+
+
+def _etf_views(s, etfs: list[str], at: datetime) -> dict[str, dict]:
+    """Every period, listing date, quote state and cache state of each ETF."""
     from iirp.market.stock_quotes import stock_quote_views
 
-    at = at or now()
-    config = sector_map()
-    etfs = sector_etfs()
     today = at.astimezone(ET).date()
     completed = last_completed_session(at)
+    years = sector_map()["history"]["years"]
     caches = _caches(s, etfs, at)
     cache_ids = [cache.id for _, cache in caches.values()]
     first_dates = _first_dates(s, cache_ids)
@@ -247,10 +335,9 @@ def performance(s, *, at: datetime | None = None) -> dict:
     since = min(date(completed.year - 1, 12, 1), months_back(completed, 3) - timedelta(days=10))
     bars = _bars(s, cache_ids, since)
     quotes = {item["symbol"]: item for item in stock_quote_views(s, etfs)}
-    items = []
-    for sector in config["sector"]:
-        etf = sector["etf"]
-        security, cache = caches.get(etf, (None, None))
+    views = {}
+    for etf in etfs:
+        _, cache = caches.get(etf, (None, None))
         closes = _closes(bars.get(cache.id, [])) if cache else {}
         first = first_dates.get(cache.id) if cache else None
         last = max((day for day in closes if day <= completed), default=None)
@@ -261,33 +348,104 @@ def performance(s, *, at: datetime | None = None) -> dict:
             periods.update({period: {"value": None, "start_date": None, "end_date": None,
                                      "status": "no_prices"} for period in PERIODS[1:]})
         quote = quotes.get(etf) or {}
-        items.append({
-            "id": sector["id"], "etf": etf, "periods": periods,
+        current = bool(cache and cache.complete_through >= completed
+                       and cache.start_date <= history_start(today))
+        views[etf] = {
+            "etf": etf, "periods": periods,
             "first_date": first.isoformat() if first else None,
-            "full_years": full_years(first, today, config["history"]["years"]),
-            "quote_status": {"LIVE": "live", "CLOSED": "closed", "STALE": "delayed"}.get(
-                quote.get("status"), "missing"),
+            "full_years": full_years(first, today, years),
+            "quote_status": QUOTE_STATUS.get(quote.get("status"), "missing"),
             "quote_time": quote.get("source_time"),
             "price_fetched_at": cache.fetched_at.isoformat() if cache else None,
             "price_expires_at": cache.expires_at.isoformat() if cache else None,
-            "prices_current": bool(cache and cache.complete_through >= completed
-                                   and cache.start_date <= history_start(today)),
-        })
+            "prices_current": current,
+            "fetch": {"status": "ready" if current else "not_requested", "reason": None},
+        }
+        if cache and first is None:
+            views[etf]["fetch"] = {"status": "no_data", "reason": None}
+    waiting = [etf for etf, view in views.items() if view["fetch"]["status"] == "not_requested"]
+    for etf, status in _fetch_status(s, waiting, at).items():
+        views[etf]["fetch"] = status
+    return views
+
+
+def _header(at: datetime) -> dict:
+    from iirp.market.stock_quotes import stock_session
+
+    today = at.astimezone(ET).date()
+    return {"as_of": at.isoformat(), "market_period": stock_session(at)[0],
+            "last_completed_session": last_completed_session(at).isoformat(),
+            "history_start": history_start(today).isoformat(),
+            "history_years": sector_map()["history"]["years"]}
+
+
+def _today_order(item: dict):
+    value = item["periods"]["today"]["value"] if item.get("periods") else None
+    return value is None, -Decimal(value or 0)
+
+
+def performance(s, *, at: datetime | None = None) -> dict:
+    """Every sector's periods, the heatmap weights and what the page still needs."""
+    at = at or now()
+    etfs = sector_etfs()
+    views = _etf_views(s, etfs, at)
+    items = [{"id": sector["id"], **views[sector["etf"]], "groups": len(sector.get("group", []))}
+             for sector in sector_map()["sector"]]
     weights = {period: heatmap_weights({item["id"]: item["periods"][period]["value"]
                                         for item in items}, period) for period in PERIODS}
     for item in items:
         item["weights"] = {period: weights[period][item["id"]] for period in PERIODS}
     # The home strip's order: today's change, largest first, unknown last.
-    items.sort(key=lambda item: (item["periods"]["today"]["value"] is None,
-                                 -Decimal(item["periods"]["today"]["value"] or 0)))
-    from iirp.market.stock_quotes import stock_session
-
-    return {"as_of": at.isoformat(), "market_period": stock_session(at)[0],
-            "last_completed_session": completed.isoformat(),
-            "history_start": history_start(today).isoformat(),
-            "history_years": config["history"]["years"],
-            "items": items, "quote_symbols": etfs,
+    items.sort(key=_today_order)
+    return {**_header(at), "items": items, "sector_ids": sector_ids(), "quote_symbols": etfs,
+            "group_etfs": group_etfs(),
             "prices_pending": [item["etf"] for item in items if not item["prices_current"]]}
+
+
+def ranks(values: dict[str, str | None]) -> dict[str, int | None]:
+    """1 for the largest change; keys without a value have no rank."""
+    known = sorted(((Decimal(value), key) for key, value in values.items() if value is not None),
+                   key=lambda pair: -pair[0])
+    order = {key: index + 1 for index, (_, key) in enumerate(known)}
+    return {key: order.get(key) for key in values}
+
+
+def group_performance(s, *, sector: str | None = None, at: datetime | None = None) -> dict:
+    """Industry groups of one sector, or all 25, ranked by their primary ETF only.
+
+    Heatmap weights and ranks are computed among the primaries shown. Each
+    group carries its reference rows (alternates) with the same periods, but
+    they are never ranked. Pending groups come last with no ETF.
+    """
+    if sector is not None and sector not in sector_ids():
+        raise ValueError(sector)
+    at = at or now()
+    groups = industry_groups(sector)
+    etfs = group_etfs(sector)
+    views = _etf_views(s, etfs, at)
+    items = []
+    for group in groups:
+        primary = views.get(group["primary"]) if group["primary"] else None
+        items.append({
+            "id": group["id"], "sector": group["sector"], "coverage": group["coverage"],
+            "same_as_sector": group["same_as_sector"],
+            **(primary or {"etf": None, "periods": None}),
+            "alternates": [views[etf] for etf in group["alternates"]],
+        })
+    ranked = [item for item in items if item["periods"] is not None]
+    weights = {period: heatmap_weights({item["id"]: item["periods"][period]["value"]
+                                        for item in ranked}, period) for period in PERIODS}
+    order = {period: ranks({item["id"]: item["periods"][period]["value"] for item in ranked})
+             for period in PERIODS}
+    for item in items:
+        ranked_item = item["periods"] is not None
+        item["weights"] = ({period: weights[period][item["id"]] for period in PERIODS}
+                           if ranked_item else None)
+        item["ranks"] = ({period: order[period][item["id"]] for period in PERIODS}
+                         if ranked_item else None)
+    items.sort(key=lambda item: (item["periods"] is None, *_today_order(item)))
+    return {**_header(at), "sector": sector, "items": items, "quote_symbols": etfs,
+            "prices_pending": [etf for etf in etfs if not views[etf]["prices_current"]]}
 
 
 def chart_start(end: date, chart_range: str) -> date:
@@ -322,10 +480,23 @@ def aggregate(bars: list[dict], interval: str) -> list[dict]:
     return candles
 
 
-def candles(s, *, chart_range: str = "3m", interval: str = "day", at: datetime | None = None) -> dict:
-    """K-line data for every sector over one shared range, aggregated in the backend."""
+def chart_rows(level: str = "sector", sector: str | None = None) -> list[dict]:
+    """(id, sector, etf) of every chart: the sectors, or the groups with a primary ETF."""
+    if level == "sector":
+        return [{"id": item["id"], "sector": item["id"], "etf": item["etf"]}
+                for item in sector_map()["sector"]]
+    if sector is not None and sector not in sector_ids():
+        raise ValueError(sector)
+    return [{"id": group["id"], "sector": group["sector"], "etf": group["primary"]}
+            for group in industry_groups(sector) if group["primary"]]
+
+
+def candles(s, *, chart_range: str = "3m", interval: str = "day", level: str = "sector",
+            sector: str | None = None, at: datetime | None = None) -> dict:
+    """K-line data for the sectors or industry groups over one shared range."""
     at = at or now()
-    etfs = sector_etfs()
+    rows = chart_rows(level, sector)
+    etfs = [row["etf"] for row in rows]
     completed = last_completed_session(at)
     start = chart_start(completed, chart_range)
     # Weeks and months start at their own first session, so the first candle is whole.
@@ -336,25 +507,27 @@ def candles(s, *, chart_range: str = "3m", interval: str = "day", at: datetime |
     bars = _bars(s, cache_ids, since, ohlc=True)
     first_dates = _first_dates(s, cache_ids)
     items = []
-    for sector in sector_map()["sector"]:
-        etf = sector["etf"]
-        _, cache = caches.get(etf, (None, None))
-        rows = [bar for bar in bars.get(cache.id, []) if bar["date"] <= completed.isoformat()] if cache else []
+    for row in rows:
+        _, cache = caches.get(row["etf"], (None, None))
+        daily = [bar for bar in bars.get(cache.id, []) if bar["date"] <= completed.isoformat()] if cache else []
         first = first_dates.get(cache.id) if cache else None
-        items.append({"id": sector["id"], "etf": etf, "candles": aggregate(rows, interval),
+        items.append({**row, "candles": aggregate(daily, interval),
                       "first_date": first.isoformat() if first else None,
                       "price_fetched_at": cache.fetched_at.isoformat() if cache else None})
-    return {"range": chart_range, "interval": interval, "start_date": since.isoformat(),
-            "end_date": completed.isoformat(), "items": items}
+    return {"range": chart_range, "interval": interval, "level": level, "sector": sector,
+            "start_date": since.isoformat(), "end_date": completed.isoformat(), "items": items}
 
 
-def request_prices(s, *, foreground: bool = False, at: datetime | None = None) -> dict:
+def request_prices(s, *, foreground: bool = False, level: str = "sector", sector: str | None = None,
+                   at: datetime | None = None) -> dict:
     """Plan one daily-price fetch for the ETFs whose cache misses the sector range.
 
-    Each fetch covers this year and the configured complete past years (the
-    cache adds its month of buffer), so monthly and interval analyses opened
-    from the sector page reuse it. Asking again the same day, until the next
-    close, returns the same batch instead of adding work.
+    The sector level asks for the 11 sector ETFs only; the industry group
+    level for the groups' primaries and reference rows (of one sector, or of
+    all of them). Each fetch covers this year and the configured complete past
+    years (the cache adds its month of buffer), so monthly and interval
+    analyses opened from the sector page reuse it. Asking again the same day,
+    until the next close, returns the same batch instead of adding work.
     """
     from iirp.jobs.batches import _create
     from iirp.market.cache import covers
@@ -364,17 +537,24 @@ def request_prices(s, *, foreground: bool = False, at: datetime | None = None) -
     at = at or now()
     today = at.astimezone(ET).date()
     start = history_start(today)
-    caches = _caches(s, sector_etfs(), at)
-    due = [etf for etf in sector_etfs()
-           if not covers(caches.get(etf, (None, None))[1], start, today)]
+    if level == "sector":
+        etfs = sector_etfs()
+    elif sector is None or sector in sector_ids():
+        etfs = group_etfs(sector)
+    else:
+        raise ValueError(sector)
+    caches = _caches(s, etfs, at)
+    due = [etf for etf in etfs if not covers(caches.get(etf, (None, None))[1], start, today)]
     if not due:
         return {"requested": [], "batch_ids": []}
     params = {"kind": "market_history", "tickers": due, "start_date": start.isoformat(),
-              "end_date": today.isoformat(), "purpose": "sectors"}
+              "end_date": today.isoformat(),
+              "purpose": "sectors" if level == "sector" else "sector_groups"}
     params["request_id"] = "sector-prices-" + digest(
         [params, last_completed_session(at).isoformat(), foreground])[:40]
     batch, reused = (_create(s, params) if foreground
                      else _create(s, params, trigger="automatic", policy_key="market"))
     if not reused:
-        batch.title = msg("batch.title.sector_prices", count=len(due))
+        batch.title = msg("batch.title.sector_prices" if level == "sector"
+                          else "batch.title.sector_group_prices", count=len(due))
     return {"requested": due, "batch_ids": [batch.id]}

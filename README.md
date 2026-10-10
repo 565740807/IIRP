@@ -9,8 +9,9 @@ your own research:
 - **Insider trades**: a live feed of Form 3/4/5 filings as SEC publishes them, and a
   lookup by ticker or name (last 6 months or last 10 trades by default), with the
   price change in the trading days before and after each trade.
-- **Sectors**: the 11 S&P 500 sectors through their SPDR ETFs, today and over 1 week,
-  1 month, 3 months and year to date, as a table, a heatmap or stacked candles.
+- **Sectors**: the 11 S&P 500 sectors through their SPDR ETFs and their 25 industry
+  groups through one ETF each, today and over 1 week, 1 month, 3 months and year to
+  date, as a table, a heatmap or stacked candles.
 - **Price studies**: monthly seasonality, any date range across years, and price
   reactions to earnings or to any event you name.
 
@@ -91,6 +92,14 @@ XLB, XLU, XLRE; mapping in `config/sector-map.toml`) for today, 1 week, 1 month,
 sortable table, a heatmap and daily/weekly/monthly candles on one shared range; select
 sectors and open them in the monthly or interval analysis. The ETFs cover the S&P 500
 sectors, not the whole US market.
+
+Click a sector, or switch the level to **Industry groups**, to see its GICS industry
+groups (all 25 can also be ranked together). Each group is ranked by one primary ETF
+and labelled with how well that ETF covers it: complete, partial, reference, or pending
+when no suitable ETF exists (listed last, never ranked). Related ETFs open as reference
+rows under their group and are not ranked. Group ETFs are fetched only when you open
+this level; the page shows each ETF's progress, and ETFs from both levels can be
+selected together for an analysis (up to 20).
 
 ### Analysis center
 
