@@ -284,8 +284,10 @@ def test_feed_quotes_use_the_issuer_symbol_and_flag_mismatched_prices():
     uuu_price = by_issuer[groups["0000000101"]["revision_id"]]
     assert len_price["current_price"] == "80.00" and len_price["price_check"] == "ok"
     assert uuu_price["price_check"] == "mismatch" and uuu_price["mismatch_ratio"] == "984"
-    # The feed keeps its own amount rule; only the flag is added.
-    assert uuu_price["amount"] == "513400.00"
+    # The suspect line is not counted; its as-filed amount is kept for display.
+    assert uuu_price["amount"] is None
+    assert uuu_price["reported_amount"] == "513400.00"
+    assert len_price["amount"] == "8000.00" and len_price["reported_amount"] is None
 
 
 def test_unchecked_ranking_candidates_ask_for_quotes_until_they_are_saved():
@@ -341,3 +343,18 @@ def test_overview_numbers_in_the_response_are_rounded():
     assert item["shares"] == "100"
     assert item["holding_change"] == "50.00"
     assert item["price"]["change_percent"] == "5.30"
+
+
+def test_feed_line_amount_leaves_out_only_its_suspect_rows():
+    with session() as s, s.begin():
+        seed(s, issuer="0000000103", ticker="MIX", data={"ticker": "MIX"}, price="5")
+        seed(s, issuer="0000000103", ticker="MIX", data={"ticker": "MIX"}, price="5000")
+        quote(s, "MIX", "5")
+        _refresh_groups(s, {("0000000103", DAY)})
+    with session() as s, s.begin():
+        groups = read_feed(s)["groups"]
+        items = feed_prices(s, [group["revision_id"] for group in groups])["items"]
+    [line] = items.values()
+    assert line["price_check"] == "mismatch"
+    assert line["amount"] == "500.00"
+    assert line["reported_amount"] == "500500.00"

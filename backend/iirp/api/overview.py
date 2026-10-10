@@ -37,6 +37,9 @@ class PriceComparison(Output):
     quote_status: str | None = None
     amount: str | None = None
     amount_estimated: bool = False
+    # As-filed amount including rows with a suspect price; set only when such
+    # rows exist, and never counted in any amount or total.
+    reported_amount: str | None = None
     # "not_applicable": no positive price to check (option exercises, awards, $0 rows).
     price_check: Literal["ok", "mismatch", "unchecked", "not_applicable"] = "unchecked"
     # Whole times the price differs from the market reference, for "mismatch" only.

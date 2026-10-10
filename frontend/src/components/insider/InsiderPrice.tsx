@@ -1,5 +1,6 @@
 import { createContext, useContext } from "react";
 import { useTranslation } from "react-i18next";
+import { TriangleAlert } from "lucide-react";
 import { formatCompact, formatDay, formatPrice, formatSignedPercent, directionClass } from "@/lib/format";
 import type { PriceComparison } from "@/lib/insiderOverview";
 import { cn } from "@/lib/utils";
@@ -8,16 +9,19 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 /** Ratio from which the backend marks a reported price as a mismatch; it comes with each response. */
 export const MismatchRatio = createContext<string | null>(null);
 
-/** The backend's check of a price against the market: mismatch or not yet checked. */
-function PriceCheckTag({ price }: { price?: PriceComparison | null }) {
+/**
+ * The backend's check of a price against the market: mismatch or not yet checked.
+ * Compact rows show a mismatch as an icon only; the tooltip carries the words.
+ */
+function PriceCheckTag({ price, compact = false }: { price?: PriceComparison | null; compact?: boolean }) {
   const { t } = useTranslation();
   if (price?.price == null) return null;
   if (price.price_check === "mismatch") {
-    return <span className="mr-1 rounded bg-secondary px-1 text-[10px] text-warn">
-      {t("ui.overview.price_check.mismatch", { ratio: formatCompact(price.mismatch_ratio) })}
-    </span>;
+    const label = t("ui.overview.price_check.mismatch", { ratio: formatCompact(price.mismatch_ratio) });
+    if (compact) return <TriangleAlert className="size-3 shrink-0 self-center text-warn" aria-label={label}/>;
+    return <span className="mr-1 rounded bg-secondary px-1 text-[10px] text-warn">{label}</span>;
   }
-  if (price.price_check === "unchecked") {
+  if (price.price_check === "unchecked" && !compact) {
     return <span className="mr-1 text-[10px] text-muted-foreground">
       {t("ui.overview.price_check.unchecked")}
     </span>;
@@ -25,7 +29,7 @@ function PriceCheckTag({ price }: { price?: PriceComparison | null }) {
   return null;
 }
 
-function PriceCheckNote({ price }: { price?: PriceComparison | null }) {
+export function PriceCheckNote({ price }: { price?: PriceComparison | null }) {
   const { t } = useTranslation();
   const limit = useContext(MismatchRatio);
   // Missing and $0 prices (option exercises, awards) have nothing to check.
@@ -34,23 +38,34 @@ function PriceCheckNote({ price }: { price?: PriceComparison | null }) {
   return <>
     {price.price_check === "mismatch" && <p>{t("ui.overview.price_check.mismatch_rule", { ratio })}</p>}
     {price.price_check === "unchecked" && <p>{t("ui.overview.price_check.unchecked_rule")}</p>}
-    {limit != null && <p className="text-muted-foreground">{t("ui.overview.price_check.rule", { ratio: formatCompact(limit) })}</p>}
+    {limit != null && <p className="opacity-75">{t("ui.overview.price_check.rule", { ratio: formatCompact(limit) })}</p>}
   </>;
 }
 
-export function TradePrice({ price, average = false }: { price?: PriceComparison | null; average?: boolean }) {
+/**
+ * A trade's price with its market check. Compact (feed rows) keeps to its
+ * column: a smaller font for long numbers, then truncation, full text on hover.
+ */
+export function TradePrice({ price, average = false, compact = false }: { price?: PriceComparison | null; average?: boolean; compact?: boolean }) {
   const { t } = useTranslation();
   const range = price?.range_low != null && price.range_high != null;
   const rangeKey = price?.estimated ? "ui.overview.day_range" : "ui.overview.weighted_range";
+  const text = formatPrice(price?.price);
   return <Tooltip>
     <TooltipTrigger asChild>
-      <span className="cursor-default whitespace-nowrap tabular-nums">
-        <PriceCheckTag price={price}/>
-        {price?.estimated && <span className="mr-1 text-[10px] text-muted-foreground">{t("ui.overview.estimated")}</span>}
-        {formatPrice(price?.price)}
-      </span>
+      {compact
+        ? <span className="flex min-w-0 cursor-default items-baseline justify-end gap-0.5 whitespace-nowrap tabular-nums">
+          <PriceCheckTag price={price} compact/>
+          <span className={cn("min-w-0 truncate", text.length > 8 && "text-[10px]")}>{text}</span>
+        </span>
+        : <span className="cursor-default whitespace-nowrap tabular-nums">
+          <PriceCheckTag price={price}/>
+          {price?.estimated && <span className="mr-1 text-[10px] text-muted-foreground">{t("ui.overview.estimated")}</span>}
+          {text}
+        </span>}
     </TooltipTrigger>
-    <TooltipContent className="max-w-xs">
+    <TooltipContent className="max-w-xs flex-col items-start">
+      {compact && price?.price != null && <p className="font-medium tabular-nums">{text}</p>}
       {average && <p>{t("ui.overview.average_method")}</p>}
       <p>{t(price?.estimated ? "ui.overview.estimate_method" : "ui.overview.reported_price")}</p>
       {range && <p>{t(rangeKey, { low: formatPrice(price.range_low), high: formatPrice(price.range_high) })}</p>}
@@ -61,16 +76,18 @@ export function TradePrice({ price, average = false }: { price?: PriceComparison
 
 export function CurrentPrice({ price, compact = false }: { price?: PriceComparison | null; compact?: boolean }) {
   const { t } = useTranslation();
+  const suspect = price?.price_check === "mismatch";
   return <Tooltip>
     <TooltipTrigger asChild>
       <span className={cn("inline-flex cursor-default items-baseline justify-end gap-1 whitespace-nowrap tabular-nums", compact ? "text-[11px]" : "text-xs")}>
         <span>{formatPrice(price?.current_price)}</span>
-        {price?.change_percent != null && <span className={directionClass(price.change_percent)}>{formatSignedPercent(price.change_percent)}</span>}
-        {price?.relation && <span className="rounded bg-secondary px-1 text-[10px] text-muted-foreground">{t(`ui.overview.relation.${price.relation}`)}</span>}
+        {/* A suspect reported price makes the comparison meaningless. */}
+        {!suspect && price?.change_percent != null && <span className={directionClass(price.change_percent)}>{formatSignedPercent(price.change_percent)}</span>}
+        {!suspect && price?.relation && <span className="rounded bg-secondary px-1 text-[10px] text-muted-foreground">{t(`ui.overview.relation.${price.relation}`)}</span>}
       </span>
     </TooltipTrigger>
-    <TooltipContent className="max-w-xs">
-      <p>{t("ui.overview.comparison_rule")}</p>
+    <TooltipContent className="max-w-xs flex-col items-start">
+      <p>{t(suspect ? "ui.overview.comparison_suspect" : "ui.overview.comparison_rule")}</p>
       {price?.estimated && <p>{t("ui.overview.comparison_estimated")}</p>}
       {price?.quote_status && <p>{t(`ui.overview.quote_status.${price.quote_status}`, { day: formatDay(price.quote_date, { year: true }) })}</p>}
     </TooltipContent>
