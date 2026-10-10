@@ -185,16 +185,22 @@ def _reconcile_market(s, batch):
     return True
 
 
-def _market_periodic_due(s, policy):
+def _market_due(s):
+    """Instruments whose saved quote is missing or past its next_refresh_at; a
+    closed market's quote is not due again until its next window opens."""
     from iirp.market.yahoo import MARKETS
     from iirp.models import MarketQuote
 
-    until = policy.options.get("quote_visible_until")
-    if not until or datetime.fromisoformat(until) <= now():
-        return []
     quotes = {q.symbol: q for q in s.scalars(select(MarketQuote).where(MarketQuote.symbol.in_(MARKETS)))}
     return [symbol for symbol in MARKETS if symbol not in quotes or not quotes[symbol].data.get("next_refresh_at")
             or datetime.fromisoformat(quotes[symbol].data["next_refresh_at"]) <= now()]
+
+
+def _market_periodic_due(s, policy):
+    until = policy.options.get("quote_visible_until")
+    if not until or datetime.fromisoformat(until) <= now():
+        return []
+    return _market_due(s)
 
 
 def ensure_fresh_in_session(s, values):
@@ -248,8 +254,12 @@ def ensure_fresh_in_session(s, values):
         if source == "market":
             if values.get("market_visible"):
                 policy.options = {**policy.options, "quote_visible_until": (now() + timedelta(seconds=90)).isoformat()}
-            if reason in ("scheduler", "startup", "visible") and not values.get("force"):
-                market_symbols = _market_periodic_due(s, policy)
+            if not values.get("force"):
+                # Periodic asks also need a visible market page; opening or
+                # returning to any page asks once. Either way only due
+                # instruments are fetched.
+                market_symbols = (_market_periodic_due(s, policy)
+                                  if reason in ("scheduler", "startup", "visible") else _market_due(s))
                 if not market_symbols:
                     continue
         active = s.scalar(select(Batch).where(

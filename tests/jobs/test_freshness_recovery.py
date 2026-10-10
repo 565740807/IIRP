@@ -79,6 +79,31 @@ def test_periodic_quotes_require_visible_demand_and_only_refresh_due_instruments
         assert datetime.fromisoformat(s.get(CollectionStrategy, "market").options["quote_visible_until"]) > now()
 
 
+def test_opening_pages_while_closed_plans_only_due_quotes():
+    from iirp.market.yahoo import MARKETS
+    from iirp.models import MarketQuote
+    # Closed until the next window: the saved quotes are not due again before then.
+    with session() as s, s.begin():
+        for symbol in MARKETS:
+            s.add(MarketQuote(symbol=symbol, data={"next_refresh_at":
+                (now() + timedelta(days=2) if symbol != "GC=F" else now() - timedelta(minutes=1)).isoformat()}))
+    due = ensure_fresh({"reason": "open", "sources": ["market"]})
+    with session() as s, s.begin():
+        assert s.scalars(select(RequestScope.symbol).where(RequestScope.batch_id == due["batch_ids"][0])).all() == ["GC=F"]
+        s.get(MarketQuote, "GC=F").data = {"next_refresh_at": (now() + timedelta(days=2)).isoformat()}
+        s.get(Batch, due["batch_ids"][0]).status = "SUCCEEDED"
+        policy = s.get(CollectionStrategy, "market")
+        policy.options = {**policy.options, "latest_requested_at": (now() - timedelta(minutes=5)).isoformat()}
+    for reason in ("open", "resume"):
+        assert ensure_fresh({"reason": reason, "sources": ["market"]})["batch_ids"] == []
+    # A manual refresh still asks for every instrument.
+    manual = ensure_fresh({"reason": "manual", "sources": ["market"], "force": True})
+    with session() as s:
+        assert s.scalar(select(func.count()).select_from(Batch)) == 2
+        assert sorted(s.scalars(select(RequestScope.symbol).where(
+            RequestScope.batch_id == manual["batch_ids"][0])).all()) == sorted(MARKETS)
+
+
 def test_latest_completed_manual_batch_does_not_mask_returned_automatic_demand():
     first = ensure_fresh({"reason": "open", "sources": ["market"]})
     with session() as s, s.begin():
