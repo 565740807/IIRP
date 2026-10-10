@@ -6,9 +6,10 @@ IIRP is a personal research tool for US stocks that runs on your own computer. I
 collects SEC insider-trading filings and daily prices, and shows them so you can do
 your own research:
 
-- **Insider trades**: a live feed of Form 3/4/5 filings as SEC publishes them, and a
-  lookup by ticker or name (last 6 months or last 10 trades by default), with the
-  price change in the trading days before and after each trade.
+- **Insider trades**: a live feed of Form 3/4/5 filings as SEC publishes them, an
+  overview of recent open-market buying and selling, and a lookup by ticker or name
+  (last 6 months or last 10 trades by default), with the price change in the trading
+  days before and after each trade.
 - **Sectors**: the 11 S&P 500 sectors through their SPDR ETFs and their 25 industry
   groups through one ETF each, today and over 1 week, 1 month, 3 months and year to
   date, as a table, a heatmap or stacked candles.
@@ -18,7 +19,7 @@ your own research:
 It does not rate trades, give signals or give investment advice. Data and settings
 stay on your machine.
 
-![Home page: market strip and the live insider feed](docs/images/home.png)
+![Home page: index strip, sector strip and the live insider feed with trade and current prices](docs/images/home.png)
 
 ## Quick start
 
@@ -69,19 +70,30 @@ the top right.
 
 ### Insider trades
 
-![Company page: daily candles with insider buys and sells marked](docs/images/company.png)
+![Insider overview: largest buys and sales with trade and current prices](docs/images/insider-overview.png)
 
 - **Home**: new filings slide in at the top. Each card is one company on one filing
-  day; each row is one insider: role, what they did (in SEC's wording), shares, value
-  and trade date. Buys are blue with `+`, sales orange with `−`. If you scroll down,
-  the list stays put and a "↑ N new trades" button appears instead.
-- **Insiders**: search a ticker or a person's name. If IIRP has not seen it yet, it
-  asks SEC and downloads only that company's or person's filings in range. The default
-  range is the last 6 months; switch to the last 10 trades or a custom range.
+  day; each row is one insider: role, what they did (in SEC's wording), shares, value,
+  trade price, the current price compared with it, trade date, and the price change n
+  trading days before and after. Buys are blue with `+`, sales orange with `−`. If you
+  scroll down, the list stays put and a "↑ N new trades" button appears instead.
+- **Insiders**: the page opens with an overview of recent open-market trades (last 30
+  days by default): several insiders buying or selling within a few days, the largest
+  buys and sales, executive buys, large holdings increases and totals by company, each
+  with the current price next to the trade price. Search a ticker or a person's name.
+  If IIRP has not seen it yet, it asks SEC and downloads only that company's or
+  person's filings in range. The default range is the last 6 months; switch to the
+  last 10 trades or a custom range.
 - **Company and person pages** show daily candles with insider buys (▲) and sales (▼)
   marked, a trade table, and the price change n trading days before and after each
   trade (n = 3, 5, 10, 20 or your own; default 5). Each trade links to its detail page
   and to the original SEC filing.
+- **Price check**: each reported price is compared with the close on the trade day (or
+  the latest quote). A price about 10× or more away from it, usually a filing error, is
+  still shown as filed but marked and left out of the overview's amounts, rankings and
+  totals; a price with nothing to compare against yet is marked unchecked.
+
+![Company page: daily candles with insider buys and sales marked, and the trade table](docs/images/company.png)
 
 ### Sectors
 
@@ -93,23 +105,27 @@ sortable table, a heatmap and daily/weekly/monthly candles on one shared range; 
 sectors and open them in the monthly or interval analysis. The ETFs cover the S&P 500
 sectors, not the whole US market.
 
+![Sectors page: heatmap of the 11 S&P 500 sectors by today's change](docs/images/sectors.png)
+
 Click a sector, or switch the level to **Industry groups**, to see its GICS industry
-groups (all 25 can also be ranked together). Each group is ranked by one primary ETF
-and labelled with how well that ETF covers it: complete, partial, reference, or pending
-when no suitable ETF exists (listed last, never ranked). Related ETFs open as reference
+groups (or all 25 together). Each group is ranked by one primary ETF and labelled
+with how well that ETF covers it: complete, partial, reference, or pending when no
+suitable ETF exists (listed last, never ranked). Related ETFs open as reference
 rows under their group and are not ranked. Group ETFs are fetched only when you open
 this level; the page shows each ETF's progress, and ETFs from both levels can be
 selected together for an analysis (up to 20).
 
+![All 25 industry groups ranked by their primary ETFs, with coverage labels](docs/images/sector-groups.png)
+
 ### Analysis center
 
-![Monthly analysis: year × month heat map, per-year candles and ranking](docs/images/monthly.png)
+![Monthly analysis: January–December distributions, one candle per year and the month ranking](docs/images/monthly.png)
 
 - **Monthly**: for up to 20 tickers over the last n years (default 8 plus this year),
   each month's return from the first trading day's open to the last trading day's
-  close. You get a year × month heat map, one candle per year, and per month the
-  median, the share of up years with a 95% interval, and how often it beat the
-  benchmark (S&P 500 by default).
+  close. You get a year × month heat map, box plots of each month across the years,
+  one candle per year, and per month the median, the share of up years with a 95%
+  interval, and how often it beat the benchmark (S&P 500 by default).
 - **Interval**: the same for any date range, for example Dec 15 → Jan 10, including
   ranges that cross the new year.
 - **Earnings** and **Events**: IIRP does not guess dates. It gives you a prompt, you
@@ -134,12 +150,12 @@ selected together for an analysis (up to 20).
   `session` is `before_open`, `during`, `after_close` or `unknown`. A release after
   the close reacts on the next trading day, so results are centered on that reaction
   day: the n days before, the reaction day itself (and its opening gap), and the n
-  days after, each with median, quartiles and the share of ups, plus one candle per
-  event and the average path.
+  days after, each with median, quartiles and the share of ups, plus box plots, one
+  candle per event and the average path.
 
-![Earnings analysis: reaction-day candles, average path and statistics](docs/images/earnings.png)
+![Earnings analysis: AAPL reaction-day distributions by fiscal quarter, window statistics and quarter ranking](docs/images/earnings.png)
 
-![Event analysis: Apple WWDC keynotes, AAPL and QQQ](docs/images/events.png)
+![Event analysis: Apple WWDC keynotes for AAPL and QQQ, distributions by ticker and ticker ranking](docs/images/events.png)
 
 Results can be exported as CSV, and charts as PNG. Daily prices are fetched once per
 ticker for the whole range and kept for 24 hours; after that they are deleted with the
