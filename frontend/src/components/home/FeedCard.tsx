@@ -9,7 +9,7 @@ import { formatCompact, formatDay, formatEt, formatLocal, formatMoney } from "@/
 import type { FeedGroup } from "@/lib/feedStream";
 import type { Windows } from "@/lib/windows";
 import type { PriceComparison } from "@/lib/insiderOverview";
-import { CurrentPrice, TradePrice } from "@/components/insider/InsiderPrice";
+import { CurrentPrice, PriceCheckNote, TradePrice } from "@/components/insider/InsiderPrice";
 import { sourceContext } from "@/lib/navigation";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
@@ -37,15 +37,33 @@ export const CARD_COLUMNS = "grid grid-cols-[minmax(0,8.5rem)_minmax(0,1fr)_6.25
 function Amount({ summary, price }: { summary: Summary; price?: PriceComparison }) {
   const { t } = useTranslation();
   const direction = side(summary);
-  const amount = price?.amount ?? summary.known_amount;
+  const suspect = price?.price_check === "mismatch";
+  const amount = suspect ? price.reported_amount ?? price.amount : price?.amount ?? summary.known_amount;
   if (amount == null || Number(amount) === 0)
     return <span className="text-right text-muted-foreground">—</span>;
   const sign = direction === "buy" ? 1 : direction === "sell" ? -1 : 0;
-  const text = formatMoney(sign ? sign * Number(amount) : amount, {
+  const money = (value: string) => formatMoney(sign ? sign * Number(value) : value, {
     signed: sign !== 0,
     // A filing that names no currency is shown in US dollars (Form 4 amounts are USD).
     currency: summary.currency && summary.currency !== "USD" ? summary.currency : undefined,
   });
+  const text = money(amount);
+  if (suspect) {
+    // As filed, without the buy/sell colour: the price is suspect and the
+    // backend leaves these rows out of the line's counted amount.
+    return (
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span className="cursor-default truncate text-right text-muted-foreground tabular-nums">{text}</span>
+        </TooltipTrigger>
+        <TooltipContent className="max-w-xs flex-col items-start">
+          <p className="font-medium tabular-nums">{t("ui.feed.suspect_amount", { amount: text })}</p>
+          <PriceCheckNote price={price}/>
+          {price.reported_amount != null && price.amount != null && Number(price.amount) !== 0 && <p>{t("ui.feed.counted_amount", { amount: money(price.amount) })}</p>}
+        </TooltipContent>
+      </Tooltip>
+    );
+  }
   return (
     <span className={cn("truncate text-right tabular-nums", direction === "buy" ? "text-up" : direction === "sell" ? "text-down" : "")}>
       {price?.amount_estimated && <span className="mr-0.5 text-[10px] text-muted-foreground">{t("ui.overview.estimated")}</span>}{text}
@@ -122,7 +140,7 @@ function TraderLine({ trader, anomalies, group }: { trader: TraderGroup; anomali
       {main ? <Action summary={main} others={others} /> : <span />}
       <span className="text-right tabular-nums">{main?.shares != null ? formatCompact(main.shares) : "—"}</span>
       {main ? <Amount summary={main} price={price} /> : <span />}
-      <span className="text-right"><TradePrice price={price}/></span>
+      <span className="flex min-w-0 justify-end"><TradePrice price={price} compact/></span>
       <CurrentPrice price={price} compact/>
       <span className="flex items-baseline justify-end gap-1 whitespace-nowrap text-muted-foreground tabular-nums">
         {anomaly ? (

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useWindowVirtualizer } from "@tanstack/react-virtual";
@@ -217,6 +217,8 @@ export function InsiderStream() {
     queryFn: ({ signal }) => unwrap(client.GET("/api/v1/insider/feed-prices", { params: { query: { revisions } }, signal })),
     enabled: visible && !!revisions,
     refetchInterval: visible ? intervals.home_poll_seconds * 1000 : false,
+    // Rows still on screen keep their prices and checks while the next set loads.
+    placeholderData: keepPreviousData,
   });
   const keys = useMemo(() => groups.filter((group) => stocks.ids.includes(group.revision_id)).flatMap((group) => group.trader_groups.map((trader) => ({ ticker: group.ticker, date: trader.transaction_date, issuer_id: group.issuer_id }))), [groups, revisions]);
   const windows = useTradeWindows(keys, n, visible);

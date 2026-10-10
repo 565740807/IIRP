@@ -11139,6 +11139,17 @@
             "title": "Amount Estimated",
             "default": false
           },
+          "reported_amount": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reported Amount"
+          },
           "price_check": {
             "type": "string",
             "enum": [
@@ -11175,6 +11186,7 @@
           "quote_status",
           "amount",
           "amount_estimated",
+          "reported_amount",
           "price_check",
           "mismatch_ratio"
         ],

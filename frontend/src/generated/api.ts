@@ -3492,6 +3492,8 @@ export interface components {
              * @default false
              */
             amount_estimated: boolean;
+            /** Reported Amount */
+            reported_amount: string | null;
             /**
              * Price Check
              * @default unchecked

@@ -7,7 +7,8 @@ check and is "not_applicable". When no reference exists the price is
 "unchecked" and shown as is. A reported price whose ratio
 max(price / reference, reference / price) reaches the configured limit is
 "mismatch": it stays visible as reported, and the overview leaves it out of
-amount rankings and totals.
+amount rankings and totals. In the feed a line's amount leaves such rows out;
+the as-filed amount of the line is given separately as "reported_amount".
 
 Numbers leave the backend rounded for display: prices to 2 decimals (4 below
 $1), amounts and percentages to 2 decimals, share counts without trailing zeros.
@@ -157,7 +158,7 @@ def combined_check(checks):
 
 
 def price_comparison(price, quote=None, *, estimated=False, low=None, high=None, amount=None,
-                     amount_estimated=False, check=None):
+                     amount_estimated=False, check=None, reported_amount=None):
     current = decimal_value((quote or {}).get("value"))
     price = decimal_value(price)
     change = relation = None
@@ -173,6 +174,7 @@ def price_comparison(price, quote=None, *, estimated=False, low=None, high=None,
             "quote_date": (quote or {}).get("as_of"),
             "quote_status": QUOTE_STATUS.get((quote or {}).get("status"), "missing"),
             "amount": money_text(amount), "amount_estimated": amount_estimated,
+            "reported_amount": money_text(reported_amount),
             "price_check": check["status"],
             "mismatch_ratio": _fixed(check["ratio"], Decimal(1)) if mismatch else None}
 
@@ -235,10 +237,15 @@ def feed_prices(s, revision_ids):
             price = known_value / shares
         else:
             price = trades[0][0] if len(trades) == 1 else None
-        eligible = [(item[0], item[1]) for item in trades
+        eligible = [(item[0], item[1], item[7]["status"] == "mismatch") for item in trades
                     if item[0] is not None and item[1] is not None and item[6]]
-        amount = (sum((price * quantity for price, quantity in eligible), Decimal(0))
-                  if eligible else None)
+        counted = [(price, quantity) for price, quantity, suspect in eligible if not suspect]
+        amount = (sum((price * quantity for price, quantity in counted), Decimal(0))
+                  if counted else None)
+        # The as-filed amount of a line with a suspect price, shown greyed out
+        # next to the counted amount, which leaves those rows out.
+        reported = (sum((price * quantity for price, quantity, _ in eligible), Decimal(0))
+                    if any(suspect for *_, suspect in eligible) else None)
         estimated = any(item[2] for item in trades)
         lows = [item[3] for item in trades if item[3] is not None]
         highs = [item[4] for item in trades if item[4] is not None]
@@ -246,5 +253,6 @@ def feed_prices(s, revision_ids):
                                        low=min(lows) if lows else None,
                                        high=max(highs) if highs else None,
                                        amount=amount, amount_estimated=estimated,
+                                       reported_amount=reported,
                                        check=combined_check(item[7] for item in trades))
     return {"items": output, "price_mismatch_ratio": mismatch_ratio_text()}
