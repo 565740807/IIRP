@@ -193,9 +193,9 @@ def initial_prices(security_id, *, start="2022-11-01", end=None):
 
 
 def test_market_detail_shows_six_months_and_prefers_the_history_fetch(security_id, monkeypatch):
-    from datetime import timedelta
+    from datetime import datetime, timedelta
 
-    from iirp.analysis.calendar import last_completed_session, sessions
+    from iirp.analysis.calendar import ET, last_completed_session, sessions
     from iirp.market import yahoo
     from iirp.market.quote_publication import history_snapshot, merge_quote
     from iirp.market.reads import market_detail
@@ -215,8 +215,9 @@ def test_market_detail_shows_six_months_and_prefers_the_history_fetch(security_i
     with session() as s, s.begin():
         s.add(MarketQuote(symbol="SYNTH", data=quote))
     result = market_detail("SYNTH")
-    # The cached range is cut to the last six months (186 days).
-    first = str(last - timedelta(days=186))
+    # The cached range is cut to the last six months (186 days before today in New York),
+    # which on weekends and holidays is not the last session's date.
+    first = str(datetime.now(ET).date() - timedelta(days=186))
     assert result["chart"]["source"] == "cache" and result["history"]["status"] == "fresh"
     assert result["bars"][0]["date"] >= first and result["bars"][-1]["date"] == str(last)
     assert len(result["bars"]) == len([day for day in days if str(day) >= first])
