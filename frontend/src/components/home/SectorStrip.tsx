@@ -46,12 +46,12 @@ function SectorTile({ item }: { item: SectorItem }) {
 }
 
 /** "Intraday · updated 10:31 AM ET" or "Oct 9 close vs Oct 8 close". */
-export function TodayBasis({ data }: { data: SectorPerformance }) {
+export function TodayBasis({ data }: { data: { items: readonly { periods?: SectorPerformance["items"][number]["periods"] | null }[] } }) {
   const { t } = useTranslation();
-  const today = data.items.map((item) => item.periods.today).find((change) => change.value != null);
+  const today = data.items.map((item) => item.periods?.today).find((change) => change?.value != null);
   if (!today) return <span>{t("ui.sectors.waiting")}</span>;
   if (today.mode === "intraday") {
-    const time = data.items.map((item) => item.periods.today.as_of).filter(Boolean).sort().at(-1);
+    const time = data.items.map((item) => item.periods?.today.as_of).filter(Boolean).sort().at(-1);
     return (
       <Tooltip>
         <TooltipTrigger asChild>

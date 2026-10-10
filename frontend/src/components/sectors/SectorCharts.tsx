@@ -7,7 +7,7 @@ import { CanvasRenderer } from "echarts/renderers";
 import { useReducedMotion } from "motion/react";
 import { locale } from "@/i18n";
 import { formatDay } from "@/lib/format";
-import type { SectorCandles, SectorItem } from "@/lib/sectors";
+import type { PricedRow, SectorCandles } from "@/lib/sectors";
 import { Skeleton } from "@/components/ui/skeleton";
 
 echarts.use([CandlestickChart, GridComponent, TooltipComponent, AxisPointerComponent, DataZoomComponent, CanvasRenderer]);
@@ -103,10 +103,9 @@ function CandleChart({ dates, candles, label }: { dates: string[]; candles: Cand
   return <div ref={element} className="h-44 w-full"/>;
 }
 
-function SectorChartRow({ item, dates, candles }: { item: SectorItem; dates: string[]; candles: Candle[] }) {
+function SectorChartRow({ item, dates, candles, name }: { item: PricedRow; dates: string[]; candles: Candle[]; name: string }) {
   const { t } = useTranslation();
   const { element, seen } = useNearViewport();
-  const name = t(`ui.sectors.name.${item.id}`);
   return (
     <div ref={element} className="border-b last:border-b-0">
       <div className="flex items-baseline gap-2 px-3 pt-2 text-sm">
@@ -124,8 +123,8 @@ function SectorChartRow({ item, dates, candles }: { item: SectorItem; dates: str
   );
 }
 
-/** One daily, weekly or monthly K-line per sector, stacked, on one shared range and axis. */
-export function SectorCharts({ items, data, loading }: { items: SectorItem[]; data?: SectorCandles; loading: boolean }) {
+/** One daily, weekly or monthly K-line per sector or group, stacked, on one shared range and axis. */
+export function SectorCharts({ items, data, loading, name }: { items: PricedRow[]; data?: SectorCandles; loading: boolean; name: (id: string) => string }) {
   const byEtf = useMemo(() => new Map((data?.items ?? []).map((item) => [item.etf, item.candles])), [data]);
   const dates = useMemo(() => [...new Set((data?.items ?? []).flatMap((item) => item.candles.map((candle) => candle.date)))].sort(), [data]);
   if (!data && loading) {
@@ -133,7 +132,7 @@ export function SectorCharts({ items, data, loading }: { items: SectorItem[]; da
   }
   return (
     <div className="rounded-lg border bg-card">
-      {items.map((item) => <SectorChartRow key={item.id} item={item} dates={dates} candles={byEtf.get(item.etf) ?? []}/>)}
+      {items.map((item) => <SectorChartRow key={item.id} item={item} dates={dates} candles={byEtf.get(item.etf) ?? []} name={name(item.id)}/>)}
     </div>
   );
 }
