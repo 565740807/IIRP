@@ -58,11 +58,14 @@ export function useVisibleStocks(container: RefObject<HTMLElement | null>, revis
   return rows;
 }
 
+const INSIDER_QUOTE_READS = [["insider-feed-prices"], ["insider-overview"]] as const;
+
 /**
  * One merged durable quote request; server-side due checks coalesce all tabs.
- * Returns the last error and when the last request was accepted.
+ * Accepted requests re-read the given queries. Returns the last error and when
+ * the last request was accepted.
  */
-export function useStockQuotes(symbols: readonly string[]) {
+export function useStockQuotes(symbols: readonly string[], reads: readonly (readonly string[])[] = INSIDER_QUOTE_READS) {
   const visible = usePageVisible();
   const intervals = useRefreshIntervals();
   const queryClient = useQueryClient();
@@ -75,8 +78,7 @@ export function useStockQuotes(symbols: readonly string[]) {
     const accepted = () => {
       setError(null);
       setAskedAt(Date.now());
-      void queryClient.invalidateQueries({ queryKey: ["insider-feed-prices"] });
-      void queryClient.invalidateQueries({ queryKey: ["insider-overview"] });
+      for (const queryKey of reads) void queryClient.invalidateQueries({ queryKey });
     };
     const request = () => {
       if (active.current) return;

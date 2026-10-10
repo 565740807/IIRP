@@ -124,8 +124,9 @@ def fetch_stock_quotes(target):
     body = response.json().get("quoteResponse") or {}
     if body.get("error") is not None or not isinstance(body.get("result"), list):
         raise UserError("market.no_quote")
-    keys = ("symbol", "regularMarketPrice", "regularMarketTime", "preMarketPrice", "preMarketTime",
-            "postMarketPrice", "postMarketTime", "marketState", "currency", "exchangeTimezoneName")
+    keys = ("symbol", "regularMarketPrice", "regularMarketTime", "regularMarketPreviousClose",
+            "preMarketPrice", "preMarketTime", "postMarketPrice", "postMarketTime", "marketState",
+            "currency", "exchangeTimezoneName")
     return {"provider": "yahoo", "symbols": symbols,
             "quotes": [{key: row.get(key) for key in keys} for row in body["result"]],
             "fetched_at": now().isoformat(),
@@ -144,6 +145,9 @@ def stock_quote(symbol, raw, fetched):
             price, quoted, kind = extra_price, extra_time, period
     valid = price is not None and price > 0 and quoted is not None and quoted <= fetched + timedelta(minutes=5)
     stale = valid and period != "closed" and (fetched - quoted).total_seconds() > 20 * 60
+    # The close of the session before the regular quote's session, as Yahoo reports
+    # it; sector changes use it only until the daily cache holds that close.
+    previous = number(raw.get("regularMarketPreviousClose"))
     return {"symbol": symbol, "value": str(price) if valid else None,
             "as_of": quoted.astimezone(ET).date().isoformat() if valid else None,
             "source_time": quoted.isoformat() if valid else None, "fetched_at": fetched.isoformat(),
@@ -151,6 +155,7 @@ def stock_quote(symbol, raw, fetched):
             "price_session": kind, "market_period": period,
             "regular_value": str(number(raw.get("regularMarketPrice"))) if number(raw.get("regularMarketPrice")) is not None else None,
             "regular_time": _timestamp(raw.get("regularMarketTime")).isoformat() if _timestamp(raw.get("regularMarketTime")) else None,
+            "previous_close": str(previous) if previous is not None and previous > 0 else None,
             "status": "NOT_FETCHED" if not valid else "CLOSED" if period == "closed" else "STALE" if stale else "LIVE",
             "reason": msg("market.no_quote") if not valid else msg("quote.delay.stale") if stale else None,
             "currency": raw.get("currency") or "USD"}

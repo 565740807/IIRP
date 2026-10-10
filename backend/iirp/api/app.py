@@ -402,6 +402,10 @@ from iirp.api.overview import router as overview_router  # noqa: E402
 
 app.include_router(overview_router)
 
+from iirp.api.sectors import router as sectors_router  # noqa: E402
+
+app.include_router(sectors_router)
+
 from iirp.api.health import router as health_router  # noqa: E402
 
 app.include_router(health_router)

@@ -9,6 +9,8 @@ your own research:
 - **Insider trades**: a live feed of Form 3/4/5 filings as SEC publishes them, and a
   lookup by ticker or name (last 6 months or last 10 trades by default), with the
   price change in the trading days before and after each trade.
+- **Sectors**: the 11 S&P 500 sectors through their SPDR ETFs, today and over 1 week,
+  1 month, 3 months and year to date, as a table, a heatmap or stacked candles.
 - **Price studies**: monthly seasonality, any date range across years, and price
   reactions to earnings or to any event you name.
 
@@ -79,6 +81,16 @@ the top right.
   marked, a trade table, and the price change n trading days before and after each
   trade (n = 3, 5, 10, 20 or your own; default 5). Each trade links to its detail page
   and to the original SEC filing.
+
+### Sectors
+
+The home page shows the 11 S&P 500 sectors by today's change under the index strip.
+**Sectors** lists them through their SPDR ETFs (XLK, XLV, XLF, XLY, XLP, XLC, XLI, XLE,
+XLB, XLU, XLRE; mapping in `config/sector-map.toml`) for today, 1 week, 1 month,
+3 months and year to date, each with the close it compares against. Switch between a
+sortable table, a heatmap and daily/weekly/monthly candles on one shared range; select
+sectors and open them in the monthly or interval analysis. The ETFs cover the S&P 500
+sectors, not the whole US market.
 
 ### Analysis center
 

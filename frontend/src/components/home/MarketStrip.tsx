@@ -17,7 +17,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 type Quote = Schemas["HomeQuote"];
 
 /** Background flashes blue (up) or orange (down) for about a second when a value changes. */
-function useFlash(value: number | null | undefined) {
+export function useFlash(value: number | null | undefined) {
   const previous = useRef(value);
   const [flash, setFlash] = useState<"up" | "down" | null>(null);
   useEffect(() => {

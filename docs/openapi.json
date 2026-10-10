@@ -3725,6 +3725,123 @@
         }
       }
     },
+    "/api/v1/sectors": {
+      "get": {
+        "summary": "Read Performance",
+        "operationId": "read_performance_api_v1_sectors_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SectorPerformance"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/sectors/candles": {
+      "get": {
+        "summary": "Read Candles",
+        "operationId": "read_candles_api_v1_sectors_candles_get",
+        "parameters": [
+          {
+            "name": "range",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "3m",
+                "6m",
+                "1y",
+                "ytd"
+              ],
+              "type": "string",
+              "default": "3m",
+              "title": "Range"
+            }
+          },
+          {
+            "name": "interval",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "day",
+                "week",
+                "month"
+              ],
+              "type": "string",
+              "default": "day",
+              "title": "Interval"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SectorCandlesOutput"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/sectors/prices": {
+      "post": {
+        "summary": "Request Prices",
+        "operationId": "request_prices_api_v1_sectors_prices_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SectorPricesInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SectorPricesOutput"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/system/health": {
       "get": {
         "summary": "Health View",
@@ -12057,6 +12174,572 @@
           "source"
         ],
         "title": "SecUserAgentState"
+      },
+      "SectorCandle": {
+        "properties": {
+          "date": {
+            "type": "string",
+            "title": "Date"
+          },
+          "end_date": {
+            "type": "string",
+            "title": "End Date"
+          },
+          "open": {
+            "type": "string",
+            "title": "Open"
+          },
+          "high": {
+            "type": "string",
+            "title": "High"
+          },
+          "low": {
+            "type": "string",
+            "title": "Low"
+          },
+          "close": {
+            "type": "string",
+            "title": "Close"
+          },
+          "sessions": {
+            "type": "integer",
+            "title": "Sessions"
+          }
+        },
+        "type": "object",
+        "required": [
+          "date",
+          "end_date",
+          "open",
+          "high",
+          "low",
+          "close",
+          "sessions"
+        ],
+        "title": "SectorCandle"
+      },
+      "SectorCandles": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "etf": {
+            "type": "string",
+            "title": "Etf"
+          },
+          "candles": {
+            "items": {
+              "$ref": "#/components/schemas/SectorCandle"
+            },
+            "type": "array",
+            "title": "Candles"
+          },
+          "first_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "First Date"
+          },
+          "price_fetched_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Price Fetched At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "etf",
+          "candles",
+          "first_date",
+          "price_fetched_at"
+        ],
+        "title": "SectorCandles"
+      },
+      "SectorCandlesOutput": {
+        "properties": {
+          "range": {
+            "type": "string",
+            "enum": [
+              "3m",
+              "6m",
+              "1y",
+              "ytd"
+            ],
+            "title": "Range"
+          },
+          "interval": {
+            "type": "string",
+            "enum": [
+              "day",
+              "week",
+              "month"
+            ],
+            "title": "Interval"
+          },
+          "start_date": {
+            "type": "string",
+            "title": "Start Date"
+          },
+          "end_date": {
+            "type": "string",
+            "title": "End Date"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/SectorCandles"
+            },
+            "type": "array",
+            "title": "Items"
+          }
+        },
+        "type": "object",
+        "required": [
+          "range",
+          "interval",
+          "start_date",
+          "end_date",
+          "items"
+        ],
+        "title": "SectorCandlesOutput"
+      },
+      "SectorChange": {
+        "properties": {
+          "value": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value"
+          },
+          "start_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Start Date"
+          },
+          "end_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "End Date"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "available",
+              "missing",
+              "before_listing",
+              "no_prices"
+            ],
+            "title": "Status"
+          }
+        },
+        "type": "object",
+        "required": [
+          "value",
+          "start_date",
+          "end_date",
+          "status"
+        ],
+        "title": "SectorChange"
+      },
+      "SectorItem": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "etf": {
+            "type": "string",
+            "title": "Etf"
+          },
+          "periods": {
+            "$ref": "#/components/schemas/SectorPeriods"
+          },
+          "weights": {
+            "$ref": "#/components/schemas/SectorWeights"
+          },
+          "first_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "First Date"
+          },
+          "full_years": {
+            "type": "integer",
+            "title": "Full Years"
+          },
+          "quote_status": {
+            "type": "string",
+            "enum": [
+              "live",
+              "closed",
+              "delayed",
+              "missing"
+            ],
+            "title": "Quote Status"
+          },
+          "quote_time": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Quote Time"
+          },
+          "price_fetched_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Price Fetched At"
+          },
+          "price_expires_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Price Expires At"
+          },
+          "prices_current": {
+            "type": "boolean",
+            "title": "Prices Current"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "etf",
+          "periods",
+          "weights",
+          "first_date",
+          "full_years",
+          "quote_status",
+          "quote_time",
+          "price_fetched_at",
+          "price_expires_at",
+          "prices_current"
+        ],
+        "title": "SectorItem"
+      },
+      "SectorPerformance": {
+        "properties": {
+          "as_of": {
+            "type": "string",
+            "title": "As Of"
+          },
+          "market_period": {
+            "type": "string",
+            "enum": [
+              "regular",
+              "pre",
+              "post",
+              "closed"
+            ],
+            "title": "Market Period"
+          },
+          "last_completed_session": {
+            "type": "string",
+            "title": "Last Completed Session"
+          },
+          "history_start": {
+            "type": "string",
+            "title": "History Start"
+          },
+          "history_years": {
+            "type": "integer",
+            "title": "History Years"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/SectorItem"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "quote_symbols": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Quote Symbols"
+          },
+          "prices_pending": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Prices Pending"
+          }
+        },
+        "type": "object",
+        "required": [
+          "as_of",
+          "market_period",
+          "last_completed_session",
+          "history_start",
+          "history_years",
+          "items",
+          "quote_symbols",
+          "prices_pending"
+        ],
+        "title": "SectorPerformance"
+      },
+      "SectorPeriods": {
+        "properties": {
+          "today": {
+            "$ref": "#/components/schemas/SectorToday"
+          },
+          "week": {
+            "$ref": "#/components/schemas/SectorChange"
+          },
+          "month": {
+            "$ref": "#/components/schemas/SectorChange"
+          },
+          "quarter": {
+            "$ref": "#/components/schemas/SectorChange"
+          },
+          "ytd": {
+            "$ref": "#/components/schemas/SectorChange"
+          }
+        },
+        "type": "object",
+        "required": [
+          "today",
+          "week",
+          "month",
+          "quarter",
+          "ytd"
+        ],
+        "title": "SectorPeriods"
+      },
+      "SectorPricesInput": {
+        "properties": {
+          "foreground": {
+            "type": "boolean",
+            "title": "Foreground",
+            "default": false
+          }
+        },
+        "type": "object",
+        "title": "SectorPricesInput"
+      },
+      "SectorPricesOutput": {
+        "properties": {
+          "requested": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Requested"
+          },
+          "batch_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Batch Ids"
+          }
+        },
+        "type": "object",
+        "required": [
+          "requested",
+          "batch_ids"
+        ],
+        "title": "SectorPricesOutput"
+      },
+      "SectorToday": {
+        "properties": {
+          "value": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value"
+          },
+          "start_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Start Date"
+          },
+          "end_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "End Date"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "available",
+              "missing",
+              "before_listing",
+              "no_prices"
+            ],
+            "title": "Status"
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "intraday",
+              "close"
+            ],
+            "title": "Mode"
+          },
+          "as_of": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "As Of"
+          },
+          "delayed": {
+            "type": "boolean",
+            "title": "Delayed",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "value",
+          "start_date",
+          "end_date",
+          "status",
+          "mode",
+          "as_of",
+          "delayed"
+        ],
+        "title": "SectorToday"
+      },
+      "SectorWeights": {
+        "properties": {
+          "today": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Today"
+          },
+          "week": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Week"
+          },
+          "month": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Month"
+          },
+          "quarter": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Quarter"
+          },
+          "ytd": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ytd"
+          }
+        },
+        "type": "object",
+        "required": [
+          "today",
+          "week",
+          "month",
+          "quarter",
+          "ytd"
+        ],
+        "title": "SectorWeights"
       },
       "SideTotal": {
         "properties": {
