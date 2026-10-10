@@ -121,7 +121,9 @@ etf = "XLC"
 [[sector.group]]
 id = "telecommunication_services"
 primary = "IYZ"
-coverage = "complete"
+# IYZ also holds communications equipment makers, which GICS places in
+# information technology rather than telecommunication services.
+coverage = "partial"
 
 [[sector.group]]
 id = "media_entertainment"
