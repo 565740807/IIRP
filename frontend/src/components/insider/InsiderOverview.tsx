@@ -26,6 +26,7 @@ import { sourceContext } from "@/lib/navigation";
 import { useInsiderN, useTradeWindows } from "@/lib/windows";
 import { cn } from "@/lib/utils";
 import { IndexFilter, IndexStatus } from "./IndexFilter";
+import { IndexMarks } from "./IndexMarks";
 import { CurrentPrice, CurrentQuoteStatus, MismatchRatio, TradePrice } from "./InsiderPrice";
 
 type Overview = Schemas["InsiderOverview"];
@@ -43,7 +44,7 @@ const headerStyle = "whitespace-nowrap px-3 py-2 text-right font-medium text-mut
 const cellStyle = "whitespace-nowrap px-3 py-2 text-right tabular-nums";
 const rowStyle = "border-t hover:bg-accent/40";
 
-type CompanyRef = { issuer_id: string; name: string; ticker: string | null };
+type CompanyRef = { issuer_id: string; name: string; ticker: string | null; indexes?: readonly string[] };
 
 function CompanyLink({ row }: { row: CompanyRef }) {
   const location = useLocation();
@@ -56,6 +57,7 @@ function CompanyLink({ row }: { row: CompanyRef }) {
   >
     <span className="shrink-0 rounded bg-secondary px-1 text-[11px] font-semibold">{row.ticker ?? "—"}</span>
     <span className="truncate font-medium">{name}</span>
+    <IndexMarks indexes={row.indexes} />
   </Link>;
 }
 

@@ -8,6 +8,7 @@ from datetime import date
 from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import Response
 
+from iirp import display
 from iirp.analysis import requests as analysis_requests
 from iirp.api.insider_schemas import (
     EntityHistoryOutput,
@@ -23,6 +24,8 @@ from iirp.api.schemas import (
     BatchesOutput,
     CollectionInput,
     CollectionOutput,
+    DisplayInput,
+    DisplayOutput,
     FreshnessInput,
     FreshnessOutput,
     GenericOutput,
@@ -60,11 +63,14 @@ def feed_updates(
     """Count changes since a reading watermark, or read one bounded delta page."""
     from iirp.db import session
     from iirp.insider.feed_updates import feed_updates as read_updates
+    from iirp.market.classification import Memberships
 
     try:
         with session() as s, s.begin():
-            return read_updates(s, session_id, include_groups=include_groups,
-                                target_session_id=target_session_id, cursor=cursor)
+            result = read_updates(s, session_id, include_groups=include_groups,
+                                  target_session_id=target_session_id, cursor=cursor)
+            Memberships(s).mark(result.get("groups") or [])
+            return result
     except ValueError as exc:
         raise HTTPException(400, str(exc)) from exc
 
@@ -184,6 +190,16 @@ def preferences_update(body: PreferenceInput):
     return invoke(job_preferences.update_preferences, body.model_dump())
 
 
+@router.get("/display", response_model=DisplayOutput)
+def display_view():
+    return display.get_display()
+
+
+@router.put("/display", response_model=DisplayOutput)
+def display_update(body: DisplayInput):
+    return invoke(display.save_display, body.model_dump())
+
+
 @router.get("/sec-contact", response_model=SecContactOutput)
 def sec_contact_view():
     return sec_contact.state()
@@ -210,7 +226,10 @@ def company(
     limit: int = 200,
     action: str = "all",
 ):
-    return invoke(transactions.entity_history,
+    from iirp.db import session
+    from iirp.market.classification import Memberships
+
+    result = invoke(transactions.entity_history,
         "company",
         entity_id,
         start_date,
@@ -221,6 +240,10 @@ def company(
         limit,
         action=action,
     )
+    entity = result["data"]["entity"]
+    with session() as s:
+        entity["indexes"] = Memberships(s).of(entity_id, entity.get("ticker"))
+    return result
 
 
 @router.get("/people/{entity_id}", response_model=EntityHistoryOutput)

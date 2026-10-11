@@ -95,7 +95,11 @@ class IndexConstituent(Base):
     ticker: Mapped[str] = mapped_column(String(32), primary_key=True)
     cik: Mapped[str | None] = mapped_column(String(10), index=True)
     name: Mapped[str] = mapped_column(Text)
+    # The source's classification as given: GICS sector and sub-industry (S&P 500 list)
+    # or ICB industry and subsector (Nasdaq-100 table).
     industry: Mapped[str | None] = mapped_column(Text)
+    sub_industry: Mapped[str | None] = mapped_column(Text)
+    classification: Mapped[str | None] = mapped_column(String(8))
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 
 

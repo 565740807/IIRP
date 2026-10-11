@@ -356,6 +356,9 @@ def atomic_json(path, data):
         sync_directory(path.parent)
 
 
+EXCLUDED_TABLE_DATA = ("long_price_bar",)
+
+
 def table_fingerprints(conn):
     """Content, not only counts, from the same snapshot as pg_dump.
 
@@ -373,6 +376,8 @@ def table_fingerprints(conn):
         ).fetchall()
         result = {}
         for (table,) in tables:
+            if table in EXCLUDED_TABLE_DATA:
+                continue
             started = time.perf_counter()
             keys = conn.execute(
                 "SELECT a.attname FROM pg_index i "
@@ -471,7 +476,9 @@ def _backup():
     with connection() as conn:
         conn.execute("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY")
         snapshot = conn.execute("SELECT pg_export_snapshot()").fetchone()[0]
-        revision = conn.execute("SELECT version_num FROM alembic_version").fetchone()[0]
+        revision = conn.execute(
+            "SELECT string_agg(version_num, ',' ORDER BY version_num) FROM alembic_version"
+        ).fetchone()[0]
         rows = conn.execute(
             "SELECT sha256, relative_path, byte_size FROM source_object ORDER BY sha256"
         ).fetchall()
@@ -514,6 +521,7 @@ def _backup():
             "--format=custom",
             "--no-owner",
             "--no-acl",
+            *["--exclude-table-data=" + table for table in EXCLUDED_TABLE_DATA],
             "--snapshot",
             snapshot,
             "--file",
@@ -666,7 +674,9 @@ def _restore_verify(directory, *, discard=False):
     progress("restore_objects_copied", len(manifest["objects"]), len(manifest["objects"]), force=True)
     durable_objects(dest, manifest["objects"])
     with connection(name) as conn:
-        revision = conn.execute("SELECT version_num FROM alembic_version").fetchone()[0]
+        revision = conn.execute(
+            "SELECT string_agg(version_num, ',' ORDER BY version_num) FROM alembic_version"
+        ).fetchone()[0]
         job_count = conn.execute("SELECT count(*) FROM job").fetchone()[0]
         rows = conn.execute(
             "SELECT sha256, relative_path, byte_size FROM source_object ORDER BY sha256"
@@ -921,7 +931,7 @@ def managed_backup():
                 stamps.append(stamp)
                 break
         directory = _backup()
-        verified = not stamps or max(stamps) <= datetime.now(timezone.utc) - timedelta(days=7)
+        verified = not stamps or max(stamps) <= datetime.now(timezone.utc) - timedelta(days=6)
         if verified:
             _restore_verify(directory, discard=True)
         retention = _prune_backups()

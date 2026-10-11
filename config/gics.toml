@@ -1,0 +1,244 @@
+# GICS structure: sector names and sub-industry → industry group, as published by
+# MSCI and S&P Dow Jones Indices (the structure effective March 17, 2023: 11 sectors,
+# 25 industry groups, 163 sub-industries).
+#
+# The names are written exactly as the S&P 500 list spells them. Sector and
+# industry group ids are the ones in config/sector-map.toml, which supplies each
+# group's ETF. [renamed] maps names used before the 2023 revision to their current
+# industry group, so an older list still classifies.
+
+[sectors]
+"Energy" = "energy"
+"Materials" = "materials"
+"Industrials" = "industrials"
+"Consumer Discretionary" = "consumer_discretionary"
+"Consumer Staples" = "consumer_staples"
+"Health Care" = "health_care"
+"Financials" = "financials"
+"Information Technology" = "information_technology"
+"Communication Services" = "communication_services"
+"Utilities" = "utilities"
+"Real Estate" = "real_estate"
+
+# 1010 Energy
+[groups.energy]
+sector = "energy"
+sub_industries = [
+  "Oil & Gas Drilling", "Oil & Gas Equipment & Services",
+  "Integrated Oil & Gas", "Oil & Gas Exploration & Production", "Oil & Gas Refining & Marketing",
+  "Oil & Gas Storage & Transportation", "Coal & Consumable Fuels",
+]
+
+# 1510 Materials
+[groups.materials]
+sector = "materials"
+sub_industries = [
+  "Commodity Chemicals", "Diversified Chemicals", "Fertilizers & Agricultural Chemicals",
+  "Industrial Gases", "Specialty Chemicals",
+  "Construction Materials",
+  "Metal, Glass & Plastic Containers", "Paper & Plastic Packaging Products & Materials",
+  "Aluminum", "Diversified Metals & Mining", "Copper", "Gold", "Precious Metals & Minerals", "Silver", "Steel",
+  "Forest Products", "Paper Products",
+]
+
+# 2010 Capital Goods
+[groups.capital_goods]
+sector = "industrials"
+sub_industries = [
+  "Aerospace & Defense", "Building Products", "Construction & Engineering",
+  "Electrical Components & Equipment", "Heavy Electrical Equipment", "Industrial Conglomerates",
+  "Construction Machinery & Heavy Transportation Equipment", "Agricultural & Farm Machinery",
+  "Industrial Machinery & Supplies & Components", "Trading Companies & Distributors",
+]
+
+# 2020 Commercial & Professional Services
+[groups.commercial_professional_services]
+sector = "industrials"
+sub_industries = [
+  "Commercial Printing", "Environmental & Facilities Services", "Office Services & Supplies",
+  "Diversified Support Services", "Security & Alarm Services", "Human Resource & Employment Services",
+  "Research & Consulting Services", "Data Processing & Outsourced Services",
+]
+
+# 2030 Transportation
+[groups.transportation]
+sector = "industrials"
+sub_industries = [
+  "Air Freight & Logistics", "Passenger Airlines", "Marine Transportation", "Rail Transportation",
+  "Cargo Ground Transportation", "Passenger Ground Transportation",
+  "Airport Services", "Highways & Railtracks", "Marine Ports & Services",
+]
+
+# 2510 Automobiles & Components
+[groups.automobiles_components]
+sector = "consumer_discretionary"
+sub_industries = [
+  "Automotive Parts & Equipment", "Tires & Rubber", "Automobile Manufacturers", "Motorcycle Manufacturers",
+]
+
+# 2520 Consumer Durables & Apparel
+[groups.consumer_durables_apparel]
+sector = "consumer_discretionary"
+sub_industries = [
+  "Consumer Electronics", "Home Furnishings", "Homebuilding", "Household Appliances",
+  "Housewares & Specialties", "Leisure Products",
+  "Apparel, Accessories & Luxury Goods", "Footwear", "Textiles",
+]
+
+# 2530 Consumer Services
+[groups.consumer_services]
+sector = "consumer_discretionary"
+sub_industries = [
+  "Casinos & Gaming", "Hotels, Resorts & Cruise Lines", "Leisure Facilities", "Restaurants",
+  "Education Services", "Specialized Consumer Services",
+]
+
+# 2550 Consumer Discretionary Distribution & Retail
+[groups.consumer_discretionary_retail]
+sector = "consumer_discretionary"
+sub_industries = [
+  "Distributors", "Broadline Retail", "Apparel Retail", "Computer & Electronics Retail",
+  "Home Improvement Retail", "Other Specialty Retail", "Automotive Retail", "Homefurnishing Retail",
+]
+
+# 3010 Consumer Staples Distribution & Retail
+[groups.consumer_staples_retail]
+sector = "consumer_staples"
+sub_industries = [
+  "Drug Retail", "Food Distributors", "Food Retail", "Consumer Staples Merchandise Retail",
+]
+
+# 3020 Food, Beverage & Tobacco
+[groups.food_beverage_tobacco]
+sector = "consumer_staples"
+sub_industries = [
+  "Brewers", "Distillers & Vintners", "Soft Drinks & Non-alcoholic Beverages",
+  "Agricultural Products & Services", "Packaged Foods & Meats", "Tobacco",
+]
+
+# 3030 Household & Personal Products
+[groups.household_personal_products]
+sector = "consumer_staples"
+sub_industries = ["Household Products", "Personal Care Products"]
+
+# 3510 Health Care Equipment & Services
+[groups.health_care_equipment_services]
+sector = "health_care"
+sub_industries = [
+  "Health Care Equipment", "Health Care Supplies", "Health Care Distributors", "Health Care Services",
+  "Health Care Facilities", "Managed Health Care", "Health Care Technology",
+]
+
+# 3520 Pharmaceuticals, Biotechnology & Life Sciences
+[groups.pharma_biotech_life_sciences]
+sector = "health_care"
+sub_industries = ["Biotechnology", "Pharmaceuticals", "Life Sciences Tools & Services"]
+
+# 4010 Banks
+[groups.banks]
+sector = "financials"
+sub_industries = ["Diversified Banks", "Regional Banks"]
+
+# 4020 Financial Services
+[groups.financial_services]
+sector = "financials"
+sub_industries = [
+  "Diversified Financial Services", "Multi-Sector Holdings", "Specialized Finance",
+  "Commercial & Residential Mortgage Finance", "Transaction & Payment Processing Services",
+  "Consumer Finance", "Asset Management & Custody Banks", "Investment Banking & Brokerage",
+  "Diversified Capital Markets", "Financial Exchanges & Data", "Mortgage REITs",
+]
+
+# 4030 Insurance
+[groups.insurance]
+sector = "financials"
+sub_industries = [
+  "Insurance Brokers", "Life & Health Insurance", "Multi-line Insurance",
+  "Property & Casualty Insurance", "Reinsurance",
+]
+
+# 4510 Software & Services
+[groups.software_services]
+sector = "information_technology"
+sub_industries = [
+  "IT Consulting & Other Services", "Internet Services & Infrastructure",
+  "Application Software", "Systems Software",
+]
+
+# 4520 Technology Hardware & Equipment
+[groups.technology_hardware]
+sector = "information_technology"
+sub_industries = [
+  "Communications Equipment", "Technology Hardware, Storage & Peripherals",
+  "Electronic Equipment & Instruments", "Electronic Components",
+  "Electronic Manufacturing Services", "Technology Distributors",
+]
+
+# 4530 Semiconductors & Semiconductor Equipment
+[groups.semiconductors]
+sector = "information_technology"
+sub_industries = ["Semiconductor Materials & Equipment", "Semiconductors"]
+
+# 5010 Telecommunication Services
+[groups.telecommunication_services]
+sector = "communication_services"
+sub_industries = [
+  "Alternative Carriers", "Integrated Telecommunication Services", "Wireless Telecommunication Services",
+]
+
+# 5020 Media & Entertainment
+[groups.media_entertainment]
+sector = "communication_services"
+sub_industries = [
+  "Advertising", "Broadcasting", "Cable & Satellite", "Publishing",
+  "Movies & Entertainment", "Interactive Home Entertainment", "Interactive Media & Services",
+]
+
+# 5510 Utilities
+[groups.utilities]
+sector = "utilities"
+sub_industries = [
+  "Electric Utilities", "Gas Utilities", "Multi-Utilities", "Water Utilities",
+  "Independent Power Producers & Energy Traders", "Renewable Electricity",
+]
+
+# 6010 Equity Real Estate Investment Trusts (REITs)
+[groups.equity_reits]
+sector = "real_estate"
+sub_industries = [
+  "Diversified REITs", "Industrial REITs", "Hotel & Resort REITs", "Office REITs", "Health Care REITs",
+  "Multi-Family Residential REITs", "Single-Family Residential REITs", "Retail REITs",
+  "Other Specialized REITs", "Self-Storage REITs", "Telecom Tower REITs", "Timber REITs", "Data Center REITs",
+]
+
+# 6020 Real Estate Management & Development
+[groups.real_estate_management_development]
+sector = "real_estate"
+sub_industries = [
+  "Diversified Real Estate Activities", "Real Estate Operating Companies",
+  "Real Estate Development", "Real Estate Services",
+]
+
+# Sub-industry names before the 2023 revision.
+[renamed]
+"Metal & Glass Containers" = "materials"
+"Paper Packaging" = "materials"
+"Construction Machinery & Heavy Trucks" = "capital_goods"
+"Industrial Machinery" = "capital_goods"
+"Airlines" = "transportation"
+"Marine" = "transportation"
+"Railroads" = "transportation"
+"Trucking" = "transportation"
+"Internet & Direct Marketing Retail" = "consumer_discretionary_retail"
+"Department Stores" = "consumer_discretionary_retail"
+"General Merchandise Stores" = "consumer_discretionary_retail"
+"Specialty Stores" = "consumer_discretionary_retail"
+"Hypermarkets & Super Centers" = "consumer_staples_retail"
+"Soft Drinks" = "food_beverage_tobacco"
+"Agricultural Products" = "food_beverage_tobacco"
+"Personal Products" = "household_personal_products"
+"Thrifts & Mortgage Finance" = "financial_services"
+"Other Diversified Financial Services" = "financial_services"
+"Semiconductor Equipment" = "semiconductors"
+"Residential REITs" = "equity_reits"
+"Specialized REITs" = "equity_reits"

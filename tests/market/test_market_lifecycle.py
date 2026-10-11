@@ -11,10 +11,10 @@ from decimal import Decimal
 import psycopg
 import pytest
 from alembic import command
-from alembic.config import Config
-from iirp.analysis.research import compute_research
+from iirp.analysis.research import CALCULATION_VERSION, compute_research
 from iirp.config import ROOT, settings
 from iirp.db import engine, session
+from iirp.extensions import alembic_config
 from iirp.jobs.queue import claim, fenced
 from iirp.market.cache import coverage_for, current_cache, persist_prices, price_bars
 from iirp.market.yahoo import quote_from_history, source_contract
@@ -54,7 +54,7 @@ def market_database():
     engine.cache_clear()
     settings.cache_clear()
     try:
-        command.upgrade(Config(str(ROOT / "alembic.ini")), "head")
+        command.upgrade(alembic_config(), "heads")
         yield
     finally:
         engine().dispose()
@@ -95,6 +95,7 @@ def security_id():
             exchange="NYQ",
             calendar="XNYS",
             status="VERIFIED",
+            metadata_json={"sector": None},
         )
         s.add(security)
         s.flush()
@@ -554,7 +555,7 @@ def test_research_publish_records_cache_and_calculation_metadata(security_id):
         assert metadata["dataset_id"] == dataset_id and metadata["price_fetched_at"]
         assert metadata["source"] == "synthetic"
         assert metadata["price_basis"] == "SPLIT_ONLY"
-        assert metadata["calculation_version"] == "research-v11-open-close"
+        assert metadata["calculation_version"] == CALCULATION_VERSION
 
 
 def test_result_from_a_replaced_cache_is_not_published(security_id):

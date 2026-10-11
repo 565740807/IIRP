@@ -143,7 +143,8 @@ def result_expiry(s, target):
 
     from iirp.market.cache import CACHE_HOURS
     from iirp.models import PriceCache
-    ids = [target.get('dataset_id'), (target.get('benchmark') or {}).get('dataset_id')]
+    ids = [target.get('dataset_id'), (target.get('benchmark') or {}).get('dataset_id'),
+           (target.get('sector') or {}).get('dataset_id')]
     stamps = [cache.expires_at if (cache := s.get(PriceCache, i)) else now() for i in ids if i]
     return min(stamps, default=now() + timedelta(hours=CACHE_HOURS))
 
@@ -171,7 +172,7 @@ def publish_native(s, request, scope, target, response):
         inputs={'dataset_id': original.id, 'calculation_version': CALCULATION_VERSION,
             'params': request.params, 'source': msg('market.source_cache'),
             'price_fetched_at': original.fetched_at.isoformat(),
-            'benchmark': target.get('benchmark'), 'coverage': frozen_coverage(s, request, security, original),
+            'benchmark': target.get('benchmark'), 'sector': target.get('sector'), 'coverage': frozen_coverage(s, request, security, original),
             'dependencies': response.get('metadata', {}).get('dependencies')},
         data=owned_result_data(data, request.params), expires_at=result_expiry(s, target))
     s.add(row)

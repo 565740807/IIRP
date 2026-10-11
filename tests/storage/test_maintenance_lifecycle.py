@@ -18,10 +18,10 @@ from types import SimpleNamespace
 import psycopg
 import pytest
 from alembic import command
-from alembic.config import Config
 from iirp.analysis.calendar import ET, sessions
 from iirp.config import ROOT, settings
 from iirp.db import engine, session
+from iirp.extensions import alembic_config
 from iirp.jobs import schedule
 from iirp.jobs.batches import defaults
 from iirp.jobs.queue import claim, control, fenced
@@ -74,7 +74,7 @@ def test_backup_content_hashes_pool_and_safe_restore(tmp_path):
     settings().min_free_bytes = 0
     restored = None
     try:
-        command.upgrade(Config(str(ROOT / "alembic.ini")), "head")
+        command.upgrade(alembic_config(), "heads")
         source = save_object(b"synthetic immutable maintenance evidence", "text/plain")
         with session() as s, s.begin():
             s.add(SourceObject(**source))
@@ -165,7 +165,7 @@ def isolated(tmp_path, monkeypatch):
     backup = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(backup)
     try:
-        command.upgrade(Config(str(ROOT / "alembic.ini")), "head")
+        command.upgrade(alembic_config(), "heads")
         with session() as s, s.begin():
             s.add(Policy(id=1, sec_enabled=False))
             defaults(s)

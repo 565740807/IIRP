@@ -2,7 +2,8 @@
 
 Measures home, the Insider feed (first page and pages 2/3 for all, buy and sell
 filters), the Insider overview, the sector performance and its daily K-lines,
-the industry groups (all, and one sector's) and their daily K-lines,
+the industry groups (all, and one sector's) and their daily K-lines, the
+sector rotation (monthly by sector and by industry group, and one interval),
 the task list, company and person history and a transaction detail.
 The company and person pages are also measured as the browser loads them:
 six months of history, the before/after-5 windows of its rows and the cached
@@ -200,6 +201,14 @@ def main():
             client.get("sector_groups_one", "/api/v1/sectors/groups", {"sector": "information_technology"})
             client.get("sector_group_candles", "/api/v1/sectors/candles",
                        {"range": "3m", "interval": "day", "level": "group"})
+            # The first run computes the rotation from the long-term store; later
+            # runs read the kept result, except for a changed month or basis.
+            client.get("sector_rotation", "/api/v1/sectors/rotation")
+            client.get("sector_rotation_relative", "/api/v1/sectors/rotation",
+                       {"rank_by": "relative", "month": 1 + run % 12})
+            client.get("sector_rotation_groups", "/api/v1/sectors/rotation", {"level": "group"})
+            client.get("sector_rotation_interval", "/api/v1/sectors/rotation",
+                       {"kind": "interval", "start": "09-20", "end": "10-15"})
         for kind, prefix in FEED_FILTERS:
             if prefix not in only:
                 continue

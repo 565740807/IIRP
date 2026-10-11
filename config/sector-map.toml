@@ -195,11 +195,29 @@ coverage = "complete"
 id = "real_estate_management_development"
 coverage = "pending"
 
+[yahoo_sectors]
+# Yahoo's sector names (from the security identity check) → the sectors above. Used
+# for a stock that is not in the S&P 500 list, whose GICS sector comes first.
+# Yahoo's industries are not GICS industry groups, so they map to no group.
+"Technology" = "information_technology"
+"Healthcare" = "health_care"
+"Financial Services" = "financials"
+"Consumer Cyclical" = "consumer_discretionary"
+"Consumer Defensive" = "consumer_staples"
+"Communication Services" = "communication_services"
+"Industrials" = "industrials"
+"Energy" = "energy"
+"Basic Materials" = "materials"
+"Utilities" = "utilities"
+"Real Estate" = "real_estate"
+
 [history]
 # Each ETF is fetched once as this year plus this many complete past years,
 # with the cache's usual month of buffer, so the monthly and interval analyses
-# opened from the sector page reuse the same fetch.
-years = 8
+# opened from the sector page reuse the same fetch. The long-term daily store
+# keeps the same ten years back from today; an ETF it holds in full needs no
+# fetch, and the months before its first day are not filled in.
+years = 10
 
 [heatmap]
 # Tile area weight = min_weight + (1 − min_weight) × (r − r_min) / max(r_max − r_min, s),

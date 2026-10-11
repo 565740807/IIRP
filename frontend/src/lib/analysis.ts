@@ -16,9 +16,20 @@ export type Candle = Schemas["Candle"];
 export type PeriodStats = Schemas["PeriodStats"];
 export type AnalysisInput = Schemas["AnalysisInput"];
 
+export type SectorReference = Schemas["SectorReference"];
+export type Basis = "absolute" | "market" | "sector";
+export const EMPTY_DISTRIBUTION = { n: 0, up: 0, flat: 0, median: null, mean: null, q25: null, q75: null, whisker_low: null, whisker_high: null, outliers: [] } as Schemas["DistributionStatistics"];
+/** Select the server-computed distribution without calculating returns here. */
+export function distribution(stats: Schemas["DistributionStatistics"] & { benchmark_excess_box?: Schemas["DistributionStatistics"]; sector_excess_box?: Schemas["DistributionStatistics"] }, basis: Basis): Schemas["DistributionStatistics"] {
+  return basis === "market" ? stats.benchmark_excess_box ?? EMPTY_DISTRIBUTION : basis === "sector" ? stats.sector_excess_box ?? EMPTY_DISTRIBUTION : stats;
+}
+export function candleValue(candle: Candle, basis: Basis) {
+  return basis === "market" ? candle.excess : basis === "sector" ? candle.sector_excess : candle.change;
+}
+
 export const MAX_TICKERS = 20;
 export const DEFAULT_YEARS = 8;
-export const BENCHMARKS = ["^GSPC", "^IXIC"] as const;
+export const BENCHMARKS = ["^GSPC", "^NDX"] as const;
 const ACTIVE = ["QUEUED", "RUNNING", "RETRY_WAIT", "PAUSE_REQUESTED", "CANCEL_REQUESTED", "WAITING"];
 
 /** "AAPL, msft nvda" → ["AAPL", "MSFT", "NVDA"] (unique, in order). */
@@ -75,6 +86,8 @@ export function conclusion(symbol: string, period: Period, benchmark: string | n
   ];
   if (benchmark && stats.paired_n)
     parts.push(t("ui.analysis.conclusion.beat", { benchmark: benchmarkName(benchmark), beat: stats.beat, n: stats.paired_n, excess: pct(stats.median_excess) }));
+  if (benchmark && stats.paired_n && stats.sector_paired_n)
+    parts.push(t("ui.analysis.conclusion.beat_sector", { beat: stats.sector_beat, n: stats.sector_paired_n, excess: pct(stats.sector_median_excess) }));
   return parts.join(t("ui.analysis.conclusion.join")) + t("ui.analysis.conclusion.end");
 }
 
@@ -108,13 +121,14 @@ export function useAnalysis(id: string | null, onReplaced: (id: string) => void)
     },
   });
   const expired = !!query.data?.freshness?.expired && query.data.id === id;
+  const legacy = query.data?.id === id && query.data.results.some((item) => !item.data.metadata.sector_comparison_included);
   const asked = useRef<string | null>(null);
   useEffect(() => {
-    if (expired && id && asked.current !== id && !refresh.isPending) {
+    if ((expired || legacy) && id && asked.current !== id && !refresh.isPending) {
       asked.current = id;
       refresh.mutate(false);
     }
-  }, [expired, id, refresh]);
+  }, [expired, legacy, id, refresh]);
   return { query, refresh };
 }
 

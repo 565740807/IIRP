@@ -15,11 +15,11 @@ from datetime import date, timedelta
 import psycopg
 import pytest
 from alembic import command
-from alembic.config import Config
 from fastapi.testclient import TestClient
 from iirp.analysis.calendar import sessions
 from iirp.config import ROOT, settings
 from iirp.db import engine, session
+from iirp.extensions import alembic_config
 from iirp.insider.feed import feed, feed_group
 from iirp.insider.feed_index import reconcile
 from iirp.models import FeedRevision, FeedSession
@@ -54,7 +54,7 @@ def isolated_performance_database(tmp_path_factory):
     engine.cache_clear()
     settings.cache_clear()
     try:
-        command.upgrade(Config(str(ROOT / "alembic.ini")), "head")
+        command.upgrade(alembic_config(), "heads")
         seed_dataset(GROUPS)
         yield {"database": name, "runtime": runtime}
     finally:

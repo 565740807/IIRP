@@ -14,16 +14,12 @@ from importlib.metadata import version
 from sqlalchemy import select
 
 from iirp.config import ROOT, settings
+from iirp.market.instruments import names
 from iirp.messages import UserError, msg
 from iirp.models import SecurityIdentifier, now
 
-MARKETS = {
-    "^GSPC": msg("market.name.GSPC"),
-    "^IXIC": msg("market.name.IXIC"),
-    "^DJI": msg("market.name.DJI"),
-    "GC=F": msg("market.name.GC"),
-    "^VIX": "VIX",
-}
+# Home-strip instruments (iirp.market.instruments): symbol → name message.
+MARKETS = names()
 
 
 def digest(value):
@@ -97,6 +93,10 @@ def fetch_market(kind, target):
             "lastFiscalYearEnd",
             "nextFiscalYearEnd",
             "mostRecentQuarter",
+            # Classification for stocks outside the S&P 500 list (iirp.market.classification);
+            # the same get_info response, no extra request.
+            "sector",
+            "industry",
         )
         metadata = {key: plain(info.get(key)) for key in keys}
         if (
@@ -223,7 +223,7 @@ def resolve_metadata(s, security, response):
     )
     if security.symbol in MARKETS:
         security.status = "VERIFIED_MARKET"
-    if security.symbol in {"^GSPC", "^IXIC"} and info.get("symbol") == security.symbol and quote_type == "INDEX" and security.currency == "USD":
+    if security.symbol in {"^GSPC", "^IXIC", "^NDX"} and info.get("symbol") == security.symbol and quote_type == "INDEX" and security.currency == "USD":
         # These US equity price indexes use the same daily close sessions as
         # the supported US stocks. Other indexes/futures keep quote-only status.
         security.calendar, security.status = "XNYS", "VERIFIED"

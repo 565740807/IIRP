@@ -227,12 +227,19 @@ def main():
             "sec": (2, {"sec_discover", "sec_document", "sec_identity"}),
             "market": (
                 1,
-                {"market_identity", "market_history", "market_quote", "market_stock_quotes"},
+                {"market_identity", "market_history", "market_long_history", "market_quote", "market_stock_quotes"},
             ),
             "compute": (1, {"research_compute"}),
             "diagnostic": (1, {"fixture_check", "sec_probe", "market_probe"}),
-            "maintenance": (1, {"maintenance_backup", "maintenance_clean", "index_constituents"}),
+            "maintenance": (1, {"maintenance_backup", "maintenance_clean", "market_long_manage", "index_constituents"}),
         }
+        from iirp.extensions import jobs as extension_jobs
+
+        # Installed optional features run their own job kinds, one at a time per lane.
+        extension_handlers = {}
+        for kind, (lane, handler, _title) in extension_jobs().items():
+            lanes.setdefault(lane, (1, set()))[1].add(kind)
+            extension_handlers[kind] = handler
         from iirp.sec.poll import poll_due, poll_once, release_stale_lease
 
         release_stale_lease()
@@ -246,6 +253,8 @@ def main():
             return STOP or owner.stopping()
         drained = False
         def business(job):
+            if job.kind in extension_handlers:
+                return extension_handlers[job.kind](job, stopping)
             try:
                 return execute_business(job, stopping, runner=operations if job.kind.startswith("market_") or job.kind == "research_compute" else None)
             finally:

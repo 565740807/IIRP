@@ -4,7 +4,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { createColumnHelper, flexRender, getCoreRowModel, useReactTable } from "@tanstack/react-table";
 import { AlertTriangle, CheckCircle2, Info, LoaderCircle, RotateCw, Terminal } from "lucide-react";
-import { tm } from "@/i18n";
+import { locale, tm } from "@/i18n";
 import { client, unwrap, type Schemas } from "@/lib/api-client";
 import { formatAgo, formatEt, formatLocal } from "@/lib/format";
 import { usePageVisible } from "@/lib/refresh";
@@ -53,7 +53,7 @@ function Health() {
   if (data.status === "ok")
     return (
       <p className="flex items-center gap-2 rounded-lg border bg-card px-4 py-3 text-sm">
-        <CheckCircle2 className="size-4 text-up" />
+        <CheckCircle2 className="size-4 text-ok" />
         <span className="font-medium">{t("ui.health.ok")}</span>
         <span className="ml-auto text-xs text-muted-foreground" title={t("ui.time.local", { time: formatLocal(data.checked_at) })}>
           {t("ui.health.checked", { time: formatEt(data.checked_at) })}
@@ -369,12 +369,77 @@ function Tasks() {
   );
 }
 
+/** "Every Saturday 08:00 ET" in the reader's language, from the server's weekday and time. */
+function weeklyTime(weekday: string, time: string) {
+  const index = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"].indexOf(weekday);
+  const [hour, minute] = time.split(":").map(Number);
+  // 2024-01-01 was a Monday; only the weekday name and clock time are shown.
+  const day = new Date(Date.UTC(2024, 0, 1 + index, hour, minute));
+  return {
+    weekday: new Intl.DateTimeFormat(locale(), { weekday: "long", timeZone: "UTC" }).format(day),
+    time: new Intl.DateTimeFormat(locale(), { hour: "numeric", minute: "2-digit", timeZone: "UTC" }).format(day),
+  };
+}
+
+/** The S&P 500 and Nasdaq-100 lists: size, last update, next weekly time, and update now. */
+function IndexLists() {
+  const { t } = useTranslation();
+  const queryClient = useQueryClient();
+  const visible = usePageVisible();
+  const query = useQuery({
+    queryKey: ["index-constituents"],
+    queryFn: () => unwrap(client.GET("/api/v1/index-constituents")),
+    refetchInterval: (state) => (visible && state.state.data?.items.some((item) => item.running) ? 3_000 : visible ? 60_000 : false),
+  });
+  const update = useMutation({
+    mutationFn: () => unwrap(client.POST("/api/v1/index-constituents/refresh")),
+    onSuccess: (data) => {
+      queryClient.setQueryData(["index-constituents"], data);
+      void queryClient.invalidateQueries({ queryKey: ["jobs"] });
+    },
+  });
+  const data = query.data;
+  if (!data) return null;
+  const running = data.items.some((item) => item.running);
+  const schedule = weeklyTime(data.weekday, data.time);
+  return (
+    <section className="rounded-lg border bg-card" aria-labelledby="index-lists-heading">
+      <header className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b px-4 py-2.5">
+        <h2 id="index-lists-heading" className="text-sm font-semibold">{t("ui.index_lists.title")}</h2>
+        <span className="text-xs text-muted-foreground">
+          {t("ui.index_lists.schedule", { weekday: schedule.weekday, time: schedule.time })}
+        </span>
+        <Button size="sm" variant="outline" className="ml-auto" disabled={running || update.isPending} onClick={() => update.mutate()}>
+          {running || update.isPending ? <LoaderCircle className="motion-safe:animate-spin" /> : <RotateCw />}
+          {running ? t("ui.index_lists.updating") : t("ui.index_lists.update_now")}
+        </Button>
+      </header>
+      <ul className="divide-y text-sm">
+        {data.items.map((item) => (
+          <li key={item.index_name} className="flex flex-wrap items-baseline gap-x-4 gap-y-0.5 px-4 py-2">
+            <span className="w-28 font-medium">{t(`ui.index_lists.name.${item.index_name}`)}</span>
+            <span className="w-28 text-xs text-muted-foreground tabular-nums">{t("ui.index_lists.members", { count: item.members })}</span>
+            <span className="text-xs text-muted-foreground">
+              {t("ui.index_lists.updated", { time: item.updated_at ? formatEt(item.updated_at) : t("ui.index_lists.never") })}
+            </span>
+            <span className="text-xs text-muted-foreground">{t("ui.index_lists.next", { time: formatEt(item.next_run_at) })}</span>
+            {item.error && <span className="w-full text-xs text-warn">{t("ui.index_lists.failed", { reason: tm(item.error) })}</span>}
+          </li>
+        ))}
+      </ul>
+      <p className="border-t px-4 py-2 text-xs text-muted-foreground">{t("ui.index_lists.note")}</p>
+      {update.error && <p className="px-4 pb-2 text-xs text-destructive">{update.error.message}</p>}
+    </section>
+  );
+}
+
 export function DataPage() {
   const { t } = useTranslation();
   return (
     <div className="space-y-4">
       <Health />
       <Automatic />
+      <IndexLists />
       <Tasks />
       <p className="text-xs text-muted-foreground">
         <Link to="/data/diagnostics" className="hover:text-foreground hover:underline">{t("ui.data.diagnostics")}</Link>

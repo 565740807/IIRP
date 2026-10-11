@@ -511,6 +511,24 @@ export interface paths {
         patch: operations["preferences_update_api_v1_preferences_patch"];
         trace?: never;
     };
+    "/api/v1/display": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Display View */
+        get: operations["display_view_api_v1_display_get"];
+        /** Display Update */
+        put: operations["display_update_api_v1_display_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/sec-contact": {
         parameters: {
             query?: never;
@@ -1199,6 +1217,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/sectors/rotation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read Rotation
+         * @description Monthly or interval ranks of the sectors, or of the industry groups with a
+         *     primary ETF, from the long-term daily store only.
+         */
+        get: operations["read_rotation_api_v1_sectors_rotation_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/sectors/prices": {
         parameters: {
             query?: never;
@@ -1210,6 +1249,80 @@ export interface paths {
         put?: never;
         /** Request Prices */
         post: operations["request_prices_api_v1_sectors_prices_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/index-constituents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Index Lists */
+        get: operations["index_lists_api_v1_index_constituents_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/index-constituents/refresh": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Index Lists Refresh
+         * @description Update both lists now (one job each unless one already runs).
+         */
+        post: operations["index_lists_refresh_api_v1_index_constituents_refresh_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/securities/{symbol}/classification": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Classification */
+        get: operations["classification_api_v1_securities__symbol__classification_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/securities/{symbol}/classification/refresh": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Classification Refresh
+         * @description Ask once for the identity refresh a classification is waiting for; otherwise nothing.
+         */
+        post: operations["classification_refresh_api_v1_securities__symbol__classification_refresh_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1247,6 +1360,40 @@ export interface paths {
          * @description Retry the failed jobs of one group (at most 200, oldest first).
          */
         post: operations["retry_api_v1_system_health_retry_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/long-prices": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Inventory */
+        get: operations["inventory_api_v1_long_prices_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/long-prices/manage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Manage */
+        post: operations["manage_api_v1_long_prices_manage_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1303,6 +1450,11 @@ export interface components {
              * @default ^GSPC
              */
             benchmark: string | null;
+            /**
+             * Sector Benchmark
+             * @default auto
+             */
+            sector_benchmark: string | null;
         };
         /** AnalysisItem */
         AnalysisItem: {
@@ -1554,6 +1706,49 @@ export interface components {
             benchmark_change?: string | null;
             /** Excess */
             excess?: string | null;
+            /** Sector Open */
+            sector_open?: string | null;
+            /** Sector Close */
+            sector_close?: string | null;
+            /** Sector Change */
+            sector_change?: string | null;
+            /** Sector Excess */
+            sector_excess?: string | null;
+        };
+        /**
+         * ClassificationOutput
+         * @description Sector of a security: the S&P 500 list's GICS first, then Yahoo's sector, else none.
+         *
+         *     ``refresh`` is ``needed`` when the identity was checked before Yahoo's sector was
+         *     kept (the page may ask once), ``pending`` while that refresh runs.
+         */
+        ClassificationOutput: {
+            /** Symbol */
+            symbol: string;
+            /**
+             * Source
+             * @enum {string}
+             */
+            source: "sp500_gics" | "yahoo" | "none";
+            sector: components["schemas"]["SectorRef"] | null;
+            industry_group: components["schemas"]["GroupRef"] | null;
+            /** Gics Sector */
+            gics_sector: string | null;
+            /** Gics Sub Industry */
+            gics_sub_industry: string | null;
+            /** Yahoo Sector */
+            yahoo_sector: string | null;
+            /** Yahoo Industry */
+            yahoo_industry: string | null;
+            /** Indexes */
+            indexes: ("sp500" | "nasdaq100")[];
+            /** Removed On */
+            removed_on: string | null;
+            /**
+             * Refresh
+             * @enum {string}
+             */
+            refresh: "none" | "needed" | "pending";
         };
         /** CollectionInput */
         CollectionInput: {
@@ -1629,6 +1824,22 @@ export interface components {
             reused: boolean;
             job: components["schemas"]["JobView"];
         };
+        /**
+         * ColorSettings
+         * @description Up/down colors: a preset, or ``custom`` with both colors as ``#rrggbb``.
+         */
+        ColorSettings: {
+            /**
+             * Preset
+             * @default us
+             * @enum {string}
+             */
+            preset: "us" | "colorblind" | "asia" | "custom";
+            /** Up */
+            up?: string | null;
+            /** Down */
+            down?: string | null;
+        };
         /** CompanyOverview */
         CompanyOverview: {
             /** Issuer Id */
@@ -1637,6 +1848,8 @@ export interface components {
             name: string;
             /** Ticker */
             ticker: string | null;
+            /** Indexes */
+            indexes: ("sp500" | "nasdaq100")[];
             /** People */
             people: number;
             /** Buy People */
@@ -1745,6 +1958,26 @@ export interface components {
             transaction_date: string;
             /** Accepted Date */
             accepted_date: string;
+        };
+        /**
+         * DisplayInput
+         * @description Sections to change; a section left out keeps its saved value.
+         */
+        DisplayInput: {
+            colors?: components["schemas"]["ColorSettings"] | null;
+            market_strip?: components["schemas"]["MarketStripSettings"] | null;
+        };
+        /**
+         * DisplayOutput
+         * @description Display settings shared by every browser of this instance.
+         */
+        DisplayOutput: {
+            colors: components["schemas"]["ColorSettings"];
+            market_strip: components["schemas"]["MarketStripSettings"];
+            /** Instruments */
+            instruments: components["schemas"]["StripInstrument"][];
+            /** Version */
+            version: number;
         };
         /** DistributionStatistics */
         DistributionStatistics: {
@@ -1889,6 +2122,8 @@ export interface components {
             ticker: string | null;
             /** Issuer Ticker Raw */
             issuer_ticker_raw: string | null;
+            /** Indexes */
+            indexes: ("sp500" | "nasdaq100")[];
         };
         /** EtfPerformance */
         EtfPerformance: {
@@ -1925,6 +2160,11 @@ export interface components {
         };
         /** EventAnalysisInput */
         EventAnalysisInput: {
+            /**
+             * Sector Benchmark
+             * @default auto
+             */
+            sector_benchmark: string | null;
             /** Request Id */
             request_id: string;
             /** N */
@@ -1937,7 +2177,11 @@ export interface components {
         };
         /** EventAnalysisOutput */
         EventAnalysisOutput: {
+            /** Sector Benchmark */
+            sector_benchmark?: string | null;
             comparison: components["schemas"]["TickerComparison"];
+            /** Macro Excluded */
+            macro_excluded: number;
             /** Filtered Event Count */
             filtered_event_count: number;
             /** Id */
@@ -2004,6 +2248,49 @@ export interface components {
             /** Close */
             close: string | null;
         };
+        /** EventContextDefaults */
+        EventContextDefaults: {
+            /** Before Days */
+            before_days: number;
+            /** After Days */
+            after_days: number;
+            /**
+             * Presets
+             * @description [days before, days after] pairs offered on the page
+             */
+            presets: number[][];
+            /** Max Days */
+            max_days: number;
+        };
+        /**
+         * EventContextItem
+         * @description A dated item that may have moved the stock around the event (AI-compiled, unverified).
+         */
+        EventContextItem: {
+            /** Date */
+            date: string;
+            /**
+             * Category
+             * @enum {string}
+             */
+            category: "company" | "earnings" | "industry" | "market" | "macro" | "policy" | "geopolitical" | "other";
+            /** Title */
+            title: string;
+            /** Summary */
+            summary?: string | null;
+            /** Source */
+            source?: string | null;
+            /**
+             * Url
+             * @description http or https link
+             */
+            url?: string | null;
+            /**
+             * Major
+             * @description Moved the whole market
+             */
+            major?: boolean | null;
+        };
         /** EventDefaultsOutput */
         EventDefaultsOutput: {
             /** Window Sessions */
@@ -2018,11 +2305,77 @@ export interface components {
             presets: number[];
             /** Benchmark */
             benchmark: string;
+            context: components["schemas"]["EventContextDefaults"];
         };
         /** EventDeleted */
         EventDeleted: {
             /** Deleted */
             deleted: string;
+        };
+        /**
+         * EventEarnings
+         * @description Actual and expected figures as the AI reported them (unverified).
+         */
+        EventEarnings: {
+            /**
+             * Eps Actual
+             * @description USD per share
+             */
+            eps_actual?: number | null;
+            /** Eps Estimate */
+            eps_estimate?: number | null;
+            /**
+             * Revenue Actual
+             * @description USD millions
+             */
+            revenue_actual?: number | null;
+            /** Revenue Estimate */
+            revenue_estimate?: number | null;
+            /** Guidance */
+            guidance?: ("raised" | "maintained" | "lowered" | "none") | null;
+        };
+        /**
+         * EventExpectations
+         * @description Derived from the AI's figures: surprise = (actual - estimate) / |estimate|.
+         */
+        EventExpectations: {
+            /** Eps Surprise */
+            eps_surprise: string | null;
+            /** Revenue Surprise */
+            revenue_surprise: string | null;
+            /**
+             * Surprise Group
+             * @enum {string}
+             */
+            surprise_group: "beat" | "inline" | "miss" | "no_data";
+            /**
+             * Guidance Group
+             * @enum {string}
+             */
+            guidance_group: "raised" | "maintained" | "lowered" | "none" | "no_data";
+        };
+        /** EventGroup */
+        EventGroup: {
+            /** Key */
+            key: string;
+            /** Event Count */
+            event_count: number;
+            /** Summary */
+            summary: {
+                [key: string]: components["schemas"]["EventStatistics"];
+            };
+        };
+        /** EventGroups */
+        EventGroups: {
+            /**
+             * Inline Threshold
+             * @description |EPS surprise| below this is in line
+             */
+            inline_threshold: string;
+            /** Surprise */
+            surprise: components["schemas"]["EventGroup"][];
+            /** Guidance */
+            guidance: components["schemas"]["EventGroup"][];
         };
         /** EventInputIssue */
         EventInputIssue: {
@@ -2053,16 +2406,35 @@ export interface components {
             fiscal_year?: number | null;
             /** Fiscal Quarter */
             fiscal_quarter?: number | null;
+            /** Uncertain */
+            uncertain?: boolean | null;
             /** Note */
             note?: string | null;
+            earnings?: components["schemas"]["EventEarnings"] | null;
+            /** Context */
+            context?: components["schemas"]["EventContextItem"][] | null;
             /**
              * Reaction Date
              * @description Reaction day R; null outside the exchange calendar
              */
             reaction_date?: string | null;
         };
+        /** EventMacroWindow */
+        EventMacroWindow: {
+            /**
+             * Start
+             * @description Session R minus the configured sessions
+             */
+            start: string;
+            /** End */
+            end: string;
+            /** Sessions */
+            sessions: number;
+        };
         /** EventPathPoint */
         EventPathPoint: {
+            /** Sector */
+            sector?: string | null;
             /** Offset */
             offset: number;
             /** Date */
@@ -2077,6 +2449,8 @@ export interface components {
         };
         /** EventPathStatistics */
         EventPathStatistics: {
+            /** Sector Median */
+            sector_median?: string | null;
             /** Offset */
             offset: number;
             /** N */
@@ -2113,6 +2487,12 @@ export interface components {
             is_default: boolean;
             /** Default Text */
             default_text: string;
+            /**
+             * Default Changed
+             * @description The built-in default changed after this template was saved
+             * @default false
+             */
+            default_changed: boolean;
             /** Updated At */
             updated_at: string | null;
         };
@@ -2153,6 +2533,27 @@ export interface components {
             ranks: {
                 [key: string]: number;
             };
+            /** Uncertain */
+            uncertain: boolean;
+            earnings: components["schemas"]["EventEarnings"] | null;
+            /**
+             * Context
+             * @description AI-compiled, unverified
+             */
+            context: components["schemas"]["EventContextItem"][];
+            /**
+             * Context Candles
+             * @description Daily candles over R-1-n..R+n and every context date; null without context
+             */
+            context_candles: components["schemas"]["EventCandle"][] | null;
+            /** @description Null in results made before background existed */
+            macro_window: components["schemas"]["EventMacroWindow"] | null;
+            expectations: components["schemas"]["EventExpectations"];
+            /**
+             * Macro Events
+             * @description Major macro, policy or geopolitical context near R
+             */
+            macro_events: components["schemas"]["EventContextItem"][];
             /** Ticker */
             ticker: string;
             /** Date */
@@ -2215,6 +2616,11 @@ export interface components {
              * @default false
              */
             analyze: boolean;
+            /**
+             * Sector Benchmark
+             * @default auto
+             */
+            sector_benchmark: string | null;
             /** N */
             n?: number | null;
             /**
@@ -2328,6 +2734,27 @@ export interface components {
             whisker_high?: string | null;
             /** Outliers */
             outliers?: string[];
+            benchmark_excess_box?: components["schemas"]["DistributionStatistics"];
+            sector_excess_box?: components["schemas"]["DistributionStatistics"];
+            sector_box?: components["schemas"]["DistributionStatistics"];
+            /**
+             * Sector Paired N
+             * @default 0
+             */
+            sector_paired_n: number;
+            /**
+             * Sector Beat
+             * @default 0
+             */
+            sector_beat: number;
+            /** Sector Beat Ratio */
+            sector_beat_ratio?: string | null;
+            /** Sector Median */
+            sector_median?: string | null;
+            /** Sector Median Excess */
+            sector_median_excess?: string | null;
+            /** Sector Mean Excess */
+            sector_mean_excess?: string | null;
             benchmark_box: components["schemas"]["DistributionStatistics"];
             /**
              * Up Low
@@ -2366,6 +2793,12 @@ export interface components {
         };
         /** EventTickerResult */
         EventTickerResult: {
+            sector?: components["schemas"]["SectorReference"] | null;
+            /**
+             * Sector Comparison Included
+             * @default false
+             */
+            sector_comparison_included: boolean;
             /**
              * Kind
              * @constant
@@ -2402,6 +2835,15 @@ export interface components {
             path: components["schemas"]["EventPathStatistics"][];
             /** Quarters */
             quarters?: components["schemas"]["EventQuarterSummary"][] | null;
+            /** @description Earnings by EPS surprise and by guidance */
+            groups?: components["schemas"]["EventGroups"] | null;
+            /**
+             * Macro Excluded
+             * @description Events left out for major macro context near R
+             */
+            macro_excluded: number;
+            /** Macro Sessions */
+            macro_sessions: number;
             /** Rows */
             rows: components["schemas"]["EventRow"][];
         };
@@ -2430,6 +2872,16 @@ export interface components {
             kind: "earnings" | "custom";
             /** Text */
             text: string;
+            /**
+             * Context Before Days
+             * @description Days around the event date that context should fall within
+             */
+            context_before_days?: number | null;
+            /**
+             * Context After Days
+             * @description Days around the event date that context should fall within
+             */
+            context_after_days?: number | null;
         };
         /** EventValidateOutput */
         EventValidateOutput: {
@@ -2437,6 +2889,11 @@ export interface components {
             valid: boolean;
             /** Errors */
             errors: components["schemas"]["EventInputIssue"][];
+            /**
+             * Warnings
+             * @description Do not block saving
+             */
+            warnings: components["schemas"]["EventInputIssue"][];
             /** Events */
             events: components["schemas"]["EventItem"][];
             /** Tickers */
@@ -2451,6 +2908,8 @@ export interface components {
             request_id: string;
             /** N */
             n?: number | null;
+            /** Sector Benchmark */
+            sector_benchmark?: string | null;
             /** Benchmark */
             benchmark?: string | null;
         };
@@ -2480,6 +2939,10 @@ export interface components {
              * @description value - benchmark
              */
             excess?: string | null;
+            /** Sector */
+            sector?: string | null;
+            /** Sector Excess */
+            sector_excess?: string | null;
         };
         /** FeedCoverage */
         FeedCoverage: {
@@ -2509,6 +2972,8 @@ export interface components {
             issuer_ticker_raw: string | null;
             /** Quote Symbol */
             quote_symbol: string | null;
+            /** Indexes */
+            indexes: ("sp500" | "nasdaq100")[];
             /** Accepted At */
             accepted_at: string | null;
             /** Accepted Date */
@@ -2716,6 +3181,18 @@ export interface components {
                 [key: string]: unknown;
             };
         };
+        /** GroupRef */
+        GroupRef: {
+            /** Id */
+            id: string;
+            /** Etf */
+            etf: string | null;
+            /**
+             * Coverage
+             * @enum {string}
+             */
+            coverage: "complete" | "partial" | "reference" | "pending";
+        };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
@@ -2757,6 +3234,15 @@ export interface components {
             /** Groups */
             groups: components["schemas"]["HealthGroup"][];
         };
+        /** HistoryGaps */
+        HistoryGaps: {
+            /** Symbol */
+            symbol: string;
+            /** Dates */
+            dates: string[];
+            /** Accepted */
+            accepted: boolean;
+        };
         /** HomeOutput */
         HomeOutput: {
             /**
@@ -2770,7 +3256,11 @@ export interface components {
         };
         /**
          * HomeQuote
-         * @description One index (or gold futures) quote as saved from its latest fetch.
+         * @description One strip instrument's quote as saved from its latest fetch.
+         *
+         *     ``kind`` says how to show it: a ``yield`` (^TNX) is a percent whose change is
+         *     given in basis points (``change_bp``); the others are prices or index points
+         *     in ``unit``.
          *
          *     ``freshness`` is judged at read time: ``live`` in session and on time,
          *     ``closed`` outside the session (``as_of`` is the last trading day),
@@ -2807,6 +3297,16 @@ export interface components {
             status: string;
             /** Unit */
             unit: string | null;
+            /**
+             * Kind
+             * @default index
+             * @enum {string}
+             */
+            kind: "index" | "yield" | "currency_index" | "futures" | "crypto";
+            /** Short Name */
+            short_name: string | null;
+            /** Change Bp */
+            change_bp: number | null;
             /** Baseline */
             baseline: string | null;
             /**
@@ -2816,6 +3316,53 @@ export interface components {
             freshness: "live" | "closed" | "delayed" | "missing";
             /** Reason */
             reason: string | null;
+        };
+        /** IndexList */
+        IndexList: {
+            /**
+             * Index Name
+             * @enum {string}
+             */
+            index_name: "sp500" | "nasdaq100";
+            /** Members */
+            members: number;
+            /** Updated At */
+            updated_at: string | null;
+            /** Attempted At */
+            attempted_at: string | null;
+            /** Error */
+            error: string | null;
+            /** Running */
+            running: boolean;
+            /**
+             * Next Run At
+             * Format: date-time
+             */
+            next_run_at: string;
+        };
+        /**
+         * IndexListsOutput
+         * @description The two unofficial index lists and their fixed weekly update time (US Eastern).
+         */
+        IndexListsOutput: {
+            /** Items */
+            items: components["schemas"]["IndexList"][];
+            /**
+             * Weekday
+             * @enum {string}
+             */
+            weekday: "monday" | "tuesday" | "wednesday" | "thursday" | "friday" | "saturday" | "sunday";
+            /** Time */
+            time: string;
+            /** Timezone */
+            timezone: string;
+            /** Retry Seconds */
+            retry_seconds: number;
+            /**
+             * Next Scheduled At
+             * Format: date-time
+             */
+            next_scheduled_at: string;
         };
         /** IndexStatus */
         IndexStatus: {
@@ -3145,6 +3692,8 @@ export interface components {
             ticker: string | null;
             /** Last Trade */
             last_trade: string | null;
+            /** Indexes */
+            indexes: ("sp500" | "nasdaq100")[];
         };
         /** LocalLookupOutput */
         LocalLookupOutput: {
@@ -3163,6 +3712,42 @@ export interface components {
             name: string;
             /** Last Trade */
             last_trade: string | null;
+        };
+        /** LongPricesOutput */
+        LongPricesOutput: {
+            /** Gap Symbols */
+            gap_symbols: number;
+            /** Gap Days */
+            gap_days: number;
+            /** Gaps */
+            gaps: components["schemas"]["HistoryGaps"][];
+            /** Symbols */
+            symbols: number;
+            /** Active Symbols */
+            active_symbols: number;
+            /** Ready Symbols */
+            ready_symbols: number;
+            /** Bars */
+            bars: number;
+            /** Start Date */
+            start_date: string | null;
+            /** End Date */
+            end_date: string | null;
+            /** Bytes */
+            bytes: number;
+            /** Updated At */
+            updated_at: string | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "paused" | "backfilling" | "ready";
+            /** History Years */
+            history_years: number;
+            /** Pending Jobs */
+            pending_jobs: number;
+            /** Removed */
+            removed: components["schemas"]["RemovedMember"][];
         };
         /** LookupCandidate */
         LookupCandidate: {
@@ -3184,6 +3769,8 @@ export interface components {
              * @default false
              */
             local: boolean;
+            /** Indexes */
+            indexes: ("sp500" | "nasdaq100")[];
         };
         /** LookupInput */
         LookupInput: {
@@ -3215,6 +3802,24 @@ export interface components {
             details: {
                 [key: string]: unknown;
             };
+        };
+        /** ManagementInput */
+        ManagementInput: {
+            /**
+             * Action
+             * @enum {string}
+             */
+            action: "all" | "year" | "half_year" | "quarter" | "refill";
+            /**
+             * Confirmed
+             * @constant
+             */
+            confirmed: true;
+        };
+        /** ManagementReceipt */
+        ManagementReceipt: {
+            /** Job Id */
+            job_id: string;
         };
         /** MarketBar */
         MarketBar: {
@@ -3277,6 +3882,14 @@ export interface components {
             /** Reason */
             reason: string | null;
         };
+        /**
+         * MarketStripSettings
+         * @description Home-strip instruments to show (symbols from ``instruments``).
+         */
+        MarketStripSettings: {
+            /** Symbols */
+            symbols: string[];
+        };
         /** OverviewPriceKey */
         OverviewPriceKey: {
             /** Ticker */
@@ -3296,6 +3909,8 @@ export interface components {
             name: string;
             /** Ticker */
             ticker: string | null;
+            /** Indexes */
+            indexes: ("sp500" | "nasdaq100")[];
             /** Owners */
             owners: components["schemas"]["InsiderOwner"][];
             /** Date */
@@ -3454,6 +4069,26 @@ export interface components {
             mean_excess?: string | null;
             /** Benchmark Median */
             benchmark_median?: string | null;
+            benchmark_excess_box?: components["schemas"]["DistributionStatistics"];
+            sector_excess_box?: components["schemas"]["DistributionStatistics"];
+            /**
+             * Sector Paired N
+             * @default 0
+             */
+            sector_paired_n: number;
+            /**
+             * Sector Beat
+             * @default 0
+             */
+            sector_beat: number;
+            /** Sector Beat Ratio */
+            sector_beat_ratio?: string | null;
+            /** Sector Median */
+            sector_median?: string | null;
+            /** Sector Median Excess */
+            sector_median_excess?: string | null;
+            /** Sector Mean Excess */
+            sector_mean_excess?: string | null;
         };
         /** PolicyRequest */
         PolicyRequest: {
@@ -3703,6 +4338,16 @@ export interface components {
         } & {
             [key: string]: unknown;
         };
+        /** RemovedMember */
+        RemovedMember: {
+            /** Symbol */
+            symbol: string;
+            /**
+             * Removed On
+             * Format: date
+             */
+            removed_on: string;
+        };
         /** RequestIdentity */
         RequestIdentity: {
             /** Request Id */
@@ -3752,7 +4397,7 @@ export interface components {
             calendar_version: string;
             /**
              * Calculation Version
-             * @default research-v11-open-close
+             * @default research-v12-sector
              */
             calculation_version: string;
             /**
@@ -3761,6 +4406,12 @@ export interface components {
              */
             price_basis: string;
             benchmark?: components["schemas"]["BenchmarkInfo"] | null;
+            sector?: components["schemas"]["SectorReference"] | null;
+            /**
+             * Sector Comparison Included
+             * @default false
+             */
+            sector_comparison_included: boolean;
         } & {
             [key: string]: unknown;
         };
@@ -3784,6 +4435,226 @@ export interface components {
         RetryOutput: {
             /** Retried */
             retried: number;
+        };
+        /** RotationCell */
+        RotationCell: {
+            /** Id */
+            id: string;
+            /** Rank */
+            rank: number | null;
+            /** N */
+            n: number;
+            /** Up */
+            up: number;
+            /** Median */
+            median: string | null;
+            /** Median Excess */
+            median_excess: string | null;
+        };
+        /** RotationCount */
+        RotationCount: {
+            /** Count */
+            count: number;
+            /** N */
+            n: number;
+        };
+        /** RotationDetail */
+        RotationDetail: {
+            /** Key */
+            key: string;
+            /** Month */
+            month: number | null;
+            /** Start Mmdd */
+            start_mmdd: string;
+            /** End Mmdd */
+            end_mmdd: string;
+            /** Cross Year */
+            cross_year: boolean;
+            /** Best */
+            best: string | null;
+            /** Worst */
+            worst: string | null;
+            /** Yearly */
+            yearly: components["schemas"]["RotationYearLeaders"][];
+            /** Rows */
+            rows: components["schemas"]["RotationRow"][];
+        };
+        /** RotationItem */
+        RotationItem: {
+            /** Id */
+            id: string;
+            /** Sector */
+            sector: string;
+            /** Etf */
+            etf: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "available" | "no_prices";
+            /** First Date */
+            first_date: string | null;
+            /** Complete Through */
+            complete_through: string | null;
+        };
+        /** RotationLeader */
+        RotationLeader: {
+            /** Id */
+            id: string;
+            /** Change */
+            change: string | null;
+            /** Excess */
+            excess: string | null;
+        };
+        /** RotationPeriod */
+        RotationPeriod: {
+            /** Key */
+            key: string;
+            /** Month */
+            month: number | null;
+            /** Start Mmdd */
+            start_mmdd: string;
+            /** End Mmdd */
+            end_mmdd: string;
+            /** Cross Year */
+            cross_year: boolean;
+            /** Best */
+            best: string | null;
+            /** Worst */
+            worst: string | null;
+            /** Yearly */
+            yearly: components["schemas"]["RotationYearLeaders"][];
+            /** Cells */
+            cells: components["schemas"]["RotationCell"][];
+        };
+        /** RotationRow */
+        RotationRow: {
+            /** Id */
+            id: string;
+            /** Sector */
+            sector: string;
+            /** Etf */
+            etf: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "available" | "no_prices";
+            /** Rank */
+            rank: number | null;
+            top: components["schemas"]["RotationCount"];
+            bottom: components["schemas"]["RotationCount"];
+            stats: components["schemas"]["RotationStats"] | null;
+            /** Years */
+            years: components["schemas"]["RotationYear"][];
+        };
+        /**
+         * RotationStats
+         * @description Complete past years only, as the monthly research reports them.
+         */
+        RotationStats: {
+            /** N */
+            n: number;
+            /** Target N */
+            target_n: number;
+            /** Median */
+            median: string | null;
+            /** Mean */
+            mean: string | null;
+            /** Q25 */
+            q25: string | null;
+            /** Q75 */
+            q75: string | null;
+            /** Best */
+            best: string | null;
+            /** Worst */
+            worst: string | null;
+            /** Best Year */
+            best_year: number | null;
+            /** Worst Year */
+            worst_year: number | null;
+            /**
+             * Up
+             * @default 0
+             */
+            up: number;
+            /**
+             * Flat
+             * @default 0
+             */
+            flat: number;
+            /** Up Ratio */
+            up_ratio: string | null;
+            /** Up Low */
+            up_low: string | null;
+            /** Up High */
+            up_high: string | null;
+            /** Coin Flip */
+            coin_flip: boolean | null;
+            /**
+             * Paired N
+             * @default 0
+             */
+            paired_n: number;
+            /**
+             * Beat
+             * @default 0
+             */
+            beat: number;
+            /** Beat Ratio */
+            beat_ratio: string | null;
+            /** Median Excess */
+            median_excess: string | null;
+            /** Mean Excess */
+            mean_excess: string | null;
+            /** Benchmark Median */
+            benchmark_median: string | null;
+            /** Whisker Low */
+            whisker_low: string | null;
+            /** Whisker High */
+            whisker_high: string | null;
+            /** Outliers */
+            outliers: string[];
+            benchmark_excess_box: components["schemas"]["DistributionStatistics"];
+        };
+        /** RotationYear */
+        RotationYear: {
+            /** Year */
+            year: number;
+            /** Current */
+            current: boolean;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "complete" | "in_progress" | "not_started" | "no_data" | "incomplete";
+            /** Start Date */
+            start_date: string | null;
+            /** End Date */
+            end_date: string | null;
+            /** Change */
+            change: string | null;
+            /** Excess */
+            excess: string | null;
+            /** Rank */
+            rank: number | null;
+        };
+        /** RotationYearLeaders */
+        RotationYearLeaders: {
+            /** Year */
+            year: number;
+            /** Current */
+            current: boolean;
+            /** In Progress */
+            in_progress: boolean;
+            /** Start Date */
+            start_date: string | null;
+            /** End Date */
+            end_date: string | null;
+            /** Participants */
+            participants: number;
+            first: components["schemas"]["RotationLeader"] | null;
+            last: components["schemas"]["RotationLeader"] | null;
         };
         /** ScopeView */
         ScopeView: {
@@ -4058,6 +4929,7 @@ export interface components {
             /** Id */
             id: string;
             weights: components["schemas"]["SectorWeights"];
+            ranks: components["schemas"]["SectorRanks"];
             /** Groups */
             groups: number;
         };
@@ -4130,6 +5002,95 @@ export interface components {
             quarter: number | null;
             /** Ytd */
             ytd: number | null;
+        };
+        /** SectorRef */
+        SectorRef: {
+            /** Id */
+            id: string;
+            /** Etf */
+            etf: string;
+        };
+        /** SectorReference */
+        SectorReference: {
+            /** Symbol */
+            symbol?: string | null;
+            /** Status */
+            status: string;
+            /**
+             * Source
+             * @default none
+             * @enum {string}
+             */
+            source: "sp500_gics" | "yahoo" | "none" | "custom";
+            /**
+             * Mode
+             * @default auto
+             * @enum {string}
+             */
+            mode: "auto" | "industry_group" | "custom";
+            /** Sector Id */
+            sector_id?: string | null;
+            /** Industry Group Id */
+            industry_group_id?: string | null;
+            /**
+             * Fallback
+             * @default false
+             */
+            fallback: boolean;
+            /** Reason */
+            reason?: string | null;
+        };
+        /** SectorRotation */
+        SectorRotation: {
+            /**
+             * Level
+             * @enum {string}
+             */
+            level: "sector" | "group";
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "monthly" | "interval";
+            /** Years */
+            years: number;
+            /**
+             * Rank By
+             * @enum {string}
+             */
+            rank_by: "absolute" | "relative";
+            /** Start Mmdd */
+            start_mmdd: string | null;
+            /** End Mmdd */
+            end_mmdd: string | null;
+            /** Cross Year */
+            cross_year: boolean;
+            /** Historical Years */
+            historical_years: number[];
+            /** Current Year */
+            current_year: number;
+            /** Current Month */
+            current_month: number;
+            /** Cutoff Date */
+            cutoff_date: string;
+            /** Benchmark */
+            benchmark: string;
+            /**
+             * Benchmark Status
+             * @enum {string}
+             */
+            benchmark_status: "available" | "no_prices";
+            /** Benchmark Complete Through */
+            benchmark_complete_through: string | null;
+            /** Computed At */
+            computed_at: string;
+            /** Expires At */
+            expires_at: string;
+            /** Items */
+            items: components["schemas"]["RotationItem"][];
+            /** Periods */
+            periods: components["schemas"]["RotationPeriod"][];
+            detail: components["schemas"]["RotationDetail"] | null;
         };
         /** SectorToday */
         SectorToday: {
@@ -4333,6 +5294,22 @@ export interface components {
             last_run_at?: string | null;
             /** Blocked Reason */
             blocked_reason?: string | null;
+        };
+        /** StripInstrument */
+        StripInstrument: {
+            /** Symbol */
+            symbol: string;
+            /** Name */
+            name: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "index" | "yield" | "currency_index" | "futures" | "crypto";
+            /** Default */
+            default: boolean;
+            /** Off Hours Only */
+            off_hours_only: boolean;
         };
         /** SystemOutput */
         SystemOutput: {
@@ -5610,6 +6587,59 @@ export interface operations {
             };
         };
     };
+    display_view_api_v1_display_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DisplayOutput"];
+                };
+            };
+        };
+    };
+    display_update_api_v1_display_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DisplayInput"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DisplayOutput"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     sec_contact_view_api_v1_sec_contact_get: {
         parameters: {
             query?: never;
@@ -6447,6 +7477,7 @@ export interface operations {
                 recent_years?: number | null;
                 session?: ("before_open" | "during" | "after_close" | "unknown") | null;
                 direction?: ("up" | "down") | null;
+                exclude_macro?: boolean;
             };
             header?: never;
             path: {
@@ -6552,6 +7583,7 @@ export interface operations {
                 recent_years?: number | null;
                 session?: ("before_open" | "during" | "after_close" | "unknown") | null;
                 direction?: ("up" | "down") | null;
+                exclude_macro?: boolean;
             };
             header?: never;
             path: {
@@ -7068,6 +8100,43 @@ export interface operations {
             };
         };
     };
+    read_rotation_api_v1_sectors_rotation_get: {
+        parameters: {
+            query?: {
+                level?: "sector" | "group";
+                kind?: "monthly" | "interval";
+                years?: number;
+                rank_by?: "absolute" | "relative";
+                start?: string | null;
+                end?: string | null;
+                month?: number | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SectorRotation"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     request_prices_api_v1_sectors_prices_post: {
         parameters: {
             query?: never;
@@ -7088,6 +8157,108 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SectorPricesOutput"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    index_lists_api_v1_index_constituents_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IndexListsOutput"];
+                };
+            };
+        };
+    };
+    index_lists_refresh_api_v1_index_constituents_refresh_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IndexListsOutput"];
+                };
+            };
+        };
+    };
+    classification_api_v1_securities__symbol__classification_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                symbol: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClassificationOutput"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    classification_refresh_api_v1_securities__symbol__classification_refresh_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                symbol: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClassificationOutput"];
                 };
             };
             /** @description Validation Error */
@@ -7141,6 +8312,59 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RetryOutput"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    inventory_api_v1_long_prices_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LongPricesOutput"];
+                };
+            };
+        };
+    };
+    manage_api_v1_long_prices_manage_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ManagementInput"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ManagementReceipt"];
                 };
             };
             /** @description Validation Error */

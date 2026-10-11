@@ -7,18 +7,14 @@ import { CanvasRenderer } from "echarts/renderers";
 import { useReducedMotion } from "motion/react";
 import { benchmarkName, pct } from "@/lib/analysis";
 import { fiscalLabel, offsetLabel, sessionLabel, type EventResult, type EventRow } from "@/lib/events";
+import { referenceMarks } from "@/components/analysis/ReferenceMarks";
 import { escapeHtml } from "@/components/analysis/BoxPlot";
+import { CHART, usePalette } from "@/lib/colors";
 import { formatDay, formatPrice } from "@/lib/format";
 
 echarts.use([CandlestickChart, CustomChart, LineChart, ScatterChart, GridComponent, TooltipComponent, MarkLineComponent, ToolboxComponent, CanvasRenderer]);
 
-// The blue (up) and orange (down) of the CSS tokens, as canvas colors.
-const UP = "#2156d9";
-const DOWN = "#c2531a";
-const INK = "#334155";
-const MUTED = "#64748b";
-const GRID = "#eef2f6";
-const AXIS = "#cbd5e1";
+const { ink: INK, muted: MUTED, grid: GRID, axis: AXIS } = CHART;
 
 /** One ECharts instance bound to a div, resized with it and disposed with it. */
 function useChart(option: () => echarts.EChartsCoreOption, deps: unknown[], onClick?: (item: { dataIndex: number; seriesId: string }) => void, onHover?: (id: string | null) => void) {
@@ -57,7 +53,7 @@ function toolbox(title: string, label: string) {
     top: 0,
     itemSize: 14,
     iconStyle: { borderColor: MUTED },
-    feature: { saveAsImage: { title: label, name: title.replace(/[^\w-]+/g, "_"), pixelRatio: 2, backgroundColor: "#ffffff" } },
+    feature: { saveAsImage: { title: label, name: title.replace(/[^\w-]+/g, "_"), pixelRatio: 2, backgroundColor: CHART.surface } },
   };
 }
 
@@ -72,12 +68,13 @@ function eventHead(row: EventRow) {
 /**
  * Main chart A: one candle per event, the reaction day R drawn from the
  * previous close C(R−1) = 0. The open is the gap, the body runs open → close,
- * the wicks are the day's high and low. The color is the reaction (blue up,
- * orange down against C(R−1)). Ordered by date; the benchmark's reaction day is a gray dash.
+ * the wicks are the day's high and low. The color is the reaction (up or
+ * down against C(R−1)). Ordered by date; the benchmark's reaction day is a gray dash.
  */
 export function ReactionCandles({ result, benchmark, title, selected, onSelect, height = 300 }: { result: EventResult; benchmark: string | null; title: string; selected: string | null; onSelect: (id: string) => void; height?: number }) {
   const { t, i18n } = useTranslation();
   const reduce = useReducedMotion();
+  const { up: UP, down: DOWN } = usePalette();
   const element = useChart(() => {
     const rows = result.rows;
     const labels = rows.map((row) => (row.fiscal_year ? `${String(row.fiscal_year).slice(2)}Q${row.fiscal_quarter}` : row.date.slice(0, 7)));
@@ -115,6 +112,7 @@ export function ReactionCandles({ result, benchmark, title, selected, onSelect, 
           ];
           const paired = row.windows.reaction?.benchmark;
           if (benchmark && paired != null) lines.push(`${benchmarkName(benchmark)} ${pct(paired, 2)}`);
+          if (result.sector?.symbol && row.windows.reaction?.sector != null) lines.push(`${result.sector.symbol} ${pct(row.windows.reaction.sector, 2)} · ${t("ui.analysis.sector.col.excess")} ${pct(row.windows.reaction.sector_excess, 2)}`);
           return lines.join("<br/>");
         },
       },
@@ -129,20 +127,11 @@ export function ReactionCandles({ result, benchmark, title, selected, onSelect, 
           itemStyle: { color: UP, color0: DOWN, borderColor: UP, borderColor0: DOWN },
           markLine: { symbol: "none", silent: true, label: { show: false }, lineStyle: { color: INK, width: 1, opacity: 0.5 }, data: [{ yAxis: 0 }] },
         },
-        ...(benchmark
-          ? [{
-              type: "scatter" as const,
-              name: benchmarkName(benchmark),
-              symbol: "rect",
-              symbolSize: [14, 2.5],
-              itemStyle: { color: INK, opacity: 0.75 },
-              data: rows.map((row) => (row.windows.reaction?.benchmark == null ? "-" : Number(row.windows.reaction.benchmark))),
-              z: 5,
-            }]
-          : []),
+        ...(benchmark ? [referenceMarks(benchmarkName(benchmark), rows.map((row) => row.windows.reaction?.benchmark))] : []),
+        ...(result.sector?.symbol ? [referenceMarks(result.sector.symbol, rows.map((row) => row.windows.reaction?.sector), true)] : []),
       ],
     };
-  }, [result, benchmark, title, selected, reduce, t, i18n.language], (item) => { const row = result.rows[item.dataIndex]; if (row) onSelect(row.id); });
+  }, [result, benchmark, title, selected, reduce, t, i18n.language, UP, DOWN], (item) => { const row = result.rows[item.dataIndex]; if (row) onSelect(row.id); });
   return <div ref={element} style={{ height }} className="w-full" role="img" aria-label={title} />;
 }
 
@@ -151,11 +140,12 @@ export function ReactionCandles({ result, benchmark, title, selected, onSelect, 
  * line is the median of all events, the band the middle half (25th–75th
  * percentile); the benchmark's median path is dashed.
  */
-export function PathChart({ result, benchmark, showBenchmark, title, selected, onSelect, height = 280 }: { result: EventResult; benchmark: string | null; showBenchmark: boolean; title: string; selected: string | null; onSelect: (id: string) => void; height?: number }) {
+export function PathChart({ result, benchmark, showBenchmark, showSector, title, selected, onSelect, height = 280 }: { result: EventResult; benchmark: string | null; showBenchmark: boolean; showSector: boolean; title: string; selected: string | null; onSelect: (id: string) => void; height?: number }) {
   const { t, i18n } = useTranslation();
   const reduce = useReducedMotion();
   const [hovered, setHovered] = useState<string | null>(null);
   const active = hovered ?? selected;
+  const { up: UP, down: DOWN } = usePalette();
   const element = useChart(() => {
     const points = result.path;
     const labels = points.map((point) => offsetLabel(point.offset));
@@ -181,6 +171,7 @@ export function PathChart({ result, benchmark, showBenchmark, title, selected, o
             `${t("ui.events.middle_half")} ${pct(point.q25, 1)} ${t("ui.analysis.range_to")} ${pct(point.q75, 1)}`,
           ];
           if (benchmark && showBenchmark) lines.push(`${benchmarkName(benchmark)} ${pct(point.benchmark_median, 2)}`);
+          if (result.sector?.symbol && showSector) lines.push(`${result.sector.symbol} ${pct(point.sector_median, 2)}`);
           return lines.join("<br/>");
         },
       },
@@ -213,7 +204,7 @@ export function PathChart({ result, benchmark, showBenchmark, title, selected, o
             if (params.dataIndex !== 0 || band.length < 2) return null;
             const upper = band.map(([index, , high]) => api.coord([index, high]));
             const lower = band.map(([index, low]) => api.coord([index, low])).reverse();
-            return { type: "polygon", shape: { points: [...upper, ...lower] }, style: { fill: "#94a3b8", opacity: 0.25 } };
+            return { type: "polygon", shape: { points: [...upper, ...lower] }, style: { fill: CHART.band, opacity: 0.25 } };
           },
         },
         {
@@ -244,36 +235,63 @@ export function PathChart({ result, benchmark, showBenchmark, title, selected, o
               lineStyle: { color: MUTED, width: 1.5, type: "dashed" as const },
             }]
           : []),
+        ...(result.sector?.symbol && showSector ? [{ type: "line" as const, name: result.sector.symbol, data: points.map((point) => value(point.sector_median)), symbol: "none", lineStyle: { color: INK, width: 1.5, type: "dotted" as const } }] : []),
       ],
     };
-  }, [result, benchmark, showBenchmark, title, active, reduce, t, i18n.language], (item) => { if (result.rows.some((row) => row.id === item.seriesId)) onSelect(item.seriesId); }, (id) => setHovered(result.rows.some((row) => row.id === id) ? id : null));
+  }, [result, benchmark, showBenchmark, showSector, title, active, reduce, t, i18n.language, UP, DOWN], (item) => { if (result.rows.some((row) => row.id === item.seriesId)) onSelect(item.seriesId); }, (id) => setHovered(result.rows.some((row) => row.id === id) ? id : null));
   return <div ref={element} style={{ height }} className="w-full" role="img" aria-label={title} />;
 }
 
-/** One event's daily candles from R−n to R+n (prices), R marked; the dashed line is C(R−1). */
+/**
+ * The index of the candle each background item belongs to: its own date, or
+ * the next session when it fell on a day the market was closed.
+ */
+function contextMarks(row: EventRow, dates: string[]) {
+  const marks = new Map<number, EventRow["context"]>();
+  for (const item of row.context) {
+    const index = dates.findIndex((day) => day >= item.date);
+    if (index < 0) continue;
+    marks.set(index, [...(marks.get(index) ?? []), item]);
+  }
+  return marks;
+}
+
+/**
+ * One event's daily candles (prices) from R−n to R+n, widened to every
+ * background date; R is marked and the dashed line is C(R−1). A small pin
+ * marks each day with background; hovering lists that day's items.
+ */
 export function EventKline({ row, height = 220 }: { row: EventRow; height?: number }) {
   const { t, i18n } = useTranslation();
+  const { up: UP, down: DOWN } = usePalette();
   const element = useChart(() => {
-    const candles = row.candles;
+    const candles = row.context_candles ?? row.candles;
     const base = candles.find((candle) => candle.date === row.baseline_date)?.close;
     // The server's C(t)/C(R−1) − 1 per offset; nothing is recomputed here.
     const path: Record<number, (typeof row.path)[number] | undefined> = Object.fromEntries(row.path.map((point) => [point.offset, point]));
+    const marks = contextMarks(row, candles.map((candle) => candle.date));
+    const top = Math.max(...candles.map((candle) => Number(candle.high ?? candle.close ?? 0)).filter(Number.isFinite));
     return {
       animation: false,
-      grid: { left: 8, right: 64, top: 12, bottom: 36 },
+      grid: { left: 8, right: 64, top: 16, bottom: 36 },
       tooltip: {
         trigger: "axis",
         axisPointer: { type: "shadow" },
         confine: true,
         formatter: (items: { dataIndex: number }[]) => {
-          const candle = candles[items[0]?.dataIndex ?? -1];
+          const index = items[0]?.dataIndex ?? -1;
+          const candle = candles[index];
           if (!candle) return "";
-          if (candle.close == null) return `<b>${offsetLabel(candle.offset)}</b> · ${formatDay(candle.date, { year: true })}<br/>${t("ui.events.not_formed")}`;
+          const background = (marks.get(index) ?? []).map((item) =>
+            `<span style="color:${MUTED}">${formatDay(item.date, { year: false })} · ${escapeHtml(t(`ui.events.category.${item.category}`))}${item.major ? ` · ${escapeHtml(t("ui.events.context.major"))}` : ""}</span><br/>${escapeHtml(item.title)}`);
+          const head = `<b>${offsetLabel(candle.offset)}</b> · ${formatDay(candle.date, { year: true })}`;
+          if (candle.close == null) return [head, t("ui.events.not_formed"), ...background].join("<br/>");
           return [
-            `<b>${offsetLabel(candle.offset)}</b> · ${formatDay(candle.date, { year: true })}`,
+            head,
             `${t("ui.analysis.col.open")} ${formatPrice(candle.open)} · ${t("ui.analysis.col.close")} ${formatPrice(candle.close)}`,
             `${t("ui.analysis.col.high")} ${formatPrice(candle.high)} · ${t("ui.analysis.col.low")} ${formatPrice(candle.low)}`,
             path[candle.offset]?.value != null ? `${t("ui.events.from_base")} ${pct(path[candle.offset]!.value, 2)}` : "",
+            ...background,
           ].filter(Boolean).join("<br/>");
         },
       },
@@ -301,8 +319,23 @@ export function EventKline({ row, height = 220 }: { row: EventRow; height?: numb
             ],
           },
         },
+        ...(marks.size && Number.isFinite(top)
+          ? [{
+              type: "scatter" as const,
+              name: t("ui.events.context.marker"),
+              symbol: "triangle",
+              symbolRotate: 180,
+              symbolSize: 7,
+              itemStyle: { color: INK },
+              tooltip: { show: false },
+              data: [...marks.entries()].map(([index, items]) => ({
+                value: [index, Number(candles[index]?.high ?? candles[index]?.close ?? top) * 1.012],
+                itemStyle: { color: items.some((item) => item.major) ? INK : MUTED },
+              })),
+            }]
+          : []),
       ],
     };
-  }, [row, t, i18n.language]);
+  }, [row, t, i18n.language, UP, DOWN]);
   return <div ref={element} style={{ height }} className="w-full" role="img" aria-label={t("ui.events.kline_label", { name: row.name })} />;
 }

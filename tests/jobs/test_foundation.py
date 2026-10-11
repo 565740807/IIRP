@@ -14,10 +14,10 @@ from datetime import timedelta
 import psycopg
 import pytest
 from alembic import command
-from alembic.config import Config
 from fastapi.testclient import TestClient
 from iirp.config import ROOT, settings
 from iirp.db import engine, session
+from iirp.extensions import alembic_config, migration_heads
 from iirp.jobs.queue import (
     claim,
     control,
@@ -56,7 +56,7 @@ def isolated_database():
     os.environ["IIRP_DATABASE_URL"] = url.set(database=name).render_as_string(hide_password=False)
     engine.cache_clear()
     settings.cache_clear()
-    command.upgrade(Config(str(ROOT / "alembic.ini")), "head")
+    command.upgrade(alembic_config(), "heads")
     yield
     engine().dispose()
     engine.cache_clear()
@@ -112,14 +112,9 @@ def get(job_id):
 
 def test_real_postgres_schema_matches_migration():
     with session() as s:
-        assert (
-            s.scalar(text("SELECT version_num FROM alembic_version"))
-            == __import__("alembic.script", fromlist=["ScriptDirectory"])
-            .ScriptDirectory.from_config(Config(str(ROOT / "alembic.ini")))
-            .get_current_head()
-        )
+        assert set(s.scalars(text("SELECT version_num FROM alembic_version"))) == migration_heads()
         assert "PostgreSQL 18" in s.scalar(text("SELECT version()"))
-    command.check(Config(str(ROOT / "alembic.ini")))
+    command.check(alembic_config())
 
 
 def test_api_persists_job_before_202_and_reloads(client):
@@ -591,3 +586,18 @@ def test_database_unavailable_is_not_reported_as_success(client):
             engine().dispose()
             engine.cache_clear()
             settings().database_url = original
+
+
+def test_backup_runs_weekly_on_sunday_and_maintenance_daily():
+    from datetime import datetime
+
+    from iirp.analysis.calendar import ET
+    from iirp.jobs.schedule import next_maintenance_run
+
+    friday = datetime(2026, 10, 9, 12, 0, tzinfo=ET)
+    assert next_maintenance_run("backup", friday) == datetime(2026, 10, 11, 3, 30, tzinfo=ET)
+    sunday_after = datetime(2026, 10, 11, 4, 0, tzinfo=ET)
+    assert next_maintenance_run("backup", sunday_after) == datetime(2026, 10, 18, 3, 30, tzinfo=ET)
+    sunday_before = datetime(2026, 10, 11, 3, 0, tzinfo=ET)
+    assert next_maintenance_run("backup", sunday_before) == datetime(2026, 10, 11, 3, 30, tzinfo=ET)
+    assert next_maintenance_run("maintenance", friday) == datetime(2026, 10, 10, 4, 30, tzinfo=ET)

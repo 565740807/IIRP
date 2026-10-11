@@ -1332,6 +1332,60 @@
         }
       }
     },
+    "/api/v1/display": {
+      "get": {
+        "summary": "Display View",
+        "operationId": "display_view_api_v1_display_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DisplayOutput"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "summary": "Display Update",
+        "operationId": "display_update_api_v1_display_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DisplayInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DisplayOutput"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/sec-contact": {
       "get": {
         "summary": "Sec Contact View",
@@ -2799,6 +2853,16 @@
               ],
               "title": "Direction"
             }
+          },
+          {
+            "name": "exclude_macro",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Exclude Macro"
+            }
           }
         ],
         "responses": {
@@ -3033,6 +3097,16 @@
                 }
               ],
               "title": "Direction"
+            }
+          },
+          {
+            "name": "exclude_macro",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Exclude Macro"
             }
           }
         ],
@@ -3883,6 +3957,143 @@
         }
       }
     },
+    "/api/v1/sectors/rotation": {
+      "get": {
+        "summary": "Read Rotation",
+        "description": "Monthly or interval ranks of the sectors, or of the industry groups with a\nprimary ETF, from the long-term daily store only.",
+        "operationId": "read_rotation_api_v1_sectors_rotation_get",
+        "parameters": [
+          {
+            "name": "level",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "sector",
+                "group"
+              ],
+              "type": "string",
+              "default": "sector",
+              "title": "Level"
+            }
+          },
+          {
+            "name": "kind",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "monthly",
+                "interval"
+              ],
+              "type": "string",
+              "default": "monthly",
+              "title": "Kind"
+            }
+          },
+          {
+            "name": "years",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 10,
+              "minimum": 1,
+              "default": 10,
+              "title": "Years"
+            }
+          },
+          {
+            "name": "rank_by",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "absolute",
+                "relative"
+              ],
+              "type": "string",
+              "default": "absolute",
+              "title": "Rank By"
+            }
+          },
+          {
+            "name": "start",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^\\d{2}-\\d{2}$"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Start"
+            }
+          },
+          {
+            "name": "end",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^\\d{2}-\\d{2}$"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "End"
+            }
+          },
+          {
+            "name": "month",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "maximum": 12,
+                  "minimum": 1
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Month"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SectorRotation"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/sectors/prices": {
       "post": {
         "summary": "Request Prices",
@@ -3904,6 +4115,128 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/SectorPricesOutput"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/index-constituents": {
+      "get": {
+        "summary": "Index Lists",
+        "operationId": "index_lists_api_v1_index_constituents_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IndexListsOutput"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/index-constituents/refresh": {
+      "post": {
+        "summary": "Index Lists Refresh",
+        "description": "Update both lists now (one job each unless one already runs).",
+        "operationId": "index_lists_refresh_api_v1_index_constituents_refresh_post",
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IndexListsOutput"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/securities/{symbol}/classification": {
+      "get": {
+        "summary": "Classification",
+        "operationId": "classification_api_v1_securities__symbol__classification_get",
+        "parameters": [
+          {
+            "name": "symbol",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 32,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9.^=-]{0,31}$",
+              "title": "Symbol"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClassificationOutput"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/securities/{symbol}/classification/refresh": {
+      "post": {
+        "summary": "Classification Refresh",
+        "description": "Ask once for the identity refresh a classification is waiting for; otherwise nothing.",
+        "operationId": "classification_refresh_api_v1_securities__symbol__classification_refresh_post",
+        "parameters": [
+          {
+            "name": "symbol",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 32,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9.^=-]{0,31}$",
+              "title": "Symbol"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClassificationOutput"
                 }
               }
             }
@@ -3961,6 +4294,62 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/RetryOutput"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/long-prices": {
+      "get": {
+        "summary": "Inventory",
+        "operationId": "inventory_api_v1_long_prices_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LongPricesOutput"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/long-prices/manage": {
+      "post": {
+        "summary": "Manage",
+        "operationId": "manage_api_v1_long_prices_manage_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ManagementInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ManagementReceipt"
                 }
               }
             }
@@ -4070,6 +4459,18 @@
             ],
             "title": "Benchmark",
             "default": "^GSPC"
+          },
+          "sector_benchmark": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sector Benchmark",
+            "default": "auto"
           }
         },
         "additionalProperties": false,
@@ -4892,6 +5293,50 @@
               }
             ],
             "title": "Excess"
+          },
+          "sector_open": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sector Open"
+          },
+          "sector_close": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sector Close"
+          },
+          "sector_change": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sector Change"
+          },
+          "sector_excess": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sector Excess"
           }
         },
         "type": "object",
@@ -4904,6 +5349,135 @@
         ],
         "title": "Candle",
         "description": "One year of one period."
+      },
+      "ClassificationOutput": {
+        "properties": {
+          "symbol": {
+            "type": "string",
+            "title": "Symbol"
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "sp500_gics",
+              "yahoo",
+              "none"
+            ],
+            "title": "Source"
+          },
+          "sector": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SectorRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "industry_group": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GroupRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "gics_sector": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gics Sector"
+          },
+          "gics_sub_industry": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gics Sub Industry"
+          },
+          "yahoo_sector": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Yahoo Sector"
+          },
+          "yahoo_industry": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Yahoo Industry"
+          },
+          "indexes": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "sp500",
+                "nasdaq100"
+              ]
+            },
+            "type": "array",
+            "title": "Indexes"
+          },
+          "removed_on": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Removed On"
+          },
+          "refresh": {
+            "type": "string",
+            "enum": [
+              "none",
+              "needed",
+              "pending"
+            ],
+            "title": "Refresh"
+          }
+        },
+        "type": "object",
+        "required": [
+          "symbol",
+          "source",
+          "sector",
+          "industry_group",
+          "gics_sector",
+          "gics_sub_industry",
+          "yahoo_sector",
+          "yahoo_industry",
+          "indexes",
+          "removed_on",
+          "refresh"
+        ],
+        "title": "ClassificationOutput",
+        "description": "Sector of a security: the S&P 500 list's GICS first, then Yahoo's sector, else none.\n\n``refresh`` is ``needed`` when the identity was checked before Yahoo's sector was\nkept (the page may ask once), ``pending`` while that refresh runs."
       },
       "CollectionInput": {
         "properties": {
@@ -5130,6 +5704,49 @@
         ],
         "title": "CollectionResponse"
       },
+      "ColorSettings": {
+        "properties": {
+          "preset": {
+            "type": "string",
+            "enum": [
+              "us",
+              "colorblind",
+              "asia",
+              "custom"
+            ],
+            "title": "Preset",
+            "default": "us"
+          },
+          "up": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 7
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Up"
+          },
+          "down": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 7
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Down"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "ColorSettings",
+        "description": "Up/down colors: a preset, or ``custom`` with both colors as ``#rrggbb``."
+      },
       "CompanyOverview": {
         "properties": {
           "issuer_id": {
@@ -5150,6 +5767,17 @@
               }
             ],
             "title": "Ticker"
+          },
+          "indexes": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "sp500",
+                "nasdaq100"
+              ]
+            },
+            "type": "array",
+            "title": "Indexes"
           },
           "people": {
             "type": "integer",
@@ -5231,6 +5859,7 @@
           "issuer_id",
           "name",
           "ticker",
+          "indexes",
           "people",
           "buy_people",
           "sell_people",
@@ -5425,6 +6054,64 @@
         ],
         "title": "DateAnomaly",
         "description": "Transaction dated after its own SEC acceptance date; kept as reported."
+      },
+      "DisplayInput": {
+        "properties": {
+          "colors": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ColorSettings"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "market_strip": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MarketStripSettings"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "DisplayInput",
+        "description": "Sections to change; a section left out keeps its saved value."
+      },
+      "DisplayOutput": {
+        "properties": {
+          "colors": {
+            "$ref": "#/components/schemas/ColorSettings"
+          },
+          "market_strip": {
+            "$ref": "#/components/schemas/MarketStripSettings"
+          },
+          "instruments": {
+            "items": {
+              "$ref": "#/components/schemas/StripInstrument"
+            },
+            "type": "array",
+            "title": "Instruments"
+          },
+          "version": {
+            "type": "integer",
+            "title": "Version"
+          }
+        },
+        "type": "object",
+        "required": [
+          "colors",
+          "market_strip",
+          "instruments",
+          "version"
+        ],
+        "title": "DisplayOutput",
+        "description": "Display settings shared by every browser of this instance."
       },
       "DistributionStatistics": {
         "properties": {
@@ -5956,6 +6643,17 @@
               }
             ],
             "title": "Issuer Ticker Raw"
+          },
+          "indexes": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "sp500",
+                "nasdaq100"
+              ]
+            },
+            "type": "array",
+            "title": "Indexes"
           }
         },
         "type": "object",
@@ -5964,7 +6662,8 @@
           "kind",
           "name",
           "ticker",
-          "issuer_ticker_raw"
+          "issuer_ticker_raw",
+          "indexes"
         ],
         "title": "EntityRef"
       },
@@ -6083,6 +6782,18 @@
       },
       "EventAnalysisInput": {
         "properties": {
+          "sector_benchmark": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sector Benchmark",
+            "default": "auto"
+          },
           "request_id": {
             "type": "string",
             "maxLength": 128,
@@ -6123,8 +6834,23 @@
       },
       "EventAnalysisOutput": {
         "properties": {
+          "sector_benchmark": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sector Benchmark"
+          },
           "comparison": {
             "$ref": "#/components/schemas/TickerComparison"
+          },
+          "macro_excluded": {
+            "type": "integer",
+            "title": "Macro Excluded"
           },
           "filtered_event_count": {
             "type": "integer",
@@ -6213,6 +6939,7 @@
         "type": "object",
         "required": [
           "comparison",
+          "macro_excluded",
           "filtered_event_count",
           "id",
           "batch_id",
@@ -6350,6 +7077,121 @@
         ],
         "title": "EventCandle"
       },
+      "EventContextDefaults": {
+        "properties": {
+          "before_days": {
+            "type": "integer",
+            "title": "Before Days"
+          },
+          "after_days": {
+            "type": "integer",
+            "title": "After Days"
+          },
+          "presets": {
+            "items": {
+              "items": {
+                "type": "integer"
+              },
+              "type": "array"
+            },
+            "type": "array",
+            "title": "Presets",
+            "description": "[days before, days after] pairs offered on the page"
+          },
+          "max_days": {
+            "type": "integer",
+            "title": "Max Days"
+          }
+        },
+        "type": "object",
+        "required": [
+          "before_days",
+          "after_days",
+          "presets",
+          "max_days"
+        ],
+        "title": "EventContextDefaults"
+      },
+      "EventContextItem": {
+        "properties": {
+          "date": {
+            "type": "string",
+            "title": "Date"
+          },
+          "category": {
+            "type": "string",
+            "enum": [
+              "company",
+              "earnings",
+              "industry",
+              "market",
+              "macro",
+              "policy",
+              "geopolitical",
+              "other"
+            ],
+            "title": "Category"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "summary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Summary"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source"
+          },
+          "url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Url",
+            "description": "http or https link"
+          },
+          "major": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Major",
+            "description": "Moved the whole market"
+          }
+        },
+        "type": "object",
+        "required": [
+          "date",
+          "category",
+          "title"
+        ],
+        "title": "EventContextItem",
+        "description": "A dated item that may have moved the stock around the event (AI-compiled, unverified)."
+      },
       "EventDefaultsOutput": {
         "properties": {
           "window_sessions": {
@@ -6377,6 +7219,9 @@
           "benchmark": {
             "type": "string",
             "title": "Benchmark"
+          },
+          "context": {
+            "$ref": "#/components/schemas/EventContextDefaults"
           }
         },
         "type": "object",
@@ -6385,7 +7230,8 @@
           "min",
           "max",
           "presets",
-          "benchmark"
+          "benchmark",
+          "context"
         ],
         "title": "EventDefaultsOutput"
       },
@@ -6401,6 +7247,188 @@
           "deleted"
         ],
         "title": "EventDeleted"
+      },
+      "EventEarnings": {
+        "properties": {
+          "eps_actual": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Eps Actual",
+            "description": "USD per share"
+          },
+          "eps_estimate": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Eps Estimate"
+          },
+          "revenue_actual": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Revenue Actual",
+            "description": "USD millions"
+          },
+          "revenue_estimate": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Revenue Estimate"
+          },
+          "guidance": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "raised",
+                  "maintained",
+                  "lowered",
+                  "none"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Guidance"
+          }
+        },
+        "type": "object",
+        "title": "EventEarnings",
+        "description": "Actual and expected figures as the AI reported them (unverified)."
+      },
+      "EventExpectations": {
+        "properties": {
+          "eps_surprise": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Eps Surprise"
+          },
+          "revenue_surprise": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Revenue Surprise"
+          },
+          "surprise_group": {
+            "type": "string",
+            "enum": [
+              "beat",
+              "inline",
+              "miss",
+              "no_data"
+            ],
+            "title": "Surprise Group"
+          },
+          "guidance_group": {
+            "type": "string",
+            "enum": [
+              "raised",
+              "maintained",
+              "lowered",
+              "none",
+              "no_data"
+            ],
+            "title": "Guidance Group"
+          }
+        },
+        "type": "object",
+        "required": [
+          "eps_surprise",
+          "revenue_surprise",
+          "surprise_group",
+          "guidance_group"
+        ],
+        "title": "EventExpectations",
+        "description": "Derived from the AI's figures: surprise = (actual - estimate) / |estimate|."
+      },
+      "EventGroup": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "event_count": {
+            "type": "integer",
+            "title": "Event Count"
+          },
+          "summary": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/EventStatistics"
+            },
+            "type": "object",
+            "title": "Summary"
+          }
+        },
+        "type": "object",
+        "required": [
+          "key",
+          "event_count",
+          "summary"
+        ],
+        "title": "EventGroup"
+      },
+      "EventGroups": {
+        "properties": {
+          "inline_threshold": {
+            "type": "string",
+            "title": "Inline Threshold",
+            "description": "|EPS surprise| below this is in line"
+          },
+          "surprise": {
+            "items": {
+              "$ref": "#/components/schemas/EventGroup"
+            },
+            "type": "array",
+            "title": "Surprise"
+          },
+          "guidance": {
+            "items": {
+              "$ref": "#/components/schemas/EventGroup"
+            },
+            "type": "array",
+            "title": "Guidance"
+          }
+        },
+        "type": "object",
+        "required": [
+          "inline_threshold",
+          "surprise",
+          "guidance"
+        ],
+        "title": "EventGroups"
       },
       "EventInputIssue": {
         "properties": {
@@ -6486,6 +7514,17 @@
             ],
             "title": "Fiscal Quarter"
           },
+          "uncertain": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Uncertain"
+          },
           "note": {
             "anyOf": [
               {
@@ -6496,6 +7535,30 @@
               }
             ],
             "title": "Note"
+          },
+          "earnings": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EventEarnings"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "context": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/EventContextItem"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Context"
           },
           "reaction_date": {
             "anyOf": [
@@ -6519,8 +7582,43 @@
         ],
         "title": "EventItem"
       },
+      "EventMacroWindow": {
+        "properties": {
+          "start": {
+            "type": "string",
+            "title": "Start",
+            "description": "Session R minus the configured sessions"
+          },
+          "end": {
+            "type": "string",
+            "title": "End"
+          },
+          "sessions": {
+            "type": "integer",
+            "title": "Sessions"
+          }
+        },
+        "type": "object",
+        "required": [
+          "start",
+          "end",
+          "sessions"
+        ],
+        "title": "EventMacroWindow"
+      },
       "EventPathPoint": {
         "properties": {
+          "sector": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sector"
+          },
           "offset": {
             "type": "integer",
             "title": "Offset"
@@ -6564,6 +7662,17 @@
       },
       "EventPathStatistics": {
         "properties": {
+          "sector_median": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sector Median"
+          },
           "offset": {
             "type": "integer",
             "title": "Offset"
@@ -6673,6 +7782,12 @@
           "default_text": {
             "type": "string",
             "title": "Default Text"
+          },
+          "default_changed": {
+            "type": "boolean",
+            "title": "Default Changed",
+            "description": "The built-in default changed after this template was saved",
+            "default": false
           },
           "updated_at": {
             "anyOf": [
@@ -6793,6 +7908,65 @@
             "type": "object",
             "title": "Ranks"
           },
+          "uncertain": {
+            "type": "boolean",
+            "title": "Uncertain"
+          },
+          "earnings": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EventEarnings"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "context": {
+            "items": {
+              "$ref": "#/components/schemas/EventContextItem"
+            },
+            "type": "array",
+            "title": "Context",
+            "description": "AI-compiled, unverified"
+          },
+          "context_candles": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/EventCandle"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Context Candles",
+            "description": "Daily candles over R-1-n..R+n and every context date; null without context"
+          },
+          "macro_window": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EventMacroWindow"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Null in results made before background existed"
+          },
+          "expectations": {
+            "$ref": "#/components/schemas/EventExpectations"
+          },
+          "macro_events": {
+            "items": {
+              "$ref": "#/components/schemas/EventContextItem"
+            },
+            "type": "array",
+            "title": "Macro Events",
+            "description": "Major macro, policy or geopolitical context near R"
+          },
           "ticker": {
             "type": "string",
             "title": "Ticker"
@@ -6899,6 +8073,13 @@
         "required": [
           "id",
           "ranks",
+          "uncertain",
+          "earnings",
+          "context",
+          "context_candles",
+          "macro_window",
+          "expectations",
+          "macro_events",
           "ticker",
           "date",
           "session",
@@ -6991,6 +8172,18 @@
             "type": "boolean",
             "title": "Analyze",
             "default": false
+          },
+          "sector_benchmark": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sector Benchmark",
+            "default": "auto"
           },
           "n": {
             "anyOf": [
@@ -7399,6 +8592,69 @@
             "type": "array",
             "title": "Outliers"
           },
+          "benchmark_excess_box": {
+            "$ref": "#/components/schemas/DistributionStatistics"
+          },
+          "sector_excess_box": {
+            "$ref": "#/components/schemas/DistributionStatistics"
+          },
+          "sector_box": {
+            "$ref": "#/components/schemas/DistributionStatistics"
+          },
+          "sector_paired_n": {
+            "type": "integer",
+            "title": "Sector Paired N",
+            "default": 0
+          },
+          "sector_beat": {
+            "type": "integer",
+            "title": "Sector Beat",
+            "default": 0
+          },
+          "sector_beat_ratio": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sector Beat Ratio"
+          },
+          "sector_median": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sector Median"
+          },
+          "sector_median_excess": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sector Median Excess"
+          },
+          "sector_mean_excess": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sector Mean Excess"
+          },
           "benchmark_box": {
             "$ref": "#/components/schemas/DistributionStatistics"
           },
@@ -7505,6 +8761,21 @@
       },
       "EventTickerResult": {
         "properties": {
+          "sector": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SectorReference"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "sector_comparison_included": {
+            "type": "boolean",
+            "title": "Sector Comparison Included",
+            "default": false
+          },
           "kind": {
             "type": "string",
             "const": "event_windows",
@@ -7592,6 +8863,26 @@
             ],
             "title": "Quarters"
           },
+          "groups": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EventGroups"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Earnings by EPS surprise and by guidance"
+          },
+          "macro_excluded": {
+            "type": "integer",
+            "title": "Macro Excluded",
+            "description": "Events left out for major macro context near R"
+          },
+          "macro_sessions": {
+            "type": "integer",
+            "title": "Macro Sessions"
+          },
           "rows": {
             "items": {
               "$ref": "#/components/schemas/EventRow"
@@ -7614,6 +8905,8 @@
           "event_count",
           "summary",
           "path",
+          "macro_excluded",
+          "macro_sessions",
           "rows"
         ],
         "title": "EventTickerResult"
@@ -7709,6 +9002,34 @@
             "type": "string",
             "maxLength": 524288,
             "title": "Text"
+          },
+          "context_before_days": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 366.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Context Before Days",
+            "description": "Days around the event date that context should fall within"
+          },
+          "context_after_days": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 366.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Context After Days",
+            "description": "Days around the event date that context should fall within"
           }
         },
         "additionalProperties": false,
@@ -7732,6 +9053,14 @@
             "type": "array",
             "title": "Errors"
           },
+          "warnings": {
+            "items": {
+              "$ref": "#/components/schemas/EventInputIssue"
+            },
+            "type": "array",
+            "title": "Warnings",
+            "description": "Do not block saving"
+          },
           "events": {
             "items": {
               "$ref": "#/components/schemas/EventItem"
@@ -7751,6 +9080,7 @@
         "required": [
           "valid",
           "errors",
+          "warnings",
           "events",
           "tickers"
         ],
@@ -7774,6 +9104,17 @@
               }
             ],
             "title": "N"
+          },
+          "sector_benchmark": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sector Benchmark"
           },
           "benchmark": {
             "anyOf": [
@@ -7850,6 +9191,28 @@
             ],
             "title": "Excess",
             "description": "value - benchmark"
+          },
+          "sector": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sector"
+          },
+          "sector_excess": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sector Excess"
           }
         },
         "type": "object",
@@ -7942,6 +9305,17 @@
               }
             ],
             "title": "Quote Symbol"
+          },
+          "indexes": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "sp500",
+                "nasdaq100"
+              ]
+            },
+            "type": "array",
+            "title": "Indexes"
           },
           "accepted_at": {
             "anyOf": [
@@ -8062,6 +9436,7 @@
           "ticker",
           "issuer_ticker_raw",
           "quote_symbol",
+          "indexes",
           "accepted_at",
           "accepted_date",
           "transaction_dates",
@@ -8549,6 +9924,42 @@
         "type": "object",
         "title": "GenericOutput"
       },
+      "GroupRef": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "etf": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Etf"
+          },
+          "coverage": {
+            "type": "string",
+            "enum": [
+              "complete",
+              "partial",
+              "reference",
+              "pending"
+            ],
+            "title": "Coverage"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "etf",
+          "coverage"
+        ],
+        "title": "GroupRef"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -8666,6 +10077,33 @@
           "groups"
         ],
         "title": "HealthOutput"
+      },
+      "HistoryGaps": {
+        "properties": {
+          "symbol": {
+            "type": "string",
+            "title": "Symbol"
+          },
+          "dates": {
+            "items": {
+              "type": "string",
+              "format": "date"
+            },
+            "type": "array",
+            "title": "Dates"
+          },
+          "accepted": {
+            "type": "boolean",
+            "title": "Accepted"
+          }
+        },
+        "type": "object",
+        "required": [
+          "symbol",
+          "dates",
+          "accepted"
+        ],
+        "title": "HistoryGaps"
       },
       "HomeOutput": {
         "properties": {
@@ -8838,6 +10276,40 @@
             ],
             "title": "Unit"
           },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "index",
+              "yield",
+              "currency_index",
+              "futures",
+              "crypto"
+            ],
+            "title": "Kind",
+            "default": "index"
+          },
+          "short_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Short Name"
+          },
+          "change_bp": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Change Bp"
+          },
           "baseline": {
             "anyOf": [
               {
@@ -8888,12 +10360,138 @@
           "session",
           "status",
           "unit",
+          "kind",
+          "short_name",
+          "change_bp",
           "baseline",
           "freshness",
           "reason"
         ],
         "title": "HomeQuote",
-        "description": "One index (or gold futures) quote as saved from its latest fetch.\n\n``freshness`` is judged at read time: ``live`` in session and on time,\n``closed`` outside the session (``as_of`` is the last trading day),\n``delayed`` when overdue, stale at the source or the last refresh failed\n(``reason`` says which), ``missing`` before the first fetch."
+        "description": "One strip instrument's quote as saved from its latest fetch.\n\n``kind`` says how to show it: a ``yield`` (^TNX) is a percent whose change is\ngiven in basis points (``change_bp``); the others are prices or index points\nin ``unit``.\n\n``freshness`` is judged at read time: ``live`` in session and on time,\n``closed`` outside the session (``as_of`` is the last trading day),\n``delayed`` when overdue, stale at the source or the last refresh failed\n(``reason`` says which), ``missing`` before the first fetch."
+      },
+      "IndexList": {
+        "properties": {
+          "index_name": {
+            "type": "string",
+            "enum": [
+              "sp500",
+              "nasdaq100"
+            ],
+            "title": "Index Name"
+          },
+          "members": {
+            "type": "integer",
+            "title": "Members"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
+          },
+          "attempted_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Attempted At"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "running": {
+            "type": "boolean",
+            "title": "Running"
+          },
+          "next_run_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Next Run At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "index_name",
+          "members",
+          "updated_at",
+          "attempted_at",
+          "error",
+          "running",
+          "next_run_at"
+        ],
+        "title": "IndexList"
+      },
+      "IndexListsOutput": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/IndexList"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "weekday": {
+            "type": "string",
+            "enum": [
+              "monday",
+              "tuesday",
+              "wednesday",
+              "thursday",
+              "friday",
+              "saturday",
+              "sunday"
+            ],
+            "title": "Weekday"
+          },
+          "time": {
+            "type": "string",
+            "title": "Time"
+          },
+          "timezone": {
+            "type": "string",
+            "title": "Timezone"
+          },
+          "retry_seconds": {
+            "type": "integer",
+            "title": "Retry Seconds"
+          },
+          "next_scheduled_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Next Scheduled At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "weekday",
+          "time",
+          "timezone",
+          "retry_seconds",
+          "next_scheduled_at"
+        ],
+        "title": "IndexListsOutput",
+        "description": "The two unofficial index lists and their fixed weekly update time (US Eastern)."
       },
       "IndexStatus": {
         "properties": {
@@ -10052,6 +11650,17 @@
               }
             ],
             "title": "Last Trade"
+          },
+          "indexes": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "sp500",
+                "nasdaq100"
+              ]
+            },
+            "type": "array",
+            "title": "Indexes"
           }
         },
         "type": "object",
@@ -10059,7 +11668,8 @@
           "cik",
           "name",
           "ticker",
-          "last_trade"
+          "last_trade",
+          "indexes"
         ],
         "title": "LocalCompany"
       },
@@ -10122,6 +11732,124 @@
         ],
         "title": "LocalPerson"
       },
+      "LongPricesOutput": {
+        "properties": {
+          "gap_symbols": {
+            "type": "integer",
+            "title": "Gap Symbols"
+          },
+          "gap_days": {
+            "type": "integer",
+            "title": "Gap Days"
+          },
+          "gaps": {
+            "items": {
+              "$ref": "#/components/schemas/HistoryGaps"
+            },
+            "type": "array",
+            "title": "Gaps"
+          },
+          "symbols": {
+            "type": "integer",
+            "title": "Symbols"
+          },
+          "active_symbols": {
+            "type": "integer",
+            "title": "Active Symbols"
+          },
+          "ready_symbols": {
+            "type": "integer",
+            "title": "Ready Symbols"
+          },
+          "bars": {
+            "type": "integer",
+            "title": "Bars"
+          },
+          "start_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Start Date"
+          },
+          "end_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "End Date"
+          },
+          "bytes": {
+            "type": "integer",
+            "title": "Bytes"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "paused",
+              "backfilling",
+              "ready"
+            ],
+            "title": "Status"
+          },
+          "history_years": {
+            "type": "integer",
+            "title": "History Years"
+          },
+          "pending_jobs": {
+            "type": "integer",
+            "title": "Pending Jobs"
+          },
+          "removed": {
+            "items": {
+              "$ref": "#/components/schemas/RemovedMember"
+            },
+            "type": "array",
+            "title": "Removed"
+          }
+        },
+        "type": "object",
+        "required": [
+          "gap_symbols",
+          "gap_days",
+          "gaps",
+          "symbols",
+          "active_symbols",
+          "ready_symbols",
+          "bars",
+          "start_date",
+          "end_date",
+          "bytes",
+          "updated_at",
+          "status",
+          "history_years",
+          "pending_jobs",
+          "removed"
+        ],
+        "title": "LongPricesOutput"
+      },
       "LookupCandidate": {
         "properties": {
           "cik": {
@@ -10162,6 +11890,17 @@
             "type": "boolean",
             "title": "Local",
             "default": false
+          },
+          "indexes": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "sp500",
+                "nasdaq100"
+              ]
+            },
+            "type": "array",
+            "title": "Indexes"
           }
         },
         "type": "object",
@@ -10171,7 +11910,8 @@
           "kind",
           "tickers",
           "exchange",
-          "local"
+          "local",
+          "indexes"
         ],
         "title": "LookupCandidate"
       },
@@ -10269,6 +12009,46 @@
           "details"
         ],
         "title": "MaintenanceRecord"
+      },
+      "ManagementInput": {
+        "properties": {
+          "action": {
+            "type": "string",
+            "enum": [
+              "all",
+              "year",
+              "half_year",
+              "quarter",
+              "refill"
+            ],
+            "title": "Action"
+          },
+          "confirmed": {
+            "type": "boolean",
+            "const": true,
+            "title": "Confirmed"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "action",
+          "confirmed"
+        ],
+        "title": "ManagementInput"
+      },
+      "ManagementReceipt": {
+        "properties": {
+          "job_id": {
+            "type": "string",
+            "title": "Job Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "job_id"
+        ],
+        "title": "ManagementReceipt"
       },
       "MarketBar": {
         "properties": {
@@ -10511,6 +12291,25 @@
         "title": "MarketHistoryState",
         "description": "``missing``: the page should ask for six months; ``fetching``; ``failed`` today; ``fresh``."
       },
+      "MarketStripSettings": {
+        "properties": {
+          "symbols": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 32,
+            "title": "Symbols"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "symbols"
+        ],
+        "title": "MarketStripSettings",
+        "description": "Home-strip instruments to show (symbols from ``instruments``)."
+      },
       "OverviewPriceKey": {
         "properties": {
           "ticker": {
@@ -10558,6 +12357,17 @@
               }
             ],
             "title": "Ticker"
+          },
+          "indexes": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "sp500",
+                "nasdaq100"
+              ]
+            },
+            "type": "array",
+            "title": "Indexes"
           },
           "owners": {
             "items": {
@@ -10618,6 +12428,7 @@
           "issuer_id",
           "name",
           "ticker",
+          "indexes",
           "owners",
           "date",
           "shares",
@@ -11076,6 +12887,66 @@
               }
             ],
             "title": "Benchmark Median"
+          },
+          "benchmark_excess_box": {
+            "$ref": "#/components/schemas/DistributionStatistics"
+          },
+          "sector_excess_box": {
+            "$ref": "#/components/schemas/DistributionStatistics"
+          },
+          "sector_paired_n": {
+            "type": "integer",
+            "title": "Sector Paired N",
+            "default": 0
+          },
+          "sector_beat": {
+            "type": "integer",
+            "title": "Sector Beat",
+            "default": 0
+          },
+          "sector_beat_ratio": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sector Beat Ratio"
+          },
+          "sector_median": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sector Median"
+          },
+          "sector_median_excess": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sector Median Excess"
+          },
+          "sector_mean_excess": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sector Mean Excess"
           }
         },
         "type": "object",
@@ -11886,6 +13757,25 @@
         ],
         "title": "RecentAnalysisView"
       },
+      "RemovedMember": {
+        "properties": {
+          "symbol": {
+            "type": "string",
+            "title": "Symbol"
+          },
+          "removed_on": {
+            "type": "string",
+            "format": "date",
+            "title": "Removed On"
+          }
+        },
+        "type": "object",
+        "required": [
+          "symbol",
+          "removed_on"
+        ],
+        "title": "RemovedMember"
+      },
       "RequestIdentity": {
         "properties": {
           "request_id": {
@@ -12022,7 +13912,7 @@
           "calculation_version": {
             "type": "string",
             "title": "Calculation Version",
-            "default": "research-v11-open-close"
+            "default": "research-v12-sector"
           },
           "price_basis": {
             "type": "string",
@@ -12038,6 +13928,21 @@
                 "type": "null"
               }
             ]
+          },
+          "sector": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SectorReference"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "sector_comparison_included": {
+            "type": "boolean",
+            "title": "Sector Comparison Included",
+            "default": false
           }
         },
         "additionalProperties": true,
@@ -12109,6 +14014,842 @@
           "retried"
         ],
         "title": "RetryOutput"
+      },
+      "RotationCell": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "rank": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rank"
+          },
+          "n": {
+            "type": "integer",
+            "title": "N"
+          },
+          "up": {
+            "type": "integer",
+            "title": "Up"
+          },
+          "median": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Median"
+          },
+          "median_excess": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Median Excess"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "rank",
+          "n",
+          "up",
+          "median",
+          "median_excess"
+        ],
+        "title": "RotationCell"
+      },
+      "RotationCount": {
+        "properties": {
+          "count": {
+            "type": "integer",
+            "title": "Count"
+          },
+          "n": {
+            "type": "integer",
+            "title": "N"
+          }
+        },
+        "type": "object",
+        "required": [
+          "count",
+          "n"
+        ],
+        "title": "RotationCount"
+      },
+      "RotationDetail": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "month": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Month"
+          },
+          "start_mmdd": {
+            "type": "string",
+            "title": "Start Mmdd"
+          },
+          "end_mmdd": {
+            "type": "string",
+            "title": "End Mmdd"
+          },
+          "cross_year": {
+            "type": "boolean",
+            "title": "Cross Year"
+          },
+          "best": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Best"
+          },
+          "worst": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Worst"
+          },
+          "yearly": {
+            "items": {
+              "$ref": "#/components/schemas/RotationYearLeaders"
+            },
+            "type": "array",
+            "title": "Yearly"
+          },
+          "rows": {
+            "items": {
+              "$ref": "#/components/schemas/RotationRow"
+            },
+            "type": "array",
+            "title": "Rows"
+          }
+        },
+        "type": "object",
+        "required": [
+          "key",
+          "month",
+          "start_mmdd",
+          "end_mmdd",
+          "cross_year",
+          "best",
+          "worst",
+          "yearly",
+          "rows"
+        ],
+        "title": "RotationDetail"
+      },
+      "RotationItem": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "sector": {
+            "type": "string",
+            "title": "Sector"
+          },
+          "etf": {
+            "type": "string",
+            "title": "Etf"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "available",
+              "no_prices"
+            ],
+            "title": "Status"
+          },
+          "first_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "First Date"
+          },
+          "complete_through": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Complete Through"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "sector",
+          "etf",
+          "status",
+          "first_date",
+          "complete_through"
+        ],
+        "title": "RotationItem"
+      },
+      "RotationLeader": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "change": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Change"
+          },
+          "excess": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Excess"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "change",
+          "excess"
+        ],
+        "title": "RotationLeader"
+      },
+      "RotationPeriod": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "month": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Month"
+          },
+          "start_mmdd": {
+            "type": "string",
+            "title": "Start Mmdd"
+          },
+          "end_mmdd": {
+            "type": "string",
+            "title": "End Mmdd"
+          },
+          "cross_year": {
+            "type": "boolean",
+            "title": "Cross Year"
+          },
+          "best": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Best"
+          },
+          "worst": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Worst"
+          },
+          "yearly": {
+            "items": {
+              "$ref": "#/components/schemas/RotationYearLeaders"
+            },
+            "type": "array",
+            "title": "Yearly"
+          },
+          "cells": {
+            "items": {
+              "$ref": "#/components/schemas/RotationCell"
+            },
+            "type": "array",
+            "title": "Cells"
+          }
+        },
+        "type": "object",
+        "required": [
+          "key",
+          "month",
+          "start_mmdd",
+          "end_mmdd",
+          "cross_year",
+          "best",
+          "worst",
+          "yearly",
+          "cells"
+        ],
+        "title": "RotationPeriod"
+      },
+      "RotationRow": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "sector": {
+            "type": "string",
+            "title": "Sector"
+          },
+          "etf": {
+            "type": "string",
+            "title": "Etf"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "available",
+              "no_prices"
+            ],
+            "title": "Status"
+          },
+          "rank": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rank"
+          },
+          "top": {
+            "$ref": "#/components/schemas/RotationCount"
+          },
+          "bottom": {
+            "$ref": "#/components/schemas/RotationCount"
+          },
+          "stats": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RotationStats"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "years": {
+            "items": {
+              "$ref": "#/components/schemas/RotationYear"
+            },
+            "type": "array",
+            "title": "Years"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "sector",
+          "etf",
+          "status",
+          "rank",
+          "top",
+          "bottom",
+          "stats",
+          "years"
+        ],
+        "title": "RotationRow"
+      },
+      "RotationStats": {
+        "properties": {
+          "n": {
+            "type": "integer",
+            "title": "N"
+          },
+          "target_n": {
+            "type": "integer",
+            "title": "Target N"
+          },
+          "median": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Median"
+          },
+          "mean": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mean"
+          },
+          "q25": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Q25"
+          },
+          "q75": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Q75"
+          },
+          "best": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Best"
+          },
+          "worst": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Worst"
+          },
+          "best_year": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Best Year"
+          },
+          "worst_year": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Worst Year"
+          },
+          "up": {
+            "type": "integer",
+            "title": "Up",
+            "default": 0
+          },
+          "flat": {
+            "type": "integer",
+            "title": "Flat",
+            "default": 0
+          },
+          "up_ratio": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Up Ratio"
+          },
+          "up_low": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Up Low"
+          },
+          "up_high": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Up High"
+          },
+          "coin_flip": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Coin Flip"
+          },
+          "paired_n": {
+            "type": "integer",
+            "title": "Paired N",
+            "default": 0
+          },
+          "beat": {
+            "type": "integer",
+            "title": "Beat",
+            "default": 0
+          },
+          "beat_ratio": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Beat Ratio"
+          },
+          "median_excess": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Median Excess"
+          },
+          "mean_excess": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mean Excess"
+          },
+          "benchmark_median": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Benchmark Median"
+          },
+          "whisker_low": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Whisker Low"
+          },
+          "whisker_high": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Whisker High"
+          },
+          "outliers": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Outliers"
+          },
+          "benchmark_excess_box": {
+            "$ref": "#/components/schemas/DistributionStatistics"
+          }
+        },
+        "type": "object",
+        "required": [
+          "n",
+          "target_n",
+          "median",
+          "mean",
+          "q25",
+          "q75",
+          "best",
+          "worst",
+          "best_year",
+          "worst_year",
+          "up",
+          "flat",
+          "up_ratio",
+          "up_low",
+          "up_high",
+          "coin_flip",
+          "paired_n",
+          "beat",
+          "beat_ratio",
+          "median_excess",
+          "mean_excess",
+          "benchmark_median",
+          "whisker_low",
+          "whisker_high",
+          "outliers",
+          "benchmark_excess_box"
+        ],
+        "title": "RotationStats",
+        "description": "Complete past years only, as the monthly research reports them."
+      },
+      "RotationYear": {
+        "properties": {
+          "year": {
+            "type": "integer",
+            "title": "Year"
+          },
+          "current": {
+            "type": "boolean",
+            "title": "Current"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "complete",
+              "in_progress",
+              "not_started",
+              "no_data",
+              "incomplete"
+            ],
+            "title": "Status"
+          },
+          "start_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Start Date"
+          },
+          "end_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "End Date"
+          },
+          "change": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Change"
+          },
+          "excess": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Excess"
+          },
+          "rank": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rank"
+          }
+        },
+        "type": "object",
+        "required": [
+          "year",
+          "current",
+          "status",
+          "start_date",
+          "end_date",
+          "change",
+          "excess",
+          "rank"
+        ],
+        "title": "RotationYear"
+      },
+      "RotationYearLeaders": {
+        "properties": {
+          "year": {
+            "type": "integer",
+            "title": "Year"
+          },
+          "current": {
+            "type": "boolean",
+            "title": "Current"
+          },
+          "in_progress": {
+            "type": "boolean",
+            "title": "In Progress"
+          },
+          "start_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Start Date"
+          },
+          "end_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "End Date"
+          },
+          "participants": {
+            "type": "integer",
+            "title": "Participants"
+          },
+          "first": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RotationLeader"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "last": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RotationLeader"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "year",
+          "current",
+          "in_progress",
+          "start_date",
+          "end_date",
+          "participants",
+          "first",
+          "last"
+        ],
+        "title": "RotationYearLeaders"
       },
       "ScopeView": {
         "properties": {
@@ -12935,6 +15676,9 @@
           "weights": {
             "$ref": "#/components/schemas/SectorWeights"
           },
+          "ranks": {
+            "$ref": "#/components/schemas/SectorRanks"
+          },
           "groups": {
             "type": "integer",
             "title": "Groups"
@@ -12954,6 +15698,7 @@
           "fetch",
           "id",
           "weights",
+          "ranks",
           "groups"
         ],
         "title": "SectorItem"
@@ -13188,6 +15933,262 @@
           "ytd"
         ],
         "title": "SectorRanks"
+      },
+      "SectorRef": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "etf": {
+            "type": "string",
+            "title": "Etf"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "etf"
+        ],
+        "title": "SectorRef"
+      },
+      "SectorReference": {
+        "properties": {
+          "symbol": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Symbol"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "sp500_gics",
+              "yahoo",
+              "none",
+              "custom"
+            ],
+            "title": "Source",
+            "default": "none"
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "auto",
+              "industry_group",
+              "custom"
+            ],
+            "title": "Mode",
+            "default": "auto"
+          },
+          "sector_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sector Id"
+          },
+          "industry_group_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Industry Group Id"
+          },
+          "fallback": {
+            "type": "boolean",
+            "title": "Fallback",
+            "default": false
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "title": "SectorReference"
+      },
+      "SectorRotation": {
+        "properties": {
+          "level": {
+            "type": "string",
+            "enum": [
+              "sector",
+              "group"
+            ],
+            "title": "Level"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "monthly",
+              "interval"
+            ],
+            "title": "Kind"
+          },
+          "years": {
+            "type": "integer",
+            "title": "Years"
+          },
+          "rank_by": {
+            "type": "string",
+            "enum": [
+              "absolute",
+              "relative"
+            ],
+            "title": "Rank By"
+          },
+          "start_mmdd": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Start Mmdd"
+          },
+          "end_mmdd": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "End Mmdd"
+          },
+          "cross_year": {
+            "type": "boolean",
+            "title": "Cross Year"
+          },
+          "historical_years": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Historical Years"
+          },
+          "current_year": {
+            "type": "integer",
+            "title": "Current Year"
+          },
+          "current_month": {
+            "type": "integer",
+            "title": "Current Month"
+          },
+          "cutoff_date": {
+            "type": "string",
+            "title": "Cutoff Date"
+          },
+          "benchmark": {
+            "type": "string",
+            "title": "Benchmark"
+          },
+          "benchmark_status": {
+            "type": "string",
+            "enum": [
+              "available",
+              "no_prices"
+            ],
+            "title": "Benchmark Status"
+          },
+          "benchmark_complete_through": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Benchmark Complete Through"
+          },
+          "computed_at": {
+            "type": "string",
+            "title": "Computed At"
+          },
+          "expires_at": {
+            "type": "string",
+            "title": "Expires At"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/RotationItem"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "periods": {
+            "items": {
+              "$ref": "#/components/schemas/RotationPeriod"
+            },
+            "type": "array",
+            "title": "Periods"
+          },
+          "detail": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RotationDetail"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "level",
+          "kind",
+          "years",
+          "rank_by",
+          "start_mmdd",
+          "end_mmdd",
+          "cross_year",
+          "historical_years",
+          "current_year",
+          "current_month",
+          "cutoff_date",
+          "benchmark",
+          "benchmark_status",
+          "benchmark_complete_through",
+          "computed_at",
+          "expires_at",
+          "items",
+          "periods",
+          "detail"
+        ],
+        "title": "SectorRotation"
       },
       "SectorToday": {
         "properties": {
@@ -13990,6 +16991,46 @@
           "options"
         ],
         "title": "StrategyView"
+      },
+      "StripInstrument": {
+        "properties": {
+          "symbol": {
+            "type": "string",
+            "title": "Symbol"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "index",
+              "yield",
+              "currency_index",
+              "futures",
+              "crypto"
+            ],
+            "title": "Kind"
+          },
+          "default": {
+            "type": "boolean",
+            "title": "Default"
+          },
+          "off_hours_only": {
+            "type": "boolean",
+            "title": "Off Hours Only"
+          }
+        },
+        "type": "object",
+        "required": [
+          "symbol",
+          "name",
+          "kind",
+          "default",
+          "off_hours_only"
+        ],
+        "title": "StripInstrument"
       },
       "SystemOutput": {
         "properties": {

@@ -139,6 +139,10 @@ def fetch_sec(url):
 
 
 def operation(kind, target):
+    if kind == "market_long_manage":
+        return {}
+    if kind == "market_long_history":
+        return fetch_market("market_history", target)
     if kind == "market_stock_quotes":
         from iirp.market.stock_quotes import fetch_stock_quotes
         return fetch_stock_quotes(target)
@@ -164,6 +168,7 @@ def operation(kind, target):
             target["bars"],
             today=date.fromisoformat(cutoff) if cutoff else None,
             benchmark=target.get("benchmark"),
+            sector=target.get("sector"),
         )
         result["metadata"]["dependencies"] = target.get("dependency_manifest")
         return result

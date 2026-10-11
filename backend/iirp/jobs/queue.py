@@ -35,6 +35,13 @@ TITLES = {
 }
 
 
+def job_title(kind):
+    """The title of a job kind that an installed optional feature runs."""
+    from iirp.extensions import jobs
+
+    return jobs()[kind][2]
+
+
 def ensure_defaults():
     with session() as s, s.begin():
         s.execute(
@@ -57,7 +64,7 @@ def enqueue(s, kind, target, trigger="manual"):
             raise UserError("job.queue_full", max=50)
         job = Job(
             kind=kind,
-            title=TITLES[kind],
+            title=TITLES.get(kind) or job_title(kind),
             target=target,
             idempotency_key=key,
             trigger=trigger,
@@ -272,7 +279,7 @@ def claim(allowed_kinds=None, *, prefer_latest=False):
         query = select(Job).where(
             ~blocked,
             ~(Job.kind.in_(("sec_discover", "sec_document", "sec_identity")) & sec_blocked),
-            ~(Job.kind.in_(("market_identity", "market_history", "market_quote", "market_stock_quotes")) & yahoo_blocked),
+            ~(Job.kind.in_(("market_identity", "market_history", "market_long_history", "market_quote", "market_stock_quotes")) & yahoo_blocked),
         )
         # While manual work owns a provider lane, automatic work waits even if
         # that lane has another slot. Other provider lanes remain independent.
@@ -299,6 +306,7 @@ def claim(allowed_kinds=None, *, prefer_latest=False):
         tier = func.coalesce(
             select(func.min(case(
                 ((Batch.trigger == "manual") & Batch.kind.in_(("sec_latest", "market_quotes")), -20),
+                (Batch.params["long_prices"].astext == "true", 60),
                 (Batch.trigger == "manual", -10),
                 (Batch.kind.in_(("sec_latest", "market_quotes")), 0),
                 ((Batch.kind == "sec_history") & Batch.params["issuer_id"].astext.is_(None) & Batch.params["owner_id"].astext.is_(None), 30),
@@ -455,7 +463,7 @@ def claim(allowed_kinds=None, *, prefer_latest=False):
 # Provider lanes, not all background work, yield to a manual request.
 SOURCE_LANES = (
     ("sec_discover", "sec_document", "sec_identity"),
-    ("market_identity", "market_history", "market_quote", "market_stock_quotes"),
+    ("market_identity", "market_history", "market_long_history", "market_quote", "market_stock_quotes"),
 )
 
 

@@ -2,7 +2,7 @@
 from datetime import timedelta
 
 from iirp.db import session
-from iirp.jobs import batch_views, batches, planner
+from iirp.jobs import auto_update, batch_views, batches, planner
 from iirp.jobs.auto_update import ensure_fresh
 from iirp.models import Batch, CollectionStrategy, Job, RequestScope, now
 from sqlalchemy import func, select
@@ -38,7 +38,9 @@ def test_open_reconciles_completed_parent_and_starts_due_check():
     assert second["sources"]["market"]["batch_id"] == second["batch_ids"][0]
     with session() as s:
         assert s.get(Batch, old).status == "SUCCEEDED"
-        assert s.scalar(select(func.count()).select_from(Job)) == 5
+        # One quote job per instrument the strip wants now (the chosen ones; index
+        # futures only outside US stock hours).
+        assert s.scalar(select(func.count()).select_from(Job)) == len(auto_update._market_wanted(s))
 
 
 def test_open_shares_live_children_and_pause_remains_explicit():
@@ -96,12 +98,13 @@ def test_opening_pages_while_closed_plans_only_due_quotes():
         policy.options = {**policy.options, "latest_requested_at": (now() - timedelta(minutes=5)).isoformat()}
     for reason in ("open", "resume"):
         assert ensure_fresh({"reason": reason, "sources": ["market"]})["batch_ids"] == []
-    # A manual refresh still asks for every instrument.
+    # A manual refresh still asks for every instrument the strip wants, in one batch.
     manual = ensure_fresh({"reason": "manual", "sources": ["market"], "force": True})
     with session() as s:
         assert s.scalar(select(func.count()).select_from(Batch)) == 2
         assert sorted(s.scalars(select(RequestScope.symbol).where(
-            RequestScope.batch_id == manual["batch_ids"][0])).all()) == sorted(MARKETS)
+            RequestScope.batch_id == manual["batch_ids"][0])).all()) == sorted(auto_update._market_wanted(s))
+        assert "BTC-USD" not in auto_update._market_wanted(s)
 
 
 def test_latest_completed_manual_batch_does_not_mask_returned_automatic_demand():

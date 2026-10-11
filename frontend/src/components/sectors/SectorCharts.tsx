@@ -6,15 +6,13 @@ import { AxisPointerComponent, DataZoomComponent, GridComponent, TooltipComponen
 import { CanvasRenderer } from "echarts/renderers";
 import { useReducedMotion } from "motion/react";
 import { locale } from "@/i18n";
+import { CHART, usePalette } from "@/lib/colors";
 import { formatDay } from "@/lib/format";
 import type { PricedRow, SectorCandles } from "@/lib/sectors";
 import { Skeleton } from "@/components/ui/skeleton";
 
 echarts.use([CandlestickChart, GridComponent, TooltipComponent, AxisPointerComponent, DataZoomComponent, CanvasRenderer]);
 
-// Same blue (up) and orange (down) as the CSS tokens, as canvas colors.
-const UP = "#2156d9";
-const DOWN = "#c2531a";
 const GROUP = "sector-candles";
 
 type Candle = SectorCandles["items"][number]["candles"][number];
@@ -38,6 +36,7 @@ function CandleChart({ dates, candles, label }: { dates: string[]; candles: Cand
   const element = useRef<HTMLDivElement>(null);
   const chart = useRef<echarts.ECharts | null>(null);
   const reduce = useReducedMotion();
+  const { up: UP, down: DOWN } = usePalette();
 
   useEffect(() => {
     if (!element.current) return;
@@ -76,17 +75,17 @@ function CandleChart({ dates, candles, label }: { dates: string[]; candles: Cand
         type: "category",
         data: dates,
         boundaryGap: true,
-        axisLine: { lineStyle: { color: "#cbd5e1" } },
+        axisLine: { lineStyle: { color: CHART.axis } },
         axisTick: { show: false },
-        axisLabel: { color: "#64748b", fontSize: 10, hideOverlap: true, formatter: (value: string) => value.slice(5) },
+        axisLabel: { color: CHART.muted, fontSize: 10, hideOverlap: true, formatter: (value: string) => value.slice(5) },
       },
       yAxis: {
         type: "value",
         scale: true,
         position: "right",
         splitNumber: 3,
-        splitLine: { lineStyle: { color: "#eef2f6" } },
-        axisLabel: { color: "#64748b", fontSize: 10 },
+        splitLine: { lineStyle: { color: CHART.grid } },
+        axisLabel: { color: CHART.muted, fontSize: 10 },
       },
       dataZoom: [{ type: "inside" }],
       series: [{
@@ -98,7 +97,7 @@ function CandleChart({ dates, candles, label }: { dates: string[]; candles: Cand
         itemStyle: { color: UP, color0: DOWN, borderColor: UP, borderColor0: DOWN },
       }],
     }, { notMerge: true });
-  }, [dates, candles, label, reduce]);
+  }, [dates, candles, label, reduce, UP, DOWN]);
 
   return <div ref={element} className="h-44 w-full"/>;
 }

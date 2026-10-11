@@ -1,13 +1,13 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import { Check, ChevronRight, CircleAlert, Copy, LoaderCircle, Pencil, Play, RotateCcw, Table2, Trash2 } from "lucide-react";
-import { tm } from "@/i18n";
+import { Check, ChevronRight, CircleAlert, Copy, Info, LoaderCircle, Pencil, Play, RotateCcw, Table2, Trash2, TriangleAlert } from "lucide-react";
+import i18n, { tm } from "@/i18n";
 import { client, unwrap, type Schemas } from "@/lib/api-client";
-import { BENCHMARKS, benchmarkName } from "@/lib/analysis";
-import { SESSIONS, eventsJson, fiscalLabel, sessionLabel, useEventSets, type EventItem, type EventKind } from "@/lib/events";
+import { SESSIONS, eventsJson, fiscalLabel, sessionLabel, useContextWindow, useEventSets, type EventItem, type EventKind } from "@/lib/events";
 import { formatDay, formatLocal } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { ReferenceChoice } from "@/components/analysis/References";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
@@ -34,8 +34,35 @@ function fill(template: string, values: Record<string, string>) {
   return Object.entries(values).reduce((text, [key, value]) => (value.trim() ? text.split(`{{${key}}}`).join(value.trim()) : text), template);
 }
 
+type ContextWindow = ReturnType<typeof useContextWindow>;
+
+/** "1 month before, 2 weeks after" for the presets, else the days. */
+function windowName(before: number, after: number) {
+  return i18n.exists(`ui.events.context.preset_${before}_${after}`)
+    ? i18n.t(`ui.events.context.preset_${before}_${after}`)
+    : i18n.t("ui.events.context.days", { before, after });
+}
+
+/** The background window the prompt asks for; pasted context is checked against it. */
+function ContextChoice({ span }: { span: ContextWindow }) {
+  const { t } = useTranslation();
+  const current = `${span.before},${span.after}`;
+  const known = span.presets.some(([before, after]) => `${before},${after}` === current);
+  return (
+    <label className="block space-y-1">
+      <Label>{t("ui.events.context.label")}</Label>
+      <select value={current} onChange={(e) => span.set(e.target.value.split(",").map(Number) as [number, number])} className={cn(input, "px-1")}>
+        {!known && <option value={current}>{windowName(span.before, span.after)}</option>}
+        {span.presets.map(([before, after]) => (
+          <option key={`${before},${after}`} value={`${before},${after}`}>{windowName(before, after)}</option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
 /** ① The prompt template (zh and en): fill in, copy, edit, or restore the default. */
-function PromptStep({ kind, open }: { kind: EventKind; open: boolean }) {
+function PromptStep({ kind, open, span }: { kind: EventKind; open: boolean; span: ContextWindow }) {
   const { t, i18n } = useTranslation();
   const queryClient = useQueryClient();
   const [language, setLanguage] = useState<"zh" | "en">(i18n.language === "zh" ? "zh" : "en");
@@ -60,7 +87,9 @@ function PromptStep({ kind, open }: { kind: EventKind; open: boolean }) {
       setDraft(null);
     },
   });
-  const filled = prompt.data ? fill(prompt.data.text, { tickers, years, event }) : "";
+  const filled = prompt.data
+    ? fill(prompt.data.text, { tickers, years, event, context_before_days: String(span.before), context_after_days: String(span.after) })
+    : "";
   const copy = async () => {
     try {
       await navigator.clipboard.writeText(filled);
@@ -99,6 +128,7 @@ function PromptStep({ kind, open }: { kind: EventKind; open: boolean }) {
           <input value={event} placeholder={t("ui.events.prompt.event_placeholder")} onChange={(e) => setEvent(e.target.value)} className={input} />
         </label>
       )}
+      <ContextChoice span={span} />
       <div className="flex gap-1.5">
         <Button size="sm" className="flex-1" onClick={() => void copy()} disabled={!prompt.data}>
           {copied ? <Check /> : <Copy />}
@@ -109,16 +139,33 @@ function PromptStep({ kind, open }: { kind: EventKind; open: boolean }) {
           {t("ui.events.prompt.view_edit")}
         </Button>
       </div>
+      <div className="flex gap-1.5 rounded-md bg-muted/50 p-2 text-xs text-muted-foreground">
+        <Info className="mt-0.5 size-3.5 shrink-0" />
+        <ol className="list-decimal space-y-0.5 pl-3.5">
+          <li>{t("ui.events.prompt.two_step_1")}</li>
+          <li>{t("ui.events.prompt.two_step_2")}</li>
+          <li>{t("ui.events.prompt.two_step_3")}</li>
+        </ol>
+      </div>
       <p className="text-xs text-muted-foreground">
         {prompt.data?.is_default ? t("ui.events.prompt.default") : t("ui.events.prompt.custom", { time: formatLocal(prompt.data?.updated_at) })}
       </p>
+      {prompt.data?.default_changed && (
+        <div role="status" className="space-y-1.5 rounded-md border border-warn/30 bg-warn-soft p-2 text-xs text-warn">
+          <p>{t("ui.events.prompt.default_changed")}</p>
+          <Button size="xs" variant="outline" disabled={save.isPending} onClick={() => window.confirm(t("ui.events.prompt.reset_confirm")) && save.mutate(null)}>
+            <RotateCcw />
+            {t("ui.events.prompt.reset")}
+          </Button>
+        </div>
+      )}
       {prompt.error && <p className="text-xs text-destructive">{prompt.error.message}</p>}
       <Dialog open={dialog} onOpenChange={(value) => { setDialog(value); if (!value) setDraft(null); }}>
         <DialogContent className="sm:max-w-3xl">
           <DialogHeader>
             <DialogTitle>{t(`ui.events.prompt.title_${kind}`)} · {language === "en" ? "English" : "中文"}</DialogTitle>
             <DialogDescription>
-              {t(kind === "custom" ? "ui.events.prompt.placeholders_custom" : "ui.events.prompt.placeholders", { tickers: "{{tickers}}", years: "{{years}}", event: "{{event}}" })}
+              {t(kind === "custom" ? "ui.events.prompt.placeholders_custom" : "ui.events.prompt.placeholders", { tickers: "{{tickers}}", years: "{{years}}", event: "{{event}}", before: "{{context_before_days}}", after: "{{context_after_days}}" })}
             </DialogDescription>
           </DialogHeader>
           {draft === null ? (
@@ -190,19 +237,27 @@ function PreviewDialog({
                 <th className="px-2 py-1.5 font-medium">{t("ui.events.col.event")}</th>
                 <th className="px-2 py-1.5 font-medium">{t("ui.events.col.date")}</th>
                 <th className="px-2 py-1.5 font-medium">{t("ui.events.col.session")}</th>
-                <th className="px-2 py-1.5 pr-3 font-medium">R</th>
+                <th className="px-2 py-1.5 font-medium">R</th>
+                {kind === "earnings" && <th className="px-2 py-1.5 font-medium">{t("ui.events.col.eps")}</th>}
+                <th className="px-2 py-1.5 pr-3 font-medium">{t("ui.events.col.context")}</th>
               </tr>
             </thead>
             <tbody>
               {events.map((event, index) => {
                 const session = sessions[index] ?? event.session;
                 return (
-                  <tr key={index} className="border-b last:border-b-0">
+                  <tr key={index} className={cn("border-b last:border-b-0", event.uncertain && "bg-doubt-soft")}>
                     <td className="px-2 py-1 pl-3 text-muted-foreground tabular-nums">{index + 1}</td>
                     <td className="px-2 py-1 font-semibold">{event.ticker}</td>
                     <td className="px-2 py-1">
                       {event.name}
                       {kind === "earnings" && <span className="ml-1 text-xs text-muted-foreground">{fiscalLabel(event)}</span>}
+                      {event.uncertain && (
+                        <span className="ml-1.5 inline-flex items-center gap-0.5 rounded border border-doubt/40 px-1 text-[11px] font-medium text-doubt">
+                          <TriangleAlert className="size-3" />
+                          {t("ui.events.preview.uncertain")}
+                        </span>
+                      )}
                       {event.note && <span className="block text-xs text-muted-foreground">{event.note}</span>}
                     </td>
                     <td className="px-2 py-1 whitespace-nowrap tabular-nums">{formatDay(event.date, { year: true })}</td>
@@ -220,8 +275,18 @@ function PreviewDialog({
                         sessionLabel(event.session)
                       )}
                     </td>
-                    <td className="px-2 py-1 pr-3 whitespace-nowrap tabular-nums">
+                    <td className="px-2 py-1 whitespace-nowrap tabular-nums">
                       {session === event.session ? (event.reaction_date ? formatDay(event.reaction_date, { year: true }) : "—") : t("ui.events.preview.after_save")}
+                    </td>
+                    {kind === "earnings" && (
+                      <td className="px-2 py-1 whitespace-nowrap text-xs tabular-nums">
+                        {event.earnings?.eps_actual != null || event.earnings?.eps_estimate != null
+                          ? t("ui.events.preview.eps", { actual: event.earnings?.eps_actual ?? "—", estimate: event.earnings?.eps_estimate ?? "—" })
+                          : "—"}
+                      </td>
+                    )}
+                    <td className="px-2 py-1 pr-3 text-xs tabular-nums" title={(event.context ?? []).map((item) => `${item.date} ${item.title}`).join("\n")}>
+                      {event.context?.length ? t("ui.events.preview.context", { count: event.context.length }) : "—"}
                     </td>
                   </tr>
                 );
@@ -229,6 +294,7 @@ function PreviewDialog({
             </tbody>
           </table>
         </div>
+        {events.some((event) => event.context?.length || event.earnings) && <p className="text-xs text-muted-foreground">{t("ui.events.ai_unverified")}</p>}
         {error && <p className="text-xs text-destructive">{error.message}</p>}
         {onSave && (
           <DialogFooter>
@@ -276,10 +342,24 @@ function PasteStep({ kind, open, text, setText, checked }: { kind: EventKind; op
           </ul>
         </div>
       )}
+      {checked?.valid && checked.warnings.length > 0 && (
+        <div role="status" className="max-h-48 space-y-1 overflow-y-auto rounded-md border border-warn/30 bg-warn-soft p-2 text-xs text-warn">
+          <p className="flex items-center gap-1 font-medium"><TriangleAlert className="size-3.5" />{t("ui.events.paste.warnings", { count: checked.warnings.length })}</p>
+          <ul className="list-disc space-y-0.5 pl-4">
+            {checked.warnings.map((issue, index) => (
+              <li key={index}>
+                {issue.index ? t("ui.events.paste.item", { index: issue.index }) : t("ui.events.paste.whole")}
+                {issue.field ? <code className="mx-1 rounded bg-warn/10 px-1">{issue.field}</code> : " "}
+                {tm(issue.message)}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
       {checked?.valid && (
         <div className="flex items-center gap-2 text-xs">
           <span className="flex min-w-0 items-center gap-1 text-foreground">
-            <Check className="size-3.5 shrink-0 text-up" />
+            <Check className="size-3.5 shrink-0 text-ok" />
             <span className="truncate">{t("ui.events.paste.valid", { count: checked.events.length, tickers: checked.tickers.join(", ") })}</span>
           </span>
           <button type="button" onClick={() => setPreview(true)} className="ml-auto inline-flex shrink-0 items-center gap-1 font-medium underline-offset-2 hover:underline">
@@ -307,7 +387,7 @@ function PasteStep({ kind, open, text, setText, checked }: { kind: EventKind; op
 }
 
 /** n and the benchmark: they apply at once to the analysis shown, and to the next one. */
-function Choices({ n, setN, presets, defaultN, min, max, benchmark, setBenchmark, busy }: {
+function Choices({ n, setN, presets, defaultN, min, max, benchmark, setBenchmark, sectorBenchmark, setSectorBenchmark, busy }: {
   n: number;
   setN: (n: number | null) => void;
   presets: number[];
@@ -316,14 +396,14 @@ function Choices({ n, setN, presets, defaultN, min, max, benchmark, setBenchmark
   max: number;
   benchmark: string | null;
   setBenchmark: (value: string | null) => void;
+  sectorBenchmark: string | null;
+  setSectorBenchmark: (value: string | null) => void;
   busy: boolean;
 }) {
   const { t } = useTranslation();
   const custom = !presets.includes(n);
   const [draft, setDraft] = useState(custom ? String(n) : "");
   useEffect(() => setDraft(custom ? String(n) : ""), [n, custom]);
-  const [other, setOther] = useState(benchmark && !(BENCHMARKS as readonly string[]).includes(benchmark) ? benchmark : "");
-  const choice = benchmark === null ? "none" : (BENCHMARKS as readonly string[]).includes(benchmark) ? benchmark : "other";
   const apply = () => {
     const value = Number(draft);
     if (Number.isInteger(value) && value >= min && value <= max) setN(value);
@@ -363,47 +443,14 @@ function Choices({ n, setN, presets, defaultN, min, max, benchmark, setBenchmark
         </div>
         <p className="text-xs text-muted-foreground">{t("ui.events.n_hint", { n })}</p>
       </div>
-      <div className="space-y-1">
-        <Label>{t("ui.analysis.form.benchmark")}</Label>
-        <div role="radiogroup" aria-label={t("ui.analysis.form.benchmark")}>
-          {[...BENCHMARKS, "none", "other"].map((value) => (
-            <label key={value} className="flex h-7 cursor-pointer items-center gap-2 text-sm">
-              <input
-                type="radio"
-                name="event-benchmark"
-                checked={choice === value}
-                onChange={() => {
-                  if (value === "none") setBenchmark(null);
-                  else if (value !== "other") setBenchmark(value);
-                  else if (other.trim()) setBenchmark(other.trim());
-                }}
-                className="accent-primary"
-              />
-              {value === "other" ? (
-                <input
-                  value={other}
-                  placeholder={t("ui.analysis.form.benchmark_other")}
-                  aria-label={t("ui.analysis.form.benchmark_other")}
-                  onChange={(e) => setOther(e.target.value.toUpperCase())}
-                  onBlur={() => other.trim() && setBenchmark(other.trim())}
-                  onKeyDown={(e) => e.key === "Enter" && other.trim() && setBenchmark(other.trim())}
-                  className={cn(input, "h-7 uppercase placeholder:normal-case")}
-                />
-              ) : value === "none" ? (
-                t("ui.analysis.form.benchmark_none")
-              ) : (
-                benchmarkName(value)
-              )}
-            </label>
-          ))}
-        </div>
-      </div>
+      <ReferenceChoice value={benchmark} onChange={setBenchmark} />
+      <ReferenceChoice value={sectorBenchmark} onChange={setSectorBenchmark} sector />
     </div>
   );
 }
 
 /** Saved sets of this kind: open one to analyze, rename, edit sessions or delete. */
-function SavedSets({ kind, n, benchmark, current, onAnalysis }: { kind: EventKind; n: number; benchmark: string | null; current: string | null; onAnalysis: (id: string) => void }) {
+function SavedSets({ kind, n, benchmark, sectorBenchmark, current, onAnalysis }: { kind: EventKind; n: number; benchmark: string | null; sectorBenchmark: string | null; current: string | null; onAnalysis: (id: string) => void }) {
   const { t, i18n } = useTranslation();
   const queryClient = useQueryClient();
   const sets = useEventSets(kind);
@@ -422,7 +469,7 @@ function SavedSets({ kind, n, benchmark, current, onAnalysis }: { kind: EventKin
   };
   const analyze = useMutation({
     mutationFn: (id: string) =>
-      unwrap(client.POST("/api/v1/events/sets/{set_id}/analyses", { params: { path: { set_id: id } }, body: { request_id: crypto.randomUUID(), n, benchmark } })),
+      unwrap(client.POST("/api/v1/events/sets/{set_id}/analyses", { params: { path: { set_id: id } }, body: { request_id: crypto.randomUUID(), n, benchmark, sector_benchmark: sectorBenchmark } })),
     onSuccess: (created) => onAnalysis(created.analysis_id),
   });
   const update = useMutation({
@@ -536,6 +583,8 @@ export function EventInputs({
     max: number;
     benchmark: string | null;
     setBenchmark: (value: string | null) => void;
+  sectorBenchmark: string | null;
+  setSectorBenchmark: (value: string | null) => void;
   };
   busy: boolean;
   currentSet: string | null;
@@ -544,6 +593,7 @@ export function EventInputs({
   const { t, i18n } = useTranslation();
   const queryClient = useQueryClient();
   const sets = useEventSets(kind);
+  const span = useContextWindow(kind);
   const [text, setText] = useState("");
   const [title, setTitle] = useState("");
   const [checked, setChecked] = useState<Validation | null>(null);
@@ -555,7 +605,7 @@ export function EventInputs({
     }
     let current = true;
     const timer = window.setTimeout(() => {
-      unwrap(client.POST("/api/v1/events/validate", { body: { kind, text } }))
+      unwrap(client.POST("/api/v1/events/validate", { body: { kind, text, context_before_days: span.before, context_after_days: span.after } }))
         .then((value) => current && (setChecked(value), setCheckError(null)))
         .catch((error: Error) => current && setCheckError(error));
     }, 400);
@@ -563,11 +613,11 @@ export function EventInputs({
       current = false;
       window.clearTimeout(timer);
     };
-  }, [text, kind]);
+  }, [text, kind, span.before, span.after]);
   const create = useMutation({
     mutationFn: () =>
       unwrap(client.POST("/api/v1/events/sets", {
-        body: { kind, language: i18n.language.startsWith("zh") ? "zh" : "en", text, title: title.trim() || null, request_id: crypto.randomUUID(), analyze: true, n: choices.n, benchmark: choices.benchmark },
+        body: { kind, language: i18n.language.startsWith("zh") ? "zh" : "en", text, title: title.trim() || null, request_id: crypto.randomUUID(), analyze: true, n: choices.n, benchmark: choices.benchmark, sector_benchmark: choices.sectorBenchmark },
       })),
     onSuccess: (created) => {
       setText("");
@@ -579,7 +629,7 @@ export function EventInputs({
   const first = useMemo(() => !sets.isLoading && !(sets.data?.items.length ?? 0), [sets.isLoading, sets.data]);
   return (
     <div>
-      <PromptStep kind={kind} open={first} />
+      <PromptStep kind={kind} open={first} span={span} />
       <PasteStep kind={kind} open={first || !!text} text={text} setText={setText} checked={checked} />
       {checkError && <p className="px-3 pb-2 text-xs text-destructive">{checkError.message}</p>}
       <Choices {...choices} busy={busy} />
@@ -593,7 +643,7 @@ export function EventInputs({
           {create.error && <p className="text-xs text-destructive">{create.error.message}</p>}
         </div>
       )}
-      <SavedSets kind={kind} n={choices.n} benchmark={choices.benchmark} current={currentSet} onAnalysis={onAnalysis} />
+      <SavedSets kind={kind} n={choices.n} benchmark={choices.benchmark} sectorBenchmark={choices.sectorBenchmark} current={currentSet} onAnalysis={onAnalysis} />
     </div>
   );
 }

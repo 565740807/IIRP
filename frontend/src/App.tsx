@@ -16,6 +16,7 @@ import { MotionConfig } from "motion/react";
 import { FileSearch, LoaderCircle } from "lucide-react";
 import { AppShell } from "./components/shell/AppShell";
 import { RefreshProvider } from "./lib/refresh";
+import { FEATURES } from "./features";
 import { HomePage } from "./pages/Home";
 const DataPage = lazy(() =>
   import("./pages/Data").then((m) => ({ default: m.DataPage })),
@@ -190,6 +191,9 @@ function Workbench() {
           />
           <Route path="/transactions/:id" element={<TransactionPage />} />
           <Route path="/market/:symbol" element={<MarketDetailPage />} />
+          {FEATURES.flatMap((feature) =>
+            feature.routes.map((route) => <Route key={route.path} path={route.path} element={route.element} />),
+          )}
           <Route
             path="*"
             element={

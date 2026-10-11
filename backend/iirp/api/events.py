@@ -3,9 +3,10 @@
 from typing import Literal
 
 from fastapi import APIRouter, HTTPException, Query, Response
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from iirp.analysis.distributions import DistributionStatistics
+from iirp.analysis.sector_benchmarks import SectorReference, validate_sector_benchmark
 from iirp.api.schemas import ResearchFreshness, TickerComparison, TickerProgress
 from iirp.events import prompts as event_prompts
 from iirp.events import service as event_service
@@ -15,10 +16,18 @@ router = APIRouter(prefix="/api/v1/events", tags=["event research"])
 Kind = Literal["earnings", "custom"]
 Language = Literal["zh", "en"]
 Session = Literal["before_open", "during", "after_close", "unknown"]
+Category = Literal["company", "earnings", "industry", "market", "macro", "policy", "geopolitical", "other"]
+Guidance = Literal["raised", "maintained", "lowered", "none"]
+ContextDays = Field(None, ge=0, le=366, description="Days around the event date that context should fall within")
 
 
 class EventStrict(BaseModel):
     model_config = ConfigDict(extra="forbid")
+
+    @field_validator("sector_benchmark", check_fields=False)
+    @classmethod
+    def validate_sector(cls, value):
+        return validate_sector_benchmark(value)
 
 
 class EventPromptInput(EventStrict):
@@ -31,7 +40,15 @@ class EventPromptOutput(BaseModel):
     text: str
     is_default: bool
     default_text: str
+    default_changed: bool = Field(False, description="The built-in default changed after this template was saved")
     updated_at: str | None
+
+
+class EventContextDefaults(BaseModel):
+    before_days: int
+    after_days: int
+    presets: list[list[int]] = Field(description="[days before, days after] pairs offered on the page")
+    max_days: int
 
 
 class EventDefaultsOutput(BaseModel):
@@ -40,17 +57,40 @@ class EventDefaultsOutput(BaseModel):
     max: int
     presets: list[int]
     benchmark: str
+    context: EventContextDefaults
 
 
 class EventValidateInput(EventStrict):
     kind: Kind
     text: str = Field(max_length=512 * 1024)
+    context_before_days: int | None = ContextDays
+    context_after_days: int | None = ContextDays
 
 
 class EventInputIssue(BaseModel):
     index: int | None = Field(description="1-based position in events; null for the whole document")
     field: str | None
     message: str
+
+
+class EventEarnings(BaseModel):
+    """Actual and expected figures as the AI reported them (unverified)."""
+    eps_actual: float | None = Field(None, description="USD per share")
+    eps_estimate: float | None = None
+    revenue_actual: float | None = Field(None, description="USD millions")
+    revenue_estimate: float | None = None
+    guidance: Guidance | None = None
+
+
+class EventContextItem(BaseModel):
+    """A dated item that may have moved the stock around the event (AI-compiled, unverified)."""
+    date: str
+    category: Category
+    title: str
+    summary: str | None = None
+    source: str | None = None
+    url: str | None = Field(None, description="http or https link")
+    major: bool | None = Field(None, description="Moved the whole market")
 
 
 class EventItem(BaseModel):
@@ -60,13 +100,17 @@ class EventItem(BaseModel):
     name: str
     fiscal_year: int | None = None
     fiscal_quarter: int | None = None
+    uncertain: bool | None = None
     note: str | None = None
+    earnings: EventEarnings | None = None
+    context: list[EventContextItem] | None = None
     reaction_date: str | None = Field(None, description="Reaction day R; null outside the exchange calendar")
 
 
 class EventValidateOutput(BaseModel):
     valid: bool
     errors: list[EventInputIssue]
+    warnings: list[EventInputIssue] = Field(description="Do not block saving")
     events: list[EventItem]
     tickers: list[str]
 
@@ -78,6 +122,7 @@ class EventSetInput(EventStrict):
     title: str | None = Field(None, max_length=200)
     request_id: str | None = Field(None, min_length=1, max_length=100)
     analyze: bool = False
+    sector_benchmark: str | None = "auto"
     n: int | None = None
     benchmark: str | None = Field(event_service.DEFAULT_BENCHMARK, max_length=20,
                                   description="^GSPC, ^IXIC or an ETF; null for no comparison")
@@ -122,6 +167,7 @@ class EventDeleted(BaseModel):
 
 
 class EventAnalysisInput(EventStrict):
+    sector_benchmark: str | None = "auto"
     request_id: str = Field(min_length=1, max_length=128)
     n: int | None = None
     benchmark: str | None = Field(event_service.DEFAULT_BENCHMARK, max_length=20)
@@ -131,6 +177,7 @@ class EventVariantInput(EventStrict):
     """Another n and/or benchmark for the same frozen events; omitted fields keep theirs."""
     request_id: str = Field(min_length=1, max_length=128)
     n: int | None = None
+    sector_benchmark: str | None = None
     benchmark: str | None = Field(None, max_length=20)
 
 
@@ -152,6 +199,8 @@ class EventWindow(BaseModel):
     status: Literal["ok", "pending", "missing_price"]
     benchmark: str | None = Field(None, description="The benchmark's change over the same dates")
     excess: str | None = Field(None, description="value - benchmark")
+    sector: str | None = None
+    sector_excess: str | None = None
 
 
 class EventReactionCandle(BaseModel):
@@ -163,6 +212,7 @@ class EventReactionCandle(BaseModel):
 
 
 class EventPathPoint(BaseModel):
+    sector: str | None = None
     offset: int
     date: str
     value: str | None = Field(description="C(t)/C(R-1) - 1")
@@ -178,9 +228,31 @@ class EventCandle(BaseModel):
     close: str | None
 
 
+class EventExpectations(BaseModel):
+    """Derived from the AI's figures: surprise = (actual - estimate) / |estimate|."""
+    eps_surprise: str | None
+    revenue_surprise: str | None
+    surprise_group: Literal["beat", "inline", "miss", "no_data"]
+    guidance_group: Literal["raised", "maintained", "lowered", "none", "no_data"]
+
+
+class EventMacroWindow(BaseModel):
+    start: str = Field(description="Session R minus the configured sessions")
+    end: str
+    sessions: int
+
+
 class EventRow(BaseModel):
     id: str
     ranks: dict[str, int]
+    uncertain: bool
+    earnings: EventEarnings | None
+    context: list[EventContextItem] = Field(description="AI-compiled, unverified")
+    context_candles: list[EventCandle] | None = Field(
+        description="Daily candles over R-1-n..R+n and every context date; null without context")
+    macro_window: EventMacroWindow | None = Field(description="Null in results made before background existed")
+    expectations: EventExpectations
+    macro_events: list[EventContextItem] = Field(description="Major macro, policy or geopolitical context near R")
     ticker: str
     date: str
     session: Session
@@ -198,6 +270,15 @@ class EventRow(BaseModel):
 
 
 class EventStatistics(DistributionStatistics):
+    benchmark_excess_box: DistributionStatistics = Field(default_factory=lambda: DistributionStatistics(n=0))
+    sector_excess_box: DistributionStatistics = Field(default_factory=lambda: DistributionStatistics(n=0))
+    sector_box: DistributionStatistics = Field(default_factory=lambda: DistributionStatistics(n=0))
+    sector_paired_n: int = 0
+    sector_beat: int = 0
+    sector_beat_ratio: str | None = None
+    sector_median: str | None = None
+    sector_median_excess: str | None = None
+    sector_mean_excess: str | None = None
     benchmark_box: DistributionStatistics
     n: int
     median: str | None = None
@@ -220,6 +301,7 @@ class EventStatistics(DistributionStatistics):
 
 
 class EventPathStatistics(BaseModel):
+    sector_median: str | None = None
     offset: int
     n: int
     median: str | None
@@ -233,6 +315,18 @@ class EventBenchmark(BaseModel):
     status: str
 
 
+class EventGroup(BaseModel):
+    key: str
+    event_count: int
+    summary: dict[str, EventStatistics]
+
+
+class EventGroups(BaseModel):
+    inline_threshold: str = Field(description="|EPS surprise| below this is in line")
+    surprise: list[EventGroup]
+    guidance: list[EventGroup]
+
+
 class EventQuarterSummary(BaseModel):
     ranks: dict[str, int] = Field(default_factory=dict)
     fiscal_quarter: int
@@ -241,6 +335,8 @@ class EventQuarterSummary(BaseModel):
 
 
 class EventTickerResult(BaseModel):
+    sector: SectorReference | None = None
+    sector_comparison_included: bool = False
     kind: Literal["event_windows"]
     event_kind: Kind
     symbol: str
@@ -254,6 +350,9 @@ class EventTickerResult(BaseModel):
     summary: dict[str, EventStatistics] = Field(description="before, reaction, gap and after windows")
     path: list[EventPathStatistics]
     quarters: list[EventQuarterSummary] | None = None
+    groups: EventGroups | None = Field(None, description="Earnings by EPS surprise and by guidance")
+    macro_excluded: int = Field(description="Events left out for major macro context near R")
+    macro_sessions: int
     rows: list[EventRow]
 
 
@@ -268,7 +367,9 @@ class EventTickerView(BaseModel):
 
 
 class EventAnalysisOutput(BaseModel):
+    sector_benchmark: str | None = None
     comparison: TickerComparison
+    macro_excluded: int
     filtered_event_count: int
     id: str
     batch_id: str
@@ -302,7 +403,7 @@ def defaults():
     values = event_service.window_defaults()
     return {"window_sessions": {k: values[k] for k in ("insider", "earnings", "custom")},
             "min": values["min"], "max": values["max"], "presets": event_service.PRESETS,
-            "benchmark": event_service.DEFAULT_BENCHMARK}
+            "benchmark": event_service.DEFAULT_BENCHMARK, "context": event_service.context_defaults()}
 
 
 @router.get("/prompts/{kind}", response_model=EventPromptOutput)
@@ -322,7 +423,7 @@ def reset_prompt(kind: Kind, language: Language = "zh"):
 
 @router.post("/validate", response_model=EventValidateOutput)
 def validate(body: EventValidateInput):
-    return _call(event_service.validate, body.kind, body.text)
+    return _call(event_service.validate, body.kind, body.text, body.context_before_days, body.context_after_days)
 
 
 @router.get("/sets", response_model=EventSetsOutput)
@@ -358,9 +459,9 @@ def create_analysis(set_id: str, body: EventAnalysisInput):
 @router.get("/analyses/{analysis_id}", response_model=EventAnalysisOutput)
 def analysis(analysis_id: str, quarter: int | None = Query(None, ge=1, le=4),
              recent_years: int | None = Query(None, ge=1, le=30), session: Session | None = None,
-             direction: Literal["up", "down"] | None = None):
+             direction: Literal["up", "down"] | None = None, exclude_macro: bool = False):
     return _call(event_service.get_analysis, analysis_id, quarter=quarter, recent_years=recent_years,
-                 session=session, direction=direction)
+                 session=session, direction=direction, exclude_macro=exclude_macro)
 
 
 @router.post("/analyses/{analysis_id}/refresh", response_model=EventAnalysisOutput)
@@ -376,9 +477,11 @@ def variant(analysis_id: str, body: EventVariantInput):
 @router.get("/analyses/{analysis_id}/export")
 def export(analysis_id: str, table: str = Query(default="detail", pattern="^(stats|detail)$"),
            quarter: int | None = Query(None, ge=1, le=4), recent_years: int | None = Query(None, ge=1, le=30),
-           session: Session | None = None, direction: Literal["up", "down"] | None = None):
+           session: Session | None = None, direction: Literal["up", "down"] | None = None,
+           exclude_macro: bool = False):
     content = _call(event_service.export_analysis, analysis_id, table, quarter=quarter,
-                    recent_years=recent_years, session=session, direction=direction)
+                    recent_years=recent_years, session=session, direction=direction,
+                    exclude_macro=exclude_macro)
     return Response(
         content,
         media_type="text/csv; charset=utf-8",

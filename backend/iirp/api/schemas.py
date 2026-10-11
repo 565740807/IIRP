@@ -75,12 +75,15 @@ class AnalysisInput(Strict):
     end_mmdd: str = Field(default="10-15", pattern=r"^\d{2}-\d{2}$")
     # S&P 500 unless null (no comparison).
     benchmark: str | None = "^GSPC"
+    sector_benchmark: str | None = "auto"
 
     @model_validator(mode="after")
     def validate_parameters(self):
         from iirp.analysis.benchmarks import validate_benchmark
+        from iirp.analysis.sector_benchmarks import validate_sector_benchmark
 
         self.benchmark = validate_benchmark(self.benchmark)
+        self.sector_benchmark = validate_sector_benchmark(self.sector_benchmark)
         self.tickers = list(dict.fromkeys(x.strip().upper() for x in self.tickers if x.strip()))
         if not self.tickers or any(
             not normalized_ticker(x) or not re.fullmatch(r"[A-Z0-9^][A-Z0-9.^=\-]{0,19}", x) for x in self.tickers
@@ -314,7 +317,11 @@ class QuoteSession(Output):
 
 
 class HomeQuote(Output):
-    """One index (or gold futures) quote as saved from its latest fetch.
+    """One strip instrument's quote as saved from its latest fetch.
+
+    ``kind`` says how to show it: a ``yield`` (^TNX) is a percent whose change is
+    given in basis points (``change_bp``); the others are prices or index points
+    in ``unit``.
 
     ``freshness`` is judged at read time: ``live`` in session and on time,
     ``closed`` outside the session (``as_of`` is the last trading day),
@@ -336,6 +343,10 @@ class HomeQuote(Output):
     session: QuoteSession | None = None
     status: str
     unit: str | None = None
+    kind: Literal["index", "yield", "currency_index", "futures", "crypto"] = "index"
+    # Name for the narrow strip tile; ``name`` is the full name.
+    short_name: str | None = None
+    change_bp: float | None = None
     baseline: str | None = None
     freshness: Literal["live", "closed", "delayed", "missing"]
     reason: str | None = None
@@ -410,6 +421,41 @@ class SecContactOutput(Output):
     editable: bool
     name: str | None
     email: str | None
+
+
+class ColorSettings(Strict):
+    """Up/down colors: a preset, or ``custom`` with both colors as ``#rrggbb``."""
+    preset: Literal["us", "colorblind", "asia", "custom"] = "us"
+    up: str | None = Field(default=None, max_length=7)
+    down: str | None = Field(default=None, max_length=7)
+
+
+class MarketStripSettings(Strict):
+    """Home-strip instruments to show (symbols from ``instruments``)."""
+    symbols: list[str] = Field(max_length=32)
+
+
+class DisplayInput(Strict):
+    """Sections to change; a section left out keeps its saved value."""
+    colors: ColorSettings | None = None
+    market_strip: MarketStripSettings | None = None
+
+
+class StripInstrument(Output):
+    symbol: str
+    name: str
+    kind: Literal["index", "yield", "currency_index", "futures", "crypto"]
+    default: bool
+    # Index futures: shown only outside the US regular session while they trade.
+    off_hours_only: bool
+
+
+class DisplayOutput(Output):
+    """Display settings shared by every browser of this instance."""
+    colors: ColorSettings
+    market_strip: MarketStripSettings
+    instruments: list[StripInstrument]
+    version: int
 
 
 class WorkerState(Output):

@@ -44,7 +44,9 @@ def freshness(s, request, items=()):
     inputs = s.scalars(select(AnalysisResult.inputs).where(AnalysisResult.analysis_id == request.id)).all()
     cache_ids = {identifier for item in inputs if not item.get("price_sources")
                  for identifier in (item.get("dataset_id"), item.get("benchmark_dataset_id"),
-                                    (item.get("benchmark") or {}).get("dataset_id")) if identifier}
+                                    (item.get("benchmark") or {}).get("dataset_id"),
+                                    (item.get("sector") or {}).get("dataset_id"),
+                                    item.get("sector_dataset_id")) if identifier}
     caches = s.execute(select(PriceCache, Security.symbol).join(Security, Security.id == PriceCache.security_id)
                        .where(PriceCache.id.in_(cache_ids)).order_by(PriceCache.expires_at, Security.symbol)).all()
     sources = [{"symbol": symbol, "fetched_at": cache.fetched_at.isoformat(),
@@ -101,8 +103,15 @@ def refresh_analysis(analysis_id, force=False):
             s.add(track)
         batch = s.get(Batch, request.batch_id)
         current = freshness(s, request)
-        # A running fetch answers repeated clicks; otherwise only lapsed results refetch.
-        if batch.status in models.ACTIVE or (not force and not current["expired"]):
+        from iirp.analysis.event_windows import CALCULATION_VERSION as EVENT_VERSION
+        from iirp.analysis.research import CALCULATION_VERSION as RESEARCH_VERSION
+        version = EVENT_VERSION if request.params["kind"] == "event_dates" else RESEARCH_VERSION
+        result_versions = s.scalars(select(AnalysisResult.inputs["calculation_version"].astext)
+            .where(AnalysisResult.analysis_id == request.id)).all()
+        outdated = bool(result_versions) and any(saved != version for saved in result_versions)
+        # A running replacement answers repeated opens; older calculations remain
+        # readable while their current local variant is recomputed.
+        if batch.status in models.ACTIVE or (not force and not current["expired"] and not outdated):
             track.checked_at = now()
             s.flush()
             return requests.analysis_view(s, request)

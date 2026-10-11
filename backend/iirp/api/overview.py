@@ -46,10 +46,15 @@ class PriceComparison(Output):
     mismatch_ratio: str | None = None
 
 
+IndexName = Literal["sp500", "nasdaq100"]
+
+
 class CompanyOverview(Output):
     issuer_id: str
     name: str
     ticker: str | None = None
+    # Index lists the company is on (S&P 500, Nasdaq-100; unofficial weekly lists).
+    indexes: list[IndexName] = Field(default_factory=list)
     people: int
     buy_people: int
     sell_people: int
@@ -70,6 +75,7 @@ class OverviewTrade(Output):
     issuer_id: str
     name: str
     ticker: str | None = None
+    indexes: list[IndexName] = Field(default_factory=list)
     owners: list[InsiderOwner]
     date: str
     shares: str | None = None
@@ -153,11 +159,18 @@ def read_overview(index: Index = "all", days: Period = 30,
                   cluster_people: ClusterPeople = 2, exclude_cluster_plans: bool = True,
                   company_sort: CompanySort = "net_buy",
                   company_limit: int | None = Query(default=None, ge=1, le=2000)):
+    from iirp.market.classification import Memberships
+
     with session() as s:
-        return overview(s, index=index, days=days, role=role, min_amount=min_amount,
-                        exclude_plans=exclude_plans, cluster_days=cluster_days,
-                        cluster_people=cluster_people, exclude_cluster_plans=exclude_cluster_plans,
-                        company_sort=company_sort, company_limit=company_limit)
+        result = overview(s, index=index, days=days, role=role, min_amount=min_amount,
+                          exclude_plans=exclude_plans, cluster_days=cluster_days,
+                          cluster_people=cluster_people, exclude_cluster_plans=exclude_cluster_plans,
+                          company_sort=company_sort, company_limit=company_limit)
+        members = Memberships(s)
+        for key in ("cluster_buys", "cluster_sales", "large_buys", "large_sales", "executive_buys",
+                    "holding_increases", "companies"):
+            members.mark(result[key]["items"])
+        return result
 
 
 @router.get("/indices", response_model=Indices)

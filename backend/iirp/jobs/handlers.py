@@ -65,9 +65,11 @@ def prepare_target(job):
         from iirp.analysis.benchmarks import benchmark_data
         return {"params": params, "bars": bars, "dataset_id": dataset.id,
                 "benchmark": benchmark_data(s, job.target.get("benchmark"), ranges=ranges),
+                "sector": benchmark_data(s, job.target.get("sector"), ranges=ranges),
                 "dependency_manifest": {"ranges": [[str(a), str(b)] for a, b in ranges],
                     "prices": dataset_dependency(s, dataset, ranges),
-                    "benchmark": benchmark_dependency(s, job.target.get("benchmark"), ranges)}}
+                    "benchmark": benchmark_dependency(s, job.target.get("benchmark"), ranges),
+                    "sector": benchmark_dependency(s, job.target.get("sector"), ranges)}}
 
 
 def _persist(s, current, response, sources, source, observation_metadata=None):
@@ -93,6 +95,14 @@ def _persist(s, current, response, sources, source, observation_metadata=None):
     source_hashes = {url: item["sha256"] for url, item in sources.items()}
     if kind == "market_identity":
         resolve_metadata(s, s.get(Security, current.target["security_id"]), response)
+    elif kind == "market_long_manage":
+        from iirp.market.long_prices import manage
+        result.update(manage(s, current.target["action"]))
+    elif kind == "market_long_history":
+        from iirp.market.long_prices import persist
+        result.update(persist(s, current, response))
+        if not result["cached"]:
+            status, error = "PARTIAL", result.get("reason") or msg("market.no_data")
     elif kind == "market_history":
         result.update(persist_prices(s, current, response))
         if not result["cached"] and not result.get("superseded_by"):
@@ -238,6 +248,11 @@ def execute_business(job, stopping=lambda: False, runner=None):
     try:
         if stopping():
             return
+        if job.kind == "market_long_manage":
+            from iirp.market.long_prices import manage
+            def write(s, current):
+                current.result = manage(s, current.target["action"])
+            return fenced(job, business_write=write, status="SUCCEEDED", done=1)
         if job.kind.startswith("maintenance_"):
             from iirp.storage.maintenance import execute_maintenance
 

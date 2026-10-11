@@ -11,7 +11,7 @@ from sqlalchemy.exc import OperationalError
 
 from iirp.db import session
 from iirp.jobs.batch_views import batch_view, linked_jobs
-from iirp.market.yahoo import MARKETS, digest
+from iirp.market.yahoo import digest
 from iirp.messages import NotFoundError, UserError, msg
 from iirp.models import (
     ACTIVE,
@@ -33,6 +33,8 @@ ET = ZoneInfo("America/New_York")
 BUSINESS_KINDS = {
     "market_identity",
     "market_history",
+    "market_long_history",
+    "market_long_manage",
     "market_quote",
     "market_stock_quotes",
     "index_constituents",
@@ -65,6 +67,14 @@ def resolve_defaults(s, params):
         "historical_years": params.get("historical_years") or values["historical_years"],
         "history_months": params.get("history_months") or values["history_months"],
     }
+
+
+def _strip_symbols(s):
+    from iirp.display import strip_selection
+    from iirp.market.instruments import fetch_symbols
+
+    selected = strip_selection(s)
+    return fetch_symbols(selected, now()) or selected
 
 
 def defaults(s):
@@ -172,7 +182,7 @@ def _create(s, params, *, trigger="manual", policy_key=None, parent_id=None):
     symbols = (
         ["SEC"]
         if kind.startswith("sec_")
-        else params.get("tickers") or (list(MARKETS) if kind == "market_quotes" else ["SEC"])
+        else params.get("tickers") or (_strip_symbols(s) if kind == "market_quotes" else ["SEC"])
     )
     batch = Batch(
         request_id=request_id,
@@ -257,6 +267,8 @@ def create_collection(params):
 
 
 def demand_priority(batch):
+    if batch.params.get("long_prices"):
+        return 60
     if batch.kind in ("sec_latest", "market_quotes"):
         return 0
     if batch.kind == "sec_history" and not (

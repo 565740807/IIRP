@@ -1,19 +1,21 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { LoaderCircle, Play, X } from "lucide-react";
-import { BENCHMARKS, DEFAULT_YEARS, MAX_TICKERS, benchmarkName, monthName, parseTickers, type SeasonalKind } from "@/lib/analysis";
+import { DEFAULT_YEARS, MAX_TICKERS, monthName, parseTickers, type SeasonalKind } from "@/lib/analysis";
 import { cn } from "@/lib/utils";
+import { ReferenceChoice } from "@/components/analysis/References";
 import { Button } from "@/components/ui/button";
 
 export type ConditionValues = {
   tickers: string[];
   years: number;
   benchmark: string | null;
+  sector_benchmark: string | null;
   start: string; // MM-DD (interval)
   end: string;
 };
 
-export const DEFAULT_CONDITIONS: ConditionValues = { tickers: [], years: DEFAULT_YEARS, benchmark: "^GSPC", start: "09-20", end: "10-15" };
+export const DEFAULT_CONDITIONS: ConditionValues = { tickers: [], years: DEFAULT_YEARS, benchmark: "^GSPC", sector_benchmark: "auto", start: "09-20", end: "10-15" };
 const YEAR_PRESETS = [5, 8, 10, 15];
 
 function Field({ label, hint, children }: { label: string; hint?: ReactNode; children: ReactNode }) {
@@ -28,7 +30,7 @@ function Field({ label, hint, children }: { label: string; hint?: ReactNode; chi
 
 const input = "h-8 rounded-md border bg-background px-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30";
 
-function MonthDay({ value, onChange, label }: { value: string; onChange: (value: string) => void; label: string }) {
+export function MonthDay({ value, onChange, label }: { value: string; onChange: (value: string) => void; label: string }) {
   const [month, day] = value.split("-").map(Number);
   const days = new Date(Date.UTC(2000, month, 0)).getUTCDate();
   const set = (m: number, d: number) => onChange(`${String(m).padStart(2, "0")}-${String(Math.min(d, new Date(Date.UTC(2000, m, 0)).getUTCDate())).padStart(2, "0")}`);
@@ -58,17 +60,21 @@ export function Conditions({
   initial,
   running,
   onRun,
+  onReferenceChange,
 }: {
   kind: SeasonalKind;
   initial: ConditionValues;
   running: boolean;
   onRun: (values: ConditionValues) => void;
+  onReferenceChange?: (values: ConditionValues) => void;
 }) {
   const { t } = useTranslation();
   const [text, setText] = useState(initial.tickers.join(", "));
   const [years, setYears] = useState(initial.years);
   const [benchmark, setBenchmark] = useState<string | null>(initial.benchmark);
-  const [other, setOther] = useState(initial.benchmark && !(BENCHMARKS as readonly string[]).includes(initial.benchmark) ? initial.benchmark : "");
+  const [sectorBenchmark, setSectorBenchmark] = useState(initial.sector_benchmark);
+  const [marketValid, setMarketValid] = useState(true);
+  const [sectorValid, setSectorValid] = useState(true);
   const [start, setStart] = useState(initial.start);
   const [end, setEnd] = useState(initial.end);
   const identity = JSON.stringify(initial);
@@ -78,22 +84,20 @@ export function Conditions({
     setText(value.tickers.join(", "));
     setYears(value.years);
     setBenchmark(value.benchmark);
-    setOther(value.benchmark && !(BENCHMARKS as readonly string[]).includes(value.benchmark) ? value.benchmark : "");
+    setSectorBenchmark(value.sector_benchmark);
     setStart(value.start);
     setEnd(value.end);
   }, [identity]);
   const tickers = parseTickers(text);
   const tooMany = tickers.length > MAX_TICKERS;
   const current = new Date().getFullYear();
-  const choice = benchmark === null ? "none" : (BENCHMARKS as readonly string[]).includes(benchmark) ? benchmark : "other";
-  const chosenBenchmark = choice === "other" ? other.trim().toUpperCase() || null : benchmark;
-  const valid = tickers.length > 0 && !tooMany && years >= 1 && years <= 30 && (kind === "monthly" || start !== end) && !(choice === "other" && !other.trim());
+  const valid = tickers.length > 0 && !tooMany && years >= 1 && years <= 30 && (kind === "monthly" || start !== end) && marketValid && sectorValid;
   return (
     <form
       className="space-y-4 p-3"
       onSubmit={(event) => {
         event.preventDefault();
-        if (valid) onRun({ tickers, years, benchmark: chosenBenchmark, start, end });
+        if (valid) onRun({ tickers, years, benchmark, sector_benchmark: sectorBenchmark, start, end });
       }}
     >
       <Field
@@ -172,38 +176,8 @@ export function Conditions({
         </div>
       </Field>
 
-      <Field label={t("ui.analysis.form.benchmark")}>
-        <div className="space-y-1" role="radiogroup" aria-label={t("ui.analysis.form.benchmark")}>
-          {[...BENCHMARKS, "none", "other"].map((value) => (
-            <label key={value} className="flex h-7 cursor-pointer items-center gap-2 text-sm">
-              <input
-                type="radio"
-                name="benchmark"
-                checked={choice === value}
-                onChange={() => setBenchmark(value === "none" ? null : value === "other" ? other.trim().toUpperCase() || "OTHER" : value)}
-                className="accent-primary"
-              />
-              {value === "other" ? (
-                <input
-                  value={other}
-                  placeholder={t("ui.analysis.form.benchmark_other")}
-                  aria-label={t("ui.analysis.form.benchmark_other")}
-                  onFocus={() => setBenchmark(other.trim().toUpperCase() || "OTHER")}
-                  onChange={(event) => {
-                    setOther(event.target.value.toUpperCase());
-                    setBenchmark(event.target.value.trim().toUpperCase() || "OTHER");
-                  }}
-                  className={cn(input, "h-7 w-full uppercase placeholder:normal-case")}
-                />
-              ) : value === "none" ? (
-                t("ui.analysis.form.benchmark_none")
-              ) : (
-                benchmarkName(value)
-              )}
-            </label>
-          ))}
-        </div>
-      </Field>
+      <ReferenceChoice value={benchmark} onChange={(value) => { setBenchmark(value); if (valid) onReferenceChange?.({ tickers, years, benchmark: value, sector_benchmark: sectorBenchmark, start, end }); }} onValidity={setMarketValid} />
+      <ReferenceChoice value={sectorBenchmark} onChange={(value) => { setSectorBenchmark(value); if (valid) onReferenceChange?.({ tickers, years, benchmark, sector_benchmark: value, start, end }); }} onValidity={setSectorValid} sector />
 
       <Button type="submit" className="w-full" disabled={!valid || running}>
         {running ? <LoaderCircle className="motion-safe:animate-spin" /> : <Play />}

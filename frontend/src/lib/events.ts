@@ -1,9 +1,9 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSearchParams } from "react-router-dom";
 import i18n from "@/i18n";
 import { client, unwrap, type Schemas } from "@/lib/api-client";
-import { benchmarkName, pct, share } from "@/lib/analysis";
+import { benchmarkName, pct, share, type Basis } from "@/lib/analysis";
 
 /**
  * Earnings and custom events: saved sets, analyses, and the labels and
@@ -16,11 +16,18 @@ export type EventResult = Schemas["EventTickerResult"];
 export type EventRow = Schemas["EventRow"];
 export type EventStats = Schemas["EventStatistics"];
 export type EventItem = Schemas["EventItem"];
+export type EventContextItem = Schemas["EventContextItem"];
 export type WindowKey = "before" | "reaction" | "gap" | "after";
 
 export const WINDOWS: WindowKey[] = ["before", "gap", "reaction", "after"];
 export const SESSIONS: EventItem["session"][] = ["before_open", "during", "after_close", "unknown"];
 const ACTIVE = ["QUEUED", "RUNNING", "RETRY_WAIT", "PAUSE_REQUESTED", "CANCEL_REQUESTED", "WAITING"];
+
+/** Rankings are produced by the server for the selected statistic and pairing. */
+export function quarterRank(ranks: Record<string, number> | undefined, window: WindowKey, basis: Basis, sort?: { id: string; desc: boolean }) {
+  const metric = sort?.id === "up" ? "up_ratio" : sort?.id === "excess" ? "median_excess" : sort?.id === "sector_excess" ? "sector_median_excess" : sort?.id === "median" ? basis === "absolute" ? "median" : basis === "market" ? "median_excess" : "sector_median_excess" : null;
+  return metric ? ranks?.[`${window}_${metric}_${sort?.desc ? "desc" : "asc"}`] : undefined;
+}
 
 /** The analysis tab of each kind. */
 export const TAB = { earnings: "earnings", custom: "events" } as const;
@@ -86,7 +93,15 @@ export function context(result: EventResult, n: number, benchmark: string | null
   if (after?.n) parts.push(t("ui.events.conclusion.window", { window: windowLabel("after", n), median: pct(after.median), up: after.up, n: after.n, ratio: share(after.up_ratio) }));
   if (benchmark && reaction?.paired_n)
     parts.push(t("ui.events.conclusion.beat", { benchmark: benchmarkName(benchmark), beat: reaction.beat, n: reaction.paired_n, excess: pct(reaction.median_excess) }));
+  if (benchmark && reaction?.paired_n && reaction?.sector_paired_n)
+    parts.push(t("ui.analysis.conclusion.beat_sector", { beat: reaction.sector_beat, n: reaction.sector_paired_n, excess: pct(reaction.sector_median_excess) }));
   return parts.length ? parts.join(t("ui.analysis.conclusion.join")) + t("ui.analysis.conclusion.end") : "";
+}
+
+/** Explicit no-comparison remains null when reopening; legacy results default to auto. */
+export function selectedSectorBenchmark(analysis: EventAnalysis): string | null {
+  const results = analysis.tickers.flatMap((item) => item.result ? [item.result] : []);
+  return results.length && !results.some((result) => result.sector_comparison_included) ? "auto" : analysis.sector_benchmark ?? null;
 }
 
 export function isActive(analysis: EventAnalysis | undefined) {
@@ -99,7 +114,7 @@ export function isActive(analysis: EventAnalysis | undefined) {
  * (24 hours) it is fetched again automatically and ``onReplaced`` moves
  * the page to the new analysis.
  */
-export type EventFilters = { quarter?: number; recent_years?: number; session?: EventItem["session"]; direction?: "up" | "down" };
+export type EventFilters = { quarter?: number; recent_years?: number; session?: EventItem["session"]; direction?: "up" | "down"; exclude_macro?: boolean };
 
 export function useEventAnalysis(id: string | null, onReplaced: (id: string) => void, filters: EventFilters = {}) {
   const queryClient = useQueryClient();
@@ -121,20 +136,21 @@ export function useEventAnalysis(id: string | null, onReplaced: (id: string) => 
     },
   });
   const expired = !!(query.data?.freshness as { expired?: boolean } | undefined)?.expired && query.data?.id === id;
+  const legacy = query.data?.id === id && query.data.tickers.some((item) => item.result && !item.result.sector_comparison_included);
   const asked = useRef<string | null>(null);
   useEffect(() => {
-    if (expired && id && asked.current !== id && !refresh.isPending) {
+    if ((expired || legacy) && id && asked.current !== id && !refresh.isPending) {
       asked.current = id;
       refresh.mutate(false);
     }
-  }, [expired, id, refresh]);
+  }, [expired, legacy, id, refresh]);
   return { query, refresh };
 }
 
 /** Another n or benchmark for the analysis shown; the server reuses one made today. */
 export function useVariant(onCreated: (id: string) => void) {
   return useMutation({
-    mutationFn: ({ id, ...body }: { id: string; n?: number; benchmark?: string | null }) =>
+    mutationFn: ({ id, ...body }: { id: string; n?: number; benchmark?: string | null; sector_benchmark?: string | null }) =>
       unwrap(client.POST("/api/v1/events/analyses/{analysis_id}/variant", {
         params: { path: { analysis_id: id } },
         body: { request_id: crypto.randomUUID(), ...body },
@@ -187,6 +203,26 @@ function write(key: string, value: string | null) {
 }
 
 /**
+ * The background window (days before and after each event) the prompt asks
+ * for and pasted context is checked against; remembered per kind.
+ */
+export function useContextWindow(kind: EventKind) {
+  const defaults = useQuery(defaultsQuery).data?.context;
+  const presets = defaults?.presets ?? [[7, 7], [30, 14], [90, 30]];
+  const key = `iirp.events.context.${kind}`;
+  const [stored, setStored] = useState(() => read(key));
+  const parsed = stored?.split(",").map(Number);
+  const valid = parsed?.length === 2 && parsed.every((days) => Number.isInteger(days) && days >= 0 && days <= (defaults?.max_days ?? 366));
+  const [before, after] = valid ? parsed : [defaults?.before_days ?? 30, defaults?.after_days ?? 14];
+  const set = (value: [number, number] | null) => {
+    const next = value && (value[0] !== defaults?.before_days || value[1] !== defaults?.after_days) ? value.join(",") : null;
+    write(key, next);
+    setStored(next);
+  };
+  return { before, after, presets, set };
+}
+
+/**
  * n per feature: from the link (?n=), else the remembered choice, else the
  * configured default; the benchmark is remembered the same way (default S&P 500).
  */
@@ -203,6 +239,9 @@ export function useEventChoices(kind: EventKind) {
   const n = parse(params.get("n")) ?? parse(read(`iirp.events.n.${kind}`)) ?? defaultN;
   const stored = read(`iirp.events.benchmark.${kind}`);
   const benchmark = stored === null ? (defaults?.benchmark ?? "^GSPC") : stored === "" ? null : stored;
+  const storedSector = read(`iirp.events.sector.${kind}`);
+  const sectorBenchmark = storedSector === null ? "auto" : storedSector === "" ? null : storedSector;
+  const setSectorBenchmark = (value: string | null) => write(`iirp.events.sector.${kind}`, value ?? "");
   const setN = (value: number | null) => {
     write(`iirp.events.n.${kind}`, value === null || value === defaultN ? null : String(value));
     setParams((previous) => {
@@ -213,5 +252,5 @@ export function useEventChoices(kind: EventKind) {
     }, { replace: true });
   };
   const setBenchmark = (value: string | null) => write(`iirp.events.benchmark.${kind}`, value ?? "");
-  return { n, setN, defaultN, min, max, presets: defaults?.presets ?? [3, 5, 10, 20], benchmark, setBenchmark };
+  return { n, setN, defaultN, min, max, presets: defaults?.presets ?? [3, 5, 10, 20], benchmark, setBenchmark, sectorBenchmark, setSectorBenchmark };
 }

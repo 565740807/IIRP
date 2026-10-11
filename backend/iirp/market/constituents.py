@@ -1,28 +1,46 @@
 """Unofficial weekly index membership from public community-maintained lists.
 
+Each list is updated once a week at a fixed time (config/refresh.toml,
+``[index_constituents]``, US Eastern; Saturday 08:00 by default) or when the
+reader asks from the data page. A failed attempt is tried again after
+``retry_seconds``; failed downloads never replace the last usable membership list.
+
+The S&P 500 list keeps each member's GICS sector and sub-industry; the Nasdaq-100
+table keeps Wikipedia's ICB industry and subsector exactly as given.
+
 Downloads are separate from publication: only a caller holding the worker's
 lease fence may call the persistence functions, in its existing transaction.
-Failed downloads never replace the last usable membership list.
 """
 
 import csv
 import io
 import re
-from datetime import timedelta
+import uuid
+from datetime import datetime, time, timedelta
 from html.parser import HTMLParser
 
 import httpx
-from sqlalchemy import delete, select
+from sqlalchemy import delete, func, select
 
-from iirp.messages import UserError, decode
-from iirp.models import IndexConstituent, IndexConstituentState, Issuer, now
+from iirp.analysis.calendar import ET
+from iirp.config import refresh
+from iirp.messages import UserError, decode, msg
+from iirp.models import (
+    ACTIVE,
+    IndexConstituent,
+    IndexConstituentState,
+    Issuer,
+    Job,
+    Subscription,
+    now,
+)
 
 SOURCES = {
     "sp500": "https://raw.githubusercontent.com/datasets/s-and-p-500-companies/master/data/constituents.csv",
     # The Nasdaq-100 article links to this current component table.
     "nasdaq100": "https://en.wikipedia.org/wiki/List_of_NASDAQ-100_companies",
 }
-REFRESH_INTERVAL = timedelta(days=7)
+WEEKDAYS = ("monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday")
 MINIMUM_COUNTS = {"sp500": 450, "nasdaq100": 90}
 MAXIMUM_COUNTS = {"sp500": 550, "nasdaq100": 120}
 _TICKER = re.compile(r"[A-Z][A-Z0-9.\-]{0,15}\Z")
@@ -32,8 +50,9 @@ def _cell(value):
     return " ".join(re.sub(r"\[[^\]]*\]", "", value).split())
 
 
-def _constituent(index_name, ticker, name, industry, cik=None):
+def _constituent(index_name, ticker, name, industry, cik=None, *, sub_industry=None, classification=None):
     ticker, name, industry = _cell(ticker).upper(), _cell(name), _cell(industry)
+    sub_industry = _cell(sub_industry) if sub_industry else None
     if not _TICKER.fullmatch(ticker) or not name:
         raise UserError("index.parse_failed", index=index_name, reason="invalid_member")
     if cik:
@@ -42,7 +61,8 @@ def _constituent(index_name, ticker, name, industry, cik=None):
             raise UserError("index.parse_failed", index=index_name, reason="invalid_cik")
         cik = cik.zfill(10)
     return {"index_name": index_name, "ticker": ticker, "cik": cik or None,
-            "name": name, "industry": industry or None}
+            "name": name, "industry": industry or None, "sub_industry": sub_industry or None,
+            "classification": classification}
 
 
 def _unique(rows, index_name):
@@ -52,7 +72,7 @@ def _unique(rows, index_name):
 
 
 def parse_sp500(text):
-    """Parse the datasets CSV; its CIK is authoritative for this source."""
+    """Parse the datasets CSV (GICS sector and sub-industry); its CIK is authoritative for this source."""
     reader = csv.DictReader(io.StringIO(text.lstrip("\ufeff")))
     required = {"Symbol", "Security", "GICS Sector", "CIK"}
     if not required.issubset(reader.fieldnames or []):
@@ -61,8 +81,8 @@ def parse_sp500(text):
     for row in reader:
         if any(row.get(key) is None for key in required) or not row["CIK"].strip():
             raise UserError("index.parse_failed", index="sp500", reason="missing_value")
-        rows.append(_constituent("sp500", row["Symbol"], row["Security"],
-                                 row["GICS Sector"], row["CIK"]))
+        rows.append(_constituent("sp500", row["Symbol"], row["Security"], row["GICS Sector"], row["CIK"],
+                                 sub_industry=row.get("GICS Sub-Industry"), classification="GICS"))
     return _unique(rows, "sp500")
 
 
@@ -130,13 +150,17 @@ def parse_nasdaq100(text):
                          if key in headers), None)
         if ticker is None or company is None or industry is None:
             continue
+        sub = next((headers.index(key) for key in ("icb subsector", "gics sub-industry") if key in headers), None)
+        scheme = ("ICB" if headers[industry].startswith("icb") else
+                  "GICS" if headers[industry].startswith("gics") else None)
         cik = headers.index("cik") if "cik" in headers else None
         rows = []
         for row in table[1:]:
             if len(row) != len(headers):
                 raise UserError("index.parse_failed", index="nasdaq100", reason="incomplete_row")
             rows.append(_constituent("nasdaq100", row[ticker], row[company], row[industry],
-                                     row[cik] if cik is not None else None))
+                                     row[cik] if cik is not None else None,
+                                     sub_industry=row[sub] if sub is not None else None, classification=scheme))
         return _unique(rows, "nasdaq100")
     raise UserError("index.parse_failed", index="nasdaq100", reason="missing_table")
 
@@ -169,13 +193,108 @@ def fetch_index(index_name):
     return rows
 
 
+def schedule():
+    """The fixed weekly update time from config/refresh.toml: (weekday 0-6, time, retry)."""
+    config = refresh()["index_constituents"]
+    weekday = WEEKDAYS.index(config["weekday"].lower())
+    hour, minute = (int(part) for part in config["time"].split(":"))
+    return weekday, time(hour, minute), timedelta(seconds=config["retry_seconds"])
+
+
+def last_slot(at):
+    """The most recent scheduled update time at or before ``at`` (US Eastern)."""
+    weekday, clock, _ = schedule()
+    local = at.astimezone(ET)
+    day = local.date() - timedelta(days=(local.weekday() - weekday) % 7)
+    slot = datetime.combine(day, clock, tzinfo=ET)
+    return slot if slot <= local else slot - timedelta(days=7)
+
+
+def next_slot(at):
+    """The next scheduled update time after ``at``."""
+    return last_slot(at) + timedelta(days=7)
+
+
+def _retry_at(state):
+    """When a failed attempt (newer than the last success) may be tried again; None otherwise."""
+    if state is None or state.attempted_at is None:
+        return None
+    if state.updated_at is not None and state.attempted_at <= state.updated_at:
+        return None
+    return state.attempted_at + schedule()[2]
+
+
 def due_indices(s, *, at=None):
-    """Weekly attempts; a failed attempt keeps the previous update date intact."""
+    """Lists without a success since the latest scheduled time; a failure waits for its retry.
+
+    A failed attempt keeps the previous list and its update date intact.
+    """
     at = at or now()
+    slot = last_slot(at)
     states = {state.index_name: state for state in s.scalars(select(IndexConstituentState))}
-    return [index for index in SOURCES if index not in states
-            or states[index].attempted_at is None
-            or at - states[index].attempted_at >= REFRESH_INTERVAL]
+    due = []
+    for index in SOURCES:
+        state = states.get(index)
+        if state is not None and state.updated_at is not None and state.updated_at >= slot:
+            continue
+        retry = _retry_at(state)
+        if retry is not None and at < retry:
+            continue
+        due.append(index)
+    return due
+
+
+def enqueue(s, indices, *, trigger="automatic"):
+    """One durable job per index unless one is already active; returns the active job ids."""
+    from iirp.market.yahoo import digest
+
+    identifiers = []
+    for index in indices:
+        active = s.scalar(select(Job.id).where(Job.kind == "index_constituents", Job.status.in_(ACTIVE),
+                                               Job.target["index_name"].astext == index).limit(1))
+        if active:
+            identifiers.append(active)
+            continue
+        target = {"index_name": index, "week": now().strftime("%G-W%V")}
+        job = Job(kind="index_constituents", title=msg("job.title.index_constituents", index=index),
+                  target=target, idempotency_key=digest(["index_constituents", target, str(uuid.uuid4())]),
+                  trigger=trigger, priority=50 if trigger == "automatic" else -10, progress_total=1)
+        s.add(job)
+        s.flush()
+        s.add(Subscription(job_id=job.id, source="automatic" if trigger == "automatic" else "manual"))
+        identifiers.append(job.id)
+    return identifiers
+
+
+def status(s, *, at=None):
+    """Each list's size, last update, last failure and whether an update runs; the schedule."""
+    at = at or now()
+    weekday, clock, retry = schedule()
+    states = {state.index_name: state for state in s.scalars(select(IndexConstituentState))}
+    counts = dict(s.execute(select(IndexConstituent.index_name, func.count()).group_by(IndexConstituent.index_name)).all())
+    running = set(s.scalars(select(Job.target["index_name"].astext).where(
+        Job.kind == "index_constituents", Job.status.in_(ACTIVE))))
+    due = set(due_indices(s, at=at))
+    slot = last_slot(at)
+    items = []
+    for index in SOURCES:
+        state = states.get(index)
+        error = state.error if state else None
+        retry_at = _retry_at(state)
+        behind = state is None or state.updated_at is None or state.updated_at < slot
+        items.append({
+            "index_name": index,
+            "members": counts.get(index, 0),
+            "updated_at": state.updated_at if state else None,
+            "attempted_at": state.attempted_at if state else None,
+            "error": msg(error["code"], **error.get("params", {})) if error else None,
+            "running": index in running,
+            # Now when due, the retry time after a failure this week, else the next weekly time.
+            "next_run_at": at if index in due else retry_at if behind and retry_at else next_slot(at),
+        })
+    return {"items": items, "weekday": WEEKDAYS[weekday], "time": clock.strftime("%H:%M"),
+            "timezone": "America/New_York", "retry_seconds": int(retry.total_seconds()),
+            "next_scheduled_at": next_slot(at)}
 
 
 def persist_success(s, index_name, rows, *, at=None):

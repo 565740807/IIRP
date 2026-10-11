@@ -21,8 +21,21 @@ extended_seconds = 300      # US pre-market 04:00-09:30 and after-hours 16:00-20
 overdue_factor = 2
 overdue_seconds = 180
 
+[index_constituents]        # S&P 500 and Nasdaq-100 membership lists (unofficial public sources)
+weekday = "saturday"        # one fixed weekly update, US Eastern
+time = "08:00"
+retry_seconds = 21600       # after a failed attempt, try again 6 hours later; the last good list stays
+
 [browser]                   # an open page; everything pauses while the tab is hidden
 home_poll_seconds = 10      # re-read the saved quotes (local database only)
 feed_poll_seconds = 5       # check for newly published Insider filings (local database only)
 ensure_seconds = 30         # ask the server whether a SEC or quote refresh is due
 overview_poll_seconds = 60  # re-read the Insider overview; new filings and quotes change it slowly
+
+[long_prices]
+history_years = 10         # complete past years, kept from January 1 of the first
+time = "17:30"             # completed NYSE sessions, US Eastern
+recent_sessions = 10
+relative_tolerance = 0.00001
+absolute_tolerance = 0.0001
+retry_seconds = 21600

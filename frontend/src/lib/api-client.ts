@@ -1,4 +1,4 @@
-import createClient from "openapi-fetch";
+import createClient, { type Middleware } from "openapi-fetch";
 import i18n from "@/i18n";
 import { decodeMessage, tm } from "@/i18n";
 import type { components, paths } from "@/generated/api";
@@ -8,13 +8,21 @@ import type { components, paths } from "@/generated/api";
  * fields are translated where they are shown (tm), so a language switch never
  * needs a refetch. Writes carry the same-origin client header.
  */
-export const client = createClient<paths>({ baseUrl: "" });
-client.use({
+const sameOrigin: Middleware = {
   onRequest({ request }) {
     if (request.method !== "GET") request.headers.set("X-IIRP-Client", "web");
     return request;
   },
-});
+};
+
+/** A client for another contract (an optional feature's own), with the same request rules. */
+export function contractClient<P extends {}>() {
+  const typed = createClient<P>({ baseUrl: "" });
+  typed.use(sameOrigin);
+  return typed;
+}
+
+export const client = contractClient<paths>();
 
 export type Schemas = components["schemas"];
 

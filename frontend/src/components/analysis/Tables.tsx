@@ -10,8 +10,9 @@ import {
   type SortingState,
 } from "@tanstack/react-table";
 import { ArrowDown, ArrowUp } from "lucide-react";
-import { benchmarkName, pct, periodName, yearLabel, type Candle, type Period, type PeriodStats } from "@/lib/analysis";
+import { distribution, type Basis, type SectorReference, benchmarkName, pct, periodName, yearLabel, type Candle, type Period, type PeriodStats } from "@/lib/analysis";
 import { directionClass, formatDay, formatPrice } from "@/lib/format";
+import { SectorBadge } from "@/components/analysis/References";
 import { UpShare } from "@/components/analysis/UpShare";
 import { cn } from "@/lib/utils";
 
@@ -135,25 +136,25 @@ export function Quartiles({ low, high }: { low: unknown; high: unknown }) {
 
 export const num = (value: string | null | undefined) => (value == null ? Number.NEGATIVE_INFINITY : Number(value));
 
-type StatsRow = { key: string; label: string; stats: PeriodStats; extra?: string };
+type StatsRow = { key: string; label: string; stats: PeriodStats; sector?: SectorReference | null; extra?: string };
 
 /** The statistic columns shared by the month and ticker rankings. */
-function useStatColumns(benchmark: string | null) {
+function useStatColumns(benchmark: string | null, sector: boolean, basis: Basis) {
   const { t } = useTranslation();
   return useMemo(() => {
     const column = createColumnHelper<StatsRow>();
     const columns = [
-      column.accessor((row) => num(row.stats.median), { id: "median", header: t("ui.analysis.col.median"), meta: { numeric: true }, cell: ({ row }) => <Signed value={row.original.stats.median} /> }),
-      column.accessor((row) => num(row.stats.mean), { id: "mean", header: t("ui.analysis.col.mean"), meta: { numeric: true }, cell: ({ row }) => <Signed value={row.original.stats.mean} /> }),
-      column.accessor((row) => num(row.stats.q25), {
+      column.accessor((row) => num(distribution(row.stats, basis).median), { id: "median", header: t("ui.analysis.col.median"), meta: { numeric: true }, cell: ({ row }) => <Signed value={distribution(row.original.stats, basis).median} /> }),
+      column.accessor((row) => num(distribution(row.stats, basis).mean), { id: "mean", header: t("ui.analysis.col.mean"), meta: { numeric: true }, cell: ({ row }) => <Signed value={distribution(row.original.stats, basis).mean} /> }),
+      column.accessor((row) => num(distribution(row.stats, basis).q25), {
         id: "quartiles",
         header: t("ui.analysis.col.quartiles"),
         meta: { numeric: true, tip: t("ui.analysis.col.quartiles_tip") },
-        cell: ({ row }) => (row.original.stats.n ? <Quartiles low={row.original.stats.q25} high={row.original.stats.q75} /> : "—"),
+        cell: ({ row }) => (distribution(row.original.stats, basis).n ? <Quartiles low={distribution(row.original.stats, basis).q25} high={distribution(row.original.stats, basis).q75} /> : "—"),
       }),
       column.accessor((row) => (num(row.stats.up_ratio)), {
         id: "up",
-        header: t("ui.analysis.col.up"),
+        header: t(basis === "absolute" ? "ui.analysis.col.up" : "ui.analysis.basis.absolute_up"),
         meta: { numeric: true, tip: t("ui.analysis.col.up_tip") },
         cell: ({ row }) => {
           const s = row.original.stats;
@@ -176,37 +177,42 @@ function useStatColumns(benchmark: string | null) {
             }),
           ]
         : []),
-      column.accessor((row) => num(row.stats.best), {
+      ...(sector ? [
+        column.accessor((row) => num(row.stats.sector_median), { id: "sector_return", header: t("ui.analysis.sector.col.return"), meta: { numeric: true }, cell: ({ row }) => <Signed value={row.original.stats.sector_median} /> }),
+        column.accessor((row) => num(row.stats.sector_beat_ratio), { id: "sector_beat", header: t("ui.analysis.sector.col.beat"), meta: { numeric: true }, cell: ({ row }) => row.original.stats.sector_paired_n ? `${row.original.stats.sector_beat}/${row.original.stats.sector_paired_n}` : "—" }),
+        column.accessor((row) => num(row.stats.sector_median_excess), { id: "sector_excess", header: t("ui.analysis.sector.col.median_excess"), meta: { numeric: true }, cell: ({ row }) => <Signed value={row.original.stats.sector_median_excess} /> }),
+      ] : []),
+      column.accessor((row) => num(distribution(row.stats, basis).best), {
         id: "best",
         header: t("ui.analysis.col.best"),
         meta: { numeric: true },
         cell: ({ row }) => (
           <span>
-            <Signed value={row.original.stats.best} />
-            {row.original.stats.best_year != null && <span className="ml-1 text-xs text-muted-foreground">{row.original.stats.best_year}</span>}
+            <Signed value={distribution(row.original.stats, basis).best} />
+            {basis === "absolute" && row.original.stats.best_year != null && <span className="ml-1 text-xs text-muted-foreground">{row.original.stats.best_year}</span>}
           </span>
         ),
       }),
-      column.accessor((row) => num(row.stats.worst), {
+      column.accessor((row) => num(distribution(row.stats, basis).worst), {
         id: "worst",
         header: t("ui.analysis.col.worst"),
         meta: { numeric: true },
         cell: ({ row }) => (
           <span>
-            <Signed value={row.original.stats.worst} />
-            {row.original.stats.worst_year != null && <span className="ml-1 text-xs text-muted-foreground">{row.original.stats.worst_year}</span>}
+            <Signed value={distribution(row.original.stats, basis).worst} />
+            {basis === "absolute" && row.original.stats.worst_year != null && <span className="ml-1 text-xs text-muted-foreground">{row.original.stats.worst_year}</span>}
           </span>
         ),
       }),
     ];
     return columns as ColumnDef<StatsRow, any>[];
-  }, [t, benchmark]);
+  }, [t, benchmark, sector, basis]);
 }
 
 /** Months of one ticker, one row each, sorted by median; click a row to choose it. */
-export function MonthTable({ periods, benchmark, selected, onSelect }: { periods: Period[]; benchmark: string | null; selected: number; onSelect: (month: number) => void }) {
+export function MonthTable({ periods, benchmark, sector = false, basis = "absolute", selected, onSelect }: { periods: Period[]; benchmark: string | null; sector?: boolean; basis?: Basis; selected: number; onSelect: (month: number) => void }) {
   const { t } = useTranslation();
-  const stats = useStatColumns(benchmark);
+  const stats = useStatColumns(benchmark, sector, basis);
   const columns = useMemo(() => {
     const column = createColumnHelper<StatsRow>();
     return [column.accessor((row) => Number(row.key), { id: "month", header: t("ui.analysis.col.month"), cell: ({ row }) => <span className="font-medium">{row.original.label}</span> }), ...stats] as ColumnDef<StatsRow, any>[];
@@ -216,27 +222,27 @@ export function MonthTable({ periods, benchmark, selected, onSelect }: { periods
 }
 
 /** The chosen month or interval for every ticker, ranked by median. */
-export function TickerTable({ rows, benchmark, selected, onSelect }: { rows: { symbol: string; period: Period }[]; benchmark: string | null; selected: string; onSelect: (symbol: string) => void }) {
+export function TickerTable({ rows, benchmark, sector = false, basis = "absolute", selected, onSelect }: { rows: { symbol: string; period: Period; sector?: SectorReference | null }[]; benchmark: string | null; sector?: boolean; basis?: Basis; selected: string; onSelect: (symbol: string) => void }) {
   const { t } = useTranslation();
-  const stats = useStatColumns(benchmark);
+  const stats = useStatColumns(benchmark, sector, basis);
   const columns = useMemo(() => {
     const column = createColumnHelper<StatsRow>();
     return [
-      column.accessor("key", { id: "ticker", header: t("ui.analysis.col.ticker"), cell: ({ row }) => <span className="font-semibold tabular-nums">{row.original.key}</span> }),
-      column.accessor((row) => row.stats.n, { id: "n", header: "N", meta: { numeric: true, tip: t("ui.analysis.col.n_tip") }, cell: ({ row }) => `${row.original.stats.n}/${row.original.stats.target_n}` }),
+      column.accessor("key", { id: "ticker", header: t("ui.analysis.col.ticker"), cell: ({ row }) => <span className="font-semibold tabular-nums">{row.original.key}<SectorBadge reference={row.original.sector} /></span> }),
+      column.accessor((row) => distribution(row.stats, basis).n, { id: "n", header: "N", meta: { numeric: true, tip: t("ui.analysis.col.n_tip") }, cell: ({ row }) => `${distribution(row.original.stats, basis).n}/${row.original.stats.target_n}` }),
       ...stats,
     ] as ColumnDef<StatsRow, any>[];
-  }, [stats, t]);
-  const data = useMemo(() => rows.map((row) => ({ key: row.symbol, label: row.symbol, stats: row.period.stats })), [rows]);
+  }, [stats, t, basis]);
+  const data = useMemo<StatsRow[]>(() => rows.map((row) => ({ key: row.symbol, label: row.symbol, stats: row.period.stats, sector: row.sector })), [rows]);
   return <SortableTable data={data} columns={columns} initial={[{ id: "median", desc: true }]} rowKey={(row) => row.key} selected={selected} onSelect={onSelect} />;
 }
 
 /** Every year of the chosen period: actual first and last sessions, open, close and the benchmark's change. */
-export function DetailTable({ period, benchmark }: { period: Period; benchmark: string | null }) {
+export function DetailTable({ period, benchmark, sector }: { period: Period; benchmark: string | null; sector?: string | null }) {
   const { t } = useTranslation();
   const columns = useMemo(() => {
     const column = createColumnHelper<Candle>();
-    const list = [
+    const list: ColumnDef<Candle, any>[] = [
       column.accessor("year", {
         header: t("ui.analysis.col.year"),
         cell: ({ row }) => (
@@ -283,8 +289,12 @@ export function DetailTable({ period, benchmark }: { period: Period; benchmark: 
           ]
         : []),
     ];
+    if (sector) list.push(
+      column.accessor((row) => num(row.sector_change), { id: "sector_return", header: t("ui.analysis.sector.col.change", { sector }), meta: { numeric: true }, cell: ({ row }) => <Signed value={row.original.sector_change} digits={2} /> }),
+      column.accessor((row) => num(row.sector_excess), { id: "sector_excess", header: t("ui.analysis.sector.col.excess"), meta: { numeric: true }, cell: ({ row }) => <Signed value={row.original.sector_excess} digits={2} /> }),
+    );
     return list as ColumnDef<Candle, any>[];
-  }, [t, benchmark, period.cross_year]);
+  }, [t, benchmark, sector, period.cross_year]);
   const data = useMemo(() => period.years.filter((candle) => !(candle.current && candle.status === "not_started")).slice().reverse(), [period]);
   return <SortableTable data={data} columns={columns} initial={[{ id: "year", desc: true }]} rowKey={(row) => String(row.year)} />;
 }

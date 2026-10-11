@@ -25,7 +25,7 @@ def system_database_state():
             with connection.cursor() as cursor:
                 cursor.execute(
                     "SELECT (SELECT max(last_seen) FROM worker_heartbeat), "
-                    "(SELECT version_num FROM alembic_version LIMIT 1)"
+                    "(SELECT string_agg(version_num, ',' ORDER BY version_num) FROM alembic_version)"
                 )
                 last_seen, migration = cursor.fetchone()
         return (

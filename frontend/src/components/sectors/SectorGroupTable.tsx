@@ -63,7 +63,7 @@ function ReferenceRow({ row, group, selected, toggle, historyYears }: {
   const { t } = useTranslation();
   const note = t(`ui.sectors.etf_note.${row.etf}`, { defaultValue: "" });
   return (
-    <tr className={cn("border-b border-dashed bg-muted/40 text-xs text-muted-foreground", selected.includes(row.etf) && "bg-up-soft/40")}>
+    <tr className={cn("border-b border-dashed bg-muted/40 text-xs text-muted-foreground", selected.includes(row.etf) && "bg-selected/60")}>
       <td className="py-1.5 pl-3"><Check etf={row.etf} label={`${group} · ${row.etf}`} selected={selected} toggle={toggle}/></td>
       <td className="py-1.5 pr-2 pl-6">
         <span className="flex flex-col border-l-2 border-foreground/15 pl-2">
@@ -141,7 +141,7 @@ export function SectorGroupTable({ items, historyYears, sort, desc, setSort, sel
             return (
               <Fragment key={item.id}>
                 <motion.tr layout={reduce ? false : "position"} transition={{ duration: 0.25, ease: "easeOut" }}
-                  className={cn("border-b hover:bg-accent/40", item.etf && selected.includes(item.etf) && "bg-up-soft/60", !item.etf && "text-muted-foreground")}>
+                  className={cn("border-b hover:bg-accent/40", item.etf && selected.includes(item.etf) && "bg-selected", !item.etf && "text-muted-foreground")}>
                   <td className="py-2 pl-3">{item.etf && <Check etf={item.etf} label={label} selected={selected} toggle={toggle}/>}</td>
                   <td className="px-2 py-2">
                     <span className="flex flex-col">

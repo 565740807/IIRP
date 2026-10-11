@@ -223,14 +223,12 @@ def live():
 def ready():
     try:
         with session() as s:
-            revision = s.scalar(text("SELECT version_num FROM alembic_version"))
-        from alembic.config import Config
-        from alembic.script import ScriptDirectory
+            revisions = set(s.scalars(text("SELECT version_num FROM alembic_version")))
+        from iirp.extensions import migration_heads
 
-        expected = ScriptDirectory.from_config(Config(str(ROOT / "alembic.ini"))).get_current_head()
-        if revision != expected:
+        if revisions != migration_heads():
             raise ValueError("migration mismatch")
-        return {"status": "ready", "migration": revision}
+        return {"status": "ready", "migration": ",".join(sorted(revisions))}
     except (SQLAlchemyError, ValueError):
         return JSONResponse(
             {"status": "not_ready", "reason": "database or migration revision not ready"}, status_code=503
@@ -406,9 +404,24 @@ from iirp.api.sectors import router as sectors_router  # noqa: E402
 
 app.include_router(sectors_router)
 
+from iirp.api.classification import router as classification_router  # noqa: E402
+
+app.include_router(classification_router)
+
 from iirp.api.health import router as health_router  # noqa: E402
 
 app.include_router(health_router)
+
+from iirp.api.long_prices import router as long_prices_router  # noqa: E402
+
+app.include_router(long_prices_router)
+
+from iirp.extensions import routers as extension_routers  # noqa: E402
+
+# Optional features keep their routes out of docs/openapi.json, so the public
+# contract is the same with or without them.
+for extension_router in extension_routers():
+    app.include_router(extension_router, include_in_schema=False)
 
 DIST = ROOT / "frontend/dist"
 if (DIST / "assets").exists():

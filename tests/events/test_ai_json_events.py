@@ -120,7 +120,7 @@ def test_unformed_and_missing_prices_stay_empty_and_quarters_group_earnings():
     result = analyze_events(events, BARS[:-1], n=2, cutoff=date(2024, 6, 11), kind="earnings")
     after = result["rows"][0]["windows"]["after"]
     assert after == {"value": None, "start_date": "2024-06-10", "end_date": "2024-06-12",
-                     "status": "pending", "benchmark": None, "excess": None}
+                     "status": "pending", "benchmark": None, "excess": None, "sector": None, "sector_excess": None}
     assert result["rows"][0]["path"][-1]["value"] is None
     assert result["rows"][0]["candles"][-1]["close"] is None
     missing = analyze_events(events, BARS[1:], n=2, cutoff=date(2024, 6, 12), kind="earnings")
@@ -266,8 +266,8 @@ def test_benchmark_is_fetched_once_and_quick_switches_reuse_analyses():
     assert event_service.get_analysis(plain["analysis_id"])["benchmark"] is None
     assert event_service.get_analysis(wider["analysis_id"])["n"] == 5
     stats = event_service.export_analysis(analysis_id, "stats").lstrip("\ufeff").splitlines()
-    # Each ticker: all events and its one quarter, four windows each.
-    assert stats[0].startswith("ticker,group,window,n_sessions,benchmark,n,median") and len(stats) == 1 + 2 * 2 * 4
+    # Each ticker: all events, its one quarter and its surprise and guidance groups (no data), four windows each.
+    assert stats[0].startswith("ticker,group,window,n_sessions,benchmark,sector_etf,sector_source,sector_mode,sector_fallback,sector_reason,n,median") and len(stats) == 1 + 2 * 4 * 4
     detail = event_service.export_analysis(analysis_id, "detail").lstrip("\ufeff").splitlines()
     assert len(detail) == 3 and ",^GSPC," in detail[1]
 

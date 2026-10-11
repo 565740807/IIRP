@@ -5,25 +5,17 @@ import { TreemapChart } from "echarts/charts";
 import { TooltipComponent } from "echarts/components";
 import { CanvasRenderer } from "echarts/renderers";
 import { useReducedMotion } from "motion/react";
+import { CHART, labelOn, mix, usePalette } from "@/lib/colors";
 import { formatDay, formatSignedRatio } from "@/lib/format";
 import { periodChange, periodWeight, type Period, type PricedRow } from "@/lib/sectors";
 
 echarts.use([TreemapChart, TooltipComponent, CanvasRenderer]);
 
-// The CSS tokens' blue (up) and orange (down) as canvas colors, and a neutral tile.
-const UP: [number, number, number] = [33, 86, 217];
-const DOWN: [number, number, number] = [194, 83, 26];
-const NEUTRAL: [number, number, number] = [241, 245, 249];
-
-function mix(target: [number, number, number], share: number) {
-  const channel = (index: number) => Math.round(NEUTRAL[index] + (target[index] - NEUTRAL[index]) * share);
-  return `rgb(${channel(0)}, ${channel(1)}, ${channel(2)})`;
-}
-
 /**
  * Treemap of the sectors or industry groups for one period. Tile area is the
- * backend's weight; color is the direction (blue up, orange down) and, by
- * depth, the size of the change relative to the largest one shown.
+ * backend's weight; color is the direction (the up or down color, mixed from
+ * a neutral tile) and, by depth, the size of the change relative to the
+ * largest one shown. Labels take white or dark text, whichever reads better.
  */
 export function SectorHeatmap({ items, period, onSelect, name, label }: {
   items: PricedRow[]; period: Period; onSelect: (etf: string) => void; name: (id: string) => string; label: string;
@@ -32,6 +24,7 @@ export function SectorHeatmap({ items, period, onSelect, name, label }: {
   const element = useRef<HTMLDivElement>(null);
   const chart = useRef<echarts.ECharts | null>(null);
   const reduce = useReducedMotion();
+  const { up, down } = usePalette();
   const select = useRef(onSelect);
   select.current = onSelect;
 
@@ -58,8 +51,7 @@ export function SectorHeatmap({ items, period, onSelect, name, label }: {
       const value = change.value == null ? null : Number(change.value);
       const weight = periodWeight(item, period);
       const share = value == null || largest === 0 ? 0 : 0.3 + 0.7 * Math.abs(value) / largest;
-      const color = value == null || value === 0 ? mix(UP, 0) : mix(value > 0 ? UP : DOWN, share);
-      const dark = share > 0.55;
+      const color = value == null || value === 0 ? CHART.tile : mix(CHART.tile, value > 0 ? up : down, share);
       return {
         name: name(item.id),
         etf: item.etf,
@@ -68,8 +60,8 @@ export function SectorHeatmap({ items, period, onSelect, name, label }: {
         change: value,
         start: change.start_date,
         end: change.end_date,
-        itemStyle: { color, borderColor: "#fff", borderWidth: 2, gapWidth: 2 },
-        label: { color: dark ? "#fff" : "#0f172a" },
+        itemStyle: { color, borderColor: CHART.surface, borderWidth: 2, gapWidth: 2 },
+        label: { color: labelOn(color) },
       };
     });
     instance.setOption({
@@ -110,7 +102,7 @@ export function SectorHeatmap({ items, period, onSelect, name, label }: {
         data,
       }],
     }, { notMerge: false });
-  }, [items, period, reduce, t, name]);
+  }, [items, period, reduce, t, name, up, down]);
 
   return <div ref={element} className="h-[560px] w-full rounded-lg border bg-card p-1" role="img" aria-label={t("ui.sectors.heatmap_label", { level: label, period: t(`ui.sectors.period.${period}`) })}/>;
 }

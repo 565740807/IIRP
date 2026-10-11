@@ -5,7 +5,7 @@ Transaction rows carry the parsed SEC facts; parser versions add optional facts
 over time, so rows allow extra fields beyond the ones declared here.
 """
 
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -123,6 +123,8 @@ class FeedGroup(Output):
     issuer_ticker_raw: str | None = None
     # Yahoo symbol for the current quote; None when no usable ticker is known.
     quote_symbol: str | None = None
+    # Index lists the company is on now (S&P 500, Nasdaq-100; unofficial weekly lists).
+    indexes: list[Literal["sp500", "nasdaq100"]] = Field(default_factory=list)
     accepted_at: str | None = None
     accepted_date: str | None = None
     transaction_dates: list[str] = Field(default_factory=list)
@@ -215,6 +217,8 @@ class EntityRef(Output):
     name: str
     ticker: str | None = None
     issuer_ticker_raw: str | None = None
+    # Companies only: index lists the company is on now.
+    indexes: list[Literal["sp500", "nasdaq100"]] = Field(default_factory=list)
 
 
 class EntityCompany(Output):

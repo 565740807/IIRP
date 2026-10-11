@@ -24,13 +24,15 @@ export function formatNumber(value: unknown, digits = 2, language?: string) {
 }
 
 /**
- * Chinese large-number units for an absolute value ≥ 10,000: whole 万 below
- * 1 亿 ("2,941万"), then 亿 with up to two decimals ("1.23亿").
+ * Chinese amounts use two decimals below 100,000, whole ten-thousands below
+ * 100,000,000, and two decimals in hundred-millions above that threshold.
  */
 function zhUnits(absolute: number) {
-  const wan = Math.round(absolute / 10_000);
-  if (wan < 10_000) return i18n.t("ui.number.wan", { lng: "zh", value: new Intl.NumberFormat("zh-CN").format(wan) });
-  return i18n.t("ui.number.yi", { lng: "zh", value: new Intl.NumberFormat("zh-CN", { maximumFractionDigits: 2 }).format(absolute / 100_000_000) });
+  if (absolute < 100_000_000) {
+    const digits = absolute < 100_000 ? 2 : 0;
+    return i18n.t("ui.number.wan", { lng: "zh", value: new Intl.NumberFormat("zh-CN", { minimumFractionDigits: digits, maximumFractionDigits: digits }).format(absolute / 10_000) });
+  }
+  return i18n.t("ui.number.yi", { lng: "zh", value: new Intl.NumberFormat("zh-CN", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(absolute / 100_000_000) });
 }
 
 const chinese = (language?: string) => (language ?? i18n.language) === "zh";
@@ -143,7 +145,7 @@ export function formatSignedRatio(value: unknown, digits = 1) {
   return `${zero ? "" : n > 0 ? "+" : n < 0 ? MINUS : ""}${text}%`;
 }
 
-/** Text color class of a signed value: blue up, orange down (never red/green). */
+/** Text color class of a signed value: the up or down color of the display settings. */
 export function directionClass(value: unknown) {
   const n = toNumber(value);
   return n === null || n === 0 ? "" : n > 0 ? "text-up" : "text-down";

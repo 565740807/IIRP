@@ -169,7 +169,7 @@ export function SectorTable({ items, historyYears, sort, desc, setSort, selected
               key={row.original.id}
               layout={reduce ? false : "position"}
               transition={{ duration: 0.25, ease: "easeOut" }}
-              className={cn("border-b last:border-b-0 hover:bg-accent/40", selected.includes(row.original.etf) && "bg-up-soft/60")}
+              className={cn("border-b last:border-b-0 hover:bg-accent/40", selected.includes(row.original.etf) && "bg-selected")}
             >
               {row.getVisibleCells().map((cell) => {
                 const numeric = (cell.column.columnDef.meta as { numeric?: boolean } | undefined)?.numeric;

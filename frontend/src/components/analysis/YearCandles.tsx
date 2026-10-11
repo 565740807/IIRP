@@ -1,20 +1,19 @@
 import { useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import * as echarts from "echarts/core";
-import { CandlestickChart, ScatterChart } from "echarts/charts";
+import { CandlestickChart, CustomChart, ScatterChart } from "echarts/charts";
 import { GridComponent, MarkLineComponent, ToolboxComponent, TooltipComponent } from "echarts/components";
 import { CanvasRenderer } from "echarts/renderers";
 import { useReducedMotion } from "motion/react";
 import { benchmarkName, pct, yearLabel, type Candle } from "@/lib/analysis";
+import { referenceMarks } from "@/components/analysis/ReferenceMarks";
+import { CHART, usePalette } from "@/lib/colors";
 import { formatDay, formatPrice } from "@/lib/format";
 
-echarts.use([CandlestickChart, ScatterChart, GridComponent, TooltipComponent, MarkLineComponent, ToolboxComponent, CanvasRenderer]);
+echarts.use([CandlestickChart, CustomChart, ScatterChart, GridComponent, TooltipComponent, MarkLineComponent, ToolboxComponent, CanvasRenderer]);
 
-// The blue (up) and orange (down) of the CSS tokens, as canvas colors.
-const UP = "#2156d9";
-const DOWN = "#c2531a";
-const INK = "#334155";
-const MUTED = "#64748b";
+const INK = CHART.ink;
+const MUTED = CHART.muted;
 
 /**
  * One candle per year for the chosen month or interval, drawn from a common
@@ -27,12 +26,14 @@ export function YearCandles({
   candles,
   cross,
   benchmark,
+  sector,
   title,
   height = 300,
 }: {
   candles: Candle[];
   cross: boolean;
   benchmark: string | null;
+  sector?: string | null;
   title: string;
   height?: number;
 }) {
@@ -40,6 +41,7 @@ export function YearCandles({
   const element = useRef<HTMLDivElement>(null);
   const chart = useRef<echarts.ECharts | null>(null);
   const reduce = useReducedMotion();
+  const { up: UP, down: DOWN } = usePalette();
 
   useEffect(() => {
     if (!element.current) return;
@@ -66,7 +68,7 @@ export function YearCandles({
       const value = [0, close, Number(candle.low_change ?? Math.min(0, close)), Number(candle.high_change ?? Math.max(0, close))];
       const color = close >= 0 ? UP : DOWN;
       return candle.status === "in_progress"
-        ? { value, itemStyle: { color: "#ffffff", color0: "#ffffff", borderColor: color, borderColor0: color, borderType: "dashed" as const, borderWidth: 1.5 } }
+        ? { value, itemStyle: { color: CHART.surface, color0: CHART.surface, borderColor: color, borderColor0: color, borderType: "dashed" as const, borderWidth: 1.5 } }
         : { value };
     });
     instance.setOption(
@@ -79,7 +81,7 @@ export function YearCandles({
           top: 0,
           itemSize: 14,
           iconStyle: { borderColor: MUTED },
-          feature: { saveAsImage: { title: t("ui.analysis.save_png"), name: title.replace(/[^\w\-]+/g, "_"), pixelRatio: 2, backgroundColor: "#ffffff" } },
+          feature: { saveAsImage: { title: t("ui.analysis.save_png"), name: title.replace(/[^\w\-]+/g, "_"), pixelRatio: 2, backgroundColor: CHART.surface } },
         },
         tooltip: {
           trigger: "axis",
@@ -97,20 +99,21 @@ export function YearCandles({
             ];
             if (benchmark && candle.benchmark_change != null)
               rows.push(`${benchmarkName(benchmark)} ${pct(candle.benchmark_change, 2)} · ${t("ui.analysis.col.excess")} ${pct(candle.excess, 2)}`);
+            if (sector && candle.sector_change != null) rows.push(`${sector} ${pct(candle.sector_change, 2)} · ${t("ui.analysis.sector.col.excess")} ${pct(candle.sector_excess, 2)}`);
             return rows.join("<br/>");
           },
         },
         xAxis: {
           type: "category",
           data: labels,
-          axisLine: { lineStyle: { color: "#cbd5e1" } },
+          axisLine: { lineStyle: { color: CHART.axis } },
           axisTick: { show: false },
           axisLabel: { color: MUTED, fontSize: 11 },
         },
         yAxis: {
           type: "value",
           position: "right",
-          splitLine: { lineStyle: { color: "#eef2f6" } },
+          splitLine: { lineStyle: { color: CHART.grid } },
           axisLabel: { color: MUTED, fontSize: 11, formatter: percent },
         },
         series: [
@@ -122,24 +125,13 @@ export function YearCandles({
             itemStyle: { color: UP, color0: DOWN, borderColor: UP, borderColor0: DOWN },
             markLine: { symbol: "none", silent: true, label: { show: false }, lineStyle: { color: INK, width: 1, opacity: 0.5 }, data: [{ yAxis: 0 }] },
           },
-          ...(benchmark
-            ? [
-                {
-                  type: "scatter" as const,
-                  name: benchmarkName(benchmark),
-                  symbol: "rect",
-                  symbolSize: [18, 2.5],
-                  itemStyle: { color: INK, opacity: 0.75 },
-                  data: shown.map((candle) => (candle.benchmark_change == null ? "-" : Number(candle.benchmark_change))),
-                  z: 5,
-                },
-              ]
-            : []),
+          ...(benchmark ? [referenceMarks(benchmarkName(benchmark), shown.map((candle) => candle.benchmark_change))] : []),
+          ...(sector ? [referenceMarks(sector, shown.map((candle) => candle.sector_change), true)] : []),
         ],
       },
       { notMerge: true },
     );
-  }, [candles, cross, benchmark, title, reduce, t, i18n.language]);
+  }, [candles, cross, benchmark, sector, title, reduce, t, i18n.language, UP, DOWN]);
 
   return <div ref={element} style={{ height }} className="w-full" role="img" aria-label={title} />;
 }

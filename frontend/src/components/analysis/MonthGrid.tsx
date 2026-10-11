@@ -2,8 +2,8 @@ import { useTranslation } from "react-i18next";
 import { monthName, pct, type Period } from "@/lib/analysis";
 import { cn } from "@/lib/utils";
 
-/** Cell tint: blue up, orange down; stronger with size, full at ±10%. */
-function tint(value: string | null | undefined) {
+/** Cell tint in the up or down color; stronger with size, full at ±10%. */
+export function tint(value: string | null | undefined) {
   if (value == null) return undefined;
   const n = Number(value);
   const strength = Math.min(Math.abs(n) / 0.1, 1);

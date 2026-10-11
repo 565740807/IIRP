@@ -10,7 +10,7 @@ type Change = { value?: string | null; start_date?: string | null; end_date?: st
 type Prices = Pick<TickerPrices, "status"> & { reason?: string | null };
 
 /**
- * One before- or after-n change: signed and colored (blue up, orange down);
+ * One before- or after-n change: signed and colored (up or down color);
  * empty with the expected date when that session has not come yet, "intraday"
  * before today's close, a spinner while prices are being fetched.
  */

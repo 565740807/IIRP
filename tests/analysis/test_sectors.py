@@ -91,7 +91,7 @@ def save_cache(s, symbol, bars, *, start=None):
 def test_sector_map_lists_the_eleven_spdr_sector_etfs():
     assert sector_etfs() == ["XLK", "XLV", "XLF", "XLY", "XLP", "XLC", "XLI", "XLE", "XLB",
                              "XLU", "XLRE"]
-    assert sector_map()["history"]["years"] == 8
+    assert sector_map()["history"]["years"] == 10
 
 
 def test_sector_map_lists_the_25_industry_groups():
@@ -122,7 +122,8 @@ def test_sector_map_lists_the_25_industry_groups():
 def config_with(*groups, sector_groups=None):
     config = {"sector": [{"id": "a", "etf": "AAA", "group": list(groups)},
                          {"id": "b", "etf": "BBB", "group": sector_groups or []}],
-              "heatmap": {"spread_floor_percent": dict.fromkeys(("today", "1w", "1m", "3m", "ytd"), 1)}}
+              "heatmap": {"spread_floor_percent": dict.fromkeys(("today", "1w", "1m", "3m", "ytd"), 1)},
+              "yahoo_sectors": {"Alpha": "a", "Beta": "b"}}
     return config
 
 
@@ -149,6 +150,13 @@ def config_with(*groups, sector_groups=None):
 def test_sector_map_rejects_inconsistent_groups(groups, sector_groups, problem):
     with pytest.raises(ValueError, match=problem):
         check_sector_map(config_with(*groups, sector_groups=sector_groups))
+
+
+def test_sector_map_needs_each_sector_once_in_the_yahoo_names():
+    config = config_with()
+    config["yahoo_sectors"] = {"Alpha": "a", "Also alpha": "a"}
+    with pytest.raises(ValueError, match="yahoo_sectors"):
+        check_sector_map(config)
 
 
 def test_sector_map_accepts_pending_reference_rows_and_a_group_equal_to_its_sector():
@@ -288,6 +296,9 @@ def test_sector_read_matches_the_hand_samples():
     assert set(result["prices_pending"]) == set(sector_etfs())
     assert [item["etf"] for item in result["items"][:2]] in (["XLK", "XLV"], ["XLV", "XLK"])
     assert items["XLF"]["periods"]["1m"]["status"] == "no_prices"
+    # Ranks (the home strip's numbers): 1 for the larger change, none without a value.
+    assert (items["XLK"]["ranks"]["1m"], items["XLV"]["ranks"]["1m"], items["XLF"]["ranks"]["1m"]) == (1, 2, None)
+    assert [item["ranks"]["today"] for item in result["items"][:2]] == [1, 2]
 
 
 @pytest.mark.parametrize("symbol,start_close,end_close,expected", [
@@ -367,7 +378,7 @@ def test_group_prices_are_asked_for_only_by_the_group_level():
         tech = request_prices(s, foreground=True, level="group", sector="information_technology", at=at)
         assert tech["requested"] == ["IGV", "SOXX", "SMH"]
         batch = s.get(Batch, tech["batch_ids"][0])
-        assert batch.params["start_date"] == "2018-01-01" and batch.params["purpose"] == "sector_groups"
+        assert batch.params["start_date"] == "2016-01-01" and batch.params["purpose"] == "sector_groups"
         everything = request_prices(s, foreground=True, level="group", at=at)
         # Every group ETF without a covering cache, XLE, XLB and XLU included; the
         # fetch itself is shared with the sector level's request for them.
@@ -431,7 +442,7 @@ def test_a_selection_across_levels_reuses_both_caches_for_the_analysis():
     at = datetime.now(timezone.utc)
     today = at.astimezone(ET).date()
     completed = last_completed_session(at)
-    start = date(today.year - 8, 1, 1) - timedelta(days=31)
+    start = date(today.year - 10, 1, 1) - timedelta(days=31)
     bars = [{"date": day.isoformat(), "open": "1", "high": "1", "low": "1", "close": "1"}
             for day in sessions(completed - timedelta(days=10), completed)]
     with session() as s, s.begin():
@@ -584,8 +595,8 @@ def test_price_request_plans_one_range_per_day():
         again = request_prices(s, foreground=True, at=at)
         batch = s.get(Batch, first["batch_ids"][0])
         assert first == again and first["requested"] == sector_etfs()
-        # This year and eight complete past years; the cache adds its month of buffer.
-        assert batch.params["start_date"] == "2018-01-01"
+        # This year and ten complete past years; the cache adds its month of buffer.
+        assert batch.params["start_date"] == "2016-01-01"
         assert batch.params["end_date"] == "2026-10-09"
         assert batch.params["purpose"] == "sectors"
         assert s.scalar(select(func.count()).select_from(Batch)) == 1
@@ -598,10 +609,10 @@ def test_price_request_skips_covering_caches():
 
     completed = last_completed_session(at)
     bars = [{"date": day.isoformat(), "open": "1", "high": "1", "low": "1", "close": "1"}
-            for day in sessions(date(today.year - 8, 1, 1) - timedelta(days=31), completed)]
+            for day in sessions(date(today.year - 10, 1, 1) - timedelta(days=31), completed)]
     with session() as s, s.begin():
         for etf in sector_etfs():
-            save_cache(s, etf, bars[-3:], start=date(today.year - 8, 1, 1) - timedelta(days=31))
+            save_cache(s, etf, bars[-3:], start=date(today.year - 10, 1, 1) - timedelta(days=31))
     with session() as s, s.begin():
         assert request_prices(s, at=at) == {"requested": [], "batch_ids": []}
 

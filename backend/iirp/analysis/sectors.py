@@ -37,6 +37,7 @@ from sqlalchemy import func, select
 
 from iirp.analysis.calendar import ET, as_et, last_completed_session, previous_session, sessions
 from iirp.config import ROOT
+from iirp.market.cache import price_expiry
 from iirp.models import PriceCache, PriceCacheBar, Security, now
 
 PERIODS = ("today", "1w", "1m", "3m", "ytd")
@@ -91,6 +92,9 @@ def check_sector_map(config: dict) -> dict:
     floors = config["heatmap"]["spread_floor_percent"]
     if set(floors) != set(PERIODS):
         raise ValueError(problem + "one heatmap spread floor per period")
+    yahoo = config.get("yahoo_sectors", {})
+    if set(yahoo.values()) != set(ids) or len(yahoo) != len(ids):
+        raise ValueError(problem + "yahoo_sectors must name each sector exactly once")
     return config
 
 
@@ -129,6 +133,20 @@ def group_etfs(sector: str | None = None) -> list[str]:
 def history_start(today: date) -> date:
     """January 1 of the first complete past year the sector page fetches."""
     return date(today.year - sector_map()["history"]["years"], 1, 1)
+
+
+def needed_start(cache, at: datetime) -> date:
+    """Where an ETF's daily history must begin to count as complete.
+
+    The long-term store keeps whole calendar years from January 1; when it
+    keeps fewer years than the sector window, a series holding all of them
+    counts as complete. A 24-hour cache needs the whole window.
+    """
+    from iirp.market.long_prices import history_start as kept_from
+    from iirp.models import LongPriceSeries
+
+    start = history_start(as_et(at).date())
+    return max(start, kept_from(at)) if isinstance(cache, LongPriceSeries) else start
 
 
 def months_back(day: date, months: int) -> date:
@@ -262,31 +280,41 @@ def _caches(s, etfs: list[str], at: datetime):
     rows = s.execute(select(Security, PriceCache)
                      .join(PriceCache, PriceCache.security_id == Security.id)
                      .where(Security.symbol.in_(etfs), PriceCache.expires_at > at)).all()
-    return {security.symbol: (security, cache) for security, cache in rows}
+    result = {security.symbol: (security, cache) for security, cache in rows}
+    from iirp.market.long_prices import local_series
+    for security in s.scalars(select(Security).where(Security.symbol.in_(etfs))):
+        local = local_series(s, security.id)
+        if local is not None and not any(str(history_start(as_et(at).date())) <= day <= str(as_et(at).date()) for day in local.details.get("missing_dates", [])) and (security.symbol not in result or (local.start_date <= result[security.symbol][1].start_date and local.complete_through >= result[security.symbol][1].complete_through)):
+            result[security.symbol] = (security, local)
+    return result
 
 
 def _first_dates(s, cache_ids) -> dict[str, date]:
     if not cache_ids:
         return {}
-    return dict(s.execute(select(PriceCacheBar.cache_id, func.min(PriceCacheBar.session_date))
-                          .where(PriceCacheBar.cache_id.in_(cache_ids), PriceCacheBar.status == "VALID")
-                          .group_by(PriceCacheBar.cache_id)).all())
+    from iirp.models import LongPriceBar
+    result = {}
+    for model in (PriceCacheBar, LongPriceBar):
+        result.update(s.execute(select(model.cache_id, func.min(model.session_date))
+            .where(model.cache_id.in_(cache_ids), model.status == "VALID").group_by(model.cache_id)).all())
+    return result
 
 
 def _bars(s, cache_ids, since: date, *, ohlc=False) -> dict[str, list[dict]]:
-    columns = [PriceCacheBar.cache_id, PriceCacheBar.session_date, PriceCacheBar.close]
-    if ohlc:
-        columns += [PriceCacheBar.open, PriceCacheBar.high, PriceCacheBar.low]
+    from iirp.models import LongPriceBar
     result = defaultdict(list)
     if not cache_ids:
         return result
-    for row in s.execute(select(*columns).where(
-            PriceCacheBar.cache_id.in_(cache_ids), PriceCacheBar.session_date >= since,
-            PriceCacheBar.status == "VALID").order_by(PriceCacheBar.session_date)).mappings():
-        bar = {"date": row["session_date"].isoformat(), "close": row["close"], "status": "VALID"}
+    for model in (PriceCacheBar, LongPriceBar):
+        columns = [model.cache_id, model.session_date, model.close]
         if ohlc:
-            bar.update(open=row["open"], high=row["high"], low=row["low"])
-        result[row["cache_id"]].append(bar)
+            columns += [model.open, model.high, model.low]
+        for row in s.execute(select(*columns).where(model.cache_id.in_(cache_ids), model.session_date >= since,
+                model.status == "VALID").order_by(model.session_date)).mappings():
+            bar = {"date": row["session_date"].isoformat(), "close": row["close"], "status": "VALID"}
+            if ohlc:
+                bar.update(open=row["open"], high=row["high"], low=row["low"])
+            result[row["cache_id"]].append(bar)
     return result
 
 
@@ -349,7 +377,7 @@ def _etf_views(s, etfs: list[str], at: datetime) -> dict[str, dict]:
                                      "status": "no_prices"} for period in PERIODS[1:]})
         quote = quotes.get(etf) or {}
         current = bool(cache and cache.complete_through >= completed
-                       and cache.start_date <= history_start(today))
+                       and cache.start_date <= needed_start(cache, at))
         views[etf] = {
             "etf": etf, "periods": periods,
             "first_date": first.isoformat() if first else None,
@@ -357,7 +385,7 @@ def _etf_views(s, etfs: list[str], at: datetime) -> dict[str, dict]:
             "quote_status": QUOTE_STATUS.get(quote.get("status"), "missing"),
             "quote_time": quote.get("source_time"),
             "price_fetched_at": cache.fetched_at.isoformat() if cache else None,
-            "price_expires_at": cache.expires_at.isoformat() if cache else None,
+            "price_expires_at": expiry.isoformat() if (expiry := price_expiry(cache)) else None,
             "prices_current": current,
             "fetch": {"status": "ready" if current else "not_requested", "reason": None},
         }
@@ -393,8 +421,10 @@ def performance(s, *, at: datetime | None = None) -> dict:
              for sector in sector_map()["sector"]]
     weights = {period: heatmap_weights({item["id"]: item["periods"][period]["value"]
                                         for item in items}, period) for period in PERIODS}
+    order = {period: ranks({item["id"]: item["periods"][period]["value"] for item in items}) for period in PERIODS}
     for item in items:
         item["weights"] = {period: weights[period][item["id"]] for period in PERIODS}
+        item["ranks"] = {period: order[period][item["id"]] for period in PERIODS}
     # The home strip's order: today's change, largest first, unknown last.
     items.sort(key=_today_order)
     return {**_header(at), "items": items, "sector_ids": sector_ids(), "quote_symbols": etfs,
@@ -544,7 +574,8 @@ def request_prices(s, *, foreground: bool = False, level: str = "sector", sector
     else:
         raise ValueError(sector)
     caches = _caches(s, etfs, at)
-    due = [etf for etf in etfs if not covers(caches.get(etf, (None, None))[1], start, today)]
+    due = [etf for etf in etfs if not covers(cache := caches.get(etf, (None, None))[1],
+                                             needed_start(cache, at) if cache else start, today)]
     if not due:
         return {"requested": [], "batch_ids": []}
     params = {"kind": "market_history", "tickers": due, "start_date": start.isoformat(),

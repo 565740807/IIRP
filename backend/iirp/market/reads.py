@@ -53,6 +53,22 @@ def _quote_freshness(quote, failure, current):
     return ("delayed", msg("quote.delay.daily")) if quote.get("status") == "DAILY" else ("live", None)
 
 
+def _display_fields(symbol, quote):
+    """How the strip shows this instrument: its kind, unit and, for a yield, the change in basis points."""
+    from iirp.market.instruments import BY_SYMBOL
+
+    instrument = BY_SYMBOL.get(symbol)
+    kind = instrument.kind if instrument else "index"
+    fields = {"kind": kind}
+    if instrument:
+        fields["unit"] = msg(instrument.unit)
+        fields["short_name"] = msg(instrument.short or instrument.name)
+    if kind == "yield" and quote.get("change") is not None:
+        # Yahoo quotes the 10-year yield in percent: 0.031 points is 3.1 basis points.
+        fields["change_bp"] = round(float(quote["change"]) * 100, 4)
+    return fields
+
+
 def quote_views(s, names, current):
     """Saved quotes with their freshness at ``current``, in the order of ``names``."""
     quotes = {q.symbol: q for q in s.scalars(select(MarketQuote).where(MarketQuote.symbol.in_(list(names))))}
@@ -70,10 +86,11 @@ def quote_views(s, names, current):
         failure = job if job is not None and job.status in ("FAILED", "RETRY_WAIT") else None
         if row is None:
             market.append({"symbol": symbol, "name": name, "status": "NOT_FETCHED", "freshness": "missing",
-                           "reason": failure.error if failure else msg("home.quote_not_fetched")})
+                           "reason": failure.error if failure else msg("home.quote_not_fetched"),
+                           **_display_fields(symbol, {})})
             continue
         quote = {key: value for key, value in row.data.items() if key not in ("history", "records")}
-        quote.update(name=name, fetched_at=row.fetched_at.isoformat())
+        quote.update(name=name, fetched_at=row.fetched_at.isoformat(), **_display_fields(symbol, quote))
         quote["freshness"], quote["reason"] = _quote_freshness(quote, failure, current)
         market.append(quote)
     return market

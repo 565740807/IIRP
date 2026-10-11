@@ -40,8 +40,10 @@ def test_wikipedia_finds_current_component_columns_and_ignores_citations():
         <tr><td>GOOG</td><td>Alphabet Inc. (Class C)<sup>[4]</sup></td><td>Technology</td><td>Software</td></tr>
         </table>""")
     assert len(rows) == 2
+    # Wikipedia's ICB classification is kept as given.
     assert rows[0] == {"index_name": "nasdaq100", "ticker": "AAPL", "cik": None,
-                       "name": "Apple Inc.", "industry": "Technology"}
+                       "name": "Apple Inc.", "industry": "Technology", "sub_industry": "Computer Hardware",
+                       "classification": "ICB"}
     assert rows[1]["name"] == "Alphabet Inc. (Class C)"
 
 
@@ -50,6 +52,14 @@ def test_wikipedia_accepts_previous_component_column_order():
         <tr><td>Microsoft</td><td>MSFT</td><td>Information Technology</td></tr></table>""")
     assert rows[0]["ticker"] == "MSFT"
     assert rows[0]["industry"] == "Information Technology"
+    assert (rows[0]["sub_industry"], rows[0]["classification"]) == (None, "GICS")
+
+
+def test_csv_keeps_the_gics_sub_industry():
+    rows = parse_sp500("Symbol,Security,GICS Sector,GICS Sub-Industry,Headquarters Location,Date added,CIK,Founded\n"
+                       "NVDA,Nvidia,Information Technology,Semiconductors,\"Santa Clara, California\",2001-11-30,1045810,1993\n")
+    assert (rows[0]["industry"], rows[0]["sub_industry"], rows[0]["classification"]) == (
+        "Information Technology", "Semiconductors", "GICS")
 
 
 @pytest.mark.parametrize("content", [

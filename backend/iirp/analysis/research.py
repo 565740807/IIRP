@@ -29,8 +29,9 @@ from iirp.analysis.distributions import (
     wilson_interval,
 )
 from iirp.analysis.prices import endpoint_change
+from iirp.analysis.sector_benchmarks import SectorReference, public_sector
 
-CALCULATION_VERSION = "research-v11-open-close"
+CALCULATION_VERSION = "research-v12-sector"
 DEFAULT_YEARS = 8
 MAX_YEARS = 30
 
@@ -60,6 +61,10 @@ class Candle(BaseModel):
     benchmark_close: str | None = None
     benchmark_change: str | None = None
     excess: str | None = None
+    sector_open: str | None = None
+    sector_close: str | None = None
+    sector_change: str | None = None
+    sector_excess: str | None = None
 
 
 class PeriodStats(DistributionStatistics):
@@ -87,6 +92,14 @@ class PeriodStats(DistributionStatistics):
     median_excess: str | None = None
     mean_excess: str | None = None
     benchmark_median: str | None = None
+    benchmark_excess_box: DistributionStatistics = Field(default_factory=lambda: DistributionStatistics(n=0))
+    sector_excess_box: DistributionStatistics = Field(default_factory=lambda: DistributionStatistics(n=0))
+    sector_paired_n: int = 0
+    sector_beat: int = 0
+    sector_beat_ratio: str | None = None
+    sector_median: str | None = None
+    sector_median_excess: str | None = None
+    sector_mean_excess: str | None = None
 
 
 class Period(BaseModel):
@@ -116,6 +129,8 @@ class ResearchMetadata(BaseModel):
     calculation_version: str = CALCULATION_VERSION
     price_basis: str = "split_only"
     benchmark: BenchmarkInfo | None = None
+    sector: SectorReference | None = None
+    sector_comparison_included: bool = False
 
 
 class ResearchResult(BaseModel):
@@ -252,7 +267,7 @@ def period_ranges(params: dict, today: date) -> list[tuple[date, date]]:
 # --- computation -----------------------------------------------------------------
 
 
-def _candle(year, current, first, last, index, cutoff, calendar, benchmark) -> dict:
+def _candle(year, current, first, last, index, cutoff, calendar, benchmark, sector=None) -> dict:
     expected = sessions(first, last, calendar)
     done = [day for day in expected if day <= cutoff]
     row = {"year": year, "current": current, "period_start": first.isoformat(),
@@ -292,6 +307,15 @@ def _candle(year, current, first, last, index, cutoff, calendar, benchmark) -> d
             with localcontext() as context:
                 context.prec = 34
                 row["excess"] = str(Decimal(row["change"]) - Decimal(row["benchmark_change"]))
+    if sector is not None:
+        other_open = sector.get(done[0], {}).get("open")
+        other_close = sector.get(end, {}).get("close")
+        row.update(sector_open=_text(other_open), sector_close=_text(other_close),
+                   sector_change=_ratio(other_open, other_close))
+        if row["sector_change"] is not None:
+            with localcontext() as context:
+                context.prec = 34
+                row["sector_excess"] = str(Decimal(row["change"]) - Decimal(row["sector_change"]))
     return row
 
 
@@ -301,6 +325,8 @@ def period_stats(candles: list[dict], target_n: int) -> dict:
     values = statistics([c["change"] for c in sample])
     paired = [c for c in sample if c.get("excess") is not None]
     excess = statistics([c["excess"] for c in paired])
+    sector_paired = [c for c in sample if c.get("sector_excess") is not None]
+    sector_excess = statistics([c["sector_excess"] for c in sector_paired])
     output = {
         "target_n": target_n, "n": values["n"], "up": values["up"], "flat": values["flat"],
         **{key: values.get(key) for key in ("median", "mean", "q25", "q75", "up_ratio", "whisker_low", "whisker_high", "outliers")},
@@ -309,6 +335,11 @@ def period_stats(candles: list[dict], target_n: int) -> dict:
         "median_excess": excess.get("median"), "mean_excess": excess.get("mean"),
         "beat_ratio": paired_ratio(excess["up"], excess["n"]),
         "benchmark_median": statistics([c["benchmark_change"] for c in paired]).get("median"),
+        "benchmark_excess_box": excess, "sector_excess_box": sector_excess,
+        "sector_paired_n": sector_excess["n"], "sector_beat": sector_excess["up"],
+        "sector_beat_ratio": paired_ratio(sector_excess["up"], sector_excess["n"]),
+        "sector_median": statistics([c["sector_change"] for c in sector_paired]).get("median"),
+        "sector_median_excess": sector_excess.get("median"), "sector_mean_excess": sector_excess.get("mean"),
     }
     if sample:
         ranked = sorted(sample, key=lambda c: Decimal(c["change"]))
@@ -320,6 +351,7 @@ def period_stats(candles: list[dict], target_n: int) -> dict:
 
 def compute_research(
     params: dict, bars: list[dict], today: date | None = None, benchmark: dict | None = None,
+    sector: dict | None = None,
 ) -> dict:
     """One security; ``today`` is the research cutoff (the last completed session)."""
     params = {key: value for key, value in params.items() if value is not None}
@@ -331,6 +363,7 @@ def compute_research(
     paired = None
     if benchmark is not None and benchmark.get("status") == "available":
         paired = _bars_by_date(benchmark.get("bars", []))
+    sector_paired = _bars_by_date(sector.get("bars", [])) if sector and sector.get("status") == "available" else None
     if kind == "monthly":
         current = int(params.get("current_year") or as_of.year)
         bounds = [(month, f"{month:02d}-01", f"{month:02d}-{gregorian.monthrange(2001, month)[1]:02d}",
@@ -347,7 +380,7 @@ def compute_research(
     years = _selected_years(params, current)
     periods = []
     for month, start_mmdd, end_mmdd, span, cross in bounds:
-        candles = [_candle(year, year == current, *span(year), index, cutoff, calendar, paired)
+        candles = [_candle(year, year == current, *span(year), index, cutoff, calendar, paired, sector_paired)
                    for year in [*years, current]]
         periods.append({
             "key": str(month) if month else "interval", "month": month,
@@ -360,6 +393,7 @@ def compute_research(
             "params": params, "historical_years": years, "current_year": current,
             "cutoff_date": cutoff.isoformat(), "calendar": calendar,
             "calendar_version": calendar_version(),
+            "sector": public_sector(sector), "sector_comparison_included": True,
             "benchmark": {"symbol": benchmark["symbol"], "status": benchmark.get("status", "unknown")}
             if benchmark else None,
         },

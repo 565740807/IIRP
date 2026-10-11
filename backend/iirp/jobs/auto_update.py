@@ -185,14 +185,24 @@ def _reconcile_market(s, batch):
     return True
 
 
+def _market_wanted(s):
+    """Strip instruments worth fetching now: the ones chosen in the display settings,
+    without index futures while US stocks trade (iirp.market.instruments)."""
+    from iirp.display import strip_selection
+    from iirp.market.instruments import fetch_symbols
+
+    return fetch_symbols(strip_selection(s), now())
+
+
 def _market_due(s):
-    """Instruments whose saved quote is missing or past its next_refresh_at; a
-    closed market's quote is not due again until its next window opens."""
-    from iirp.market.yahoo import MARKETS
+    """Wanted instruments whose saved quote is missing or past its next_refresh_at;
+    each instrument's next refresh follows its own session, so a closed market's
+    quote is not due again until its next window opens."""
     from iirp.models import MarketQuote
 
-    quotes = {q.symbol: q for q in s.scalars(select(MarketQuote).where(MarketQuote.symbol.in_(MARKETS)))}
-    return [symbol for symbol in MARKETS if symbol not in quotes or not quotes[symbol].data.get("next_refresh_at")
+    wanted = _market_wanted(s)
+    quotes = {q.symbol: q for q in s.scalars(select(MarketQuote).where(MarketQuote.symbol.in_(wanted)))}
+    return [symbol for symbol in wanted if symbol not in quotes or not quotes[symbol].data.get("next_refresh_at")
             or datetime.fromisoformat(quotes[symbol].data["next_refresh_at"]) <= now()]
 
 
@@ -262,6 +272,9 @@ def ensure_fresh_in_session(s, values):
                                   if reason in ("scheduler", "startup", "visible") else _market_due(s))
                 if not market_symbols:
                     continue
+            else:
+                # "Check now" refreshes every wanted instrument, still in one batch.
+                market_symbols = _market_wanted(s)
         active = s.scalar(select(Batch).where(
             Batch.kind == SOURCE_KIND[source],
             *((Batch.trigger == "manual",) if values.get("force") else ()),

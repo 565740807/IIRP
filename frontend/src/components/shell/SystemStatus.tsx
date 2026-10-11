@@ -16,7 +16,7 @@ function Dot({ ok }: { ok: boolean | null | undefined }) {
   return (
     <span
       aria-hidden
-      className={cn("mr-1.5 inline-block size-2 rounded-full", ok ? "bg-up" : ok === false ? "bg-warn" : "bg-neutral-mark")}
+      className={cn("mr-1.5 inline-block size-2 rounded-full", ok ? "bg-ok" : ok === false ? "bg-warn" : "bg-neutral-mark")}
     />
   );
 }

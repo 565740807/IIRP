@@ -14,6 +14,7 @@ import { sourceContext } from "@/lib/navigation";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { IndexMarks } from "@/components/insider/IndexMarks";
 import { WindowCell } from "@/components/insider/WindowCell";
 
 type TraderGroup = FeedGroup["trader_groups"][number];
@@ -200,6 +201,7 @@ export const FeedCard = memo(function FeedCard({ group, mark }: { group: FeedGro
           </span>
           <span className="truncate font-semibold">{company}</span>
         </Link>
+        <IndexMarks indexes={group.indexes} />
         {group.amendment_count > 0 && (
           <Badge variant="outline" className="h-5 shrink-0 px-1 text-[11px]">{t("ui.feed.amendment")}</Badge>
         )}

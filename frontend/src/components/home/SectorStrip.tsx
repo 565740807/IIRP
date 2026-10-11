@@ -10,12 +10,13 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useFlash } from "./MarketStrip";
 
-function SectorTile({ item }: { item: SectorItem }) {
+function SectorTile({ item, count }: { item: SectorItem; count: number }) {
   const { t } = useTranslation();
   const location = useLocation();
   const raw = item.periods.today.value;
   const value = raw == null ? null : Number(raw);
   const flash = useFlash(value);
+  const rank = item.ranks.today;
   return (
     <Tooltip>
       <TooltipTrigger asChild>
@@ -28,7 +29,10 @@ function SectorTile({ item }: { item: SectorItem }) {
             flash === "down" && "bg-down-flash duration-150",
           )}
         >
-          <span className="truncate text-[11px] text-muted-foreground">{t(`ui.sectors.short.${item.id}`)}</span>
+          <span className="flex min-w-0 items-baseline gap-1 text-[11px] text-muted-foreground">
+            {rank != null && <span className="shrink-0 font-semibold tabular-nums text-foreground/70">{rank}</span>}
+            <span className="truncate">{t(`ui.sectors.short.${item.id}`)}</span>
+          </span>
           <span className={cn("text-xs font-semibold tabular-nums", value == null ? "text-muted-foreground" : value > 0 ? "text-up" : value < 0 ? "text-down" : "")}>
             {value == null ? "—" : (
               <NumberFlow
@@ -40,7 +44,10 @@ function SectorTile({ item }: { item: SectorItem }) {
           </span>
         </Link>
       </TooltipTrigger>
-      <TooltipContent>{t(`ui.sectors.name.${item.id}`)} · {item.etf}</TooltipContent>
+      <TooltipContent>
+        {t(`ui.sectors.name.${item.id}`)} · {item.etf}
+        {rank != null && <> · {t("ui.sectors.strip_rank", { rank, count })}</>}
+      </TooltipContent>
     </Tooltip>
   );
 }
@@ -56,7 +63,7 @@ export function TodayBasis({ data }: { data: { items: readonly { periods?: Secto
       <Tooltip>
         <TooltipTrigger asChild>
           <span className="inline-flex cursor-default items-center gap-1.5">
-            <span className="size-1.5 rounded-full bg-up" aria-hidden />
+            <span className="size-1.5 rounded-full bg-ok" aria-hidden />
             {t("ui.sectors.intraday", { time: formatEt(time, { date: false }) })}
           </span>
         </TooltipTrigger>
@@ -67,7 +74,10 @@ export function TodayBasis({ data }: { data: { items: readonly { periods?: Secto
   return <span>{t("ui.sectors.closed_basis", { end: formatDay(today.end_date), start: formatDay(today.start_date) })}</span>;
 }
 
-/** Eleven S&P 500 sectors by today's change, under the index strip; opens the sector page. */
+/**
+ * Eleven S&P 500 sectors in one row, left to right by today's change (the
+ * server's order and ranks, 1 = largest), under the index strip; opens the sector page.
+ */
 export function SectorStrip() {
   const { t } = useTranslation();
   const { query, error } = useSectors();
@@ -82,7 +92,7 @@ export function SectorStrip() {
                 <Skeleton className="h-3.5 w-10" />
               </div>
             ))
-          : data.items.map((item) => <SectorTile key={item.id} item={item} />)}
+          : data.items.map((item) => <SectorTile key={item.id} item={item} count={data.items.length} />)}
       </div>
       <p className="flex flex-wrap items-center gap-x-2 px-1 pt-1.5 text-xs text-muted-foreground" role="status">
         <Link to="/sectors" className="font-medium text-foreground hover:underline">{t("ui.sectors.strip_title")}</Link>

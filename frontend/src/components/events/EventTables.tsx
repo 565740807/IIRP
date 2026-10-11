@@ -1,9 +1,10 @@
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { createColumnHelper, type ColumnDef } from "@tanstack/react-table";
-import { benchmarkName, pct } from "@/lib/analysis";
+import { benchmarkName, distribution, pct, type Basis } from "@/lib/analysis";
 import {
   WINDOWS,
+  quarterRank,
   fiscalLabel,
   sessionLabel,
   windowFormula,
@@ -17,6 +18,8 @@ import { formatDay } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { Quartiles, Signed, SortableTable, num } from "@/components/analysis/Tables";
 import { EventKline } from "@/components/events/EventCharts";
+import { RowContext } from "@/components/events/EventContext";
+import { SectorBadge } from "@/components/analysis/References";
 import { UpShare } from "@/components/analysis/UpShare";
 
 // Column value types differ per column; TanStack needs `any` to hold them in one list.
@@ -29,23 +32,23 @@ function Up({ stats }: { stats: EventStats | undefined }) {
 type StatsRow = { ranks?: Record<string, number>; key: string; label: React.ReactNode; tip?: string; stats: EventStats };
 
 /** N, median, mean, quartiles, up x/N with its 95% interval, |median| and the benchmark columns. */
-function useStatColumns(benchmark: string | null) {
+function useStatColumns(benchmark: string | null, sector: boolean, basis: Basis) {
   const { t } = useTranslation();
   return useMemo(() => {
     const column = createColumnHelper<StatsRow>();
     return [
-      column.accessor((row) => row.stats.n, { id: "n", header: "N", meta: { numeric: true }, cell: ({ row }) => row.original.stats.n }),
-      column.accessor((row) => num(row.stats.median), { id: "median", header: t("ui.analysis.col.median"), meta: { numeric: true }, cell: ({ row }) => <span className="font-medium"><Signed value={row.original.stats.median} /></span> }),
-      column.accessor((row) => num(row.stats.mean), { id: "mean", header: t("ui.analysis.col.mean"), meta: { numeric: true }, cell: ({ row }) => <Signed value={row.original.stats.mean} /> }),
-      column.accessor((row) => num(row.stats.q25), {
+      column.accessor((row) => distribution(row.stats, basis).n, { id: "n", header: "N", meta: { numeric: true }, cell: ({ row }) => distribution(row.original.stats, basis).n }),
+      column.accessor((row) => num(distribution(row.stats, basis).median), { id: "median", header: t("ui.analysis.col.median"), meta: { numeric: true }, cell: ({ row }) => <span className="font-medium"><Signed value={distribution(row.original.stats, basis).median} /></span> }),
+      column.accessor((row) => num(distribution(row.stats, basis).mean), { id: "mean", header: t("ui.analysis.col.mean"), meta: { numeric: true }, cell: ({ row }) => <Signed value={distribution(row.original.stats, basis).mean} /> }),
+      column.accessor((row) => num(distribution(row.stats, basis).q25), {
         id: "quartiles",
         header: t("ui.analysis.col.quartiles"),
         meta: { numeric: true, tip: t("ui.analysis.col.quartiles_tip") },
-        cell: ({ row }) => (row.original.stats.n ? <Quartiles low={row.original.stats.q25} high={row.original.stats.q75} /> : "—"),
+        cell: ({ row }) => (distribution(row.original.stats, basis).n ? <Quartiles low={distribution(row.original.stats, basis).q25} high={distribution(row.original.stats, basis).q75} /> : "—"),
       }),
       column.accessor((row) => (num(row.stats.up_ratio)), {
         id: "up",
-        header: t("ui.events.col.up"),
+        header: t(basis === "absolute" ? "ui.events.col.up" : "ui.analysis.basis.absolute_up"),
         meta: { numeric: true, tip: t("ui.events.col.up_tip") },
         cell: ({ row }) => <Up stats={row.original.stats} />,
       }),
@@ -71,14 +74,19 @@ function useStatColumns(benchmark: string | null) {
             }),
           ]
         : []),
+      ...(sector ? [
+        column.accessor((row) => num(row.stats.sector_median), { id: "sector_return", header: t("ui.analysis.sector.col.return"), meta: { numeric: true }, cell: ({ row }) => <Signed value={row.original.stats.sector_median} /> }),
+        column.accessor((row) => num(row.stats.sector_beat_ratio), { id: "sector_beat", header: t("ui.analysis.sector.col.beat"), meta: { numeric: true }, cell: ({ row }) => row.original.stats.sector_paired_n ? `${row.original.stats.sector_beat}/${row.original.stats.sector_paired_n}` : "—" }),
+        column.accessor((row) => num(row.stats.sector_median_excess), { id: "sector_excess", header: t("ui.analysis.sector.col.median_excess"), meta: { numeric: true }, cell: ({ row }) => <Signed value={row.original.stats.sector_median_excess} /> }),
+      ] : []),
     ] as ColumnDef<StatsRow, any>[];
-  }, [t, benchmark]);
+  }, [t, benchmark, sector, basis]);
 }
 
 /** The four windows of one ticker, in time order: before, gap, reaction day, after. */
-export function WindowTable({ result, benchmark }: { result: EventResult; benchmark: string | null }) {
+export function WindowTable({ result, benchmark, basis = "absolute" }: { result: EventResult; benchmark: string | null; basis?: Basis }) {
   const { t } = useTranslation();
-  const stats = useStatColumns(benchmark);
+  const stats = useStatColumns(benchmark, !!result.sector?.symbol, basis);
   const columns = useMemo(() => {
     const column = createColumnHelper<StatsRow>();
     return [
@@ -99,10 +107,10 @@ export function WindowTable({ result, benchmark }: { result: EventResult; benchm
 }
 
 /** Earnings by fiscal quarter: all events and Q1–Q4 for the chosen window. */
-export function QuarterTable({ result, benchmark }: { result: EventResult; benchmark: string | null }) {
+export function QuarterTable({ result, benchmark, basis = "absolute" }: { result: EventResult; benchmark: string | null; basis?: Basis }) {
   const { t } = useTranslation();
   const [window, setWindow] = useState<WindowKey>("reaction");
-  const stats = useStatColumns(benchmark);
+  const stats = useStatColumns(benchmark, !!result.sector?.symbol, basis);
   const columns = useMemo(() => {
     const column = createColumnHelper<StatsRow>();
     return [
@@ -132,7 +140,7 @@ export function QuarterTable({ result, benchmark }: { result: EventResult; bench
           </button>
         ))}
       </div>
-      <SortableTable pinnedTop="all" data={data} columns={columns} initial={[{ id: "median", desc: true }]} rowKey={(row) => row.key} rank={(row, sorting) => row.ranks?.[`${window}_${sorting[0]?.id === "up" ? "up_ratio" : "median"}_${sorting[0]?.desc ? "desc" : "asc"}`]} />
+      <SortableTable pinnedTop="all" data={data} columns={columns} initial={[{ id: "median", desc: true }]} rowKey={(row) => row.key} rank={(row, sorting) => quarterRank(row.ranks, window, basis, sorting[0])} />
     </div>
   );
 }
@@ -145,7 +153,7 @@ export function TickerRankTable({ results, benchmark, selected, onSelect }: { re
     const median = (key: WindowKey, header: string) =>
       column.accessor((row) => num(row.summary[key]?.median), { id: key, header, meta: { numeric: true }, cell: ({ row }) => <Signed value={row.original.summary[key]?.median} /> });
     return [
-      column.accessor("symbol", { id: "ticker", header: t("ui.analysis.col.ticker"), cell: ({ row }) => <span className="font-semibold tabular-nums">{row.original.symbol}</span> }),
+      column.accessor("symbol", { id: "ticker", header: t("ui.analysis.col.ticker"), cell: ({ row }) => <span className="font-semibold tabular-nums">{row.original.symbol}<SectorBadge reference={row.original.sector} /></span> }),
       column.accessor((row) => row.summary.reaction?.n ?? 0, { id: "n", header: "N", meta: { numeric: true }, cell: ({ row }) => row.original.summary.reaction?.n ?? 0 }),
       column.accessor((row) => num(row.summary.reaction?.median), {
         id: "reaction",
@@ -176,12 +184,15 @@ export function TickerRankTable({ results, benchmark, selected, onSelect }: { re
             cell: ({ row }) => (row.original.summary.reaction?.paired_n ? `${row.original.summary.reaction.beat}/${row.original.summary.reaction.paired_n}` : "—"),
           })]
         : []),
+      ...(results.some((row) => row.sector_comparison_included) ? [
+        column.accessor((row) => num(row.summary.reaction?.sector_median_excess), { id: "sector_excess", header: t("ui.analysis.sector.col.median_excess"), meta: { numeric: true }, cell: ({ row }) => <Signed value={row.original.summary.reaction?.sector_median_excess} /> }),
+      ] : []),
     ] as ColumnDef<EventResult, any>[];
   }, [t, benchmark, results]);
   return <SortableTable data={results} columns={columns} initial={[{ id: "reaction", desc: true }]} rowKey={(row) => row.symbol} selected={selected} onSelect={onSelect} />;
 }
 
-function WindowCell({ row, window, benchmark }: { row: EventRow; window: WindowKey; benchmark: string | null }) {
+function WindowCell({ row, window, benchmark, sector }: { row: EventRow; window: WindowKey; benchmark: string | null; sector?: string | null }) {
   const { t } = useTranslation();
   const value = row.windows[window];
   if (!value) return <>—</>;
@@ -195,6 +206,7 @@ function WindowCell({ row, window, benchmark }: { row: EventRow; window: WindowK
           {benchmarkName(benchmark)} {pct(value.benchmark, 2)}
         </span>
       )}
+      {sector && value.sector != null && <span className="text-[11px] text-muted-foreground">{sector} {pct(value.sector, 2)} · {t("ui.analysis.sector.col.excess")} <Signed value={value.sector_excess} digits={2} /></span>}
     </span>
   );
 }
@@ -210,7 +222,10 @@ export function EventDetailTable({ result, benchmark, selected, onSelect }: { re
         header: t("ui.events.col.event"),
         cell: ({ row }) => (
           <span className="flex min-w-0 flex-col">
-            <span className="font-medium">{row.original.name}</span>
+            <span className="font-medium">
+              {row.original.name}
+              {row.original.uncertain && <span className="ml-1.5 rounded border border-doubt/40 bg-doubt-soft px-1 text-[11px] font-medium text-doubt">{t("ui.events.preview.uncertain")}</span>}
+            </span>
             <span className="text-xs text-muted-foreground">
               {[fiscalLabel(row.original), ...row.original.notes.map((note) => t(`ui.events.note.${note}`)), row.original.note].filter(Boolean).join(" · ")}
             </span>
@@ -228,16 +243,27 @@ export function EventDetailTable({ result, benchmark, selected, onSelect }: { re
         ),
       }),
       column.accessor("reaction_date", { id: "r", header: t("ui.events.window.reaction"), cell: ({ row }) => <span className="whitespace-nowrap tabular-nums">{formatDay(row.original.reaction_date, { year: true })}</span> }),
+      column.accessor((row) => row.context.length, {
+        id: "context",
+        header: t("ui.events.col.context"),
+        meta: { numeric: true, tip: t("ui.events.context.column_tip") },
+        cell: ({ row }) => (row.original.context.length ? (
+          <span className="inline-flex items-center gap-1 tabular-nums">
+            {t("ui.events.preview.context", { count: row.original.context.length })}
+            {row.original.macro_events.length > 0 && <span className="rounded border border-foreground/30 px-1 text-[10px] font-semibold">{t("ui.events.context.major")}</span>}
+          </span>
+        ) : "—"),
+      }),
       ...WINDOWS.map((key) =>
         column.accessor((row) => num(row.windows[key]?.value), {
           id: key,
           header: windowLabel(key, result.n),
           meta: { numeric: true, tip: windowFormula(key) },
-          cell: ({ row }) => <WindowCell row={row.original} window={key} benchmark={benchmark} />,
+          cell: ({ row }) => <WindowCell row={row.original} window={key} benchmark={benchmark} sector={result.sector?.symbol} />,
         }),
       ),
     ] as ColumnDef<EventRow, any>[];
-  }, [t, benchmark, result.n]);
+  }, [t, benchmark, result.n, result.sector]);
   const key = (row: EventRow) => row.id;
   return (
     <SortableTable
@@ -247,7 +273,13 @@ export function EventDetailTable({ result, benchmark, selected, onSelect }: { re
       rowKey={key}
       selected={selected}
       onSelect={onSelect}
-      expanded={(row) => <div><EventKline row={row} /><p className="text-xs text-muted-foreground">{t("ui.events.kline_legend", { n: result.n })}</p></div>}
+      expanded={(row) => (
+        <div className="space-y-2">
+          <EventKline row={row} />
+          <p className="text-xs text-muted-foreground">{t(row.context.length ? "ui.events.kline_legend_context" : "ui.events.kline_legend", { n: result.n })}</p>
+          <RowContext row={row} />
+        </div>
+      )}
       rank={(row, sorting) => row.ranks[`${WINDOWS.includes(sorting[0]?.id as WindowKey) ? sorting[0].id : "reaction"}_${sorting[0]?.desc ? "desc" : "asc"}`]}
       rowTone={(row, sorting) => {
         const window = WINDOWS.includes(sorting[0]?.id as WindowKey) ? sorting[0].id : "reaction";

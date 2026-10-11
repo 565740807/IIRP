@@ -61,7 +61,7 @@ export function actionLabel(row: Row, t: (key: string, options?: Record<string, 
   return row.table === "II" ? t("ui.feed.derivative", { action: text }) : text;
 }
 
-/** Direction of a row on the page: purchases blue, sales orange, the rest neutral. */
+/** Direction of a row on the page: purchases in the up color, sales in the down color, the rest neutral. */
 export function sideClass(row: Pick<TradeSummary, "table" | "code">) {
   const direction = side(row);
   return direction === "buy" ? "text-up" : direction === "sell" ? "text-down" : "";

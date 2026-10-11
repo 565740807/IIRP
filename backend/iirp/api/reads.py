@@ -11,12 +11,18 @@ from iirp.models import Issuer, Owner, Security, now
 
 
 def home():
-    """Saved quotes for the home strip; the browser asks /freshness/ensure for new ones."""
+    """Saved quotes of the strip instruments shown now; the browser asks /freshness/ensure for new ones."""
+    from iirp.display import strip_selection
+    from iirp.market.instruments import shown_symbols
     from iirp.market.reads import quote_views
+    from iirp.models import MarketQuote
 
     current = now()
     with session() as s:
-        market = quote_views(s, MARKETS, current)
+        selected = strip_selection(s)
+        saved = {row.symbol: row.data for row in s.scalars(select(MarketQuote).where(MarketQuote.symbol.in_(selected)))}
+        shown = shown_symbols(selected, saved, current)
+        market = quote_views(s, {symbol: MARKETS[symbol] for symbol in shown}, current)
     browser = refresh()["browser"]
     return {"observed_at": current, "market": market, "refresh": browser}
 
@@ -24,9 +30,12 @@ def home():
 def feed(session_id="", cursor="", kind="all", order="transaction", index="all"):
     from iirp.insider.feed import feed as read_feed
     from iirp.insider.feed_updates import pending_feed_metadata
+    from iirp.market.classification import Memberships
 
     with session() as s, s.begin():
         result = read_feed(s, session_id, cursor, kind, order, index)
+        # Index marks are read now, not from the group revision, so they follow the weekly lists.
+        Memberships(s).mark(result["groups"])
         # Polling has its own scalar endpoint; ordinary page reads do not repeat
         # the full latest-revision scan just to report an update count.
         result["new_count"] = 0

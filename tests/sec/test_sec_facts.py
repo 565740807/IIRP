@@ -12,9 +12,9 @@ from types import SimpleNamespace
 import psycopg
 import pytest
 from alembic import command
-from alembic.config import Config
-from iirp.config import ROOT, settings
+from iirp.config import settings
 from iirp.db import engine, session
+from iirp.extensions import alembic_config
 from iirp.insider.facts import persist_discovery, persist_document
 from iirp.insider.feed import feed, feed_group
 from iirp.insider.records import entity_history, resolve_amendment, transaction_record
@@ -62,7 +62,7 @@ def isolated_database():
     os.environ["IIRP_DATABASE_URL"] = url.set(database=name).render_as_string(hide_password=False)
     engine.cache_clear()
     settings.cache_clear()
-    command.upgrade(Config(str(ROOT / "alembic.ini")), "head")
+    command.upgrade(alembic_config(), "heads")
     yield
     engine().dispose()
     engine.cache_clear()

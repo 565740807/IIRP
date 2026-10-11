@@ -6,7 +6,7 @@ import { useTranslation } from "react-i18next";
 import NumberFlow from "@number-flow/react";
 import { locale, tm } from "@/i18n";
 import type { Schemas } from "@/lib/api-client";
-import { formatDay, formatEt, formatLocal } from "@/lib/format";
+import { formatDay, formatEt, formatLocal, formatSigned } from "@/lib/format";
 import { homeQuery } from "@/lib/queries";
 import { usePageVisible, useRefresh, useRefreshIntervals } from "@/lib/refresh";
 import { sourceContext } from "@/lib/navigation";
@@ -16,7 +16,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 
 type Quote = Schemas["HomeQuote"];
 
-/** Background flashes blue (up) or orange (down) for about a second when a value changes. */
+/** Background flashes in the up or down color for about a second when a value changes. */
 export function useFlash(value: number | null | undefined) {
   const previous = useRef(value);
   const [flash, setFlash] = useState<"up" | "down" | null>(null);
@@ -39,24 +39,57 @@ function Direction({ value, children, className }: { value: number | null | unde
   );
 }
 
+/** The change line: percent and points, or basis points for a yield. */
+function Change({ quote }: { quote: Quote }) {
+  const { t } = useTranslation();
+  if (quote.kind === "yield") {
+    return quote.change_bp == null ? null : (
+      <Direction value={quote.change_bp}>{t("ui.market.bp", { value: formatSigned(quote.change_bp, 1) })}</Direction>
+    );
+  }
+  const percent = quote.change_percent == null ? null : quote.change_percent / 100;
+  if (percent == null) return null;
+  return (
+    <>
+      <Direction value={percent}>
+        <NumberFlow
+          value={percent}
+          locales={locale()}
+          format={{ style: "percent", minimumFractionDigits: 2, maximumFractionDigits: 2, signDisplay: "exceptZero" }}
+        />
+      </Direction>
+      {quote.change != null && (
+        // Points are dropped when the tile is narrow; the percent stays.
+        <Direction value={quote.change} className="hidden text-muted-foreground/90 @[8.5rem]:inline">
+          <NumberFlow
+            value={quote.change}
+            locales={locale()}
+            format={{ minimumFractionDigits: 2, maximumFractionDigits: 2, signDisplay: "exceptZero" }}
+          />
+        </Direction>
+      )}
+    </>
+  );
+}
+
 function QuoteTile({ quote, updating }: { quote: Quote; updating: boolean }) {
   const { t } = useTranslation();
   const location = useLocation();
   const flash = useFlash(quote.value);
-  const percent = quote.change_percent == null ? null : quote.change_percent / 100;
+  const missing = quote.kind === "yield" ? quote.change_bp == null : quote.change_percent == null;
   const delayed = quote.freshness === "delayed" && !updating;
   return (
     <Link
       to={`/market/${encodeURIComponent(quote.symbol)}`}
       state={sourceContext(location)}
       className={cn(
-        "group flex min-w-0 flex-col gap-0.5 px-4 py-2.5 transition-colors duration-1000 hover:bg-accent/60",
+        "group @container flex min-w-0 flex-col gap-0.5 bg-card px-3 py-2.5 transition-colors duration-1000 hover:bg-accent/60",
         flash === "up" && "bg-up-flash duration-150",
         flash === "down" && "bg-down-flash duration-150",
       )}
     >
-      <span className="flex items-center gap-1.5 truncate text-xs text-muted-foreground">
-        {tm(quote.name)}
+      <span className="flex items-center gap-1.5 truncate text-xs text-muted-foreground" title={tm(quote.name)}>
+        {tm(quote.short_name ?? quote.name)}
         {delayed && (
           <span className="size-1.5 shrink-0 rounded-full bg-warn motion-safe:animate-breathe" aria-label={t("ui.market.delayed")} />
         )}
@@ -64,32 +97,20 @@ function QuoteTile({ quote, updating }: { quote: Quote; updating: boolean }) {
       {quote.value == null ? (
         <span className="text-base text-muted-foreground">—</span>
       ) : (
-        <span className="text-[17px] leading-6 font-semibold tabular-nums">
-          <NumberFlow value={quote.value} locales={locale()} format={{ minimumFractionDigits: 2, maximumFractionDigits: 2 }} />
+        <span className="truncate text-base leading-6 font-semibold tabular-nums">
+          <NumberFlow
+            value={quote.value}
+            locales={locale()}
+            suffix={quote.kind === "yield" ? "%" : undefined}
+            format={{ minimumFractionDigits: 2, maximumFractionDigits: 2 }}
+          />
         </span>
       )}
-      <span className="flex items-baseline gap-2 text-xs">
-        {percent == null ? (
-          <span className="text-muted-foreground">{quote.freshness === "missing" ? tm(quote.reason) : t("ui.market.no_change")}</span>
+      <span className="flex items-baseline gap-2 truncate text-xs">
+        {missing ? (
+          <span className="truncate text-muted-foreground">{quote.freshness === "missing" ? tm(quote.reason) : t("ui.market.no_change")}</span>
         ) : (
-          <>
-            <Direction value={percent}>
-              <NumberFlow
-                value={percent}
-                locales={locale()}
-                format={{ style: "percent", minimumFractionDigits: 2, maximumFractionDigits: 2, signDisplay: "exceptZero" }}
-              />
-            </Direction>
-            {quote.change != null && (
-              <Direction value={quote.change} className="text-muted-foreground/90">
-                <NumberFlow
-                  value={quote.change}
-                  locales={locale()}
-                  format={{ minimumFractionDigits: 2, maximumFractionDigits: 2, signDisplay: "exceptZero" }}
-                />
-              </Direction>
-            )}
-          </>
+          <Change quote={quote} />
         )}
       </span>
     </Link>
@@ -137,7 +158,7 @@ function StripStatus({ quotes, updating }: { quotes: Quote[]; updating: boolean 
         <span>{t("ui.market.closed", { day: formatDay(reference.as_of, { year: false }) })}</span>
       ) : (
         <span className="inline-flex items-center gap-1.5">
-          <span className="size-1.5 rounded-full bg-up" aria-hidden />
+          <span className="size-1.5 rounded-full bg-ok" aria-hidden />
           {t("ui.market.live")}
         </span>
       )}
@@ -183,7 +204,28 @@ function useFirstUpdate(fetching: boolean) {
   return !done;
 }
 
-/** Five indexes in one compact row; values are the server's saved quotes. */
+// Narrowest tile that still fits a five-digit value and its change.
+const MIN_TILE = 104;
+
+/** One row when every tile gets MIN_TILE pixels, otherwise two rows. */
+function useColumns(count: number) {
+  const element = useRef<HTMLDivElement>(null);
+  const [width, setWidth] = useState(0);
+  useEffect(() => {
+    if (!element.current) return;
+    const observer = new ResizeObserver(([entry]) => setWidth(entry.contentRect.width));
+    observer.observe(element.current);
+    return () => observer.disconnect();
+  }, []);
+  const columns = !width || width / count >= MIN_TILE ? count : Math.ceil(count / 2);
+  return { element, columns };
+}
+
+/**
+ * The instruments chosen in the settings (index futures only outside US stock
+ * hours), in one compact row, or two on narrow screens; values are the
+ * server's saved quotes.
+ */
 export function MarketStrip() {
   const { t } = useTranslation();
   const visible = usePageVisible();
@@ -194,18 +236,23 @@ export function MarketStrip() {
   });
   const quotes = query.data?.market ?? [];
   const updating = useFirstUpdate(query.isFetching);
+  const count = query.isPending ? 10 : Math.max(quotes.length, 1);
+  const { element, columns } = useColumns(count);
+  const fillers = (columns - (count % columns)) % columns;
   return (
     <section aria-label={t("ui.market.label")}>
-      <div className="grid grid-cols-5 divide-x overflow-hidden rounded-lg border bg-card">
+      {/* Hairlines are the border color showing through one-pixel gaps, in one row or two. */}
+      <div ref={element} className="grid gap-px overflow-hidden rounded-lg border bg-border" style={{ gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }}>
         {query.isPending
-          ? Array.from({ length: 5 }, (_, index) => (
-              <div key={index} className="flex flex-col gap-1.5 px-4 py-2.5">
-                <Skeleton className="h-3 w-20" />
-                <Skeleton className="h-5 w-24" />
+          ? Array.from({ length: count }, (_, index) => (
+              <div key={index} className="flex flex-col gap-1.5 bg-card px-3 py-2.5">
                 <Skeleton className="h-3 w-16" />
+                <Skeleton className="h-5 w-20" />
+                <Skeleton className="h-3 w-12" />
               </div>
             ))
           : quotes.map((quote) => <QuoteTile key={quote.symbol} quote={quote} updating={updating} />)}
+        {Array.from({ length: fillers }, (_, index) => <div key={`filler-${index}`} className="bg-card" aria-hidden />)}
       </div>
       {query.error ? (
         <p className="px-1 pt-1.5 text-xs text-destructive">{query.error.message}</p>

@@ -24,9 +24,11 @@ import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { IndexMarks } from "@/components/insider/IndexMarks";
 import { NControl } from "@/components/insider/NControl";
 import { PriceChart, type Marker } from "@/components/insider/PriceChart";
 import { RangeControl } from "@/components/insider/RangeControl";
+import { SectorLine } from "@/components/insider/SectorLine";
 import { money, price, TradeTable, type Trade } from "@/components/insider/TradeTable";
 
 type History = Schemas["EntityHistory"];
@@ -243,11 +245,13 @@ export function EntityPage({ kind }: { kind: PageKind }) {
           <h2 className="flex items-baseline gap-2 text-xl font-semibold tracking-tight">
             {kind === "company" && data?.entity.ticker && <span className="rounded bg-secondary px-1.5 text-base tabular-nums">{data.entity.ticker}</span>}
             <span className="truncate">{name}</span>
+            {kind === "company" && <IndexMarks indexes={data?.entity.indexes} className="self-center" />}
             <span className="text-xs font-normal text-muted-foreground tabular-nums">CIK {Number(id) || id}</span>
             {kind === "company" && tickerState && !tickerState.confirmed && tickerState.status === "ready" && (
               <Badge variant="outline" title={t("ui.entity.pending_tip")}>{t("ui.entity.pending")}</Badge>
             )}
           </h2>
+          {kind === "company" && <SectorLine ticker={data?.entity.ticker} />}
         </div>
         <div className="ml-auto pt-4">
           <SecFetch kind={kind} id={id} name={name} range={range} />

@@ -16,6 +16,5 @@ playwright-report/
 
 frontend/*.tsbuildinfo
 
-# 本机工作笔记与过程记录（不纳入版本库）
+# 本机工作目录（不纳入版本库）
 work/
-docs/dev/

@@ -4,8 +4,9 @@ import { useTranslation } from "react-i18next";
 import { CircleAlert, LoaderCircle } from "lucide-react";
 import { tm } from "@/i18n";
 import { benchmarkName } from "@/lib/analysis";
-import { TAB, useEventAnalysis, useEventChoices, useVariant, type EventAnalysis, type EventKind, type EventFilters, SESSIONS, sessionLabel } from "@/lib/events";
+import { TAB, selectedSectorBenchmark, useEventAnalysis, useEventChoices, useVariant, type EventAnalysis, type EventKind, type EventFilters, SESSIONS, sessionLabel } from "@/lib/events";
 import { rememberAnalysis } from "@/lib/navigation";
+import { SectorBadge } from "@/components/analysis/References";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AnalysisLayout } from "@/components/analysis/AnalysisLayout";
@@ -49,7 +50,7 @@ function TickerChips({ analysis, focused, onFocus }: { analysis: EventAnalysis; 
             !result && "cursor-default font-normal text-muted-foreground hover:bg-card",
           )}
         >
-          {symbol}
+          {symbol}<SectorBadge selected={focused === symbol} reference={result?.sector} />
           {!result && steps.get(symbol) === "failed" && <CircleAlert className="size-3 text-destructive" />}
           {!result && steps.get(symbol) !== "failed" && <LoaderCircle className="size-3 motion-safe:animate-spin" />}
         </button>
@@ -78,11 +79,13 @@ export function EventsPage({ kind }: { kind: EventKind }) {
     }, { replace });
   const choices = useEventChoices(kind);
   const [benchmark, setBenchmarkState] = useState<string | null>(choices.benchmark);
+  const [sectorBenchmark, setSectorBenchmarkState] = useState<string | null>(choices.sectorBenchmark);
   const filters: EventFilters = {
     quarter: params.get("q") ? Number(params.get("q")) : undefined,
     recent_years: params.get("years") ? Number(params.get("years")) : undefined,
     session: (params.get("session") || undefined) as EventFilters["session"],
     direction: (params.get("direction") || undefined) as EventFilters["direction"],
+    exclude_macro: params.get("macro") === "exclude" || undefined,
   };
   const { query, refresh } = useEventAnalysis(id, (next) => update({ a: next }), filters);
   const analysis = query.data && query.data.id === id ? query.data : undefined;
@@ -94,6 +97,7 @@ export function EventsPage({ kind }: { kind: EventKind }) {
     if (!analysis) return;
     if (analysis.n !== choices.n) choices.setN(analysis.n);
     setBenchmarkState(analysis.benchmark ?? null);
+    setSectorBenchmarkState(selectedSectorBenchmark(analysis));
   }, [analysis?.id]); // eslint-disable-line react-hooks/exhaustive-deps
   const setN = (value: number | null) => {
     choices.setN(value);
@@ -105,6 +109,11 @@ export function EventsPage({ kind }: { kind: EventKind }) {
     choices.setBenchmark(value);
     if (analysis && value !== (analysis.benchmark ?? null)) variant.mutate({ id: analysis.id, benchmark: value });
   };
+  const setSectorBenchmark = (value: string | null) => {
+    setSectorBenchmarkState(value);
+    choices.setSectorBenchmark(value);
+    if (analysis && (value !== analysis.sector_benchmark || !analysis.tickers.some((item) => item.result?.sector_comparison_included))) variant.mutate({ id: analysis.id, sector_benchmark: value });
+  };
   const focused = params.get("t") ?? analysis?.tickers.find((item) => item.result)?.symbol ?? "";
   const missing = query.error && "status" in query.error && (query.error as { status?: number }).status === 404;
   const ready = analysis?.tickers.some((item) => item.result);
@@ -114,7 +123,7 @@ export function EventsPage({ kind }: { kind: EventKind }) {
       conditions={
         <EventInputs
           kind={kind}
-          choices={{ ...choices, setN, benchmark, setBenchmark }}
+          choices={{ ...choices, setN, benchmark, setBenchmark, sectorBenchmark, setSectorBenchmark }}
           busy={variant.isPending}
           currentSet={analysis?.event_set_id ?? null}
           onAnalysis={open}
@@ -151,8 +160,15 @@ export function EventsPage({ kind }: { kind: EventKind }) {
             <label className="text-xs">{t("ui.events.filter.years")} <input type="number" min={1} max={30} placeholder={t("ui.events.filter.all")} value={filters.recent_years ?? ""} onChange={(e) => update({ years: e.target.value || null })} className="h-7 w-16 rounded border px-1" /></label>
             <select aria-label={t("ui.events.filter.session")} value={filters.session ?? ""} onChange={(e) => update({ session: e.target.value || null })} className="h-7 rounded border bg-card px-1 text-xs"><option value="">{t("ui.events.filter.session")}</option>{SESSIONS.map((s) => <option key={s} value={s}>{sessionLabel(s)}</option>)}</select>
             <select aria-label={t("ui.events.filter.direction")} value={filters.direction ?? ""} onChange={(e) => update({ direction: e.target.value || null })} className="h-7 rounded border bg-card px-1 text-xs"><option value="">{t("ui.events.filter.direction")}</option><option value="up">{t("ui.events.filter.up")}</option><option value="down">{t("ui.events.filter.down")}</option></select>
-            <button type="button" onClick={() => update({ q: null, years: null, session: null, direction: null })} className="text-xs underline">{t("ui.events.filter.reset")}</button>
-            <span className="ml-auto text-xs tabular-nums text-muted-foreground">{t("ui.events.filter.count", { count: analysis.filtered_event_count, total: analysis.event_count })}</span>
+            <label className="inline-flex items-center gap-1 text-xs" title={t("ui.events.macro.tip", { sessions: analysis.tickers.find((item) => item.result)?.result?.macro_sessions ?? 2 })}>
+              <input type="checkbox" checked={!!filters.exclude_macro} onChange={(e) => update({ macro: e.target.checked ? "exclude" : null })} className="accent-primary" />
+              {t("ui.events.macro.exclude")}
+            </label>
+            <button type="button" onClick={() => update({ q: null, years: null, session: null, direction: null, macro: null })} className="text-xs underline">{t("ui.events.filter.reset")}</button>
+            <span className="ml-auto text-xs tabular-nums text-muted-foreground">
+              {t("ui.events.filter.count", { count: analysis.filtered_event_count, total: analysis.event_count })}
+              {filters.exclude_macro && ` · ${t("ui.events.macro.excluded", { count: analysis.macro_excluded })}`}
+            </span>
             {query.isFetching && <LoaderCircle className="size-3 motion-safe:animate-spin" />}
           </div>
           <TickerChips analysis={analysis} focused={focused} onFocus={(symbol) => update({ t: symbol })} />

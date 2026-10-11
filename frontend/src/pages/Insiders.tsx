@@ -12,6 +12,7 @@ import { clearRecent, readRecent, type RecentEntity } from "@/lib/recent";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { IndexMarks } from "@/components/insider/IndexMarks";
 import { InsiderOverview } from "@/components/insider/InsiderOverview";
 
 type Candidate = Schemas["LookupCandidate"];
@@ -25,13 +26,16 @@ function useDebounced(value: string, delay = 250) {
   return current;
 }
 
-function ResultRow({ to, icon: Icon, name, detail, extra }: { to: string; icon: typeof User; name: string; detail?: string | null; extra?: string | null }) {
+function ResultRow({ to, icon: Icon, name, detail, extra, indexes }: {
+  to: string; icon: typeof User; name: string; detail?: string | null; extra?: string | null; indexes?: readonly string[];
+}) {
   const location = useLocation();
   return (
     <Link to={to} state={sourceContext(location)} className="group flex items-center gap-3 rounded-md px-3 py-2 hover:bg-accent">
       <Icon className="size-4 shrink-0 text-muted-foreground" strokeWidth={1.8} />
       <span className="min-w-0 flex-1 truncate font-medium">{name}</span>
       {detail && <span className="shrink-0 rounded bg-secondary px-1.5 text-xs font-semibold tabular-nums">{detail}</span>}
+      <IndexMarks indexes={indexes} />
       {extra && <span className="w-36 shrink-0 text-right text-xs text-muted-foreground tabular-nums">{extra}</span>}
       <ArrowRight className="size-3.5 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
     </Link>
@@ -106,6 +110,7 @@ function SecResults({ query }: { query: string }) {
               {candidate.tickers.slice(0, 3).map((ticker) => (
                 <span key={ticker} className="shrink-0 rounded bg-secondary px-1.5 text-xs font-semibold tabular-nums">{ticker}</span>
               ))}
+              <IndexMarks indexes={candidate.indexes} />
               <span className="w-24 shrink-0 text-right text-xs text-muted-foreground tabular-nums">CIK {Number(candidate.cik)}</span>
               {candidate.local && <Badge variant="outline">{t("ui.lookup.saved")}</Badge>}
               <span className="inline-flex w-36 shrink-0 items-center justify-end gap-1 text-xs text-muted-foreground group-hover:text-foreground">
@@ -246,7 +251,7 @@ export function InsidersPage() {
                 <h3 className="px-3 pt-1.5 pb-1 text-xs font-medium text-muted-foreground">{t("ui.lookup.companies")}</h3>
                 {companies.map((row) => (
                   <ResultRow key={row.cik} to={`/companies/${row.cik}`} icon={Building2} name={readableCase(row.name)} detail={row.ticker}
-                    extra={row.last_trade ? t("ui.lookup.last_trade", { day: formatDay(row.last_trade) }) : null} />
+                    indexes={row.indexes} extra={row.last_trade ? t("ui.lookup.last_trade", { day: formatDay(row.last_trade) }) : null} />
                 ))}
               </div>
             )}

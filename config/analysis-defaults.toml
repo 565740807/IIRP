@@ -14,6 +14,26 @@ custom = 5
 min = 1
 max = 60
 
+# Background ("context") items the event prompts ask the AI for, in calendar
+# days before and after each event date. The page offers the presets; pasted
+# context outside the chosen window is flagged, not dropped.
+[event_context]
+before_days = 30
+after_days = 14
+presets = [[7, 7], [30, 14], [90, 30]]
+max_days = 366
+
+# Grouped event statistics, recomputed from frozen results.
+[event_groups]
+# Earnings whose EPS surprise (actual - estimate) / |estimate| is smaller than
+# this in absolute value are "in line"; above it "beat", below its negative "miss".
+inline_threshold = 0.01
+# "Exclude major macro events": leave out an event when a context item marked
+# major, of one of these categories, is dated within this many trading
+# sessions before or after the reaction day R.
+macro_sessions = 2
+macro_categories = ["macro", "policy", "geopolitical"]
+
 # Insider overview (/insider). Display rules only; nothing here scores a trade.
 [insider_overview]
 # A price is checked against the trade day's close in the 24-hour daily cache,

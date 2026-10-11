@@ -14,7 +14,7 @@ concurrency:
   cancel-in-progress: true
 jobs:
   visibility:
-    name: 仓库是否公开（仅定时触发）
+    name: Repository visibility (scheduled runs only)
     if: github.event_name == 'schedule'
     runs-on: ubuntu-24.04
     timeout-minutes: 2
@@ -26,8 +26,9 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: echo "public=$(gh api "repos/${{ github.repository }}" --jq '.private == false')" >> "$GITHUB_OUTPUT"
   backend:
-    name: 后端（Ruff、pytest、OpenAPI）
-    if: github.event_name != 'schedule'
+    name: Backend (Ruff, pytest, OpenAPI)
+    # A push to main in a private repository was already checked on its pull request.
+    if: github.event_name != 'schedule' && !(github.event_name == 'push' && github.event.repository.private)
     runs-on: ubuntu-24.04
     timeout-minutes: 40
     services:
@@ -52,11 +53,11 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - name: 测试数据库与运行目录环境变量
+      - name: Test database and runtime directory
         run: |
           echo "IIRP_DATABASE_URL=postgresql+psycopg://iirp:${PG_PASSWORD}@127.0.0.1:5432/iirp_v1_test_ci" >> "$GITHUB_ENV"
           echo "IIRP_RUNTIME_DIR=${RUNNER_TEMP}/iirp-runtime" >> "$GITHUB_ENV"
-      - name: 安装与数据库版本匹配的 PostgreSQL 客户端
+      - name: Install the PostgreSQL client matching the server
         run: |
           sudo install -d /usr/share/postgresql-common/pgdg
           sudo curl --fail --silent --show-error -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc https://www.postgresql.org/media/keys/ACCC4CF8.asc
@@ -71,13 +72,13 @@ jobs:
       - run: uv sync --frozen
       - name: Ruff
         run: uv run ruff check backend tests scripts migrations
-      - name: pytest（跳过 slow 标记的大型基准）
+      - name: pytest (without slow benchmarks)
         run: uv run python -m pytest tests -q -m "not slow"
-      - name: OpenAPI 与应用一致
+      - name: OpenAPI matches the application
         run: uv run python scripts/check_openapi.py
   backend-slow:
-    name: 后端大型容量与基准（slow，手动或每周）
-    # 私有仓库只手动运行以节省 Actions 用量；公开仓库每周定时运行
+    name: Backend capacity benchmarks (slow; manual or weekly)
+    # Private repositories run it only manually to save Actions minutes; public ones weekly.
     needs: visibility
     if: ${{ !cancelled() && (github.event_name == 'workflow_dispatch' || needs.visibility.outputs.public == 'true') }}
     runs-on: ubuntu-24.04
@@ -104,11 +105,11 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - name: 测试数据库与运行目录环境变量
+      - name: Test database and runtime directory
         run: |
           echo "IIRP_DATABASE_URL=postgresql+psycopg://iirp:${PG_PASSWORD}@127.0.0.1:5432/iirp_v1_test_ci" >> "$GITHUB_ENV"
           echo "IIRP_RUNTIME_DIR=${RUNNER_TEMP}/iirp-runtime" >> "$GITHUB_ENV"
-      - name: 安装与数据库版本匹配的 PostgreSQL 客户端
+      - name: Install the PostgreSQL client matching the server
         run: |
           sudo install -d /usr/share/postgresql-common/pgdg
           sudo curl --fail --silent --show-error -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc https://www.postgresql.org/media/keys/ACCC4CF8.asc
@@ -121,11 +122,12 @@ jobs:
           python-version: "3.13"
           enable-cache: true
       - run: uv sync --frozen
-      - name: pytest（仅 slow 标记的大型基准）
+      - name: pytest (slow benchmarks only)
         run: uv run python -m pytest tests -q -m slow
   frontend:
-    name: 前端（类型、测试、构建）
-    if: github.event_name != 'schedule'
+    name: Frontend (types, tests, build)
+    # A push to main in a private repository was already checked on its pull request.
+    if: github.event_name != 'schedule' && !(github.event_name == 'push' && github.event.repository.private)
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     defaults:
@@ -141,14 +143,15 @@ jobs:
           cache: npm
           cache-dependency-path: frontend/package-lock.json
       - run: npm ci
-      - name: 生成类型与 docs/openapi.json 一致
+      - name: Generated types match docs/openapi.json
         run: npm run check:api
       - run: npm run typecheck
       - run: npm test
       - run: npm run build
   secrets:
-    name: 秘密扫描（gitleaks）
-    if: github.event_name != 'schedule'
+    name: Secret scan (gitleaks)
+    # A push to main in a private repository was already checked on its pull request.
+    if: github.event_name != 'schedule' && !(github.event_name == 'push' && github.event.repository.private)
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:

@@ -40,17 +40,25 @@ def emitted_codes():
     return exact, prefixes
 
 
+def translations(language):
+    """The main translation file merged with every optional feature's own file."""
+    keys = json.loads((LOCALES / language / "translation.json").read_text())
+    for path in sorted(ROOT.glob(f"frontend/src/features/*/locales/{language}.json")):
+        keys.update(json.loads(path.read_text()))
+    return keys
+
+
 def test_every_emitted_code_is_translated():
     exact, prefixes = emitted_codes()
     assert len(exact) > 300
     for language in [p.name for p in LOCALES.iterdir()]:
-        keys = json.loads((LOCALES / language / "translation.json").read_text())
+        keys = translations(language)
         assert not sorted(code for code in exact if code not in keys), language
         assert not sorted(p for p in prefixes if not any(key.startswith(p) for key in keys)), language
 
 
 def test_translations_use_known_placeholders():
-    keys = json.loads((LOCALES / "zh/translation.json").read_text())
+    keys = translations("zh")
     for key, text in keys.items():
         for placeholder in re.findall(r"\{\{([^}]*)\}\}", text):
             name, _, formatter = (part.strip() for part in placeholder.partition(","))

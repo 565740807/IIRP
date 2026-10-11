@@ -17,6 +17,21 @@ export const LEVELS = ["sector", "group"] as const;
 export type Level = (typeof LEVELS)[number];
 /** One analysis takes at most this many ETFs. */
 export const MAX_ANALYSIS_ETFS = 20;
+/** The performance tables, the monthly rotation and the interval ranks. */
+export const TABS = ["performance", "rotation", "interval"] as const;
+export type Tab = (typeof TABS)[number];
+/** Rotation ranks by the median change, or by the median excess over the S&P 500. */
+export const RANK_BASES = ["absolute", "relative"] as const;
+export type RankBasis = (typeof RANK_BASES)[number];
+export const ROTATION_YEARS = [5, 8, 10] as const;
+export type RotationYears = (typeof ROTATION_YEARS)[number];
+/** "MM-DD" of a real calendar day (February 29 included). */
+export function validMonthDay(value: string) {
+  const match = /^(\d{2})-(\d{2})$/.exec(value);
+  if (!match) return false;
+  const [month, day] = [Number(match[1]), Number(match[2])];
+  return month >= 1 && month <= 12 && day >= 1 && day <= new Date(Date.UTC(2000, month, 0)).getUTCDate();
+}
 
 export type SectorState = {
   level: Level;
@@ -30,11 +45,19 @@ export type SectorState = {
   onlySelected: boolean;
   range: ChartRange;
   interval: Interval;
+  tab: Tab;
+  rank: RankBasis;
+  years: RotationYears;
+  /** The month the rotation shows in full; null for this month. */
+  month: number | null;
+  /** Interval tab: start and end month-day ("MM-DD"); an end before the start crosses the year end. */
+  start: string;
+  end: string;
 };
 
 export const DEFAULT_STATE: SectorState = {
   level: "sector", sector: null, view: "table", period: "today", sort: "today", desc: true, selected: [], onlySelected: false,
-  range: "3m", interval: "day",
+  range: "3m", interval: "day", tab: "performance", rank: "absolute", years: 10, month: null, start: "09-20", end: "10-15",
 };
 
 function pick<T extends string>(value: string | null, options: readonly T[], fallback: T): T {
@@ -65,6 +88,23 @@ export function parseSectorState(params: URLSearchParams, etfs: readonly string[
     onlySelected: params.get("only") === "1" && selected.length > 0,
     range: pick(params.get("range"), RANGES, DEFAULT_STATE.range),
     interval: pick(params.get("interval"), INTERVALS, DEFAULT_STATE.interval),
+    ...rotationState(params),
+  };
+}
+
+function rotationState(params: URLSearchParams) {
+  const years = Number(params.get("years"));
+  const month = Number(params.get("month"));
+  const start = params.get("start") ?? "";
+  const end = params.get("end") ?? "";
+  const valid = validMonthDay(start) && validMonthDay(end) && start !== end;
+  return {
+    tab: pick(params.get("tab"), TABS, DEFAULT_STATE.tab),
+    rank: pick(params.get("rank"), RANK_BASES, DEFAULT_STATE.rank),
+    years: (ROTATION_YEARS as readonly number[]).includes(years) ? years as RotationYears : DEFAULT_STATE.years,
+    month: Number.isInteger(month) && month >= 1 && month <= 12 ? month : null,
+    start: valid ? start : DEFAULT_STATE.start,
+    end: valid ? end : DEFAULT_STATE.end,
   };
 }
 
@@ -82,6 +122,14 @@ export function sectorSearch(state: SectorState): string {
   if (state.onlySelected && state.selected.length) params.set("only", "1");
   if (state.range !== DEFAULT_STATE.range) params.set("range", state.range);
   if (state.interval !== DEFAULT_STATE.interval) params.set("interval", state.interval);
+  if (state.tab !== DEFAULT_STATE.tab) params.set("tab", state.tab);
+  if (state.rank !== DEFAULT_STATE.rank) params.set("rank", state.rank);
+  if (state.years !== DEFAULT_STATE.years) params.set("years", String(state.years));
+  if (state.month != null) params.set("month", String(state.month));
+  if (state.start !== DEFAULT_STATE.start || state.end !== DEFAULT_STATE.end) {
+    params.set("start", state.start);
+    params.set("end", state.end);
+  }
   return params.toString();
 }
 
@@ -89,5 +137,17 @@ export function sectorSearch(state: SectorState): string {
 export function analysisLinks(etfs: readonly string[]) {
   const tickers = encodeURIComponent(etfs.join(","));
   return { monthly: `/analysis/monthly?tickers=${tickers}`, interval: `/analysis/interval?tickers=${tickers}` };
+}
+
+/** The monthly (or interval) analysis of one ETF over the rotation's years, opened on its month. */
+export function rotationAnalysisLink(etf: string, years: number, choice: { month?: number | null; start?: string; end?: string } = {}) {
+  const params = new URLSearchParams({ tickers: etf, years: String(years) });
+  if (choice.start && choice.end) {
+    params.set("start", choice.start);
+    params.set("end", choice.end);
+    return `/analysis/interval?${params}`;
+  }
+  if (choice.month) params.set("m", String(choice.month));
+  return `/analysis/monthly?${params}`;
 }
 

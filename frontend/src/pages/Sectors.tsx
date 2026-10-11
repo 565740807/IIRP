@@ -12,12 +12,16 @@ import {
   parseSectorState,
   PERIODS,
   RANGES,
+  RANK_BASES,
   rankedGroups,
+  ROTATION_YEARS,
   sectorSearch,
+  TABS,
   useSectorCandles,
   useSectorGroups,
   useSectors,
   VIEWS,
+  type RotationYears,
   type SectorGroupItem,
   type SectorState,
   type SortColumn,
@@ -31,8 +35,11 @@ import { SectorHeatmap } from "@/components/sectors/SectorHeatmap";
 import { SectorTable } from "@/components/sectors/SectorTable";
 import { SectorGroupTable } from "@/components/sectors/SectorGroupTable";
 import { FetchProgress } from "@/components/sectors/SectorNotes";
+import { RotationTab } from "@/components/sectors/RotationTab";
+import { MonthDay } from "@/components/analysis/Conditions";
 
 const VIEW_ICONS = { table: Table2, heatmap: LayoutGrid, kline: CandlestickChart } as const;
+const YEAR_OPTIONS = ROTATION_YEARS.map(String);
 
 function Segmented<T extends string>({ label, value, options, text, choose }: {
   label: string; value: T; options: readonly T[]; text: (value: T) => string; choose: (value: T) => void;
@@ -73,9 +80,10 @@ export function SectorsPage() {
   const sectorIds = useMemo(() => data?.sector_ids ?? [], [data?.sector_ids]);
   const [state, update] = useSectorState(etfs, sectorIds);
   const groupLevel = state.level === "group";
-  const groups = useSectorGroups(state.sector, groupLevel);
+  const performanceTab = state.tab === "performance";
+  const groups = useSectorGroups(state.sector, groupLevel && performanceTab);
   const groupData = groups.data;
-  const candles = useSectorCandles(state.range, state.interval, state.view === "kline", state.level, state.sector);
+  const candles = useSectorCandles(state.range, state.interval, performanceTab && state.view === "kline", state.level, state.sector);
   const items = useMemo(() => (data?.items ?? []).filter((item) => !state.onlySelected || state.selected.includes(item.etf)), [data, state.onlySelected, state.selected]);
   const groupItems = useMemo(() => (groupData?.items ?? []).filter((item) => !state.onlySelected || groupSelected(item, state.selected)), [groupData, state.onlySelected, state.selected]);
   const toggle = useCallback((etf: string) => {
@@ -101,15 +109,57 @@ export function SectorsPage() {
     <div className="space-y-4">
       <header className="space-y-1">
         <nav aria-label={t("ui.sectors.breadcrumb")} className="flex flex-wrap items-center gap-1 text-xl font-semibold">
-          {groupLevel
+          {groupLevel && performanceTab
             ? <button type="button" onClick={() => update({ level: "sector", sector: null }, { push: true })} className="text-muted-foreground hover:text-foreground hover:underline">{t("ui.sectors.title")}</button>
             : <h1>{t("ui.sectors.title")}</h1>}
-          {groupLevel && <>
+          {groupLevel && performanceTab && <>
             <ChevronRight className="size-4 text-muted-foreground" aria-hidden/>
             <h1>{state.sector ? sectorName(state.sector) : t("ui.sectors.all_groups")}</h1>
           </>}
         </nav>
         <p className="text-sm text-muted-foreground">{t(groupLevel ? "ui.sectors.group_scope" : "ui.sectors.scope")}</p>
+        <div role="tablist" aria-label={t("ui.sectors.tab_label")} className="flex gap-1 border-b pt-1">
+          {TABS.map((tab) => (
+            <button key={tab} type="button" role="tab" aria-selected={state.tab === tab} onClick={() => update({ tab }, { push: true })}
+              className={cn("-mb-px border-b-2 border-transparent px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground",
+                state.tab === tab && "border-primary font-medium text-foreground")}>
+              {t(`ui.sectors.tab.${tab}`)}
+            </button>
+          ))}
+        </div>
+      </header>
+
+      {!performanceTab ? <>
+        <div className="flex flex-wrap items-center gap-3">
+          <Segmented label={t("ui.sectors.level_label")} value={state.level} options={LEVELS}
+            text={(level) => t(`ui.sectors.level.${level}`)} choose={(level) => update({ level, sector: null })}/>
+          <Segmented label={t("ui.rotation.rank_label")} value={state.rank} options={RANK_BASES}
+            text={(rank) => t(`ui.rotation.rank.${rank}`)} choose={(rank) => update({ rank })}/>
+          <Segmented label={t("ui.rotation.years_label")} value={String(state.years)} options={YEAR_OPTIONS}
+            text={(years) => t("ui.rotation.years", { count: Number(years) })} choose={(years) => update({ years: Number(years) as RotationYears })}/>
+          {state.tab === "interval" && (
+            <div className="flex flex-wrap items-center gap-2 text-xs">
+              <span className="text-muted-foreground">{t("ui.rotation.interval_label")}</span>
+              <div className="w-48"><MonthDay value={state.start} label={t("ui.analysis.form.start")}
+                onChange={(start) => { if (start !== state.end) update({ start }); }}/></div>
+              <span aria-hidden>→</span>
+              <div className="w-48"><MonthDay value={state.end} label={t("ui.analysis.form.end")}
+                onChange={(end) => { if (end !== state.start) update({ end }); }}/></div>
+              {state.end < state.start && <span className="text-muted-foreground">{t("ui.analysis.form.cross_year")}</span>}
+            </div>
+          )}
+        </div>
+        <AnimatePresence mode="wait" initial={false}>
+          <motion.div key={`${state.tab}-${state.level}`}
+            initial={reduce ? { opacity: 0 } : { opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: reduce ? 0.1 : 0.2, ease: "easeOut" }}>
+            <RotationTab state={state} update={update}/>
+          </motion.div>
+        </AnimatePresence>
+      </> : <>
+      <header className="space-y-1">
         <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground" role="status">
           {shown ? <TodayBasis data={shown}/> : <Skeleton className="h-3 w-48"/>}
           {shown && <span>{t("ui.sectors.periods_through", { day: formatDay(shown.last_completed_session, { year: true }) })}</span>}
@@ -239,6 +289,7 @@ export function SectorsPage() {
       )}
       {groupLevel && <p className="text-xs text-muted-foreground">{t("ui.sectors.group_method")}</p>}
       <p className="text-xs text-muted-foreground">{t("ui.sectors.method")}</p>
+      </>}
     </div>
   );
 }

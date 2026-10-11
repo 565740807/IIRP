@@ -14,14 +14,13 @@ from decimal import Decimal
 import psycopg
 import pytest
 from alembic import command
-from alembic.config import Config
-from alembic.script import ScriptDirectory
 from fastapi.testclient import TestClient
 from iirp.analysis import requests
 from iirp.analysis.calendar import last_completed_session, sessions
 from iirp.api.schemas import AnalysisInput, CollectionInput
-from iirp.config import ROOT, settings
+from iirp.config import settings
 from iirp.db import engine, session
+from iirp.extensions import alembic_config, migration_heads
 from iirp.jobs import batch_views, batches, planner, preferences
 from iirp.jobs.queue import claim, ensure_defaults, fenced, recover
 from iirp.models import (
@@ -70,7 +69,7 @@ def lifecycle_database():
     engine.cache_clear()
     settings.cache_clear()
     try:
-        command.upgrade(Config(str(ROOT / "alembic.ini")), "head")
+        command.upgrade(alembic_config(), "heads")
         yield
     finally:
         engine().dispose()
@@ -130,6 +129,7 @@ def seed_security(symbol="AAPL"):
             s.add(row)
         row.name, row.instrument, row.currency = "Synthetic test security", "EQUITY", "USD"
         row.exchange, row.calendar, row.status = "NMS", "XNYS", "VERIFIED"
+        row.metadata_json = {**(row.metadata_json or {}), "sector": None}
         s.flush()
         return row.id
 
@@ -902,13 +902,13 @@ def test_concurrent_planning_cannot_overwrite_confirmed_pause(monkeypatch):
 
 
 def test_current_schema_matches_models_and_baseline_defaults(lifecycle_client):
-    config = Config(str(ROOT / "alembic.ini"))
-    head = ScriptDirectory.from_config(config).get_current_head()
-    assert lifecycle_client.get("/health/ready").json()["migration"] == head
+    config = alembic_config()
+    heads = migration_heads()
+    assert lifecycle_client.get("/health/ready").json()["migration"] == ",".join(sorted(heads))
     # The baseline migration creates exactly what the models describe.
     command.check(config)
     with session() as s:
-        assert s.scalar(text("SELECT version_num FROM alembic_version")) == head
+        assert set(s.scalars(text("SELECT version_num FROM alembic_version"))) == heads
         assert s.scalar(select(func.count()).select_from(PriceCache)) == 0
     batches.create_collection(collection())
     with session() as s:

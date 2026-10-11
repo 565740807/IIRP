@@ -22,7 +22,8 @@ router = APIRouter(prefix="/api/v1/system")
 
 FAILED_WINDOW = timedelta(hours=24)
 POLL_STALE = timedelta(minutes=75)
-BACKUP_STALE = timedelta(hours=36)
+# Backups run weekly; one missed run plus a day is worth a warning.
+BACKUP_STALE = timedelta(days=8)
 RETRY_LIMIT = 200
 # Outcomes that are answers, not faults: a filing ticker Yahoo does not know.
 EXPECTED = {"market.identity_fields_missing"}

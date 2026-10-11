@@ -12,16 +12,20 @@ import { Button } from "@/components/ui/button";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Search } from "./Search";
+import { SettingsButton } from "./Settings";
 import { SystemStatus } from "./SystemStatus";
 import { TaskEntry } from "./Tasks";
+import { FEATURES } from "@/features";
 
+/** Built-in entries and the optional features (src/features), in their order. */
 const NAVIGATION = [
-  { to: "/", key: "home", icon: Home },
-  { to: "/insiders", key: "insiders", icon: Users },
-  { to: "/sectors", key: "sectors", icon: LayoutGrid },
-  { to: "/analysis/monthly", key: "analysis", icon: BarChart3 },
-  { to: "/data", key: "data", icon: Database },
-] as const;
+  { to: "/", key: "home", icon: Home, order: 10 },
+  { to: "/insiders", key: "insiders", icon: Users, order: 20 },
+  { to: "/sectors", key: "sectors", icon: LayoutGrid, order: 30 },
+  { to: "/analysis/monthly", key: "analysis", icon: BarChart3, order: 40 },
+  { to: "/data", key: "data", icon: Database, order: 50 },
+  ...FEATURES.map((feature) => ({ to: feature.path, key: feature.key, icon: feature.icon, order: feature.order })),
+].sort((a, b) => a.order - b.order);
 
 /** Page name for the top bar and the document title. */
 function pageKey(pathname: string) {
@@ -34,7 +38,8 @@ function pageKey(pathname: string) {
   if (pathname.startsWith("/people/")) return "person";
   if (pathname.startsWith("/transactions/")) return "transaction";
   if (pathname.startsWith("/market/")) return "market";
-  return "not_found";
+  const feature = FEATURES.find((item) => pathname === item.path || pathname.startsWith(`${item.path}/`));
+  return feature ? feature.key : "not_found";
 }
 
 function Sidebar({ openSystem }: { openSystem: () => void }) {
@@ -152,6 +157,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             <div className="ml-auto flex items-center gap-1.5">
               <RefreshIndicator />
               <TaskEntry />
+              <SettingsButton />
               <LanguageSwitch />
             </div>
             {refreshing && (

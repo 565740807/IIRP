@@ -25,11 +25,16 @@ class Strict(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
 
+IndexName = Literal["sp500", "nasdaq100"]
+
+
 class LocalCompany(Output):
     cik: str
     name: str
     ticker: str | None = None
     last_trade: str | None = None
+    # Index lists the company is on (S&P 500, Nasdaq-100; unofficial weekly lists).
+    indexes: list[IndexName] = Field(default_factory=list)
 
 
 class LocalPerson(Output):
@@ -55,6 +60,7 @@ class LookupCandidate(Output):
     tickers: list[str] = Field(default_factory=list)
     exchange: str | None = None
     local: bool = False
+    indexes: list[IndexName] = Field(default_factory=list)
 
 
 class LookupOutput(Output):
@@ -190,9 +196,12 @@ def settings_view():
 @router.get("/lookup", response_model=LocalLookupOutput)
 def lookup_local(q: str = Query(default="", max_length=100)):
     from iirp.insider.lookup import local_lookup
+    from iirp.market.classification import Memberships
 
     with session() as s:
-        return {"query": q.strip(), **_invoke(local_lookup, s, q)}
+        result = _invoke(local_lookup, s, q)
+        Memberships(s).mark(result["companies"], cik="cik")
+        return {"query": q.strip(), **result}
 
 
 @router.post("/lookup", response_model=LookupOutput, status_code=202)
@@ -288,7 +297,7 @@ def bars(ticker: str = Query(max_length=32), start_date: date = Query(), end_dat
     from sqlalchemy import select
 
     from iirp.analysis.insider_windows import provider_symbol
-    from iirp.market.cache import current_cache, price_bars
+    from iirp.market.cache import current_cache, price_bars, price_expiry
     from iirp.models import Security
 
     symbol = provider_symbol(ticker)
@@ -303,5 +312,5 @@ def bars(ticker: str = Query(max_length=32), start_date: date = Query(), end_dat
         return {
             "ticker": symbol, "status": "ready",
             "bars": [row for row in rows if row["status"] == "VALID"],
-            "fetched_at": cache.fetched_at.isoformat(), "expires_at": cache.expires_at.isoformat(),
+            "fetched_at": cache.fetched_at.isoformat(), "expires_at": expiry.isoformat() if (expiry := price_expiry(cache)) else None,
         }

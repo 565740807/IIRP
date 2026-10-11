@@ -3,8 +3,12 @@ import ReactDOM from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { App } from "./App";
+import { initColors } from "./lib/colors";
 import "./i18n";
 import "./index.css";
+
+// The colors cached from the last visit, before anything is painted.
+initColors();
 
 const client = new QueryClient({
   defaultOptions: {

@@ -5,7 +5,7 @@ import { useTranslation } from "react-i18next";
 import { ArrowLeft, ChartCandlestick, LoaderCircle, RotateCcw } from "lucide-react";
 import { tm } from "@/i18n";
 import { client, unwrap } from "@/lib/api-client";
-import { formatDay, formatEt, formatLocal, formatNumber, formatSignedPercent } from "@/lib/format";
+import { formatDay, formatEt, formatLocal, formatNumber, formatSigned, formatSignedPercent } from "@/lib/format";
 import { sourceContext, sourceHref } from "@/lib/navigation";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -22,7 +22,7 @@ function Fact({ label, children }: { label: string; children: React.ReactNode })
 }
 
 /**
- * Index detail, opened from the home market strip: the saved quote with its
+ * Instrument detail, opened from the home market strip: the saved quote with its
  * time and state, and the last six months of daily candles. The six months
  * are fetched once on opening (one request, kept 24 hours); the page then
  * only re-reads what is saved.
@@ -51,8 +51,11 @@ export function MarketDetailPage() {
     }
   }, [data?.history.status, symbol]); // eslint-disable-line react-hooks/exhaustive-deps
   const quote = data?.quote;
+  const yieldQuote = quote?.kind === "yield";
   const percent = quote?.change_percent;
-  const tone = percent == null ? "text-muted-foreground" : percent > 0 ? "text-up" : percent < 0 ? "text-down" : "";
+  // A yield moves in basis points; everything else by percent.
+  const direction = yieldQuote ? quote?.change_bp : percent;
+  const tone = direction == null ? "text-muted-foreground" : direction > 0 ? "text-up" : direction < 0 ? "text-down" : "";
   const state = quote?.freshness;
   const chart = data?.chart;
   const fetching = data?.history.status === "fetching" || request.isPending;
@@ -79,11 +82,19 @@ export function MarketDetailPage() {
                   <span className="ml-2 text-sm font-normal text-muted-foreground">{symbol}</span>
                 </h1>
                 <div className="mt-1 flex flex-wrap items-baseline gap-x-3 gap-y-1">
-                  <span className="text-3xl font-semibold tabular-nums">{quote.value == null ? "—" : formatNumber(quote.value, 2)}</span>
+                  <span className="text-3xl font-semibold tabular-nums">
+                    {quote.value == null ? "—" : formatNumber(quote.value, 2)}{yieldQuote && quote.value != null && "%"}
+                  </span>
                   {quote.unit && <span className="text-sm text-muted-foreground">{tm(quote.unit)}</span>}
                   <span className={cn("text-lg font-medium tabular-nums", tone)}>
-                    {formatSignedPercent(percent)}
-                    {quote.change != null && <span className="ml-2 text-base">{quote.change > 0 ? "+" : quote.change < 0 ? "−" : ""}{formatNumber(Math.abs(quote.change), 2)}</span>}
+                    {yieldQuote ? (
+                      quote.change_bp == null ? "—" : t("ui.market.bp", { value: formatSigned(quote.change_bp, 1) })
+                    ) : (
+                      <>
+                        {formatSignedPercent(percent)}
+                        {quote.change != null && <span className="ml-2 text-base">{quote.change > 0 ? "+" : quote.change < 0 ? "−" : ""}{formatNumber(Math.abs(quote.change), 2)}</span>}
+                      </>
+                    )}
                   </span>
                 </div>
               </div>
@@ -91,12 +102,12 @@ export function MarketDetailPage() {
                 <span
                   className={cn(
                     "inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-medium",
-                    state === "live" && "bg-up/10 text-up",
+                    state === "live" && "bg-ok/10 text-ok",
                     state === "closed" && "bg-secondary text-muted-foreground",
                     (state === "delayed" || state === "missing") && "bg-warn-soft text-warn",
                   )}
                 >
-                  <span className={cn("size-1.5 rounded-full", state === "live" ? "bg-up" : state === "closed" ? "bg-muted-foreground" : "bg-warn")} aria-hidden />
+                  <span className={cn("size-1.5 rounded-full", state === "live" ? "bg-ok" : state === "closed" ? "bg-muted-foreground" : "bg-warn")} aria-hidden />
                   {t(`ui.market_detail.state.${state}`)}
                 </span>
               </div>

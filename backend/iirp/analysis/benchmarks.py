@@ -10,7 +10,7 @@ from iirp.market.cache import current_cache, price_bars
 from iirp.messages import UserError, msg
 from iirp.models import Security
 
-INDEXES = {"^GSPC": msg("market.name.GSPC"), "^IXIC": msg("market.name.IXIC")}
+INDEXES = {"^GSPC": msg("market.name.GSPC"), "^IXIC": msg("market.name.IXIC"), "^NDX": msg("market.name.NDX")}
 
 
 def validate_benchmark(symbol):

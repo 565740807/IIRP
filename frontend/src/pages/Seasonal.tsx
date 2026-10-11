@@ -4,6 +4,9 @@ import { useTranslation } from "react-i18next";
 import { CircleAlert, Download, LoaderCircle } from "lucide-react";
 import { tm } from "@/i18n";
 import {
+  candleValue,
+  distribution,
+  type Basis,
   exportHref,
   monthName,
   yearLabel,
@@ -17,11 +20,13 @@ import {
 } from "@/lib/analysis";
 import { formatDay } from "@/lib/format";
 import { rememberAnalysis } from "@/lib/navigation";
+import { validMonthDay } from "@/lib/sectorState";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AnalysisLayout } from "@/components/analysis/AnalysisLayout";
 import { Conditions, DEFAULT_CONDITIONS, type ConditionValues } from "@/components/analysis/Conditions";
+import { BasisChoice, SectorBadge, SectorNote } from "@/components/analysis/References";
 import { BoxPlot } from "@/components/analysis/BoxPlot";
 import { CacheTimes } from "@/components/analysis/CacheTimes";
 import { MonthGrid } from "@/components/analysis/MonthGrid";
@@ -57,6 +62,7 @@ function conditionsOf(analysis: Analysis): ConditionValues {
     tickers: (params.tickers as string[]) ?? [],
     years: Number(params.historical_years ?? DEFAULT_CONDITIONS.years),
     benchmark: (params.benchmark as string | null | undefined) ?? null,
+    sector_benchmark: Object.hasOwn(params, "sector_benchmark") ? params.sector_benchmark as string | null : "auto",
     start: (params.start_mmdd as string) ?? DEFAULT_CONDITIONS.start,
     end: (params.end_mmdd as string) ?? DEFAULT_CONDITIONS.end,
   };
@@ -137,7 +143,7 @@ function TickerChips({ analysis, focused, onFocus }: { analysis: Analysis; focus
               !ready && "cursor-default font-normal text-muted-foreground hover:bg-card",
             )}
           >
-            {symbol}
+            {symbol}<SectorBadge selected={focused === symbol} reference={analysis.results.find((item) => item.symbol === symbol)?.data.metadata.sector} />
             {!ready && step === "failed" && <CircleAlert className="size-3 text-destructive" />}
             {!ready && step !== "failed" && <LoaderCircle className="size-3 motion-safe:animate-spin" />}
           </button>
@@ -158,18 +164,23 @@ function Results({ kind, analysis, month, setMonth, focused, setFocused, view, s
   setView: (view: "months" | "tickers") => void;
 }) {
   const { t } = useTranslation();
+  const [basis, setBasis] = useState<Basis>("absolute");
   const result: TickerResult | undefined = analysis.results.find((item) => item.symbol === focused) ?? analysis.results[0];
   const benchmark = (analysis.params.benchmark as string | null | undefined) ?? null;
   const key = kind === "monthly" ? String(month) : "interval";
   const pick = (item: TickerResult) => item.data.periods.find((period) => period.key === key)!;
-  const others = useMemo(() => analysis.results.map((item) => ({ symbol: item.symbol, period: pick(item) })), [analysis.results, key]); // eslint-disable-line react-hooks/exhaustive-deps
+  const others = useMemo(() => analysis.results.map((item) => ({ symbol: item.symbol, period: pick(item), sector: item.data.metadata.sector })), [analysis.results, key]); // eslint-disable-line react-hooks/exhaustive-deps
   if (!result) return null;
   const period = pick(result);
   const multiple = analysis.results.length > 1;
   const name = periodName(period);
   const pairing = result.data.metadata.benchmark;
+  const sector = result.data.metadata.sector;
+  const sectorIncluded = result.data.metadata.sector_comparison_included;
   return (
     <>
+      <SectorNote reference={sector} included={sectorIncluded} />
+      <BasisChoice value={basis} onChange={setBasis} benchmark={!!benchmark} sector={!!sector?.symbol && !!sectorIncluded} />
       <ConclusionCard symbol={result.symbol} period={period} benchmark={benchmark} across={analysis.comparisons?.[key]} />
       {pairing && pairing.status !== "available" && (
         <p className="rounded-md border border-warn/30 bg-warn-soft px-3 py-2 text-xs text-warn">{t("ui.analysis.benchmark_pending", { name: pairing.symbol })}</p>
@@ -178,14 +189,15 @@ function Results({ kind, analysis, month, setMonth, focused, setFocused, view, s
         <Section title={t("ui.analysis.grid_title", { ticker: result.symbol })}>
           <MonthGrid periods={result.data.periods} selected={month} onSelect={setMonth} />
           <h2 className="text-sm font-semibold">{t("ui.analysis.box.months")}</h2>
-          <div className="rounded-lg border bg-card"><BoxPlot groups={result.data.periods.map((p) => ({ key: p.key, label: monthName(p.month!), stats: p.stats, points: p.years.filter((y) => y.status === "complete" || (y.current && y.status === "in_progress")).map((y) => ({ id: `${p.key}:${y.year}`, label: y.current ? t("ui.analysis.box.current", { year: y.year }) : String(y.year), value: y.change, current: y.current })) }))} title={t("ui.analysis.box.months")} onGroup={(key) => setMonth(Number(key))} /></div>
+          <div className="rounded-lg border bg-card"><BoxPlot groups={result.data.periods.map((p) => ({ key: p.key, label: monthName(p.month!), stats: distribution(p.stats, basis), points: p.years.filter((y) => y.status === "complete" || (y.current && y.status === "in_progress")).map((y) => ({ id: `${p.key}:${y.year}`, label: y.current ? t("ui.analysis.box.current", { year: y.year }) : String(y.year), value: candleValue(y, basis), current: y.current })) }))} title={t("ui.analysis.box.months")} onGroup={(key) => setMonth(Number(key))} /></div>
           <p className="text-xs text-muted-foreground">{t("ui.analysis.box.legend")}</p>
         </Section>
       )}
-      {kind === "interval" && <Section title={t("ui.analysis.box.tickers")}><div className="rounded-lg border bg-card"><BoxPlot groups={others.map((item) => ({ key: item.symbol, label: item.symbol, stats: item.period.stats, points: item.period.years.filter((y) => y.status === "complete" || (y.current && y.status === "in_progress")).map((y) => ({ id: `${item.symbol}:${y.year}`, label: `${item.symbol} · ${y.current ? t("ui.analysis.box.current", { year: yearLabel(y, item.period.cross_year) }) : yearLabel(y, item.period.cross_year)}`, value: y.change, current: y.current })) }))} title={t("ui.analysis.box.tickers")} onGroup={setFocused} /></div><p className="text-xs text-muted-foreground">{t("ui.analysis.box.legend")}</p></Section>}
+      {kind === "interval" && <Section title={t("ui.analysis.box.tickers")}><div className="rounded-lg border bg-card"><BoxPlot groups={others.map((item) => ({ key: item.symbol, label: item.symbol, stats: distribution(item.period.stats, basis), points: item.period.years.filter((y) => y.status === "complete" || (y.current && y.status === "in_progress")).map((y) => ({ id: `${item.symbol}:${y.year}`, label: `${item.symbol} · ${y.current ? t("ui.analysis.box.current", { year: yearLabel(y, item.period.cross_year) }) : yearLabel(y, item.period.cross_year)}`, value: candleValue(y, basis), current: y.current })) }))} title={t("ui.analysis.box.tickers")} onGroup={setFocused} /></div><p className="text-xs text-muted-foreground">{t("ui.analysis.box.legend")}</p></Section>}
       <Section title={t("ui.analysis.chart_title", { ticker: result.symbol, period: name })}>
         <div className="rounded-lg border bg-card px-2 pt-2">
-          <YearCandles candles={period.years} cross={period.cross_year} benchmark={benchmark} title={`${result.symbol} ${name}`} />
+          <YearCandles candles={period.years} cross={period.cross_year} benchmark={benchmark} sector={sector?.symbol} title={`${result.symbol} ${name}`} />
+          {sector?.symbol && <p className="px-2 pb-1 text-xs text-muted-foreground">{t("ui.analysis.sector.chart_legend", { benchmark: benchmark ?? "", sector: sector.symbol })}</p>}
           <p className="px-2 pb-2 text-xs text-muted-foreground">{t(benchmark ? "ui.analysis.chart_legend_benchmark" : "ui.analysis.chart_legend", { benchmark: benchmark ?? "" })}</p>
         </div>
       </Section>
@@ -205,13 +217,13 @@ function Results({ kind, analysis, month, setMonth, focused, setFocused, view, s
         }
       >
         {kind === "monthly" && view === "months" ? (
-          <MonthTable periods={result.data.periods} benchmark={benchmark} selected={month} onSelect={setMonth} />
+          <MonthTable periods={result.data.periods} basis={basis} sector={!!sector?.symbol} benchmark={benchmark} selected={month} onSelect={setMonth} />
         ) : (
-          <TickerTable rows={others} benchmark={benchmark} selected={result.symbol} onSelect={setFocused} />
+          <TickerTable rows={others} basis={basis} sector={!!sectorIncluded} benchmark={benchmark} selected={result.symbol} onSelect={setFocused} />
         )}
       </Section>
       <Section title={t("ui.analysis.detail_title", { ticker: result.symbol, period: name })}>
-        <DetailTable period={period} benchmark={benchmark} />
+        <DetailTable period={period} sector={sector?.symbol} benchmark={benchmark} />
       </Section>
     </>
   );
@@ -239,11 +251,21 @@ export function SeasonalPage({ kind }: { kind: SeasonalKind }) {
   const create = useCreateAnalysis((next) => update({ id: next, t: null }, false));
   const analysis = query.data && query.data.id === id ? query.data : undefined;
   useEffect(() => rememberAnalysis(kind, params.toString()), [kind, params]);
-  // A link may name tickers to start from (?tickers=AAPL,MSFT).
+  // A link may name tickers to start from (?tickers=AAPL,MSFT), the past years
+  // (&years=10) and, for an interval, its month-days (&start=09-20&end=10-15).
   const [draft, setDraft] = useState(() => {
     const saved = savedConditions(kind);
     const named = params.get("tickers");
-    return named ? { ...saved, tickers: parseTickers(named) } : saved;
+    if (!named) return saved;
+    const years = Number(params.get("years"));
+    const start = params.get("start") ?? "";
+    const end = params.get("end") ?? "";
+    const interval = kind === "interval" && validMonthDay(start) && validMonthDay(end) && start !== end;
+    return {
+      ...saved, tickers: parseTickers(named),
+      ...(Number.isInteger(years) && years >= 1 && years <= 30 ? { years } : {}),
+      ...(interval ? { start, end } : {}),
+    };
   });
   const initial = analysis ? conditionsOf(analysis) : draft;
   const focused = params.get("t") ?? analysis?.results[0]?.symbol ?? "";
@@ -257,13 +279,14 @@ export function SeasonalPage({ kind }: { kind: SeasonalKind }) {
       tickers: values.tickers,
       historical_years: values.years,
       benchmark: values.benchmark,
+      sector_benchmark: values.sector_benchmark,
       start_mmdd: values.start,
       end_mmdd: values.end,
     });
   };
   const missing = query.error && "status" in query.error && (query.error as { status?: number }).status === 404;
   return (
-    <AnalysisLayout tab={kind} conditions={<Conditions kind={kind} initial={initial} running={create.isPending} onRun={run} />}>
+    <AnalysisLayout tab={kind} conditions={<Conditions kind={kind} initial={initial} running={create.isPending} onRun={run} onReferenceChange={analysis ? run : undefined} />}>
       {create.error && <p className="rounded-md border border-destructive/30 bg-card px-3 py-2 text-sm text-destructive">{create.error.message}</p>}
       {!id && <Empty kind={kind} />}
       {id && missing && <p className="rounded-md border bg-card px-3 py-2 text-sm text-muted-foreground">{t("ui.analysis.not_found")}</p>}
@@ -288,7 +311,7 @@ export function SeasonalPage({ kind }: { kind: SeasonalKind }) {
           <Progress items={analysis.progress ?? []} onRetry={() => refresh.mutate(true)} retrying={refresh.isPending} />
           <TickerChips analysis={analysis} focused={focused} onFocus={(symbol) => update({ t: symbol })} />
           {analysis.results.length > 0 ? (
-            <Results
+            <Results key={analysis.id}
               kind={kind}
               analysis={analysis}
               month={month}

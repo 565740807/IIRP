@@ -1,5 +1,6 @@
-"""Automatic schedules: SEC polling cadence and daily backup/maintenance demands."""
+"""Automatic schedules: SEC polling cadence, the weekly backup and daily maintenance demands."""
 
+import logging
 import uuid
 from datetime import timedelta
 
@@ -13,10 +14,8 @@ from iirp.messages import msg
 from iirp.models import (
     Batch,
     CollectionStrategy,
-    Job,
     RequestReceipt,
     RequestScope,
-    Subscription,
     now,
 )
 
@@ -161,7 +160,18 @@ def schedule_tick():
         market_policy = s.get(CollectionStrategy, "market")
         if market_policy and market_policy.enabled:
             schedule_indices(s)
+        from iirp.market.long_prices import schedule
+        schedule(s)
         ensure_fresh_in_session(s, {"sources": ["market"], "reason": "scheduler"})
+        from iirp.extensions import schedules
+
+        for extension_schedule in schedules():
+            # An optional feature's failure must not stop the core schedules.
+            try:
+                with s.begin_nested():
+                    extension_schedule(s)
+            except Exception as exc:
+                logging.exception("optional schedule failed type=%s", type(exc).__name__)
         current = now().astimezone(ET)
         strategies = s.scalars(
             select(CollectionStrategy)
@@ -183,32 +193,29 @@ def schedule_tick():
             elif policy.key in ("backup", "maintenance"):
                 if not _has_running(s, policy.key):
                     _maintenance_batch(s, policy.key, request_id)
-                due = current.replace(
-                    hour=3 if policy.key == "backup" else 4, minute=30, second=0, microsecond=0
-                )
-                policy.next_run_at = due if due > current else due + timedelta(days=1)
+                policy.next_run_at = next_maintenance_run(policy.key, current)
             policy.last_run_at = current
 
 
+def next_maintenance_run(key, current):
+    """Backups run weekly, Sunday 03:30 ET: most data can be downloaded again, so a
+    weekly copy with a restore check is enough. Maintenance runs daily at 04:30 ET."""
+    if key == "backup":
+        due = current.replace(hour=3, minute=30, second=0, microsecond=0)
+        due += timedelta(days=(6 - due.weekday()) % 7)
+        return due if due > current else due + timedelta(days=7)
+    due = current.replace(hour=4, minute=30, second=0, microsecond=0)
+    return due if due > current else due + timedelta(days=1)
+
+
 def schedule_indices(s):
-    """One durable weekly request per index, serialized across coordinators."""
+    """One durable request per index at its fixed weekly time, serialized across coordinators."""
     from sqlalchemy import text
 
-    from iirp.market.constituents import due_indices
+    from iirp.market.constituents import due_indices, enqueue
     from iirp.market.yahoo import digest
-    from iirp.models import ACTIVE
 
     key = int(digest(["index_constituents"])[0:15], 16)
     if not s.scalar(text("SELECT pg_try_advisory_xact_lock(:key)"), {"key": key}):
         return
-    for index in due_indices(s):
-        if s.scalar(select(Job.id).where(Job.kind == "index_constituents", Job.status.in_(ACTIVE),
-                                         Job.target["index_name"].astext == index).limit(1)):
-            continue
-        target = {"index_name": index, "week": now().strftime("%G-W%V")}
-        job = Job(kind="index_constituents", title=msg("job.title.index_constituents", index=index),
-                  target=target, idempotency_key=digest(["index_constituents", target, str(uuid.uuid4())]),
-                  trigger="automatic", priority=50, progress_total=1)
-        s.add(job)
-        s.flush()
-        s.add(Subscription(job_id=job.id, source="automatic"))
+    enqueue(s, due_indices(s))

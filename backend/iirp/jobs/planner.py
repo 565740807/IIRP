@@ -74,6 +74,11 @@ def _plan_market(s, scope, batch, capacity):
         from iirp.analysis.benchmarks import plan_benchmark
 
         benchmark_reason = plan_benchmark(s, scope, request, scope.start_date, scope.end_date)
+    sector_reason = None
+    if request and request.params.get("sector_benchmark"):
+        from iirp.analysis.sector_benchmarks import plan_sector
+        sector_reason = plan_sector(s, scope, request, scope.start_date, scope.end_date)
+    benchmark_reason = sector_reason or benchmark_reason
     scope.status, scope.wait_reason = status, reason
     if status == "READY":
         # Stock results do not wait for a benchmark; a paired result follows.
@@ -95,8 +100,12 @@ def _plan_compute(s, scope, batch, security, *, cache_only=False):
     dataset = current_cache(s, security.id)
     if not request or not dataset:
         return
+    from iirp.analysis.sector_benchmarks import sector_snapshot
     benchmark = benchmark_snapshot(request.params, security, s)
-    input_key = research_input_key(request, dataset, security, benchmark)
+    sector = sector_snapshot(request.params, security, s, scope=scope)
+    if sector and sector["status"] == "sector_identity_pending":
+        return False
+    input_key = research_input_key(request, dataset, security, benchmark, sector)
     from iirp.analysis.pipeline import coalesce_compute, effective_input_params, reuse_result
     from iirp.analysis.shared_compute import lock_input
     if not lock_input(s, "research_compute", security.id, input_key):
@@ -114,6 +123,7 @@ def _plan_compute(s, scope, batch, security, *, cache_only=False):
             "dataset_id": dataset.id,
             "input_key": input_key,
             "benchmark": benchmark,
+            "sector": sector,
             "params": {**request.params, **effective_input_params(request, security)},
             "calendar": security.calendar or "XNYS",
         },
@@ -133,7 +143,7 @@ def _plan_compute(s, scope, batch, security, *, cache_only=False):
         scope.status, scope.wait_reason = "PARTIAL", job.error
 
 
-def research_input_key(request, dataset, security, benchmark=None):
+def research_input_key(request, dataset, security, benchmark=None, sector=None):
     from sqlalchemy.orm import object_session
 
     from iirp.analysis.benchmarks import benchmark_snapshot
@@ -148,6 +158,11 @@ def research_input_key(request, dataset, security, benchmark=None):
     prices = dataset_dependency(db, dataset, ranges) if db else dataset.id
     benchmark = benchmark if benchmark is not None else benchmark_snapshot(request.params, security)
     paired = benchmark_dependency(db, benchmark, ranges) if db else benchmark
+    from iirp.analysis.sector_benchmarks import sector_snapshot
+    scope = db.scalar(select(RequestScope).where(RequestScope.batch_id == request.batch_id,
+        RequestScope.security_id == security.id)) if db and request.batch_id else None
+    sector = sector if sector is not None else sector_snapshot(request.params, security, db, scope=scope)
+    sector_dependency = benchmark_dependency(db, sector, ranges) if db else sector
 
     return digest(
         [
@@ -160,6 +175,7 @@ def research_input_key(request, dataset, security, benchmark=None):
             calendar_version(),
             CALCULATION_VERSION,
             paired,
+            sector_dependency,
             security.calendar or "XNYS",
         ]
     )
@@ -327,7 +343,7 @@ def _plan_one(identifier, statuses, document_link_capacity):
         if batch.kind in ("market_history", "event_dates"):
             # SEC backlog cannot consume Yahoo/compute planning capacity. Shared
             # market jobs still count once across every subscribing research.
-            market_kinds = ("market_identity", "market_history", "market_quote", "research_compute")
+            market_kinds = ("market_identity", "market_history", "market_long_history", "market_quote", "research_compute")
             market_pending = s.scalar(select(func.count()).select_from(Job).where(
                 Job.status.in_(("QUEUED", "RUNNING", "RETRY_WAIT")),
                 Job.kind.in_(market_kinds),
@@ -383,7 +399,12 @@ def _plan_batch(s, batch, capacity, latest_capacity, document_link_capacity):
             batch.status = "PAUSED" if batch.requested_action == "pause" else "CANCELLED"
         return
     for scope in scopes:
-        if batch.kind == "event_dates":
+        if batch.params.get("long_prices"):
+            if capacity[0] <= 0 and scope.status == "QUEUED" and not scope.checkpoint.get("job_id"):
+                continue
+            from iirp.market.long_prices import plan_scope
+            plan_scope(s, scope, batch, capacity)
+        elif batch.kind == "event_dates":
             from iirp.events.service import plan_event_scope
 
             plan_event_scope(s, scope, batch, capacity)

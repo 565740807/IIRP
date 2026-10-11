@@ -5,22 +5,18 @@ import { DataZoomComponent, GridComponent, MarkLineComponent, TooltipComponent }
 import { CanvasRenderer } from "echarts/renderers";
 import { useReducedMotion } from "motion/react";
 import { locale } from "@/i18n";
+import { CHART, usePalette } from "@/lib/colors";
 
 echarts.use([CandlestickChart, ScatterChart, GridComponent, TooltipComponent, MarkLineComponent, DataZoomComponent, CanvasRenderer]);
-
-// Same blue (up / buy) and orange (down / sell) as the CSS tokens, as canvas colors.
-const UP = "#2156d9";
-const DOWN = "#c2531a";
-const INK = "#334155";
 
 export type Bar = { date: string; open?: string | null; high?: string | null; low?: string | null; close?: string | null };
 export type Marker = { id: string; date: string; price: number; side: "buy" | "sell"; size: number; label: string };
 export type DayLine = { date: string; label: string };
 
 /**
- * Daily candles (blue up, orange down) with insider buys and sells on top:
- * blue triangles up for purchases, orange triangles down for sales, sized by
- * amount. Clicking a marker reports its row.
+ * Daily candles in the up/down colors with insider buys and sells on top:
+ * triangles up in the up color for purchases, down in the down color for
+ * sales, sized by amount. Clicking a marker reports its row.
  */
 export function PriceChart({
   bars,
@@ -42,6 +38,8 @@ export function PriceChart({
   const element = useRef<HTMLDivElement>(null);
   const chart = useRef<echarts.ECharts | null>(null);
   const reduce = useReducedMotion();
+  const { up: UP, down: DOWN } = usePalette();
+  const INK = CHART.ink;
   const select = useRef(onSelect);
   select.current = onSelect;
 
@@ -77,7 +75,7 @@ export function PriceChart({
       symbol: "triangle",
       symbolRotate: side === "buy" ? 0 : 180,
       symbolSize: (_value: unknown, params: { data?: { size?: number } }) => params.data?.size ?? 10,
-      itemStyle: { color: side === "buy" ? UP : DOWN, borderColor: "#fff", borderWidth: 1, opacity: 0.9 },
+      itemStyle: { color: side === "buy" ? UP : DOWN, borderColor: CHART.surface, borderWidth: 1, opacity: 0.9 },
       emphasis: { scale: 1.3 },
       data: markers
         .filter((marker) => marker.side === side && place(marker.date))
@@ -109,16 +107,16 @@ export function PriceChart({
           type: "category",
           data: dates,
           boundaryGap: true,
-          axisLine: { lineStyle: { color: "#cbd5e1" } },
+          axisLine: { lineStyle: { color: CHART.axis } },
           axisTick: { show: false },
-          axisLabel: { color: "#64748b", fontSize: 11, hideOverlap: true, formatter: (value: string) => value.slice(5) },
+          axisLabel: { color: CHART.muted, fontSize: 11, hideOverlap: true, formatter: (value: string) => value.slice(5) },
         },
         yAxis: {
           type: "value",
           scale: true,
           position: "right",
-          splitLine: { lineStyle: { color: "#eef2f6" } },
-          axisLabel: { color: "#64748b", fontSize: 11 },
+          splitLine: { lineStyle: { color: CHART.grid } },
+          axisLabel: { color: CHART.muted, fontSize: 11 },
         },
         dataZoom: zoom ? [{ type: "inside" }, { type: "slider", height: 18, bottom: 6, borderColor: "transparent", showDetail: false }] : [],
         series: [
@@ -145,7 +143,7 @@ export function PriceChart({
       },
       { notMerge: true },
     );
-  }, [bars, markers, lines, selected, reduce, zoom]);
+  }, [bars, markers, lines, selected, reduce, zoom, UP, DOWN, INK]);
 
   return <div ref={element} style={{ height }} className="w-full" role="img" />;
 }

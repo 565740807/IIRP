@@ -223,11 +223,13 @@ def get_analysis(analysis_id):
 
 STATS_COLUMNS = ("target_n", "n", "median", "mean", "q25", "q75", "best", "best_year", "worst",
                  "worst_year", "up", "flat", "up_low", "up_high", "coin_flip", "paired_n", "beat",
-                 "median_excess", "mean_excess", "benchmark_median")
+                 "median_excess", "mean_excess", "benchmark_median", "sector_paired_n", "sector_beat",
+                 "sector_beat_ratio", "sector_median", "sector_median_excess", "sector_mean_excess")
 DETAIL_COLUMNS = ("year", "current", "status", "period_start", "period_end", "start_date", "end_date",
                   "sessions", "expected_sessions", "open", "high", "low", "close", "change",
                   "high_change", "low_change",
-                  "benchmark_open", "benchmark_close", "benchmark_change", "excess", "missing_dates")
+                  "benchmark_open", "benchmark_close", "benchmark_change", "excess", "sector_open",
+                  "sector_close", "sector_change", "sector_excess", "missing_dates")
 
 
 def export_analysis(analysis_id, table="detail"):
@@ -249,12 +251,15 @@ def export_analysis(analysis_id, table="detail"):
     stream = io.StringIO()
     writer = csv.writer(stream)
     columns = STATS_COLUMNS if table == "stats" else DETAIL_COLUMNS
-    writer.writerow(["ticker", "kind", "period", "start_mmdd", "end_mmdd", "benchmark", *columns])
+    writer.writerow(["ticker", "kind", "period", "start_mmdd", "end_mmdd", "benchmark",
+                     "sector_etf", "sector_source", "sector_mode", "sector_fallback", "sector_reason", *columns])
     for item in view["results"]:
         data = item["data"]
         for period in data["periods"]:
             head = [item["symbol"], data["kind"], period["key"], period["start_mmdd"],
                     period["end_mmdd"], benchmark]
+            sector = data.get("metadata", {}).get("sector") or {}
+            head += [sector.get(key) for key in ("symbol", "source", "mode", "fallback", "reason")]
             rows = [period["stats"]] if table == "stats" else period["years"]
             for row in rows:
                 writer.writerow([*head, *(" ".join(row[c]) if c == "missing_dates" else row.get(c)

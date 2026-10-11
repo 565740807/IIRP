@@ -45,8 +45,17 @@ BAR_FIELDS = ("open", "high", "low", "close", "adj_close", "volume")
 
 def current_cache(s, security_id, *, at=None):
     """The unexpired cache of a security, or None."""
-    return s.scalar(select(PriceCache).where(
+    cache = s.scalar(select(PriceCache).where(
         PriceCache.security_id == security_id, PriceCache.expires_at > (at or now())))
+    if cache is not None:
+        return cache
+    from iirp.market.long_prices import local_series
+    return local_series(s, security_id)
+
+
+def price_expiry(cache):
+    from iirp.models import LongPriceSeries
+    return None if cache is None or isinstance(cache, LongPriceSeries) else cache.expires_at
 
 
 def cache_facts(cache):
@@ -54,21 +63,26 @@ def cache_facts(cache):
     if cache is None:
         return {"price_cache_id": None, "price_fetched_at": None, "price_expires_at": None,
                 "price_expired": True}
+    expiry = price_expiry(cache)
     return {"price_cache_id": cache.id, "price_fetched_at": cache.fetched_at.isoformat(),
-            "price_expires_at": cache.expires_at.isoformat(),
-            "price_expired": cache.expires_at <= now()}
+            "price_expires_at": expiry.isoformat() if expiry else None,
+            "price_expired": bool(expiry and expiry <= now())}
 
 
 def price_bars(s, security_id, cache_id=None, *, ranges=None):
     """Bars of the given cache (or the current one) as plain strings."""
     cache = s.get(PriceCache, cache_id) if cache_id else current_cache(s, security_id)
+    from iirp.models import LongPriceBar, LongPriceSeries
+    if cache is None and cache_id:
+        cache = s.get(LongPriceSeries, cache_id)
     if cache is None or cache.security_id != security_id:
         return [], None
-    query = select(PriceCacheBar).where(PriceCacheBar.cache_id == cache.id)
+    bar_model = LongPriceBar if isinstance(cache, LongPriceSeries) else PriceCacheBar
+    query = select(bar_model).where(bar_model.cache_id == cache.id)
     if ranges is not None:
         from iirp.analysis.dependencies import range_predicate
-        query = query.where(range_predicate(PriceCacheBar.session_date, ranges))
-    rows = s.scalars(query.order_by(PriceCacheBar.session_date)).all()
+        query = query.where(range_predicate(bar_model.session_date, ranges))
+    rows = s.scalars(query.order_by(bar_model.session_date)).all()
     return [
         {
             "date": row.session_date.isoformat(),
@@ -87,7 +101,15 @@ def covers(cache, start, end, calendar="XNYS"):
     needed_end = min(end, last_completed_session(calendar=calendar))
     if needed_end < start:
         return True  # Only future sessions: nothing can be fetched yet.
-    return cache is not None and cache.start_date <= start and cache.complete_through >= needed_end
+    covered = cache is not None and cache.start_date is not None and cache.complete_through is not None and cache.start_date <= start and cache.complete_through >= needed_end
+    if not covered:
+        return False
+    from iirp.models import LongPriceSeries
+    if isinstance(cache, LongPriceSeries) or cache.provider == "local_long_prices":
+        accepted = set(cache.details.get("accepted_missing_dates", []))
+        return not any(str(start) <= day <= str(needed_end) and day not in accepted
+                       for day in cache.details.get("missing_dates", []))
+    return True
 
 
 def coverage_for(s, security, start, end, *, cache_id=None):
@@ -125,7 +147,7 @@ def coverage_for(s, security, start, end, *, cache_id=None):
         "basis": "SPLIT_ONLY" if cache else "UNVERIFIED_PROVIDER_RECORDS",
         "cache_id": cache.id if cache else None,
         "as_of": cache.fetched_at.isoformat() if cache else None,
-        "expires_at": cache.expires_at.isoformat() if cache else None,
+        "expires_at": price_expiry(cache).isoformat() if price_expiry(cache) else None,
         "first_valid_date": min(valid) if valid else None,
         "last_valid_date": max(valid) if valid else None,
         "reasons": list(dict.fromkeys(reasons)),
@@ -148,7 +170,16 @@ def ensure_prices(s, scope, security, start, end, *, title=None):
     from iirp.jobs.batches import add_job
 
     calendar = security.calendar or "XNYS"
+    from iirp.market.long_prices import local_series, materialize
+    from iirp.models import LongPriceSeries
     cache = current_cache(s, security.id)
+    if isinstance(cache, LongPriceSeries):
+        cache = None
+    if covers(cache, start, end, calendar):
+        return {"cache": cache, "job": None}
+    local = local_series(s, security.id, start, end)
+    if local is not None:
+        cache = materialize(s, local)
     if covers(cache, start, end, calendar):
         return {"cache": cache, "job": None}
     for job in s.scalars(select(Job).where(

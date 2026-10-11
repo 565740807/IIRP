@@ -51,7 +51,7 @@ export function SecContactDialog({ open, onOpenChange }: { open: boolean; onOpen
         </DialogHeader>
         {data && !data.editable ? (
           <p className="flex gap-2 rounded-md border bg-secondary/50 px-3 py-2 text-sm">
-            {data.configured ? <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-up" /> : <AlertTriangle className="mt-0.5 size-4 shrink-0 text-warn" />}
+            {data.configured ? <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-ok" /> : <AlertTriangle className="mt-0.5 size-4 shrink-0 text-warn" />}
             <span>{data.configured ? t("ui.sec_contact.from_config") : t("ui.sec_contact.banner_config")}</span>
           </p>
         ) : (
@@ -71,7 +71,7 @@ export function SecContactDialog({ open, onOpenChange }: { open: boolean; onOpen
             )}
             {save.error && <p role="alert" className="text-destructive">{save.error.message}</p>}
             {save.isSuccess && (
-              <p role="status" className="flex items-center gap-1.5 text-up">
+              <p role="status" className="flex items-center gap-1.5 text-ok">
                 <CheckCircle2 className="size-4" />
                 {t("ui.sec_contact.saved")}
               </p>

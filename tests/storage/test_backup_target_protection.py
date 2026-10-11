@@ -174,7 +174,7 @@ def synthetic_database(isolated_files, monkeypatch):
                 row = (oid,) if oid is not None else None
             elif statement.startswith("SELECT pg_export_snapshot"):
                 row = ("synthetic-snapshot",)
-            elif statement.startswith("SELECT version_num"):
+            elif statement.startswith(("SELECT version_num", "SELECT string_agg(version_num")):
                 row = ("0019",)
             elif statement.startswith("SELECT count(*) FROM job"):
                 row = (0,)

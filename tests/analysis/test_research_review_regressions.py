@@ -9,7 +9,7 @@ from iirp import models
 from iirp.analysis import requests
 from iirp.analysis.dependencies import research_ranges
 from iirp.analysis.pipeline import frozen_coverage
-from iirp.analysis.research import compute_research
+from iirp.analysis.research import CALCULATION_VERSION, compute_research
 from iirp.db import session
 from iirp.jobs import planner
 from iirp.market.cache import price_bars
@@ -41,6 +41,7 @@ def _current_but_incomplete(monkeypatch):
         bars, _ = price_bars(s, security_id, dataset_id)
         result = AnalysisResult(analysis_id=request.id, security_id=security_id, input_key=key,
             inputs={"dataset_id": dataset_id, "params": request.params,
+                    "calculation_version": CALCULATION_VERSION,
                     "coverage": frozen_coverage(s, request, security, dataset)},
             data=compute_research(request.params, bars, today=date(2024, 1, 5)),
             expires_at=dataset.expires_at)

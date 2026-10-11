@@ -1,8 +1,10 @@
 """Fail when frontend source has interface text outside the translation files.
 
 All text a user reads comes from ``frontend/src/locales/<language>/translation.json``
-through i18next. This flags, outside comments, the generated API types and the
-locale files: any Chinese character, JSX text with letters, user-facing attributes
+(and an optional feature's ``frontend/src/features/<name>/locales/<language>.json``)
+through i18next. Every source file under frontend/src is read, the features
+included. This flags, outside comments, the generated API types and the locale
+files: any Chinese character, JSX text with letters, user-facing attributes
 (placeholder, title, alt, aria-label) with words, and string literals that read
 like an English sentence. A line can opt out with ``// ui-text-ok: <reason>``.
 """
@@ -13,7 +15,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = ROOT / "frontend/src"
-SKIP = {SOURCE / "generated", SOURCE / "locales"}
+# Generated API types and translations, at the top level or inside a feature.
+SKIP = {"generated", "locales"}
 # Language names are shown in their own language on purpose.
 ALLOWED = {"English", "中文"}
 
@@ -93,11 +96,15 @@ def problems(path):
             yield number, value
 
 
+def sources():
+    """Every TypeScript source under frontend/src except generated types."""
+    return [path for path in sorted(SOURCE.rglob("*.ts*"))
+            if not SKIP.intersection(path.relative_to(SOURCE).parts[:-1])]
+
+
 def main():
     failures = []
-    for path in sorted(SOURCE.rglob("*.ts*")):
-        if any(path.is_relative_to(skip) for skip in SKIP):
-            continue
+    for path in sources():
         for number, value in problems(path):
             failures.append(f"{path.relative_to(ROOT)}:{number}: {value!r}")
     if failures:

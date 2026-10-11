@@ -108,6 +108,9 @@ def lookup_result(s, job_id: str) -> dict:
     ciks = [row["cik"] for row in candidates]
     issuers = set(s.scalars(select(Issuer.id).where(Issuer.id.in_(ciks)))) if ciks else set()
     owners = set(s.scalars(select(Owner.id).where(Owner.id.in_(ciks)))) if ciks else set()
+    from iirp.market.classification import Memberships
+
+    members = Memberships(s)
     return {
         "job_id": job.id,
         "status": job.status,
@@ -115,7 +118,8 @@ def lookup_result(s, job_id: str) -> dict:
         "query": job.target["query"],
         "candidates": [
             {**row, "kind": "company" if row.get("tickers") or row["cik"] in issuers else "person",
-             "local": row["cik"] in issuers or row["cik"] in owners}
+             "local": row["cik"] in issuers or row["cik"] in owners,
+             "indexes": members.of(row["cik"], tickers=row.get("tickers") or [])}
             for row in candidates
         ],
     }

@@ -296,7 +296,7 @@ export function TradeTable({
               aria-selected={selected === row.original.id}
               className={cn(
                 "cursor-pointer border-b transition-colors duration-500 last:border-b-0 hover:bg-accent/50",
-                selected === row.original.id && "bg-up-soft hover:bg-up-soft",
+                selected === row.original.id && "bg-selected hover:bg-selected",
               )}
             >
               {row.getVisibleCells().map((cell) => {

@@ -19,8 +19,9 @@ from sqlalchemy import select
 
 from iirp.analysis.calendar import ET, completed_through, sessions
 from iirp.analysis.research import _bars_by_date, _price, _ratio, _text
+from iirp.market.cache import current_cache, price_expiry
 from iirp.messages import msg
-from iirp.models import ACTIVE, Job, PriceCache, Security, now
+from iirp.models import ACTIVE, Job, Security, now
 
 TICKER = re.compile(r"[A-Z0-9][A-Z0-9.\-]{0,9}")
 # Default company/person range; a fetch for any list covers it too, so
@@ -62,8 +63,7 @@ def _ticker_state(s, security, issuer_ids):
     active = s.scalar(select(Job.id).where(
         Job.kind.in_(("market_identity", "market_history")), Job.status.in_(ACTIVE),
         Job.target["security_id"].astext == security.id).limit(1))
-    cache = s.scalar(select(PriceCache).where(PriceCache.security_id == security.id,
-                                              PriceCache.expires_at > now()))
+    cache = current_cache(s, security.id)
     if active:
         return {**base, "status": "fetching", "cache": cache}
     if security.status == "PENDING":
@@ -169,7 +169,7 @@ def trade_windows(s, items: list[dict], n: int, *, today: date | None = None) ->
             state["status"] = "not_fetched"
         if cache is not None:
             state["fetched_at"] = cache.fetched_at.isoformat()
-            state["expires_at"] = cache.expires_at.isoformat()
+            state["expires_at"] = expiry.isoformat() if (expiry := price_expiry(cache)) else None
         state["needed_start"] = _text(needed_start)
         tickers[symbol] = state
     output = []

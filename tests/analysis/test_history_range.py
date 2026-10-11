@@ -14,10 +14,10 @@ from datetime import date, datetime, timezone
 import psycopg
 import pytest
 from alembic import command
-from alembic.config import Config
 from fastapi.testclient import TestClient
-from iirp.config import ROOT, settings
+from iirp.config import settings
 from iirp.db import engine, session
+from iirp.extensions import alembic_config
 from iirp.jobs import batches
 from iirp.jobs.queue import ensure_defaults
 from iirp.models import Base, Batch, CollectionStrategy, RequestScope
@@ -55,7 +55,7 @@ def draft_database():
         engine.cache_clear()
         isolated_engine = engine()
         assert isolated_engine.url.database == name
-        command.upgrade(Config(str(ROOT / "alembic.ini")), "head")
+        command.upgrade(alembic_config(), "heads")
         yield name
     finally:
         if isolated_engine is not None:

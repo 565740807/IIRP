@@ -80,6 +80,37 @@ def test_filtered_subsets_recompute_all_displays_and_keep_frozen_rows():
     assert empty["summary"]["reaction"]["n"] == 0 and empty["path"][0]["median"] is None
 
 
+def test_earnings_quarter_ranks_follow_paired_basis_and_skip_unpaired():
+    source = sample()
+    rows = []
+    # Q1 beats Q2 absolutely, but Q2 beats Q1 against both references.
+    # Q3 has the highest absolute return and no valid paired observation.
+    for quarter, absolute, market, excess, sector, sector_excess in (
+        (1, ".20", ".30", "-.10", ".05", ".15"),
+        (2, ".10", ".01", ".09", "-.30", ".40"),
+        (3, ".50", None, None, None, None),
+    ):
+        row = copy.deepcopy(source["rows"][quarter - 1])
+        row["fiscal_quarter"] = quarter
+        for window in row["windows"].values():
+            window.update(value=absolute, benchmark=market, excess=excess,
+                          sector=sector, sector_excess=sector_excess)
+        rows.append(row)
+    result = project_result({**source, "rows": rows})
+    quarters = {quarter["fiscal_quarter"]: quarter for quarter in result["quarters"]}
+    for window in ("before", "gap", "reaction", "after"):
+        assert quarters[3]["ranks"][f"{window}_median_desc"] == 1
+        assert quarters[1]["ranks"][f"{window}_median_desc"] == 2
+        assert quarters[2]["ranks"][f"{window}_median_desc"] == 3
+        for metric in ("median_excess", "sector_median_excess"):
+            assert quarters[2]["ranks"][f"{window}_{metric}_desc"] == 1
+            assert quarters[1]["ranks"][f"{window}_{metric}_desc"] == 2
+            assert quarters[1]["ranks"][f"{window}_{metric}_asc"] == 1
+            assert f"{window}_{metric}_desc" not in quarters[3]["ranks"]
+        assert quarters[3]["summary"][window]["paired_n"] == 0
+        assert quarters[3]["summary"][window]["sector_paired_n"] == 0
+
+
 def test_saved_names_follow_language_and_only_legacy_titles_are_migrated():
     client = TestClient(app)
     for language, expected in (("en", "earnings"), ("zh", "财报")):

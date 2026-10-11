@@ -11,6 +11,7 @@ from iirp.analysis.calendar import (
     sessions,
 )
 from iirp.config import refresh
+from iirp.market.instruments import BY_SYMBOL
 from iirp.market.yahoo import MARKETS, number
 from iirp.messages import msg
 
@@ -69,16 +70,34 @@ def _next_extended_start(stamp):
     return datetime.combine(day, time(4), tzinfo=ET)
 
 
-def next_quote_refresh(fetched, active, upcoming, periods_known):
+# CME Globex (index, metal and energy futures) and ICE dollar-index futures reopen
+# at 18:00 Eastern, Sunday through Thursday, after the weekend or the daily pause.
+FUTURES_REOPEN = time(18)
+
+
+def _next_futures_open(stamp):
+    local = stamp.astimezone(ET)
+    day = local.date() if local.time() < FUTURES_REOPEN else local.date() + timedelta(days=1)
+    # Monday is 0: Sunday (6) through Thursday (3) evenings open a new session.
+    while day.weekday() in (4, 5):
+        day += timedelta(days=1)
+    return datetime.combine(day, FUTURES_REOPEN, tzinfo=ET)
+
+
+def next_quote_refresh(fetched, active, upcoming, periods_known, kind="index"):
     """When this quote is next due (config/refresh.toml): each minute in the
     instrument's session, every five minutes in US extended hours or when the
-    source gives no session, otherwise not before the next window opens."""
+    source gives no session, otherwise not before the next window opens. A
+    closed futures-based instrument (``kind`` futures or currency_index) is also
+    due when its own market reopens, not only at the next stock window."""
     cadence = refresh()["quotes"]
     if active:
         return fetched + timedelta(seconds=cadence["session_seconds"])
     following = [upcoming[0]["start"]] if upcoming else []
     if not periods_known or _extended_hours(fetched):
         return min([fetched + timedelta(seconds=cadence["extended_seconds"]), *following])
+    if kind in ("futures", "currency_index"):
+        following.append(_next_futures_open(fetched).astimezone(timezone.utc))
     return min([_next_extended_start(fetched).astimezone(timezone.utc), *following])
 
 
@@ -127,7 +146,9 @@ def quote_from_snapshot(symbol, response):
     session = ({**selected, "start": selected["start"].isoformat(),
                 "end": selected["end"].isoformat(), "basis": msg("quote.session_basis")}
                if selected else None)
-    next_refresh = next_quote_refresh(fetched, active, upcoming, bool(periods)) if fetched else None
+    instrument = BY_SYMBOL.get(symbol)
+    next_refresh = (next_quote_refresh(fetched, active, upcoming, bool(periods),
+                                       instrument.kind if instrument else "index") if fetched else None)
 
     source_time = quoted.isoformat() if paired else None
     if paired:
@@ -151,13 +172,15 @@ def quote_from_snapshot(symbol, response):
         prior = records[-2] if len(records) > 1 else None
         status, delay, quote_kind = "DAILY", msg("quote.delay.daily"), "daily_fallback"
     last_available_date = prior["date"] if prior else None
-    expected_prior = previous_session(date.fromisoformat(trading_day)).isoformat() if symbol in {"^GSPC", "^IXIC", "^DJI", "^VIX"} else None
+    stock_calendar = bool(instrument and instrument.stock_calendar)
+    expected_prior = previous_session(date.fromisoformat(trading_day)).isoformat() if stock_calendar else None
     gap = expected_prior is not None and last_available_date != expected_prior
     previous = number(prior["close"]) if prior and not gap else None
     baseline = (
         msg("quote.baseline.gap", expected=expected_prior,
             last=last_available_date or msg("common.none")) if gap
-        else msg("quote.baseline.previous_futures" if symbol == "GC=F" else "quote.baseline.previous")
+        else msg("quote.baseline.previous_futures" if instrument and instrument.kind == "futures"
+                 else "quote.baseline.previous")
         if previous is not None else msg("quote.baseline.missing")
     )
     return {
@@ -180,8 +203,8 @@ def quote_from_snapshot(symbol, response):
         "market_open": market_open,
         "session": session,
         "next_refresh_at": next_refresh.isoformat() if next_refresh else None,
-        "unit": msg("quote.unit.usd_per_ounce" if symbol == "GC=F" else "quote.unit.index_points"),
-        "instrument": msg("quote.instrument.gold_futures" if symbol == "GC=F" else "quote.instrument.index"),
+        "unit": msg(instrument.unit if instrument else "quote.unit.index_points"),
+        "instrument": msg(instrument.instrument if instrument else "quote.instrument.index"),
         "exchange_timezone": meta.get("exchangeTimezoneName"),
         "records": records,
         "fetched_at": response.get("fetched_at"),

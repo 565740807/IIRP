@@ -19,7 +19,7 @@ PostgreSQL 18  ◄── worker：python -m iirp.jobs.worker（领取任务、�
 runtime/ 卷：来源原文（按内容哈希存放）、备份、维护日志
 ```
 
-Compose 启动三个服务：`postgres`、`web`（启动时先执行 `alembic upgrade head`）、`worker`。web 和 worker 使用同一个镜像。API 从不在请求中等待外部来源；浏览器关闭后 worker 继续工作。
+Compose 启动三个服务：`postgres`、`web`（启动时先执行 `python -m iirp.migrate upgrade heads`）、`worker`。web 和 worker 使用同一个镜像。API 从不在请求中等待外部来源；浏览器关闭后 worker 继续工作。
 
 ## 目录
 
@@ -51,7 +51,7 @@ docs/            本文、运行手册、openapi.json、README 截图（images/�
   sec   insider    analysis（月度、区间、事件窗口统计）
    │   （交易事实、     │
    │    信息流）        ▼
-   └──────┬────────► market（Yahoo 适配、24 小时日线缓存、报价）
+   └──────┬────────► market（Yahoo 适配、长期日线与 24 小时缓存、报价）
           ▼
    models · db · config · messages
 ```
@@ -62,43 +62,54 @@ docs/            本文、运行手册、openapi.json、README 截图（images/�
 | `jobs/` | 持久任务与租约（`queue.py`、`ownership.py`）、用户需求批次（`batches.py`、`batch_views.py`）、规划（`planner.py`）、执行（`worker.py`、`handlers.py`、`operations.py`、`operation_pool.py`）、自动更新与定时（`auto_update.py`、`schedule.py`）。 |
 | `sec/` | SEC EDGAR：URL 校验与解析（`parse.py`、`ownership.py`）、限速下载（`fetch.py`）、历史范围规划（`planning.py`）、最新申报轮询（`poll.py`）、按 CIK 获取一家公司或一个人的申报（`entity.py`）、User-Agent 用的联系信息（`contact.py`）。 |
 | `insider/` | 把申报写成按行的交易事实（`facts.py`），信息流的修订、水位线与阅读会话（`views.py`、`feed_index.py`、`feed.py`、`feed_updates.py`），公司/人员历史与交易详情（`entities.py`、`transactions.py`、`records.py`）、Insider 查询（`lookup.py`）。 |
-| `market/` | Yahoo 适配器与日线校验（`yahoo.py`）、24 小时日线缓存（`cache.py`）、首页报价（`quotes.py`）、本地行情读取（`reads.py`）。 |
+| `market/` | Yahoo 适配器与日线校验（`yahoo.py`）、长期日线与删除起点（`long_prices.py`）、24 小时输入缓存（`cache.py`）、首页报价（`quotes.py`）、本地行情读取（`reads.py`）。 |
 | `analysis/` | 所有金融计算：板块涨跌、周期锚点、热力图权重与周/月 K 聚合（`sectors.py`）；交易日历、月度与区间研究（`research.py`：每年一根“首个交易日开盘 → 最后交易日收盘”的 K 线、完整过去年份的统计、上涨比例的 Wilson 区间、同日期基准与超额）、分布统计（`distributions.py`）、事件窗口（`event_windows.py`）、交易前后窗口（单笔 `transaction_windows.py`，列表 `insider_windows.py`）；分析请求、结果复用与过期后重新获取。前端不重复实现。 |
-| `events/` | 财报与自定义事件：提示词模板（`prompts.py`）、简短 JSON 校验（`input.py`）、事件集与分析（`service.py`）。 |
+| `events/` | 财报与自定义事件：两步式提示词模板（`prompts.py`）、AI-JSON 校验（`input.py`：格式问题逐条报错；背景信息超出所选范围、超过 8 条、缺来源或链接与“不确定”标记给警告，不阻止保存）、事件集与分析（`service.py`）。 |
 | `storage/` | 按内容哈希保存来源文件（`objects.py`）、维护与备份调度（`maintenance.py`）、存储盘点与系统状态。 |
 | `models/` | 全部表定义，按领域分文件（`insider.py`、`market.py`、`jobs.py`、`analysis.py`、`sources.py`）；统一从 `iirp.models` 导入。 |
 | `messages.py` | 返回给用户的文字是“消息代码 + 参数”，见下文“界面文字”。 |
+| `extensions.py` | 可选功能：`iirp` 下带 `extension` 模块的子包。应用、worker、调度和迁移只通过这里加载它们（路由、任务类型与通道、调度钩子、模型、迁移目录），不直接导入；缺了这个子包，其余部分照常运行。可选功能的路由不进 `docs/openapi.json`。迁移入口 `migrate.py`（`python -m iirp.migrate`）。 |
 
 迁移在 `migrations/`（Alembic）。采集与保留的默认值在 `config/collection-defaults.toml`，刷新间隔在 `config/refresh.toml`，分析的 n 默认值在 `config/analysis-defaults.toml`，板块与 ETF 的对应和热力图参数在 `config/sector-map.toml`，来源契约在 `config/provider-contracts.json`。
 
 ## 前端（`frontend/src`）
 
-页面在 `pages/`，共享组件在 `components/`。已改造的部分用 Tailwind 和 [shadcn/ui](https://ui.shadcn.com/)（`components/ui/`，Radix 组件）：外壳在 `components/shell/`（侧栏、顶部栏、搜索、任务入口、语言切换、系统状态），首页在 `components/home/`（行情条 `MarketStrip`、Insider 瀑布流 `InsiderStream` 与卡片 `FeedCard`），Insider 查询 `pages/Insiders.tsx`、公司/人员页 `pages/Entity.tsx`、交易详情 `pages/Transaction.tsx`、数据与任务 `pages/Data.tsx`，它们共用 `components/insider/`（K 线 `PriceChart`、交易表 `TradeTable`、前后 n 日单元格、范围与 n 控件）。分析中心的外壳与月度/区间结果在 `components/analysis/`（四个页签、可收起的条件栏、逐只股票的分步进度、结论卡、年份 × 月份热力表、每年一根 K 线、排名与统计表、逐年明细、计算方法），月度与区间页是 `pages/Seasonal.tsx`，请求、轮询和 24 小时过期后自动重取在 `lib/analysis.ts`。财报与事件页是 `pages/Events.tsx`，组件在 `components/events/`（左侧输入流程 `EventInputs`：提示词、粘贴 JSON 与预览改时段、n 与基准、已保存事件集；结果 `EventResults`；图表 `EventCharts`：一个事件一根反应日 K 线、R−n…R+n 平均路径、单个事件日 K 线；表格 `EventTables`），请求与结论句在 `lib/events.ts`。指数详情页 `pages/Market.tsx` 显示保存的报价与最近 6 个月日 K 线。板块页是 `pages/Sectors.tsx`，组件在 `components/sectors/`（TanStack Table 数字表、行业组表 `SectorGroupTable`（参考行可展开）、ECharts treemap 热力图、`echarts.connect` 同步的纵向 K 线，只渲染进入可视区域的图），首页板块条是 `components/home/SectorStrip.tsx`，请求与 URL 状态在 `lib/sectors.ts`、`lib/sectorState.ts`。旧的 `legacy.css` 已全部删除，样式只用 Tailwind 与 shadcn/ui。
+页面在 `pages/`，共享组件在 `components/`。已改造的部分用 Tailwind 和 [shadcn/ui](https://ui.shadcn.com/)（`components/ui/`，Radix 组件）：外壳在 `components/shell/`（侧栏、顶部栏、搜索、任务入口、语言切换、系统状态），首页在 `components/home/`（行情条 `MarketStrip`、Insider 瀑布流 `InsiderStream` 与卡片 `FeedCard`），Insider 查询 `pages/Insiders.tsx`、公司/人员页 `pages/Entity.tsx`、交易详情 `pages/Transaction.tsx`、数据与任务 `pages/Data.tsx`，它们共用 `components/insider/`（K 线 `PriceChart`、交易表 `TradeTable`、前后 n 日单元格、范围与 n 控件）。分析中心的外壳与月度/区间结果在 `components/analysis/`（四个页签、可收起的条件栏、逐只股票的分步进度、结论卡、年份 × 月份热力表、每年一根 K 线、排名与统计表、逐年明细、计算方法），月度与区间页是 `pages/Seasonal.tsx`，请求、轮询和 24 小时过期后自动重取在 `lib/analysis.ts`。财报与事件页是 `pages/Events.tsx`，组件在 `components/events/`（左侧输入流程 `EventInputs`：提示词、粘贴 JSON 与预览改时段、n 与基准、已保存事件集；结果 `EventResults`；图表 `EventCharts`：一个事件一根反应日 K 线、R−n…R+n 平均路径、单个事件日 K 线；表格 `EventTables`），请求与结论句在 `lib/events.ts`。行情详情页 `pages/Market.tsx`（行情条每个品种都可点开）显示保存的报价与最近 6 个月日 K 线。板块页是 `pages/Sectors.tsx`，组件在 `components/sectors/`（TanStack Table 数字表、行业组表 `SectorGroupTable`（参考行可展开）、ECharts treemap 热力图、`echarts.connect` 同步的纵向 K 线，只渲染进入可视区域的图），首页板块条是 `components/home/SectorStrip.tsx`（一行，按服务器的今日排序与名次 `ranks` 从左到右标 1–11），请求与 URL 状态在 `lib/sectors.ts`、`lib/sectorState.ts`。旧的 `legacy.css` 已全部删除，样式只用 Tailwind 与 shadcn/ui。
 
+- **可选功能**：`src/features/<名称>/` 下有 `index.tsx` 的目录是可选功能。`src/features.ts` 用 `import.meta.glob` 收集它们的路由、侧栏入口（按 `order` 插在内置入口之间）和翻译（`locales/<语言>.json`，加载时合并），`App.tsx` 与侧栏从这里读取；目录不存在就没有这个入口。可选功能的接口契约在它自己的 `openapi.json`，类型生成到它自己的 `generated/api.ts`（`npm run generate:api` 一并生成，`npm run check:api` 一并核对），用 `contractClient` 请求；前端测试另跑 `src/features/*/tests/*.test.mjs`。
 - **请求**：新代码用 [openapi-fetch](https://openapi-ts.dev/openapi-fetch/)（`lib/api-client.ts`），类型由 `docs/openapi.json` 生成到 `generated/api.ts`（`npm run generate:api`，`npm run check:api` 校验一致）；服务器状态用 TanStack Query。前端只展示后端计算好的结果，不重复实现金融计算。
-- **配色**：令牌在 `index.css`。涨/买为蓝（`--up`），跌/卖为橙（`--down`），一律带 + / − 号；主操作色是近黑的墨色，与蓝、橙都能区分；数据延迟用紫灰（`--warn`），不与“跌”混淆。文字与背景的组合在 Chrome 中实测对比度均 ≥ 4.5:1，并在 Chrome 的绿色盲（deuteranopia）模拟下检查过。
-- **动画**：[Motion](https://motion.dev/) 负责新卡片落入、展开收起，[NumberFlow](https://number-flow.barvian.me/) 负责行情数字滚动（变化时背景闪蓝或橙约 1 秒）；首次加载用骨架；后台刷新时顶部栏刷新图标转动并显示细进度线；数据延迟的标记缓慢呼吸。时长约 0.15–0.3 秒，系统开启“减少动态效果”时不做位移动画。
+- **配色**：令牌在 `index.css`。涨/买（`--up`）、跌/卖（`--down`）及其浅底和闪动色跟随设置：右上角齿轮打开设置窗口，预设为美股（绿涨红跌，默认）、色弱友好（蓝涨橙跌）、亚洲（红涨绿跌）或自定义两种颜色，一律带 + / − 号。选择存在 `user_preferences.values.display`（`GET/PUT /api/v1/display`，所有浏览器共用），浏览器另缓存一份，首屏直接用上次的颜色。`lib/colors.ts` 由选择算出全部涨跌色并写到根元素的 CSS 变量上，ECharts 图（K 线、热力图、箱图、事件路径）通过 `usePalette()` 读同一份值，图表的中性色也集中在那里。健康/实时状态（`--ok`）和选中行（`--selected`）有自己的颜色，不随涨跌预设变化；主操作色是近黑的墨色；数据延迟用紫灰（`--warn`），不与“跌”混淆。三个预设的文字色在卡片、页面背景以及自身浅底和闪动底色上的对比度都 ≥ 4.5:1（`frontend/tests/colors.test.mjs`）；自定义颜色低于 4.5:1 时设置窗口给出提示。目前只有浅色主题。
+- **动画**：[Motion](https://motion.dev/) 负责新卡片落入、展开收起，[NumberFlow](https://number-flow.barvian.me/) 负责行情数字滚动（变化时背景按涨跌色闪动约 1 秒）；首次加载用骨架；后台刷新时顶部栏刷新图标转动并显示细进度线；数据延迟的标记缓慢呼吸。时长约 0.15–0.3 秒，系统开启“减少动态效果”时不做位移动画。
 - **长列表与表格**：瀑布流用 [TanStack Virtual](https://tanstack.com/virtual) 按窗口虚拟化；交易表和任务表用 [TanStack Table](https://tanstack.com/table)；K 线用 ECharts。
 
 ### 首页刷新
 
 间隔只写在 `config/refresh.toml`：SEC 轮询节奏、行情的开盘/盘前盘后/休市规则，以及浏览器端的间隔（重读本地行情、检查新申报、询问服务器是否该更新、重读 Insider 总览）。浏览器端间隔随 `/api/v1/home` 下发。外部请求只由 worker 发出；页面打开、回到前台和可见期间每隔一段时间调用 `POST /api/v1/freshness/ensure`，服务器用咨询锁、“60 秒内已请求”和每个品种的 `next_refresh_at` 合并请求，所以多个标签页不会让 SEC 或 Yahoo 请求成倍增加；标签页隐藏时不轮询。行情是否“交易中 / 已休市 / 延迟”在读取时按当时时间判断（`api/reads.py`），延迟会写明原因（超时未更新、来源报价滞后、最近一次更新失败、收盘价尚未取回）。
 
+行情条的品种只列在 `market/instruments.py`：标普 500、纳斯达克综合、纳指 100、道琼斯、罗素 2000、VIX、10 年期美债收益率（^TNX，Yahoo 以 % 报价，`/home` 另给 `change_bp` 基点变化）、美元指数（DX-Y.NYB）、黄金与 WTI 原油期货、标普与纳指期货（ES=F、NQ=F）、比特币（默认关闭）。显示哪些是显示设置 `display.market_strip`（设置窗口勾选），未勾选的既不显示也不获取。每个品种的交易时段取自它自己的 Yahoo 报价（`currentTradingPeriod`），不套用股票日历：交易中每分钟、美股盘前盘后每 5 分钟，休市等下一个窗口；期货类休市时另在 CME/ICE 周日至周四 18:00（美东）重新开盘时到期，所以周末后的周日晚上就会更新。ES=F、NQ=F 在美股常规时段（NYSE 日历，含提前收盘）内不显示也不获取，时段外只在保存的期货报价仍处于其交易时段时显示。所有到期品种仍由一次 `market_quotes` 批次获取（worker 按品种取日线快照），打开页面只取已到期的品种，“立即检查”取全部已勾选的品种。
+
 ### 板块
 
 - **映射**：`config/sector-map.toml` 列出 11 个大板块和代表 ETF（SPDR 板块 ETF，代表标普 500 的对应板块，不覆盖全部美股），以及每个板块的 GICS 行业组（共 25 个）：主 ETF（唯一参与排名）、备选 ETF（只作参考行）、覆盖程度 complete/partial/reference/pending。加载时校验（`check_sector_map`）：pending 当且仅当没有主 ETF；`same_as_sector` 只用于板块唯一的行业组且主 ETF 就是板块 ETF（能源、原材料、公用事业）；除此之外同一只 ETF 不出现两次。
 - **行业组**（`GET /api/v1/sectors/groups?sector=…`，不带 `sector` 为全部 25 个）：周期口径与大板块相同；排名（`ranks`）和热力图权重只在本次显示的主 ETF 之间计算，参考行和 pending 行不排名，pending 排在最后。行业组 ETF 只由 `POST /api/v1/sectors/prices`（`level=group`，可带 `sector`）请求，首页和大板块层级从不请求；每只 ETF 的获取进度（就绪 / 获取中 / 无数据 / 未取到）取自当天 `market_history` 批次的请求范围。K 线用 `GET /api/v1/sectors/candles?level=group`，只含有主 ETF 的行业组。
-- **数据**（`analysis/sectors.py`）：日线用 24 小时缓存，`POST /api/v1/sectors/prices` 为缓存不够的 ETF 建一个批次，每只 ETF 一次取“今年 + 过去 8 个完整年”（缓存另加 1 个月余量），同一天到下一次收盘前重复请求返回同一批次；月度/区间分析打开这些 ETF 时直接复用。上市晚于窗口起点的 ETF（如 XLC）按实际年份计数，不补造历史。报价走共享的批量股票报价（`POST /api/v1/insider/quotes`，一次请求全部代码），节奏同首页指数（开盘 60 秒、盘前盘后 5 分钟、休市不刷新）。`GET /api/v1/sectors` 与 `GET /api/v1/sectors/candles` 只读本地缓存，切换视图、周期、范围和排序不会触发外部请求。
+- **数据**（`analysis/sectors.py`）：日线优先读取覆盖需求的长期行情（长期库从过去第 10 个完整年的 1 月 1 日起保存，与板块窗口起点相同；完整保存这一段的 ETF 视为覆盖）；覆盖不足时，`POST /api/v1/sectors/prices` 为需要补充的 ETF 建一个 24 小时缓存批次，每只 ETF 一次取“今年 + 过去 10 个完整年”（`config/sector-map.toml` 的 `[history] years`，缓存另加 1 个月余量），同一天到下一次收盘前重复请求返回同一批次；月度/区间分析打开这些 ETF 时直接复用。上市晚于窗口起点的 ETF（如 XLC）按实际年份计数，不补造历史。报价走共享的批量股票报价（`POST /api/v1/insider/quotes`，一次请求全部代码），节奏同首页指数（开盘 60 秒、盘前盘后 5 分钟、休市不刷新）。`GET /api/v1/sectors` 与 `GET /api/v1/sectors/candles` 只读本地缓存，切换视图、周期、范围和排序不会触发外部请求。
 - **口径**：价格收益，仅拆股调整。1 周/1 个月/3 个月的终点是缓存中最近完成交易日 L 的收盘，起点是“L 往前 7 天/1 个月/3 个月那天或之前最近交易日”的收盘（3/31 往前 1 个月为 2/28 或 2/29）；年初至今的起点是上一年最后交易日收盘。今日：常规时段用最新常规时段报价对比前一交易日收盘（标“盘中 · 更新时间”）；其余时间用 L 收盘对比前一交易日收盘。热力图面积权重 = 0.2 + 0.8 × (r − r_min) / max(r_max − r_min, s)，s 按周期取 1%/2%/4%/8%/8%。周 K 按周一至周五、月 K 按自然月由日线聚合（开 = 首日开盘、收 = 末日收盘、高低取极值）。
+- **轮动**（`analysis/rotation.py`，`GET /api/v1/sectors/rotation`）：11 个大板块，或有主 ETF 的 18 个行业组（待补充的不参与）。每只 ETF 直接调用月度/区间研究引擎 `compute_research`（首个交易日开盘 → 最后交易日收盘；只统计完整过去年份，今年单列；中位、均值、四分位、上涨 x/N 与 Wilson 95% 区间；^GSPC 用同一首尾交易日算超额与跑赢 x/N），参数为 `years`（1–10，默认 10）、`kind`（`monthly` 或带 `start`/`end` 的 `interval`，可跨年）。在此之上按中位涨幅（`rank_by=absolute`）或相对标普的超额中位（`relative`）在 ETF 之间排名，相同数值同名次；每年只在当年有值的 ETF 之间排名，一只 ETF 上方不足 3 只即为当年前三、下方不足 3 只即为后三，统计进入前三 / 后三的年数（分母为它有值的完整年数），并给出每年的第一名与最后一名。上市较晚（XLC）或长期库起点之后才有数据的年份按实际 N 统计。价格只读长期库，不读 24 小时缓存、不建任务、不发外部请求。每个周期返回名次和中位等摘要，完整行（统计、箱图分布、逐年值与名次、前三 / 后三）只返回 `month` 选中的月份（默认本月）或区间；比例保留 10 位小数。计算结果按条件与所用长期序列（代次、完整至、获取时间）在 web 进程内保留 24 小时，到期或长期库变化后用本地数据重算。
 
 ### 瀑布流
 
 信息流按“公司 × SEC 接受日（美东）”分组，每组里每位申报人一行：谁（职务）、交易代码对应的 SEC 说法、股数、金额（买入为 +、卖出为 −）、交易日；卡片右上角是披露时间。列表在服务器的阅读会话（水位线，见下文“信息流的阅读会话”）上工作：读者停在顶部时，新申报读取两条水位线之间的增量后立即落入；读者往下翻时列表不动，顶部出现“↑ N new trades”，点击后先回到顶部再落入；接近底部时用同一会话的游标加载更早的组。列表操作是纯函数（`lib/feedStream.ts`），有单元测试。
 
+### 指数名单与股票所属板块
+
+- **名单**（`market/constituents.py`）：标普 500 取自 GitHub datasets 的 CSV（含 CIK、GICS 板块与子行业），纳指 100 取自 Wikipedia 成分表（ICB 行业与子行业原样保存，`classification` 列注明 GICS/ICB）。每周固定时间更新一次（`config/refresh.toml` 的 `[index_constituents]`，默认周六 08:00 美东）：上次成功早于最近一个计划时间的名单到期；失败保留上一份名单和更新日期，`retry_seconds`（默认 6 小时）后重试。数据页“指数名单”显示成分数、上次更新、下次时间和失败原因（`GET /api/v1/index-constituents`），“立即更新”（`POST …/refresh`）为每份名单建一个任务，已有进行中的任务时不重复建。
+- **成分标记**：`market/classification.py` 的 `Memberships` 一次读出两份名单，按 CIK 或 ticker（`.` 与 `-` 视为相同）判断，在读取时给瀑布流分组、Insider 总览各行、查询结果（本地与 SEC 候选）和公司页加 `indexes`，前端显示 SPX / NDX。
+- **股票 → 板块**（`GET /api/v1/securities/{symbol}/classification`）：① 在标普 500 名单里：名单的 GICS 板块，子行业按 `config/gics.toml`（MSCI 2023 年 GICS 结构：163 个子行业 → 25 个行业组，另列 2023 年前的旧名）对到行业组；② 否则用 Yahoo 的 sector：身份核对（`market_identity`）时 `get_info` 已返回，多存 `sector`、`industry` 两个字段，不增加请求，名称按 `config/sector-map.toml` 的 `[yahoo_sectors]` 对到 11 个板块，没有行业组；③ 都没有则无板块。结果带来源（`sp500_gics` / `yahoo` / `none`）、板块 ETF、行业组主 ETF（pending 的行业组没有）。身份核对早于存 sector 的证券返回 `refresh: needed`，公司页打开时调用一次 `POST …/classification/refresh` 排一个身份刷新，不批量补。纳指 100 的 ICB 分类不用于映射。公司页标题下显示一行板块。
+
 ### Insider 查询与前后 n 日
 
 - **查询**（`insider/lookup.py`）：先查本地（`issuer.ticker` 精确匹配，或名字包含每个词）；本地没有时由 worker 的 `sec_identity` 任务去 SEC 查：像 ticker 的输入查 `company_tickers_exchange.json`，名字查 EDGAR 公司与人员搜索（`efts.sec.gov/LATEST/search-index?keysTyped=…`，即 sec.gov 搜索框背后的公开接口），同一查询每天只请求一次。选中一项后建 `sec_entity` 批次：`sec_discover`（mode=entity）读该 CIK 的 `data.sec.gov/submissions` 文件（Form 3/4/5 同时列在发行人和每位申报人名下），只为范围内的申报建 `sec_document` 任务。全部走现有 SEC 限速（每秒 ≤ 2 次）和 User-Agent。
-- **前后 n 日**（`analysis/insider_windows.py`）：以交易日 t（非交易日顺延）收盘为基准，前 n 日 = C(t)/C(t−n) − 1，后 n 日 = C(t+n)/C(t) − 1；尚未到来的交易日留空并给出预计日期，当天未收盘标“盘中”。价格来自申报里写的 ticker 的 24 小时缓存；该证券未经 SEC ticker 列表确认属于该发行人时照常计算并标“待核对”。`GET /insider/windows` 只读缓存；缺价时页面调用一次 `POST /insider/prices`，每只股票一次请求取“默认 6 个月与最早 t−n 的较早者 − 1 个月余量”到当天，所以随后打开公司页不再取价。n 默认值在 `config/analysis-defaults.toml`，页面上切换并记住。
+- **前后 n 日**（`analysis/insider_windows.py`）：以交易日 t（非交易日顺延）收盘为基准，前 n 日 = C(t)/C(t−n) − 1，后 n 日 = C(t+n)/C(t) − 1；尚未到来的交易日留空并给出预计日期，当天未收盘标“盘中”。价格优先读取申报 ticker 的长期日线，其他股票及覆盖不足的区间使用 24 小时缓存；该证券未经 SEC ticker 列表确认属于该发行人时照常计算并标“待核对”。`GET /insider/windows` 只读缓存；缺价时页面调用一次 `POST /insider/prices`，每只股票一次请求取“默认 6 个月与最早 t−n 的较早者 − 1 个月余量”到当天，所以随后打开公司页不再取价。n 默认值在 `config/analysis-defaults.toml`，页面上切换并记住。
 - **总览**（`insider/overview.py`，`/insider` 页）：多人买入/卖出、最大买入/卖出、高管买入、持股大增和按公司汇总，按 issuer 归组；显示和报价用的代码取发行人 ticker 中第一个有效代码，没有时取申报 ticker 文本中的第一个。每笔价格先核对（`insider/prices.py`）：价格为空或 ≤ 0（期权行权、股票奖励等 $0 交易）时不核对、不显示核对标记；其余的参考价是 24 小时缓存里交易日的收盘价，没有时用最新报价，都没有标“未核对”；申报价与参考价相差达到配置的倍数（`price_mismatch_ratio`，默认 10 倍，随响应下发给界面文字）时照常显示申报价，但不计入金额排名、合计和公司汇总，并注明未计入的笔数。主查询只读部分索引 `ix_event_overview`（包含总览用到的全部列，其中申报 ticker 与交易后持股是 JSON 字段的存储生成列），不访问宽的交易行，磁盘冷时也不会超时。每个列表只返回前若干行和总数（`config/analysis-defaults.toml` 的 `[insider_overview]`），响应同时给出需要报价的代码，页面一次合并请求。
 - **SEC 联系信息**（`sec/contact.py`）：SEC 要求自动访问在 User-Agent 中写名字和真实邮箱。`deploy/.env` 的 `IIRP_SEC_USER_AGENT` 有值时用它（界面显示“由配置文件设定”，不可改）；否则用界面填写、保存在 `user_preferences.values.sec_contact` 的名字和邮箱（`GET/PUT /api/v1/sec-contact`）。没有真实邮箱（空、旧模板值、`example.com` 等 RFC 2606 保留域名）时 SEC 策略保持开启但不发任何请求，首页顶部提示填写。保存后 worker 在数秒内（读取缓存 5 秒）开始轮询，不需要重启。
 - **数据页健康检查**（`api/health.py`）：只看当前问题——worker、SEC 联系方式与轮询、来源冷却、磁盘、备份、最近 24 小时失败的任务（按类型和原因分组，可一键重试）；没有问题时只显示一行“All systems normal”。超过 7 天未处理的部分完成批次归入“已完成”。
@@ -114,6 +125,18 @@ docs/            本文、运行手册、openapi.json、README 截图（images/�
 3. **行情**：`market_identity` 确认证券身份 → 规划时若该证券的缓存覆盖不了所需区间，`market_history` 一次取“所需区间 + 前 1 个月余量”到当天，替换为一份新的 24 小时缓存（`price_cache` + `price_cache_bar`，仅拆股调整的 OHLC、分红与拆股，记下获取与到期时间）→ `market_quote` 另行更新首页报价。到期的缓存由 worker 删除。
 4. **分析**：用户显式应用条件 → 月度/区间由 `research_compute` 任务、财报/事件由规划器在行情缓存（及基准缓存，所有股票共用一次取价）就绪后直接读取缓存日线，计算并写入结果（记下所用缓存与获取时间）。结果与所用缓存同生命周期（`analysis_result.expires_at`，事件结果取股票与基准缓存中较早到期者），图表、表格、结论和导出（统计 CSV 与明细 CSV，图表用 ECharts 存 PNG）都读同一份结果；同一天相同条件（事件、n、基准）的事件分析直接复用，不再新建；过期后打开研究会自动按最近已完成交易日重新获取。
 5. **读取**：所有 GET 只读本地数据库；信息流和详情在阅读会话中保持稳定，新内容以提示形式出现。
+
+### 分析的两个参照
+
+月度、区间、财报与事件请求保存 `benchmark`（大盘）和 `sector_benchmark`（所属板块）。大盘默认 ^GSPC，可选 ^NDX、不比较或其他 ETF；所属板块默认 `auto`，按已有 `classify` 服务逐只股票解析，也可选 `industry_group`、不比较或自定义 ETF。行业组没有主 ETF 时退回板块 ETF并带原因；GICS、Yahoo、无映射及自定义来源随结果保存。需要身份刷新的映射通过分析范围订阅持久 `market_identity` 任务，完成后才计算板块对比；失败带明确原因。
+
+板块参照只使用本地长期行情或尚未过期的缓存，选择或切换板块参照不排外部取价任务。本地没有可用 ETF 时结果说明原因。两端日期与股票严格一致；月度/区间使用首日开盘到末日收盘，事件的事前、跳空、反应日、事后分别使用各自边界。收益、两列超额、跑赢计数及绝对/相对大盘/相对板块的分布均由后端计算；缺失值不当作零。板块输入纳入计算身份、发布围栏及最早到期时间，统计和明细 CSV 包含 ETF、来源、收益和超额。
+
+新计算版本为 `research-v12-sector` 与 `event-windows-v3-sector`。旧结果的新增字段可缺省，读取注明不含板块对比；重新打开或切换参照通过已有分析变体重新计算。图表的大盘参照为虚线，板块参照为点线，涨跌颜色沿用显示设置。
+
+### 事件的背景信息与分组
+
+粘贴的事件可带 AI 整理的背景信息（`context`）、财报预期（`earnings`）和“不确定”标记，保存在事件集里，分析时随事件冻结；全部标“由 AI 整理，未经核实”，软件不核实也不联网检查。计算版本 `event-windows-v4-context`（`analysis/event_windows.py`）：每个事件的行另存这些字段、反应日前后配置交易日数的宏观窗口，以及覆盖 R−1−n…R+n 与所有背景日期的日 K 线（`context_candles`）；取价范围相应扩到最早、最晚的背景日期。`project_result` 读取冻结的行，按 (实际 − 预期) / |预期| 算每股收益与营收的超预期幅度，财报按每股收益分为超预期 / 符合 / 低于 / 无预期数据、按指引分组，每组给四个窗口的完整统计；`exclude_macro` 排除宏观窗口内有 `major`、类别为 macro / policy / geopolitical 的背景条目的事件后重算全部统计并给出排除数。阈值、交易日数和类别在 `config/analysis-defaults.toml` 的 `[event_groups]`。旧版本结果缺少的字段按空值读取（无背景、无预期数据）。前端组件在 `components/events/EventContext.tsx`（背景列表、时间线、预期对比表、分组统计），单事件 K 线的背景标记在 `EventCharts.tsx`。
 
 ### 信息流的阅读会话
 
@@ -140,3 +163,13 @@ docs/            本文、运行手册、openapi.json、README 截图（images/�
 - **存储盘点**：系统状态只读记录——原文大小取自 `source_object`，备份取自各自清单（按文件身份缓存，只解析一次），恢复副本取自其报告，数据库取自 PostgreSQL；不遍历目录。目录实际占用的精确核对（约 130 万个文件）在数据页手动触发，或由 worker 每天最多一次在美东 0–5 点运行。
 - **卷**：Compose 的 `postgres-data`（数据库）与 `app-runtime`（来源对象、备份、维护日志）。`./iirp stop` 保留卷；备份由 `./iirp backup` 生成一致快照（`pg_dump` + 来源对象哈希清单），每次成功后只保留最近 2 份，`./iirp restore-verify` 在随机新库上验证恢复，通过后删除副本原文和恢复库，只留验证报告（写入备份清单，并在 `runtime/restores/<名称>-report.json`）。
 - **测试**：`./iirp check` 和 `./iirp test` 为后端测试启动一个临时 PostgreSQL 容器（数据在 tmpfs、独立网络），跑完删除；测试只在其中的 `iirp_v1_test_*` 库运行，不在正式实例的数据库服务器上建库。
+
+### 长期行情数据
+
+`long_price_series` 保存代码与证券、成员状态、移出日期、保留起点和控制代次；`long_price_bar` 保存拆股调整后的 OHLC、量与公司行动，只接受已完成的 NYSE 交易日。范围来自现有两份指数名单的并集、`sector-map.toml` 全部 ETF（含参考行）及 ^GSPC、^IXIC、^NDX、SPY、QQQ。名单更新后新成员补数，移出成员停更并保留历史。
+
+`config/refresh.toml` 的 `[long_prices]` 配置保存年数（10 个完整的过去年份，从第一年的 1 月 1 日起，例如 2026 年为 2016-01-01；每年 1 月 1 日起点前移一年，更早的日线删除）、美东 17:30、最近 10 个交易日及比较容差。自动批次仍为 `market_history`，每只证券按顺序执行身份核对与 `market_long_history`，共用 Yahoo 单并发、来源冷却与任务租约围栏，低于页面即时取价优先级。批次与各证券进度在数据与任务页可见，重启后续接。每日仅比较重叠 OHLC，忽略分红调整的 `adj_close`；差异超过容差时保留旧数据，重新获取整个保留区间后原子替换，不保留价格版本。来源缺失或无效日线的日期存于 `details.missing_dates`；整段复核仍为同一组日期时存为 `accepted_missing_dates`，代码计入就绪并停止补数重试。每日窗口保留窗口外的缺口，新增或修复缺口重新整段核对。接受缺口只表示无需重取，分析仍按缺失日线处理并标注日期。
+
+长期数据覆盖需求时，规划器从本地日线生成一份现有 24 小时输入缓存，月度、区间、财报、事件共享原有计算和结果到期规则，不建外部取价任务；板块与 Insider 只读路径也直接读取长期日线。未覆盖需求仍走现有 24 小时缓存路径。长期日线不受缓存清除任务影响。`adj_close` 只在原 Yahoo 响应和短期缓存保留，不用于金融计算，也不存入长期日线。
+
+设置中的管理操作创建 `market_long_manage` 持久任务，由 worker 在围栏内提交；四种删除更新保留起点与控制代次，旧代次下载不能恢复已删除日线。“重新补齐”清除删除起点，恢复随年份前移的默认起点。保存起点晚于当前默认起点、且不是因用户删除而后移的序列（例如按旧规则从“今天往前 10 年”开始保存的），规划时代次加一并整段重取一次，走同一低优先级补数流程。自动补数与每日更新跟随行情自动更新开关。备份排除 `long_price_bar` 数据，但保留结构与 `long_price_series` 控制；恢复后没有日线的证券由补数任务重建，不越过保存的删除起点。

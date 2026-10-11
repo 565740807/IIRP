@@ -7,11 +7,13 @@
 @custom-variant dark (&:is(.dark *));
 
 /*
- * Color tokens. Up/buy is blue and down/sell is orange everywhere, always with
- * an explicit + or − sign (the owner has red-green color weakness). The
- * primary action color is near-black ink so it never reads as up or down.
- * Text pairs meet WCAG AA (4.5:1) on the card and page backgrounds; checked
- * with Chrome's deuteranopia emulation (see docs/ARCHITECTURE.zh-CN.md).
+ * Color tokens. Up/buy and down/sell follow the display settings (lib/colors.ts
+ * sets --up, --down and their soft and flash tints on the root element); the
+ * values here are the default preset (green up, red down). Changes always carry
+ * an explicit + or − sign. The primary action color is near-black ink and
+ * status (--ok) and selection (--selected) have their own colors, so neither
+ * reads as up or down under any preset. Text pairs meet WCAG AA (4.5:1) on the
+ * card and page backgrounds (frontend/tests/colors.test.mjs).
  */
 :root {
   --background: oklch(0.985 0.002 250);
@@ -34,17 +36,23 @@
   --ring: oklch(0.55 0.03 260);
   --radius: 0.5rem;
 
-  /* Up / buy (blue) and down / sell (orange): text, soft background, flash. */
-  --up: oklch(0.5 0.19 258);
-  --up-soft: oklch(0.95 0.03 255);
-  --up-flash: oklch(0.925 0.055 255);
-  --down: oklch(0.53 0.16 47);
-  --down-soft: oklch(0.96 0.035 60);
-  --down-flash: oklch(0.945 0.05 60);
+  /* Up / buy and down / sell: text, soft background, flash (default preset). */
+  --up: #137333;
+  --up-soft: #edf3ee;
+  --up-flash: #dfebe1;
+  --down: #c5221f;
+  --down-soft: #fdefed;
+  --down-flash: #fce3df;
+  /* Healthy / live status and selected rows: independent of up and down. */
+  --ok: oklch(0.5 0.12 200);
+  --selected: oklch(0.95 0.03 255);
   --neutral-mark: oklch(0.7 0.01 255);
   /* Delayed data: amber-free so it never looks like "down". */
   --warn: oklch(0.43 0.09 300);
   --warn-soft: oklch(0.95 0.025 300);
+  /* Entries the AI marked uncertain: highlighted yellow, with a text label. */
+  --doubt: oklch(0.45 0.09 85);
+  --doubt-soft: oklch(0.96 0.07 98);
 }
 
 @theme inline {
@@ -75,8 +83,12 @@
   --color-down-soft: var(--down-soft);
   --color-down-flash: var(--down-flash);
   --color-neutral-mark: var(--neutral-mark);
+  --color-ok: var(--ok);
+  --color-selected: var(--selected);
   --color-warn: var(--warn);
   --color-warn-soft: var(--warn-soft);
+  --color-doubt: var(--doubt);
+  --color-doubt-soft: var(--doubt-soft);
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);

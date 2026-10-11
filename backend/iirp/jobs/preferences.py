@@ -15,8 +15,9 @@ from iirp.models import (
 
 
 def _public(values):
-    """The SEC contact shares the row but has its own endpoint (iirp.sec.contact)."""
-    return {key: value for key, value in values.items() if key != "sec_contact"}
+    """The SEC contact and the display settings share the row but have their own
+    endpoints (iirp.sec.contact, iirp.display)."""
+    return {key: value for key, value in values.items() if key not in ("sec_contact", "display", "long_prices")}
 
 
 def get_preferences():
@@ -86,6 +87,7 @@ def update_strategy(key, enabled):
         p = s.get(CollectionStrategy, key, with_for_update=True)
         if not p:
             raise NotFoundError("preference.not_found")
+        previously_paused = p.options.get("paused_long_batches", []) if key == "market" and enabled else []
         p.enabled = enabled
         p.options = {**p.options, "user_controlled": True}
         p.version += 1
@@ -103,6 +105,15 @@ def update_strategy(key, enabled):
             if not enabled
             else []
         )
+        if key == "market":
+            p.options = {**p.options, "paused_long_batches": [identifier for identifier in ids
+                if s.get(Batch, identifier).params.get("long_prices")] if not enabled else []}
     for batch_id in ids:
         control_batch(batch_id, "pause")
+    for batch_id in previously_paused:
+        with session() as s:
+            batch = s.get(Batch, batch_id)
+            resumable = bool(batch and batch.status in ("PAUSED", "PAUSE_REQUESTED") and batch.requested_action == "pause")
+        if resumable:
+            control_batch(batch_id, "resume")
     return get_strategies()

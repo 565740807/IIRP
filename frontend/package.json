@@ -8,9 +8,9 @@
     "build": "tsc -b && vite build",
     "typecheck": "tsc --noEmit",
     "preview": "vite preview --host 127.0.0.1",
-    "generate:api": "openapi-typescript ../docs/openapi.json -o src/generated/api.ts",
+    "generate:api": "node generate-api.mjs",
     "check:api": "node check-api.mjs",
-    "test": "node --test tests/*.test.mjs"
+    "test": "node --test \"tests/*.test.mjs\" \"src/features/*/tests/*.test.mjs\""
   },
   "dependencies": {
     "@fontsource-variable/geist": "^5.3.0",

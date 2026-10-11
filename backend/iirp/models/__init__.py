@@ -47,6 +47,7 @@ from iirp.models.jobs import (  # noqa: F401
     Subscription,
     WorkerHeartbeat,
 )
+from iirp.models.long_prices import LongPriceBar, LongPriceSeries  # noqa: F401
 from iirp.models.market import (  # noqa: F401
     IndexConstituent,
     IndexConstituentState,

@@ -30,9 +30,10 @@ from iirp.analysis.event_windows import (
     reaction_day,
     sessions_needed,
 )
+from iirp.analysis.sector_benchmarks import validate_sector_benchmark
 from iirp.config import ROOT
 from iirp.db import session
-from iirp.events.input import EventInputError, parse_events
+from iirp.events.input import EventInputError, check_events, parse_events
 from iirp.market.yahoo import digest
 from iirp.messages import NotFoundError, UserError, msg
 from iirp.models import (
@@ -52,11 +53,29 @@ PRESETS = [3, 5, 10, 20]
 
 
 @lru_cache
+def analysis_defaults():
+    with (ROOT / "config/analysis-defaults.toml").open("rb") as source:
+        return tomllib.load(source)
+
+
 def window_defaults():
     """Per-feature n from config/analysis-defaults.toml."""
-    with (ROOT / "config/analysis-defaults.toml").open("rb") as source:
-        values = tomllib.load(source)
+    values = analysis_defaults()
     return {**values["window_sessions"], **values["window_sessions_limits"]}
+
+
+def context_defaults():
+    """The background window: default days before/after an event and the page's presets."""
+    return analysis_defaults()["event_context"]
+
+
+def context_window(before=None, after=None):
+    values = context_defaults()
+    window = (values["before_days"] if before is None else before,
+              values["after_days"] if after is None else after)
+    if any(type(days) is not int or not 0 <= days <= values["max_days"] for days in window):
+        raise UserError("events.context_window_invalid", max=values["max_days"])
+    return window
 
 
 def _n(kind, value):
@@ -91,13 +110,14 @@ def _preview_rows(events):
     return rows
 
 
-def validate(kind, text):
-    """Check pasted JSON without saving anything."""
+def validate(kind, text, before=None, after=None):
+    """Check pasted JSON without saving anything; warnings never block saving."""
+    window = context_window(before, after)
     try:
-        events = parse_events(text, kind)
+        events, warnings = check_events(text, kind, window)
     except EventInputError as exc:
-        return {"valid": False, "errors": exc.errors, "events": [], "tickers": []}
-    return {"valid": True, "errors": [], "events": _preview_rows(events),
+        return {"valid": False, "errors": exc.errors, "warnings": [], "events": [], "tickers": []}
+    return {"valid": True, "errors": [], "warnings": warnings, "events": _preview_rows(events),
             "tickers": sorted({event["ticker"] for event in events})}
 
 
@@ -183,7 +203,8 @@ def _created(s, row, values):
     if values.get("analyze"):
         result["analysis"] = _create_analysis(
             s, row, request_id=f"{values.get('request_id') or uuid.uuid4().hex}:analysis",
-            n=values.get("n"), benchmark=values.get("benchmark", DEFAULT_BENCHMARK))
+            n=values.get("n"), benchmark=values.get("benchmark", DEFAULT_BENCHMARK),
+            sector_benchmark=values.get("sector_benchmark", "auto"))
         result["set"] = _set_view(s, row)
     return result
 
@@ -222,8 +243,12 @@ def _security(s, symbol):
 
 
 def _scope_range(events, n, calendar="XNYS"):
-    """[R-1-n of the earliest event, R+n of the latest], never after today."""
+    """[R-1-n of the earliest event, R+n of the latest], widened to every
+    context date so each event's chart covers its background; never after today."""
     first, last = sessions_needed(events, n, calendar)
+    dates = [date.fromisoformat(item["date"]) for event in events for item in event.get("context") or ()]
+    if dates:
+        first, last = min(first, min(dates)), max(last, max(dates))
     today = now().astimezone(ET).date()
     return first, max(first, min(last, today))
 
@@ -262,7 +287,7 @@ def _new_analysis(s, params, *, request_id, title, parent_id=None, reuse=True):
     return {"analysis_id": request.id, "batch_id": batch.id, "reused": False}
 
 
-def _params(*, kind, event_set_id, title, events, n, benchmark):
+def _params(*, kind, event_set_id, title, events, n, benchmark, sector_benchmark="auto"):
     return {
         "kind": KIND,
         "event_kind": kind,
@@ -270,13 +295,14 @@ def _params(*, kind, event_set_id, title, events, n, benchmark):
         "title": title,
         "n": _n(kind, n),
         "benchmark": validate_benchmark(benchmark),
+        "sector_benchmark": validate_sector_benchmark(sector_benchmark),
         "cutoff_date": last_completed_session(as_of=now()).isoformat(),
         "calculation_version": CALCULATION_VERSION,
         "events": events,
     }
 
 
-def _create_analysis(s, row, *, request_id, n=None, benchmark=DEFAULT_BENCHMARK):
+def _create_analysis(s, row, *, request_id, n=None, benchmark=DEFAULT_BENCHMARK, sector_benchmark="auto"):
     _lock(s, ["analysis", request_id])
     existing = s.scalar(select(Batch).where(Batch.request_id == request_id))
     if existing:
@@ -285,7 +311,7 @@ def _create_analysis(s, row, *, request_id, n=None, benchmark=DEFAULT_BENCHMARK)
             raise RuntimeError(msg("events.analysis_request_id_reused"))
         return {"analysis_id": request.id, "batch_id": existing.id, "reused": True}
     params = _params(kind=row.kind, event_set_id=row.id, title=row.title, events=row.events,
-                     n=n, benchmark=benchmark)
+                     n=n, benchmark=benchmark, sector_benchmark=sector_benchmark)
     _lock(s, ["conditions", digest(params)])
     return _new_analysis(s, params, request_id=request_id, title=row.title)
 
@@ -294,7 +320,8 @@ def create_analysis(identifier, values):
     with session() as s, s.begin():
         row = _required(s, EventSet, identifier)
         return _create_analysis(s, row, request_id=values["request_id"], n=values.get("n"),
-                                benchmark=values.get("benchmark", DEFAULT_BENCHMARK))
+                                benchmark=values.get("benchmark", DEFAULT_BENCHMARK),
+                                sector_benchmark=values.get("sector_benchmark", "auto"))
 
 
 def analysis_variant(identifier, values):
@@ -314,7 +341,8 @@ def analysis_variant(identifier, values):
         old = request.params
         params = _params(kind=old["event_kind"], event_set_id=old.get("event_set_id"), title=old["title"],
                          events=old["events"], n=values.get("n", old["n"]),
-                         benchmark=values.get("benchmark", old.get("benchmark")))
+                         benchmark=values.get("benchmark", old.get("benchmark")),
+                         sector_benchmark=values.get("sector_benchmark", old.get("sector_benchmark", "auto")))
         _lock(s, ["conditions", digest(params)])
         return _new_analysis(s, params, request_id=values["request_id"], title=old["title"])
 
@@ -329,6 +357,7 @@ def repeat_analysis(s, request, request_id, *, parent_id=None):
               "calculation_version": CALCULATION_VERSION}
     # Analyses made before benchmarks existed get the default one.
     params.setdefault("benchmark", DEFAULT_BENCHMARK)
+    params.setdefault("sector_benchmark", "auto")
     created = _new_analysis(s, params, request_id=request_id, title=request.params["title"],
                             parent_id=parent_id, reuse=False)
     return s.get(AnalysisRequest, created["analysis_id"])
@@ -352,6 +381,7 @@ def _publish(s, request, scope, security, cache):
     """Compute this ticker's windows from its cache (and the benchmark's) and save the result."""
     from iirp.analysis.benchmarks import benchmark_data, benchmark_snapshot
     from iirp.market.cache import CACHE_HOURS, current_cache, price_bars
+    from iirp.models import PriceCache
     from iirp.storage.maintenance import lock_analysis_references
 
     params = request.params
@@ -361,8 +391,11 @@ def _publish(s, request, scope, security, cache):
         if cache else ([], None)
     snapshot = benchmark_snapshot(params, security, s)
     benchmark = benchmark_data(s, snapshot, ranges=[(scope.start_date, scope.end_date)])
+    from iirp.analysis.sector_benchmarks import sector_snapshot
+    sector = sector_snapshot(params, security, s, scope=scope)
+    sector_data = benchmark_data(s, sector, ranges=[(scope.start_date, scope.end_date)])
     data = analyze_events(events, bars, n=params["n"], cutoff=date.fromisoformat(params["cutoff_date"]),
-                          calendar=calendar, kind=params["event_kind"], benchmark=benchmark)
+                          calendar=calendar, kind=params["event_kind"], benchmark=benchmark, sector=sector_data)
     data["symbol"] = scope.symbol
     data["price_fetched_at"] = cache.fetched_at.isoformat() if cache else None
     lock_analysis_references(s)
@@ -370,16 +403,20 @@ def _publish(s, request, scope, security, cache):
     paired = current_cache(s, snapshot["security_id"]) if snapshot and snapshot.get("dataset_id") else None
     if paired:
         expires.append(paired.expires_at)
+    sector_cache = s.get(PriceCache, sector["dataset_id"]) if sector and sector.get("dataset_id") else None
+    if sector_cache:
+        expires.append(sector_cache.expires_at)
     row = AnalysisResult(
         analysis_id=request.id, security_id=security.id,
         input_key=digest([request.id, security.id, cache.id if cache else None,
-                          paired.id if paired else None, CALCULATION_VERSION]),
+                          paired.id if paired else None, sector, CALCULATION_VERSION]),
         inputs={"dataset_id": cache.id if cache else None, "calculation_version": CALCULATION_VERSION,
                 "benchmark_dataset_id": paired.id if paired else None,
+                "sector_dataset_id": sector_cache.id if sector_cache else None, "sector": sector,
                 "price_sources": [{"symbol": item.symbol,
                     "fetched_at": source.fetched_at.isoformat(),
                     "expires_at": source.expires_at.isoformat()}
-                    for source in (cache, paired) if source
+                    for source in (cache, paired, sector_cache) if source
                     for item in (s.get(Security, source.security_id),)],
                 "price_fetched_at": cache.fetched_at.isoformat() if cache else None,
                 "source": msg("market.source_cache")},
@@ -423,6 +460,13 @@ def plan_event_scope(s, scope, batch, capacity):
     if request.params.get("benchmark"):
         # Asked alongside the stock's prices, not after them.
         benchmark_reason = plan_benchmark(s, scope, request, *_benchmark_range(request.params, security.calendar))
+    from iirp.analysis.sector_benchmarks import plan_sector, sector_snapshot
+    sector_reason = plan_sector(s, scope, request, scope.start_date, scope.end_date)
+    sector = sector_snapshot(request.params, security, s, scope=scope)
+    if sector and sector["status"] == "sector_identity_pending":
+        scope.status, scope.wait_reason = "RUNNING", sector_reason
+        return
+    benchmark_reason = sector_reason or benchmark_reason
     if status != "READY":
         scope.status, scope.wait_reason = status, reason
         return
@@ -468,6 +512,7 @@ def analysis_view(s, request, filters=None):
                         for item in tickers if item["result"])
     return {
         "comparison": across,
+        "macro_excluded": sum(item["result"]["macro_excluded"] for item in tickers if item["result"]),
         "filtered_event_count": sum(item["result"]["event_count"] for item in tickers if item["result"]),
         "id": request.id,
         "batch_id": batch.id,
@@ -477,6 +522,7 @@ def analysis_view(s, request, filters=None):
         "event_set_id": params.get("event_set_id"),
         "n": params["n"],
         "benchmark": params.get("benchmark"),
+        "sector_benchmark": params.get("sector_benchmark"),
         "cutoff_date": params["cutoff_date"],
         "event_count": len(params["events"]),
         "created_at": request.created_at.isoformat(),
@@ -504,9 +550,11 @@ def refresh_analysis(identifier, force=False):
 
 STATS_COLUMNS = ("n", "median", "mean", "q25", "q75", "min", "max", "up", "flat", "up_low", "up_high",
                  "coin_flip", "abs_median", "paired_n", "beat", "median_excess", "mean_excess",
-                 "benchmark_median")
+                 "benchmark_median", "sector_paired_n", "sector_beat", "sector_beat_ratio",
+                 "sector_median", "sector_median_excess", "sector_mean_excess")
 DETAIL_COLUMNS = ("ticker", "name", "date", "session", "fiscal_year", "fiscal_quarter", "reaction_date",
                   "baseline_date")
+EARNINGS_COLUMNS = ("eps_actual", "eps_estimate", "revenue_actual", "revenue_estimate", "guidance")
 
 
 def export_analysis(identifier, table="detail", **filters):
@@ -523,25 +571,37 @@ def export_analysis(identifier, table="detail", **filters):
         raise UserError("analysis.result_missing")
     stream = io.StringIO()
     writer = csv.writer(stream)
-    head = ["n_sessions", "benchmark"]
+    head = ["n_sessions", "benchmark", "sector_etf", "sector_source", "sector_mode", "sector_fallback", "sector_reason"]
     benchmark = view["benchmark"] or ""
     if table == "stats":
         writer.writerow(["ticker", "group", "window", *head, *STATS_COLUMNS])
         for result in results:
             groups = [("all", result["summary"])] + [
-                (f"Q{quarter['fiscal_quarter']}", quarter["summary"]) for quarter in result.get("quarters") or []]
+                (f"Q{quarter['fiscal_quarter']}", quarter["summary"]) for quarter in result.get("quarters") or []] + [
+                (f"{kind}_{group['key']}", group["summary"]) for kind in ("surprise", "guidance")
+                for group in (result.get("groups") or {}).get(kind, [])]
             for group, summary in groups:
                 for window in WINDOWS:
+                    sector = result.get("sector") or {}
                     writer.writerow([result["symbol"], group, window, result["n"], benchmark,
+                                     *(sector.get(key) for key in ("symbol", "source", "mode", "fallback", "reason")),
                                      *(summary[window].get(column) for column in STATS_COLUMNS)])
     else:
-        windows = [f"{window}{suffix}" for window in WINDOWS for suffix in ("", "_benchmark", "_excess")]
-        writer.writerow([*DETAIL_COLUMNS, *head, *windows, "status", "notes"])
+        windows = [f"{window}{suffix}" for window in WINDOWS for suffix in ("", "_benchmark", "_excess", "_sector", "_sector_excess")]
+        writer.writerow([*DETAIL_COLUMNS, *head, *windows, *EARNINGS_COLUMNS, "eps_surprise", "revenue_surprise",
+                         "surprise_group", "uncertain", "context_items", "major_macro", "status", "notes"])
         for result in results:
             for row in result["rows"]:
                 values = [row["windows"][window].get(field) for window in WINDOWS
-                          for field in ("value", "benchmark", "excess")]
+                          for field in ("value", "benchmark", "excess", "sector", "sector_excess")]
                 statuses = sorted({row["windows"][window]["status"] for window in WINDOWS})
+                sector = result.get("sector") or {}
+                figures = row.get("earnings") or {}
+                expected = row["expectations"]
                 writer.writerow([*(row.get(column) for column in DETAIL_COLUMNS), result["n"], benchmark,
-                                 *values, " ".join(statuses), " ".join(row["notes"])])
+                                 *(sector.get(key) for key in ("symbol", "source", "mode", "fallback", "reason")),
+                                 *values, *(figures.get(column) for column in EARNINGS_COLUMNS),
+                                 expected["eps_surprise"], expected["revenue_surprise"], expected["surprise_group"],
+                                 bool(row.get("uncertain")), len(row.get("context") or []), bool(row["macro_events"]),
+                                 " ".join(statuses), " ".join(row["notes"])])
     return "\ufeff" + stream.getvalue()
