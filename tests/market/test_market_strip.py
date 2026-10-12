@@ -30,7 +30,10 @@ from tests.jobs.test_lifecycle import (  # noqa: F401
     lifecycle_database,
 )
 
-DEFAULT_STRIP = ["^GSPC", "^IXIC", "^NDX", "^DJI", "^RUT", "^VIX", "^TNX", "DX-Y.NYB", "GC=F", "CL=F"]
+DEFAULT_STRIP = ["^GSPC", "^NDX", "^DJI", "^RUT", "^VIX", "^TNX", "GC=F", "CL=F"]
+# Every instrument but bitcoin, as a reader may choose them in the settings.
+CHOSEN_STRIP = ["^GSPC", "^IXIC", "^NDX", "^DJI", "^RUT", "^VIX", "^TNX", "DX-Y.NYB", "GC=F", "CL=F"]
+CHOSEN = [*CHOSEN_STRIP, "ES=F", "NQ=F"]
 
 
 def utc(text):
@@ -44,7 +47,7 @@ FRIDAY_SESSION = {"start": "2026-10-08T22:00:00+00:00", "end": "2026-10-09T21:00
 
 def test_catalog_defaults_and_bitcoin_off():
     assert [item.symbol for item in INSTRUMENTS if item.default and not item.off_hours_only] == DEFAULT_STRIP
-    assert DEFAULT_SYMBOLS == [*DEFAULT_STRIP, "ES=F", "NQ=F"]
+    assert DEFAULT_SYMBOLS == DEFAULT_STRIP
     assert "BTC-USD" not in DEFAULT_SYMBOLS and "BTC-USD" in MARKETS
     assert set(MARKETS) == {item.symbol for item in INSTRUMENTS}
 
@@ -72,28 +75,28 @@ def test_us_regular_session_follows_the_nyse_calendar(stamp, regular):
 def test_index_futures_hide_and_wait_while_us_stocks_trade():
     quotes = {"ES=F": {"session": ES_SESSION}, "NQ=F": {"session": ES_SESSION}}
     during = utc("2026-10-08T11:00:00-04:00")
-    assert fetch_symbols(DEFAULT_SYMBOLS, during) == DEFAULT_STRIP
-    assert shown_symbols(DEFAULT_SYMBOLS, quotes, during) == DEFAULT_STRIP
+    assert fetch_symbols(CHOSEN, during) == CHOSEN_STRIP
+    assert shown_symbols(CHOSEN, quotes, during) == CHOSEN_STRIP
 
 
 def test_index_futures_show_outside_us_hours_only_while_they_trade():
     quotes = {"ES=F": {"session": ES_SESSION}, "NQ=F": {"session": ES_SESSION}}
     evening = utc("2026-10-07T20:30:00-04:00")
-    assert shown_symbols(DEFAULT_SYMBOLS, quotes, evening) == [*DEFAULT_STRIP, "ES=F", "NQ=F"]
-    assert fetch_symbols(DEFAULT_SYMBOLS, evening) == [*DEFAULT_STRIP, "ES=F", "NQ=F"]
+    assert shown_symbols(CHOSEN, quotes, evening) == [*CHOSEN_STRIP, "ES=F", "NQ=F"]
+    assert fetch_symbols(CHOSEN, evening) == [*CHOSEN_STRIP, "ES=F", "NQ=F"]
     # The daily pause 17:00-18:00 ET: the saved session has ended, so they are hidden,
     # but still fetched when due so the strip learns when they reopen.
     pause = utc("2026-10-08T17:30:00-04:00")
-    assert shown_symbols(DEFAULT_SYMBOLS, quotes, pause) == DEFAULT_STRIP
-    assert "ES=F" in fetch_symbols(DEFAULT_SYMBOLS, pause)
+    assert shown_symbols(CHOSEN, quotes, pause) == CHOSEN_STRIP
+    assert "ES=F" in fetch_symbols(CHOSEN, pause)
     # A futures contract with no saved quote yet is not shown.
-    assert shown_symbols(DEFAULT_SYMBOLS, {}, evening) == DEFAULT_STRIP
+    assert shown_symbols(CHOSEN, {}, evening) == CHOSEN_STRIP
 
 
 def test_weekend_hides_futures_and_shows_closed_indexes():
     saturday = utc("2026-10-10T12:00:00-04:00")
     quotes = {"ES=F": {"session": FRIDAY_SESSION}, "NQ=F": {"session": FRIDAY_SESSION}}
-    assert shown_symbols(DEFAULT_SYMBOLS, quotes, saturday) == DEFAULT_STRIP
+    assert shown_symbols(CHOSEN, quotes, saturday) == CHOSEN_STRIP
     index = {"fetched_at": "2026-10-09T21:00:00+00:00", "status": "CLOSED",
              "session": {"start": "2026-10-09T13:30:00+00:00", "end": "2026-10-09T20:00:00+00:00"}}
     assert _quote_freshness(index, None, saturday) == ("closed", None)
@@ -162,7 +165,7 @@ def test_strip_choice_round_trips_and_drives_the_home_strip(lifecycle_client, mo
     catalog = {item["symbol"]: item for item in state["instruments"]}
     assert catalog["BTC-USD"]["default"] is False and catalog["ES=F"]["off_hours_only"] is True
 
-    # During US hours: the ten defaults, in order; nothing about futures.
+    # During US hours: the eight defaults, in order; nothing about futures.
     monkeypatch.setattr("iirp.api.reads.now", lambda: utc("2026-10-07T11:00:00-04:00"))
     home = lifecycle_client.get("/api/v1/home").json()
     assert [quote["symbol"] for quote in home["market"]] == DEFAULT_STRIP
@@ -189,11 +192,15 @@ def test_home_shows_index_futures_in_the_evening_while_they_trade(lifecycle_clie
                             "fetched_at": "2026-10-08T00:29:00+00:00", "status": "DELAYED",
                             "session": ES_SESSION, "next_refresh_at": "2026-10-08T00:30:00+00:00"})
     monkeypatch.setattr("iirp.api.reads.now", lambda: utc("2026-10-07T20:30:00-04:00"))
-    shown = [quote["symbol"] for quote in lifecycle_client.get("/api/v1/home").json()["market"]]
-    assert shown == [*DEFAULT_STRIP, "ES=F", "NQ=F"]
-    monkeypatch.setattr("iirp.api.reads.now", lambda: utc("2026-10-08T11:00:00-04:00"))
+    # Not in the default strip: they show only once chosen in the settings.
     shown = [quote["symbol"] for quote in lifecycle_client.get("/api/v1/home").json()["market"]]
     assert shown == DEFAULT_STRIP
+    lifecycle_client.put("/api/v1/display", json={"market_strip": {"symbols": CHOSEN}})
+    shown = [quote["symbol"] for quote in lifecycle_client.get("/api/v1/home").json()["market"]]
+    assert shown == CHOSEN
+    monkeypatch.setattr("iirp.api.reads.now", lambda: utc("2026-10-08T11:00:00-04:00"))
+    shown = [quote["symbol"] for quote in lifecycle_client.get("/api/v1/home").json()["market"]]
+    assert shown == CHOSEN_STRIP
 
 
 def test_only_chosen_and_due_instruments_are_requested(lifecycle_client, monkeypatch):  # noqa: F811

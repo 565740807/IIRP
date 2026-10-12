@@ -108,13 +108,13 @@ export function YearCandles({
           data: labels,
           axisLine: { lineStyle: { color: CHART.axis } },
           axisTick: { show: false },
-          axisLabel: { color: MUTED, fontSize: 11 },
+          axisLabel: { color: MUTED, fontSize: CHART.font },
         },
         yAxis: {
           type: "value",
           position: "right",
           splitLine: { lineStyle: { color: CHART.grid } },
-          axisLabel: { color: MUTED, fontSize: 11, formatter: percent },
+          axisLabel: { color: MUTED, fontSize: CHART.font, formatter: percent },
         },
         series: [
           {

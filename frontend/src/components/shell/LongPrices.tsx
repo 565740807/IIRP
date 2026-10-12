@@ -5,6 +5,7 @@ import { client, unwrap, type Schemas } from "@/lib/api-client";
 import { formatEt, formatNumber } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Explain } from "@/components/ui/info";
 
 type Action = Schemas["ManagementInput"]["action"];
 const ACTIONS: Action[] = ["all", "year", "half_year", "quarter", "refill"];
@@ -21,7 +22,7 @@ export function LongPricesSection() {
   const data = query.data;
   return <section className="space-y-3 border-t pt-4" aria-label={t("ui.long_prices.title")}>
     <h3 className="text-sm font-semibold">{t("ui.long_prices.title")}</h3>
-    <p className="text-xs text-muted-foreground">{t("ui.long_prices.hint", { years: data?.history_years ?? 10 })}</p>
+    <Explain summary={t("ui.long_prices.hint", { years: data?.history_years ?? 10 })} />
     {data && <>
       <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-xs">
         <div><dt className="text-muted-foreground">{t("ui.long_prices.symbols")}</dt><dd>{formatNumber(data.ready_symbols, 0)} / {formatNumber(data.active_symbols, 0)} ({t("ui.long_prices.total", { count: data.symbols })})</dd></div>

@@ -42,6 +42,8 @@ export const CHART = {
   surface: SURFACES.card,
   darkLabel: "#0f172a",
   lightLabel: "#ffffff",
+  /** Axis, label and legend text of every chart, in pixels (the smallest size used in the interface). */
+  font: 12,
 } as const;
 
 const HEX = /^#[0-9a-f]{6}$/i;

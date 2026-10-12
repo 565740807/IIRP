@@ -2,9 +2,11 @@
 
 The catalog is the only list of strip instruments; the market detail page accepts the
 same symbols. Which instruments the strip shows is a display setting
-(``iirp.display``); by default every instrument except bitcoin. Index futures (ES=F,
-NQ=F) appear only outside the US regular stock session and only while the futures
-themselves trade; during the regular session they are neither shown nor fetched.
+(``iirp.display``); by default one row of eight: the S&P 500, Nasdaq-100, Dow Jones,
+Russell 2000, VIX, the 10-year yield, gold and WTI crude. The Nasdaq Composite, the
+dollar index, the index futures and bitcoin are chosen in the settings. Index futures
+(ES=F, NQ=F) appear only outside the US regular stock session and only while the
+futures themselves trade; during the regular session they are neither shown nor fetched.
 Each instrument's own session comes from its quote (Yahoo's trading period for that
 instrument), never from the stock calendar, so futures, the dollar index and bitcoin
 refresh on their own hours (config/refresh.toml).
@@ -37,17 +39,20 @@ class Instrument:
 INSTRUMENTS = (
     Instrument("^GSPC", "market.name.GSPC", "index", "quote.unit.index_points", "quote.instrument.index", stock_calendar=True),
     Instrument("^IXIC", "market.name.IXIC", "index", "quote.unit.index_points", "quote.instrument.index", stock_calendar=True,
-               short="market.short.IXIC"),
+               short="market.short.IXIC", default=False),
     Instrument("^NDX", "market.name.NDX", "index", "quote.unit.index_points", "quote.instrument.index", stock_calendar=True),
     Instrument("^DJI", "market.name.DJI", "index", "quote.unit.index_points", "quote.instrument.index", stock_calendar=True),
     Instrument("^RUT", "market.name.RUT", "index", "quote.unit.index_points", "quote.instrument.index", stock_calendar=True),
     Instrument("^VIX", "market.name.VIX", "index", "quote.unit.index_points", "quote.instrument.volatility", stock_calendar=True),
     Instrument("^TNX", "market.name.TNX", "yield", "quote.unit.percent_yield", "quote.instrument.yield"),
-    Instrument("DX-Y.NYB", "market.name.DXY", "currency_index", "quote.unit.index_points", "quote.instrument.dollar_index"),
+    Instrument("DX-Y.NYB", "market.name.DXY", "currency_index", "quote.unit.index_points", "quote.instrument.dollar_index",
+               default=False),
     Instrument("GC=F", "market.name.GC", "futures", "quote.unit.usd_per_ounce", "quote.instrument.gold_futures"),
     Instrument("CL=F", "market.name.CL", "futures", "quote.unit.usd_per_barrel", "quote.instrument.oil_futures"),
-    Instrument("ES=F", "market.name.ES", "futures", "quote.unit.index_points", "quote.instrument.index_futures", off_hours_only=True),
-    Instrument("NQ=F", "market.name.NQ", "futures", "quote.unit.index_points", "quote.instrument.index_futures", off_hours_only=True),
+    Instrument("ES=F", "market.name.ES", "futures", "quote.unit.index_points", "quote.instrument.index_futures", off_hours_only=True,
+               default=False),
+    Instrument("NQ=F", "market.name.NQ", "futures", "quote.unit.index_points", "quote.instrument.index_futures", off_hours_only=True,
+               default=False),
     Instrument("BTC-USD", "market.name.BTC", "crypto", "quote.unit.usd", "quote.instrument.crypto", default=False),
 )
 BY_SYMBOL = {item.symbol: item for item in INSTRUMENTS}

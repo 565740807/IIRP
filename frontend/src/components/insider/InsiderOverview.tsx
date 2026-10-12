@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useLocation, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { LoaderCircle } from "lucide-react";
+import { LoaderCircle, SlidersHorizontal } from "lucide-react";
 import { client, unwrap, type Schemas } from "@/lib/api-client";
 import {
   directionClass,
@@ -25,6 +25,11 @@ import { usePageVisible, useRefreshIntervals } from "@/lib/refresh";
 import { sourceContext } from "@/lib/navigation";
 import { useInsiderN, useTradeWindows } from "@/lib/windows";
 import { cn } from "@/lib/utils";
+import { choiceFrom, withChoice } from "@/lib/urlChoice";
+import { InfoTip } from "@/components/ui/info";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { ErrorState, TableSkeleton } from "@/components/ui/states";
+import { TabBar } from "@/components/ui/tab-bar";
 import { IndexFilter, IndexStatus } from "./IndexFilter";
 import { IndexMarks } from "./IndexMarks";
 import { CurrentPrice, CurrentQuoteStatus, MismatchRatio, TradePrice } from "./InsiderPrice";
@@ -55,7 +60,7 @@ function CompanyLink({ row }: { row: CompanyRef }) {
     className="flex min-w-0 items-baseline gap-2 hover:underline"
     title={name}
   >
-    <span className="shrink-0 rounded bg-secondary px-1 text-[11px] font-semibold">{row.ticker ?? "—"}</span>
+    <span className="shrink-0 rounded bg-secondary px-1 text-xs font-semibold">{row.ticker ?? "—"}</span>
     <span className="truncate font-medium">{name}</span>
     <IndexMarks indexes={row.indexes} />
   </Link>;
@@ -70,7 +75,7 @@ function Amount({ amount, estimated, direction }: AmountProps) {
   const display = amount != null && direction ? `${sign}${amount.replace(/^[+-]/, "")}` : amount;
   const tone = direction === "buy" ? "text-up" : direction === "sell" ? "text-down" : directionClass(amount);
   return <span className={tone}>
-    {estimated && <span className="mr-1 text-[10px] text-muted-foreground">{t("ui.overview.estimated")}</span>}
+    {estimated && <span className="mr-1 text-xs text-muted-foreground">{t("ui.overview.estimated")}</span>}
     {formatMoney(display, { signed: true })}
   </span>;
 }
@@ -102,10 +107,10 @@ function Block({ title, section, children, actions, footer }: BlockProps) {
   return <section className="min-w-0 overflow-hidden rounded-lg border bg-card">
     <header className="flex flex-wrap items-baseline gap-x-3 gap-y-1 border-b bg-secondary/30 px-3 py-2.5">
       <h2 className="text-sm font-semibold">{title}</h2>
-      {shown > 0 && <span className="text-[11px] text-muted-foreground tabular-nums">
+      {shown > 0 && <span className="text-xs text-muted-foreground tabular-nums">
         {t("ui.overview.shown_of", { total: section.total, shown })}
       </span>}
-      {mismatched > 0 && <span className="text-[11px] text-warn">
+      {mismatched > 0 && <span className="text-xs text-warn">
         † {t("ui.overview.mismatch_excluded", { count: mismatched })}
       </span>}
       {actions && <div className="ml-auto">{actions}</div>}
@@ -313,38 +318,55 @@ function useFiltersInUrl(query: Filters["query"]) {
   }, [params, setParams, signature]);
 }
 
-function FilterBar({ values, setters }: Pick<Filters, "values" | "setters">) {
+/** Number of secondary filters that differ from their defaults, shown on the "More" button. */
+function changedSecondary(values: Filters["values"]) {
+  return [values.minimum !== "0", values.exclude !== "false", values.clusterPeople !== "2",
+    values.clusterDays !== "7", values.excludeCluster !== "true"].filter(Boolean).length;
+}
+
+/** One row: index, period and role; the minimum amount, plan exclusions and the cluster rule under "More". */
+function FilterBar({ values, setters, status }: Pick<Filters, "values" | "setters"> & { status?: React.ReactNode }) {
   const { t } = useTranslation();
   const days = (count: string | number) => t("ui.overview.days", { count: Number(count) });
-  return <div className="space-y-2 rounded-lg border bg-card p-3">
-    <div className="flex flex-wrap items-center gap-3">
-      <IndexFilter value={values.index as Index} choose={setters.setIndex}/>
-      <Choice label={t("ui.overview.time_label")} value={values.days} choose={setters.setDays}
-        options={[7, 30, 90]} text={days}/>
-      <Choice label={t("ui.overview.role_label")} value={values.role} choose={setters.setRole}
-        options={ROLES} text={(item) => t(`ui.overview.role.${item}`)}/>
-      <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
-        {t("ui.overview.minimum")}
-        <input
-          type="number" min="0" step="1000"
-          className={cn(selectStyle, "w-24 tabular-nums")}
-          value={values.minimum}
-          onChange={(event) => setters.setMinimum(event.target.value || "0")}
-        />
-      </label>
-      <Toggle label={t("ui.overview.exclude_plans")} checked={values.exclude === "true"} set={setters.setExclude}/>
-    </div>
-    <IndexStatus value={values.index as Index}/>
-    <div className="flex flex-wrap items-center gap-3 border-t pt-2 text-xs">
-      <span className="font-medium">{t("ui.overview.cluster_label")}</span>
-      <Choice label={t("ui.overview.cluster_people")} value={values.clusterPeople}
-        choose={setters.setClusterPeople} options={[2, 3]}
-        text={(count) => t("ui.overview.at_least_people", { count: Number(count) })}/>
-      <Choice label={t("ui.overview.cluster_window")} value={values.clusterDays}
-        choose={setters.setClusterDays} options={[7, 14, 30]} text={days}/>
-      <Toggle label={t("ui.overview.exclude_cluster_plans")} checked={values.excludeCluster === "true"}
-        set={setters.setExcludeCluster}/>
-    </div>
+  const changed = changedSecondary(values);
+  return <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+    <IndexFilter value={values.index as Index} choose={setters.setIndex}/>
+    <Choice label={t("ui.overview.time_label")} value={values.days} choose={setters.setDays}
+      options={[7, 30, 90]} text={days}/>
+    <Choice label={t("ui.overview.role_label")} value={values.role} choose={setters.setRole}
+      options={ROLES} text={(item) => t(`ui.overview.role.${item}`)}/>
+    <Popover>
+      <PopoverTrigger asChild>
+        <button type="button" data-more-filters className="inline-flex h-8 items-center gap-1 rounded-md border bg-card px-2.5 text-xs hover:bg-accent">
+          <SlidersHorizontal className="size-3.5"/>
+          {t("ui.overview.more_filters")}
+          {changed > 0 && <span className="rounded-full bg-primary px-1.5 text-primary-foreground tabular-nums">{changed}</span>}
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-80 space-y-3">
+        <label className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
+          {t("ui.overview.minimum")}
+          <input
+            type="number" min="0" step="1000"
+            className={cn(selectStyle, "w-28 tabular-nums")}
+            value={values.minimum}
+            onChange={(event) => setters.setMinimum(event.target.value || "0")}
+          />
+        </label>
+        <Toggle label={t("ui.overview.exclude_plans")} checked={values.exclude === "true"} set={setters.setExclude}/>
+        <div className="space-y-2 border-t pt-2.5 text-xs">
+          <p className="font-medium">{t("ui.overview.cluster_label")}</p>
+          <Choice label={t("ui.overview.cluster_people")} value={values.clusterPeople} className="justify-between"
+            choose={setters.setClusterPeople} options={[2, 3]}
+            text={(count) => t("ui.overview.at_least_people", { count: Number(count) })}/>
+          <Choice label={t("ui.overview.cluster_window")} value={values.clusterDays} className="justify-between"
+            choose={setters.setClusterDays} options={[7, 14, 30]} text={days}/>
+          <Toggle label={t("ui.overview.exclude_cluster_plans")} checked={values.excludeCluster === "true"}
+            set={setters.setExcludeCluster}/>
+        </div>
+      </PopoverContent>
+    </Popover>
+    <span className="ml-auto flex items-center gap-2 text-xs text-muted-foreground">{status}</span>
   </div>;
 }
 
@@ -391,43 +413,61 @@ function ShowMore({ section, more }: { section: Overview["companies"]; more: () 
 }
 
 type SectionValues = Filters["values"] & { chooseSort: (value: string) => void };
+const TABS = ["cluster_buys", "cluster_sales", "large_buys", "large_sales", "executive_buys", "holding_increases", "companies"] as const;
+type Tab = (typeof TABS)[number];
 
+/** One tab at a time: its table under a one-line rule; the tab is kept in the link (?tab=). */
 function Sections({ data, values, more }: { data: Overview; values: SectionValues; more: () => void }) {
   const { t } = useTranslation();
+  const [params, setParams] = useSearchParams();
+  const tab = choiceFrom(params, "tab", TABS, "cluster_buys");
+  const choose = (next: Tab) => setParams(withChoice(new URLSearchParams(window.location.search), "tab", next, "cluster_buys"), { replace: true });
   const people = values.clusterPeople;
   const plansExcluded = values.excludeCluster === "true" || values.exclude === "true";
   const plans = t(plansExcluded ? "ui.overview.plans_excluded" : "ui.overview.plans_included");
-  return <>
-    <Block title={t("ui.overview.cluster_buys", { days: values.clusterDays, people })} section={data.cluster_buys}>
+  const title: Record<Tab, string> = {
+    cluster_buys: t("ui.overview.cluster_buys", { days: values.clusterDays, people }),
+    cluster_sales: t("ui.overview.cluster_sales", { days: values.clusterDays, people, plans }),
+    large_buys: t("ui.overview.large_buys"),
+    large_sales: t("ui.overview.large_sales"),
+    executive_buys: t("ui.overview.executive_buys"),
+    holding_increases: t("ui.overview.holding_increases"),
+    companies: t("ui.overview.companies"),
+  };
+  return <div className="space-y-2">
+    <TabBar
+      label={t("ui.overview.tabs_label")}
+      value={tab}
+      onChange={choose}
+      items={TABS.map((id) => ({ id, label: t(`ui.overview.tab.${id}`), count: data[id].total }))}
+    />
+    {tab === "cluster_buys" && <Block title={title.cluster_buys} section={data.cluster_buys}>
       <ClusterTable rows={data.cluster_buys.items}/>
-    </Block>
-    <Block
-      title={t("ui.overview.cluster_sales", { days: values.clusterDays, people, plans })}
-      section={data.cluster_sales}
-    >
+    </Block>}
+    {tab === "cluster_sales" && <Block title={title.cluster_sales} section={data.cluster_sales}>
       <ClusterTable rows={data.cluster_sales.items} sale/>
-    </Block>
-    <Block title={t("ui.overview.large_buys")} section={data.large_buys}>
+    </Block>}
+    {tab === "large_buys" && <Block title={title.large_buys} section={data.large_buys}>
       <TradeTable rows={data.large_buys.items}/>
-    </Block>
-    <Block title={t("ui.overview.large_sales")} section={data.large_sales}>
+    </Block>}
+    {tab === "large_sales" && <Block title={title.large_sales} section={data.large_sales}>
       <TradeTable rows={data.large_sales.items} sale/>
-    </Block>
-    <Block title={t("ui.overview.executive_buys")} section={data.executive_buys}>
+    </Block>}
+    {tab === "executive_buys" && <Block title={title.executive_buys} section={data.executive_buys}>
       <TradeTable rows={data.executive_buys.items}/>
-    </Block>
-    <Block title={t("ui.overview.holding_increases")} section={data.holding_increases}>
+    </Block>}
+    {tab === "holding_increases" && <Block title={title.holding_increases} section={data.holding_increases}>
       <TradeTable rows={data.holding_increases.items} holdings/>
-    </Block>
-    <Block
-      title={t("ui.overview.companies")}
+    </Block>}
+    {tab === "companies" && <Block
+      title={title.companies}
       section={data.companies}
       actions={<CompanySortChoice value={values.companySort} choose={values.chooseSort}/>}
       footer={<ShowMore section={data.companies} more={more}/>}
     >
       <CompaniesTable rows={data.companies.items}/>
-    </Block>
-  </>;
+    </Block>}
+  </div>;
 }
 
 function quotePrices(data: Overview) {
@@ -456,20 +496,20 @@ export function InsiderOverview() {
     if (data) setCompanyLimit(data.companies.items.length + data.company_page_rows);
   };
   const sectionValues = { ...values, chooseSort: setters.setCompanySort };
-  return <div className="space-y-3">
-    <FilterBar values={values} setters={setters}/>
-    <p className="flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
-      {t("ui.overview.scope_rule")}
-      {data && <span className="ml-auto tabular-nums">{t("ui.feed.as_of", { time: formatEt(data.as_of) })}</span>}
+  return <div className="space-y-2.5">
+    <FilterBar values={values} setters={setters} status={<>
+      {data && <span className="tabular-nums">{t("ui.feed.as_of", { time: formatEt(data.as_of) })}</span>}
       {overview.isFetching && <LoaderCircle className="size-3 motion-safe:animate-spin"/>}
-    </p>
-    {data && <div className="flex flex-wrap gap-3"><CurrentQuoteStatus prices={quotePrices(data)}/></div>}
-    {overview.error && <p className="text-sm text-destructive">{overview.error.message}</p>}
+      <InfoTip side="left">{t("ui.overview.scope_rule")}</InfoTip>
+    </>}/>
+    <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+      <IndexStatus value={values.index as Index}/>
+      {data && <CurrentQuoteStatus prices={quotePrices(data)}/>}
+    </div>
+    {overview.error && <ErrorState error={overview.error} retry={() => void overview.refetch()}/>}
     {quoteError && <p className="text-xs text-warn">{quoteError.message}</p>}
     {!data && overview.isPending
-      ? <p className="flex items-center gap-2 py-8 text-sm text-muted-foreground">
-        <LoaderCircle className="size-4 motion-safe:animate-spin"/>{t("ui.overview.loading")}
-      </p>
+      ? <TableSkeleton rows={10} columns={6}/>
       : data && <MismatchRatio.Provider value={data.price_mismatch_ratio}>
         <Sections data={data} values={sectionValues} more={more}/>
       </MismatchRatio.Provider>}

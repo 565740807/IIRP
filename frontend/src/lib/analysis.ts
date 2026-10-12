@@ -28,7 +28,7 @@ export function candleValue(candle: Candle, basis: Basis) {
 }
 
 export const MAX_TICKERS = 20;
-export const DEFAULT_YEARS = 8;
+export const DEFAULT_YEARS = 10;
 export const BENCHMARKS = ["^GSPC", "^NDX"] as const;
 const ACTIVE = ["QUEUED", "RUNNING", "RETRY_WAIT", "PAUSE_REQUESTED", "CANCEL_REQUESTED", "WAITING"];
 

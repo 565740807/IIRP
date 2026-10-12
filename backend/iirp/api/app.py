@@ -341,6 +341,7 @@ def coverage():
 
 @app.get("/api/v1/system", response_model=SystemOutput)
 def system():
+    from iirp.jobs.profiles import profiles
     from iirp.storage.status import system_database_state
 
     worker, migration = system_database_state()
@@ -349,7 +350,8 @@ def system():
         "mode": settings().mode,
         "worker": worker,
         "migration": migration,
-        "automatic_collection_scope": msg("system.collection_scope"),
+        "automatic_collection_scope": msg("system.collection_scope",
+                                          months=profiles()["normal_usage"]["insider_history_months"]),
         "sec_user_agent": sec_user_agent_state(),
         "storage": __import__("iirp.storage.maintenance", fromlist=["storage_state"]).storage_state(),
     }

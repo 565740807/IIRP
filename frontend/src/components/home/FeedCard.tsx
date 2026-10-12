@@ -26,14 +26,26 @@ export const FeedPrices = createContext<Record<string, PriceComparison>>({});
 
 export const FeedWindows = createContext<{ windows: Windows | null; n: number }>({ windows: null, n: 5 });
 
+/** Optional line columns, chosen in the column settings (both start hidden). */
+export type FeedColumns = { shares: boolean; compare: boolean };
+export const FEED_OPTIONAL = ["shares", "compare"] as const;
+export const FeedColumnChoice = createContext<FeedColumns>({ shares: false, compare: false });
+
 /**
  * Columns of a trade line; the list header uses the same template so values
- * line up: insider · action · shares · amount · traded · −n · +n.
+ * line up: insider · action · (shares) · amount · trade → current price · −n · +n · traded.
+ * Nine columns with the company and the filing time.
  */
-export const LINE_COLUMNS =
-  "grid grid-cols-[minmax(0,1fr)_5.25rem_3.5rem_4.75rem_4.5rem_9.5rem_4.75rem_3rem_3rem] items-baseline gap-x-1.5 min-[1400px]:gap-x-2";
+export function lineColumns({ shares, compare }: FeedColumns) {
+  return [
+    "minmax(0,1fr)", "8.25rem", ...(shares ? ["4rem"] : []), "5.25rem",
+    compare ? "14.25rem" : "11.5rem", "3.5rem", "3.5rem", "3.5rem",
+  ].join(" ");
+}
+export const LINE_GRID = "grid items-baseline gap-x-2";
 /** Company column, then the lines, then the filing time. */
-export const CARD_COLUMNS = "grid grid-cols-[minmax(0,8.5rem)_minmax(0,1fr)_6.25rem] gap-x-2 min-[1400px]:grid-cols-[minmax(0,10rem)_minmax(0,1fr)_6.25rem]";
+// The company column grows with the window (about 15rem at 1440px, 20rem at 1920px).
+export const CARD_COLUMNS = "grid grid-cols-[minmax(0,clamp(11rem,17vw,22rem))_minmax(0,1fr)_6.25rem] gap-x-3";
 
 function Amount({ summary, price }: { summary: Summary; price?: PriceComparison }) {
   const { t } = useTranslation();
@@ -67,7 +79,7 @@ function Amount({ summary, price }: { summary: Summary; price?: PriceComparison 
   }
   return (
     <span className={cn("truncate text-right tabular-nums", direction === "buy" ? "text-up" : direction === "sell" ? "text-down" : "")}>
-      {price?.amount_estimated && <span className="mr-0.5 text-[10px] text-muted-foreground">{t("ui.overview.estimated")}</span>}{text}
+      {price?.amount_estimated && <span className="mr-0.5 text-xs text-muted-foreground">{t("ui.overview.estimated")}</span>}{text}
       {summary.missing_price_rows > 0 && !price?.amount_estimated && (
         <Tooltip>
           <TooltipTrigger className="text-muted-foreground">*</TooltipTrigger>
@@ -89,7 +101,7 @@ function Action({ summary, others }: { summary: Summary; others: Summary[] }) {
       </span>
       {others.length > 0 && (
         <Tooltip>
-          <TooltipTrigger className="shrink-0 rounded bg-secondary px-1 text-[11px] text-muted-foreground tabular-nums">
+          <TooltipTrigger className="shrink-0 rounded bg-secondary px-1 text-xs text-muted-foreground tabular-nums">
             +{others.map((other) => other.code ?? "?").join("")}
           </TooltipTrigger>
           <TooltipContent className="max-w-xs">
@@ -117,14 +129,24 @@ function TraderLine({ trader, anomalies, group }: { trader: TraderGroup; anomali
   const key = { ticker: group.ticker, date: anomaly ? null : trader.transaction_date };
   const window = windows?.get(key);
   const ticker = windows?.ticker(group.ticker);
+  const columns = useContext(FeedColumnChoice);
+  const name = first ? readableCase(first.name) : "";
   return (
-    <li className={cn(LINE_COLUMNS, "text-xs leading-6")}>
+    <li className={cn(LINE_GRID, "text-xs leading-6")} style={{ gridTemplateColumns: lineColumns(columns) }}>
       <span className="flex min-w-0 items-baseline gap-1.5 overflow-hidden">
         {first ? (
-          <Link to={`/people/${first.id}`} state={sourceContext(location)} className="min-w-0 truncate font-medium hover:underline"
-            title={[readableCase(first.name), first.roles.length ? rolesText(first) : ""].filter(Boolean).join(" · ")}>
-            {readableCase(first.name)}
-          </Link>
+          // The role is on hover: the name gets the whole column.
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Link to={`/people/${first.id}`} state={sourceContext(location)} className="min-w-0 truncate font-medium hover:underline">
+                {name}
+              </Link>
+            </TooltipTrigger>
+            <TooltipContent className="max-w-xs flex-col items-start">
+              <p className="font-medium">{name}</p>
+              {first.roles.length > 0 && <p>{rolesText(first)}</p>}
+            </TooltipContent>
+          </Tooltip>
         ) : (
           <span className="truncate text-muted-foreground">{t("ui.feed.owner_unknown")}</span>
         )}
@@ -134,20 +156,22 @@ function TraderLine({ trader, anomalies, group }: { trader: TraderGroup; anomali
             <TooltipContent>{t("ui.feed.more_owners", { count: rest.length })}: {rest.map((owner) => readableCase(owner.name)).join(", ")}</TooltipContent>
           </Tooltip>
         )}
-        {first && first.roles.length > 0 && (
-          <span className="min-w-0 truncate text-xs text-muted-foreground">{rolesText(first)}</span>
-        )}
       </span>
       {main ? <Action summary={main} others={others} /> : <span />}
-      <span className="text-right tabular-nums">{main?.shares != null ? formatCompact(main.shares) : "—"}</span>
+      {columns.shares && <span className="text-right tabular-nums">{main?.shares != null ? formatCompact(main.shares) : "—"}</span>}
       {main ? <Amount summary={main} price={price} /> : <span />}
-      <span className="flex min-w-0 justify-end"><TradePrice price={price} compact/></span>
-      <CurrentPrice price={price} compact/>
+      <span className="flex min-w-0 items-baseline justify-end gap-1 whitespace-nowrap">
+        <TradePrice price={price} compact/>
+        <span className="text-muted-foreground" aria-hidden>→</span>
+        <CurrentPrice price={price} compact relation={columns.compare}/>
+      </span>
+      <WindowCell change={window?.before} ticker={ticker} side="before" n={n} />
+      <WindowCell change={window?.after} ticker={ticker} side="after" n={n} />
       <span className="flex items-baseline justify-end gap-1 whitespace-nowrap text-muted-foreground tabular-nums">
         {anomaly ? (
           <Tooltip>
             <TooltipTrigger asChild>
-              <Badge variant="outline" className="h-5 border-warn/40 px-1 text-[11px] text-warn">{t("ui.feed.date_anomaly")}</Badge>
+              <Badge variant="outline" className="h-5 border-warn/40 px-1 text-xs text-warn">{t("ui.feed.date_anomaly")}</Badge>
             </TooltipTrigger>
             <TooltipContent className="max-w-xs">{anomaly}</TooltipContent>
           </Tooltip>
@@ -155,8 +179,6 @@ function TraderLine({ trader, anomalies, group }: { trader: TraderGroup; anomali
           formatDay(trader.transaction_date)
         )}
       </span>
-      <WindowCell change={window?.before} ticker={ticker} side="before" n={n} />
-      <WindowCell change={window?.after} ticker={ticker} side="after" n={n} />
     </li>
   );
 }
@@ -203,12 +225,12 @@ export const FeedCard = memo(function FeedCard({ group, mark }: { group: FeedGro
         </Link>
         <IndexMarks indexes={group.indexes} />
         {group.amendment_count > 0 && (
-          <Badge variant="outline" className="h-5 shrink-0 px-1 text-[11px]">{t("ui.feed.amendment")}</Badge>
+          <Badge variant="outline" className="h-5 shrink-0 px-1 text-xs">{t("ui.feed.amendment")}</Badge>
         )}
         <AnimatePresence>
           {mark && (
             <motion.span className="shrink-0" initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}>
-              <Badge className="h-5 bg-primary px-1.5 text-[11px] text-primary-foreground">{t(`ui.feed.mark.${mark}`)}</Badge>
+              <Badge className="h-5 bg-primary px-1.5 text-xs text-primary-foreground">{t(`ui.feed.mark.${mark}`)}</Badge>
             </motion.span>
           )}
         </AnimatePresence>

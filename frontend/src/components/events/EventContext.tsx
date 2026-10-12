@@ -22,12 +22,12 @@ export function AiNote({ className }: { className?: string }) {
 
 export function CategoryBadge({ category }: { category: string }) {
   const { t } = useTranslation();
-  return <span className="inline-flex h-5 shrink-0 items-center rounded border bg-muted/60 px-1.5 text-[11px] font-medium text-muted-foreground">{t(`ui.events.category.${category}`)}</span>;
+  return <span className="inline-flex h-5 shrink-0 items-center rounded border bg-muted/60 px-1.5 text-xs font-medium text-muted-foreground">{t(`ui.events.category.${category}`)}</span>;
 }
 
 export function MajorBadge() {
   const { t } = useTranslation();
-  return <span className="inline-flex h-5 shrink-0 items-center rounded border border-foreground/30 px-1.5 text-[11px] font-semibold">{t("ui.events.context.major")}</span>;
+  return <span className="inline-flex h-5 shrink-0 items-center rounded border border-foreground/30 px-1.5 text-xs font-semibold">{t("ui.events.context.major")}</span>;
 }
 
 function host(url: string) {
@@ -191,7 +191,7 @@ export function ExpectationsTable({ result, onSelect }: { result: EventResult; o
                   <td className="px-2 py-1.5 text-right tabular-nums">{figure(figures?.eps_estimate, 2)}</td>
                   <td className="px-2 py-1.5 text-right whitespace-nowrap tabular-nums">
                     {expected.eps_surprise != null ? <Signed value={expected.eps_surprise} digits={1} /> : "—"}
-                    {expected.surprise_group !== "no_data" && <span className="ml-1 text-[11px] text-muted-foreground">{t(`ui.events.group.surprise.${expected.surprise_group}`)}</span>}
+                    {expected.surprise_group !== "no_data" && <span className="ml-1 text-xs text-muted-foreground">{t(`ui.events.group.surprise.${expected.surprise_group}`)}</span>}
                   </td>
                   <td className="px-2 py-1.5 text-right tabular-nums">{figure(figures?.revenue_actual, 0)}</td>
                   <td className="px-2 py-1.5 text-right tabular-nums">{figure(figures?.revenue_estimate, 0)}</td>
@@ -241,7 +241,7 @@ export function GroupStats({ result, basis, selected, onSelect }: { result: Even
               <th className="px-2 py-1.5 pl-3 font-medium">{t("ui.events.group.group")}</th>
               {WINDOWS.map((key) => <th key={key} className="px-2 py-1.5 text-right font-medium" colSpan={2}>{windowLabel(key, result.n)}</th>)}
             </tr>
-            <tr className="border-b text-left text-[11px] text-muted-foreground">
+            <tr className="border-b text-left text-xs text-muted-foreground">
               <th />
               {WINDOWS.map((key) => [
                 <th key={`${key}m`} className="px-2 py-1 text-right font-normal">{t("ui.events.group.n_median")}</th>,

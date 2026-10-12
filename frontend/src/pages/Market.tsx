@@ -21,11 +21,19 @@ function Fact({ label, children }: { label: string; children: React.ReactNode })
   );
 }
 
+/** The chart's caption names where its bars come from. */
+const LEGEND: Record<string, string> = {
+  long: "ui.market_detail.legend_long",
+  history: "ui.market_detail.legend",
+  cache: "ui.market_detail.legend_cache",
+  quote: "ui.market_detail.legend_short",
+};
+
 /**
  * Instrument detail, opened from the home market strip: the saved quote with its
- * time and state, and the last six months of daily candles. The six months
- * are fetched once on opening (one request, kept 24 hours); the page then
- * only re-reads what is saved.
+ * time and state, and the last six months of daily candles. Symbols kept in the
+ * local long-term prices read them from there; the others fetch six months once
+ * on opening (one request, kept 24 hours). The page then only re-reads what is saved.
  */
 export function MarketDetailPage() {
   const { t } = useTranslation();
@@ -151,6 +159,8 @@ export function MarketDetailPage() {
                     <LoaderCircle className="size-3.5 motion-safe:animate-spin" />
                     {t("ui.market_detail.fetching")}
                   </span>
+                ) : chart?.source === "long" ? (
+                  <span>{t("ui.market_detail.source_long", { time: formatEt(chart.fetched_at) })}</span>
                 ) : chart?.source && chart.source !== "quote" ? (
                   <span>{t("ui.analysis.fetched", { fetched: formatEt(chart.fetched_at), expires: formatEt(chart.expires_at) })}</span>
                 ) : null}
@@ -173,7 +183,7 @@ export function MarketDetailPage() {
                 </div>
               )}
               <p className="px-2 pb-2 text-xs text-muted-foreground">
-                {t(chart?.source === "quote" ? "ui.market_detail.legend_short" : "ui.market_detail.legend", { days: chart?.days ?? 186 })}
+                {t(LEGEND[chart?.source ?? "history"] ?? LEGEND.history, { days: chart?.days ?? 186 })}
               </p>
             </div>
           </section>

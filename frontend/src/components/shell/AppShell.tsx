@@ -166,7 +166,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               </div>
             )}
           </header>
-          <main id="main-content" tabIndex={-1} className="w-full max-w-[1280px] flex-1 px-6 py-5 outline-none">
+          <main id="main-content" tabIndex={-1} className="mx-auto w-full max-w-[1600px] flex-1 px-6 py-5 outline-none">
             {children}
           </main>
         </div>

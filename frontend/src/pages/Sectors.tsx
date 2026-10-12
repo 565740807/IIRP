@@ -37,6 +37,7 @@ import { SectorGroupTable } from "@/components/sectors/SectorGroupTable";
 import { FetchProgress } from "@/components/sectors/SectorNotes";
 import { RotationTab } from "@/components/sectors/RotationTab";
 import { MonthDay } from "@/components/analysis/Conditions";
+import { Explain } from "@/components/ui/info";
 
 const VIEW_ICONS = { table: Table2, heatmap: LayoutGrid, kline: CandlestickChart } as const;
 const YEAR_OPTIONS = ROTATION_YEARS.map(String);
@@ -117,7 +118,7 @@ export function SectorsPage() {
             <h1>{state.sector ? sectorName(state.sector) : t("ui.sectors.all_groups")}</h1>
           </>}
         </nav>
-        <p className="text-sm text-muted-foreground">{t(groupLevel ? "ui.sectors.group_scope" : "ui.sectors.scope")}</p>
+        <Explain className="text-sm" summary={t(groupLevel ? "ui.sectors.group_scope" : "ui.sectors.scope")}/>
         <div role="tablist" aria-label={t("ui.sectors.tab_label")} className="flex gap-1 border-b pt-1">
           {TABS.map((tab) => (
             <button key={tab} type="button" role="tab" aria-selected={state.tab === tab} onClick={() => update({ tab }, { push: true })}
@@ -160,7 +161,7 @@ export function SectorsPage() {
         </AnimatePresence>
       </> : <>
       <header className="space-y-1">
-        <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground" role="status">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground" role="status">
           {shown ? <TodayBasis data={shown}/> : <Skeleton className="h-3 w-48"/>}
           {shown && <span>{t("ui.sectors.periods_through", { day: formatDay(shown.last_completed_session, { year: true }) })}</span>}
           {pending.length > 0 && (
@@ -171,7 +172,7 @@ export function SectorsPage() {
           )}
           {shown && <span>{t("ui.sectors.read_at", { time: formatEt(shown.as_of) })}</span>}
           {(groupLevel ? groups.error : error) && <span className="text-destructive">{(groupLevel ? groups.error : error)?.message}</span>}
-        </p>
+        </div>
         {groupLevel && <FetchProgress rows={fetchRows}/>}
       </header>
 
@@ -287,8 +288,10 @@ export function SectorsPage() {
       {state.view === "kline" && candles.data && (
         <p className="text-xs text-muted-foreground">{t("ui.sectors.chart_rule", { start: formatDay(candles.data.start_date, { year: true }), end: formatDay(candles.data.end_date, { year: true }) })}</p>
       )}
-      {groupLevel && <p className="text-xs text-muted-foreground">{t("ui.sectors.group_method")}</p>}
-      <p className="text-xs text-muted-foreground">{t("ui.sectors.method")}</p>
+      <Explain summary={t("ui.sectors.method_title")}>
+        {groupLevel && <p>{t("ui.sectors.group_method")}</p>}
+        <p>{t("ui.sectors.method")}</p>
+      </Explain>
       </>}
     </div>
   );

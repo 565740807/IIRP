@@ -44,6 +44,9 @@ class PriceComparison(Output):
     price_check: Literal["ok", "mismatch", "unchecked", "not_applicable"] = "unchecked"
     # Whole times the price differs from the market reference, for "mismatch" only.
     mismatch_ratio: str | None = None
+    # The filed security is a foreign listing (iirp.insider.prices.FOREIGN_TITLE):
+    # its price may be quoted differently from the US listing's current price.
+    foreign_listing: bool = False
 
 
 IndexName = Literal["sp500", "nasdaq100"]

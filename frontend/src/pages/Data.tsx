@@ -15,6 +15,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { actions, resultHref } from "@/components/shell/Tasks";
 import { SecContactDialog, useSecContact } from "@/components/shell/SecContact";
+import { InfoTip } from "@/components/ui/info";
 
 type Batch = Schemas["BatchView"];
 type Group = Schemas["HealthGroup"];
@@ -405,7 +406,8 @@ function IndexLists() {
   return (
     <section className="rounded-lg border bg-card" aria-labelledby="index-lists-heading">
       <header className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b px-4 py-2.5">
-        <h2 id="index-lists-heading" className="text-sm font-semibold">{t("ui.index_lists.title")}</h2>
+        <h2 id="index-lists-heading" className="card-title">{t("ui.index_lists.title")}</h2>
+        <InfoTip>{t("ui.index_lists.note")}</InfoTip>
         <span className="text-xs text-muted-foreground">
           {t("ui.index_lists.schedule", { weekday: schedule.weekday, time: schedule.time })}
         </span>
@@ -427,11 +429,15 @@ function IndexLists() {
           </li>
         ))}
       </ul>
-      <p className="border-t px-4 py-2 text-xs text-muted-foreground">{t("ui.index_lists.note")}</p>
+
       {update.error && <p className="px-4 pb-2 text-xs text-destructive">{update.error.message}</p>}
     </section>
   );
 }
+
+// The development probes are linked only from the development server (npm run dev),
+// never from the built interface; /data/diagnostics itself stays reachable.
+const DEVELOPMENT = (import.meta as { env?: { DEV?: boolean } }).env?.DEV === true;
 
 export function DataPage() {
   const { t } = useTranslation();
@@ -441,9 +447,11 @@ export function DataPage() {
       <Automatic />
       <IndexLists />
       <Tasks />
-      <p className="text-xs text-muted-foreground">
-        <Link to="/data/diagnostics" className="hover:text-foreground hover:underline">{t("ui.data.diagnostics")}</Link>
-      </p>
+      {DEVELOPMENT && (
+        <p className="text-xs text-muted-foreground">
+          <Link to="/data/diagnostics" className="hover:text-foreground hover:underline">{t("ui.data.diagnostics")}</Link>
+        </p>
+      )}
     </div>
   );
 }

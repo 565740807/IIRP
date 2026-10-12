@@ -23,15 +23,17 @@ import { BoxPlot, type BoxGroup } from "@/components/analysis/BoxPlot";
 import { tint } from "@/components/analysis/MonthGrid";
 import { Signed, SortableTable, type Meta } from "@/components/analysis/Tables";
 import { UpShare } from "@/components/analysis/UpShare";
+import { InfoTip } from "@/components/ui/info";
 
 type Choice = { level: Level; rank: RankBasis; years: number };
 
-function Section({ title, hint, children }: { title: string; hint?: string; children: React.ReactNode }) {
+/** A titled part of the rotation page; its explanation is on the ⓘ and ``id`` is its contents anchor. */
+function Section({ id, title, hint, children }: { id?: string; title: string; hint?: string; children: React.ReactNode }) {
   return (
-    <section className="space-y-2">
-      <div>
-        <h2 className="text-sm font-semibold">{title}</h2>
-        {hint && <p className="text-xs text-muted-foreground">{hint}</p>}
+    <section id={id} className="scroll-mt-28 space-y-2">
+      <div className="flex items-center gap-1.5">
+        <h2 className="section-title">{title}</h2>
+        {hint && <InfoTip>{hint}</InfoTip>}
       </div>
       {children}
     </section>
@@ -135,7 +137,7 @@ export function RotationHeat({ data, choice, selected, onSelect }: {
                     className={cn("flex w-full flex-col items-center px-1 py-1 text-muted-foreground hover:text-foreground",
                       selected === period.month && "bg-primary text-primary-foreground hover:text-primary-foreground")}>
                     <span>{monthName(period.month!, "short")}</span>
-                    {current && <span className="text-[9px] leading-none font-normal">{t("ui.rotation.this_month")}</span>}
+                    {current && <span className="text-xs leading-none font-normal">{t("ui.rotation.this_month")}</span>}
                   </button>
                 </th>
               );
@@ -147,7 +149,7 @@ export function RotationHeat({ data, choice, selected, onSelect }: {
             <tr key={item.id} className="border-b border-border/60 last:border-b-0">
               <th className="px-2 py-1 text-left font-normal">
                 <span className="flex items-center gap-1.5">
-                  <span className="w-11 shrink-0 font-mono text-[11px] text-muted-foreground">{item.etf}</span>
+                  <span className="w-11 shrink-0 font-mono text-xs text-muted-foreground">{item.etf}</span>
                   <span className="line-clamp-2 leading-tight font-medium" title={rotationName(choice.level, item.id)}>{rotationName(choice.level, item.id, true)}</span>
                   <Link to={rotationAnalysisLink(item.etf, data.years, { month: selected })} title={t("ui.rotation.open_monthly", { etf: item.etf })}
                     aria-label={t("ui.rotation.open_monthly", { etf: item.etf })} className="ml-auto shrink-0 text-muted-foreground hover:text-foreground">
@@ -171,7 +173,7 @@ export function RotationHeat({ data, choice, selected, onSelect }: {
                         value == null && "text-muted-foreground/60")}
                       style={tint(value)}>
                       <span>{value == null ? "—" : pct(value)}</span>
-                      {cell?.rank != null && <span className="text-[10px] text-muted-foreground">#{cell.rank}</span>}
+                      {cell?.rank != null && <span className="text-xs text-muted-foreground">#{cell.rank}</span>}
                     </button>
                   </td>
                 );
@@ -191,6 +193,9 @@ function Count({ count }: { count: { count: number; n: number } }) {
 }
 
 /** The chosen period's rows: every column sorts; the rank is the backend's. */
+// The mean, the years ahead of the S&P 500 and this year start in the column settings.
+const RANKING_HIDDEN = ["mean", "beat", "current"];
+
 export function RotationRanking({ data, detail, choice, selected, onSelect }: {
   data: Rotation; detail: RotationDetail; choice: Choice; selected: string | null; onSelect: (id: string) => void;
 }) {
@@ -198,12 +203,12 @@ export function RotationRanking({ data, detail, choice, selected, onSelect }: {
   const interval = data.kind === "interval";
   const columns = useMemo(() => [
     helper.accessor((row) => row.rank ?? undefined, {
-      id: "rank", header: () => t("ui.rotation.col.rank"), sortUndefined: "last", sortDescFirst: false,
+      id: "rank", enableHiding: false, header: () => t("ui.rotation.col.rank"), sortUndefined: "last", sortDescFirst: false,
       cell: ({ getValue }) => <span className="font-semibold tabular-nums">{getValue() ?? "—"}</span>,
       meta: { numeric: true, tip: t(`ui.rotation.col.rank_tip.${choice.rank}`) } satisfies Meta,
     }),
     helper.accessor((row) => rotationName(choice.level, row.id), {
-      id: "name", header: () => t(`ui.rotation.col.name.${choice.level}`),
+      id: "name", enableHiding: false, header: () => t(`ui.rotation.col.name.${choice.level}`),
       cell: ({ getValue }) => <span className="font-medium">{getValue()}</span>,
     }),
     helper.accessor("etf", {
@@ -256,7 +261,7 @@ export function RotationRanking({ data, detail, choice, selected, onSelect }: {
         const value = entry ? yearValue(entry, choice.rank) : null;
         if (value == null) return <span className="text-muted-foreground" title={entry ? t(`ui.analysis.status.${entry.status}`) : undefined}>—</span>;
         return <span title={entry?.status === "in_progress" ? t("ui.analysis.status.in_progress") : undefined}>
-          <Signed value={value} />{entry?.status === "in_progress" && <span className="align-super text-[9px]">*</span>}
+          <Signed value={value} />{entry?.status === "in_progress" && <span className="align-super text-xs">*</span>}
         </span>;
       },
       meta: { numeric: true, tip: t(`ui.rotation.col.current_tip.${choice.rank}`) } satisfies Meta,
@@ -264,7 +269,7 @@ export function RotationRanking({ data, detail, choice, selected, onSelect }: {
   ], [t, choice.level, choice.rank, data.years, data.current_year, detail.month, detail.start_mmdd, detail.end_mmdd, interval]);
   return (
     <SortableTable data={detail.rows} columns={columns} initial={[{ id: "rank", desc: false }]}
-      rowKey={(row) => row.id} selected={selected} onSelect={onSelect} />
+      rowKey={(row) => row.id} selected={selected} onSelect={onSelect} tableId="rotation.ranking" hidden={RANKING_HIDDEN} />
   );
 }
 
@@ -359,7 +364,7 @@ export function RotationYearly({ data, choice, selected, onSelect }: {
   const etfs = useMemo(() => new Map(data.items.map((item) => [item.id, item.etf])), [data.items]);
   return (
     <div className="overflow-x-auto rounded-lg border bg-card">
-      <table className={cn("table-fixed border-collapse text-[11px]", interval ? "w-full max-w-md" : "w-full min-w-[1100px]")}>
+      <table className={cn("table-fixed border-collapse text-xs", interval ? "w-full max-w-md" : "w-full min-w-[1100px]")}>
         <colgroup>
           <col className="w-16" />
           {data.periods.map((period) => <col key={period.key} />)}
@@ -381,7 +386,7 @@ export function RotationYearly({ data, choice, selected, onSelect }: {
             <tr key={year} className={cn("border-b border-border/60 last:border-b-0", current && "bg-muted/40")}>
               <th className="px-2 py-1 text-left align-top font-medium text-muted-foreground">
                 {interval && data.cross_year ? `${year}–${String(year + 1).slice(2)}` : year}
-                {current && <span className="block text-[9px] font-normal">{t("ui.rotation.not_counted")}</span>}
+                {current && <span className="block text-xs font-normal">{t("ui.rotation.not_counted")}</span>}
               </th>
               {data.periods.map((period) => {
                 const entry = period.yearly.find((item) => item.year === year);
@@ -417,11 +422,11 @@ export function RotationDetailView({ data, choice }: { data: Rotation; choice: C
   return (
     <motion.div key={`${detail.key}-${choice.rank}`} initial={reduce ? { opacity: 0 } : { opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }}
       transition={{ duration: reduce ? 0.1 : 0.2, ease: "easeOut" }} className="space-y-5">
-      <Section title={t("ui.rotation.ranking_title", { period })} hint={t(`ui.rotation.ranking_hint.${choice.rank}`)}>
+      <Section id="r-ranking" title={t("ui.rotation.ranking_title", { period })} hint={t(`ui.rotation.ranking_hint.${choice.rank}`)}>
         <RotationRanking data={data} detail={detail} choice={choice} selected={selected} onSelect={(id) => setSelected((old) => old === id ? null : id)} />
         {fewer && <p className="text-xs text-muted-foreground">{fewer}</p>}
       </Section>
-      <Section title={t("ui.rotation.box_title", { period })} hint={t(`ui.rotation.box_hint.${choice.rank}`)}>
+      <Section id="r-box" title={t("ui.rotation.box_title", { period })} hint={t(`ui.rotation.box_hint.${choice.rank}`)}>
         <RotationBoxes detail={detail} choice={choice} selected={selected} onSelect={(id) => setSelected((old) => old === id ? null : id)} />
       </Section>
     </motion.div>

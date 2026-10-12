@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { LoaderCircle } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
@@ -8,6 +8,8 @@ import { locale, tm } from "@/i18n";
 import type { Schemas } from "@/lib/api-client";
 import { formatDay, formatEt, formatLocal, formatSigned } from "@/lib/format";
 import { homeQuery } from "@/lib/queries";
+import { indexFuturesTrading } from "@/lib/marketHours";
+import { useDisplaySettings } from "@/components/shell/Settings";
 import { usePageVisible, useRefresh, useRefreshIntervals } from "@/lib/refresh";
 import { sourceContext } from "@/lib/navigation";
 import { cn } from "@/lib/utils";
@@ -131,13 +133,13 @@ function delayGroups(delayed: Quote[]) {
 }
 
 /** One line under the strip: when the data is from and whether it is live, closed, updating or delayed. */
-function StripStatus({ quotes, updating }: { quotes: Quote[]; updating: boolean }) {
+function StripStatus({ quotes, updating, children }: { quotes: Quote[]; updating: boolean; children?: ReactNode }) {
   const { t } = useTranslation();
   const delayed = quotes.filter((quote) => quote.freshness === "delayed");
   // Open or closed refers to the US stock market (S&P 500 session), not VIX or gold hours.
   const reference = quotes.find((quote) => quote.symbol === "^GSPC") ?? quotes[0];
   const updated = quotes.map((quote) => quote.fetched_at).filter(Boolean).sort().at(-1);
-  if (!reference) return null;
+  if (!reference) return <p className="flex flex-wrap items-center gap-x-2 px-1 pt-1.5 text-xs text-muted-foreground">{children}</p>;
   const closed = reference.freshness === "closed" || (reference.freshness !== "live" && reference.market_open === false);
   const groups = delayGroups(delayed);
   return (
@@ -162,22 +164,23 @@ function StripStatus({ quotes, updating }: { quotes: Quote[]; updating: boolean 
           {t("ui.market.live")}
         </span>
       )}
-      {!updating && groups.length > 1 && (
-        <span className="text-warn">
-          {groups.map((group) => t("ui.market.delay_group", { names: group.names.join(t("format.list_separator")), reason: group.reason })).join(" · ")}
-        </span>
-      )}
-      {!updating && delayed.length > 0 && (
-        <span className="tabular-nums">
-          {t("ui.market.last_updated", { time: formatEt(delayed.map((quote) => quote.fetched_at).filter(Boolean).sort()[0]) })}
-        </span>
-      )}
+      {children && <span aria-hidden className="text-border">|</span>}
+      {children}
       {updated && (
         <Tooltip>
           <TooltipTrigger asChild>
             <span className="ml-auto cursor-default tabular-nums">{t("ui.market.updated", { time: formatEt(updated) })}</span>
           </TooltipTrigger>
-          <TooltipContent>{t("ui.time.local", { time: formatLocal(updated) })}</TooltipContent>
+          {/* Which quotes are late and since when: on hover, so the line stays one line. */}
+          <TooltipContent className="max-w-sm flex-col items-start">
+            <p>{t("ui.time.local", { time: formatLocal(updated) })}</p>
+            {!updating && groups.length > 1 && groups.map((group) => (
+              <p key={group.reason}>{t("ui.market.delay_group", { names: group.names.join(t("format.list_separator")), reason: group.reason })}</p>
+            ))}
+            {!updating && delayed.length > 0 && (
+              <p>{t("ui.market.last_updated", { time: formatEt(delayed.map((quote) => quote.fetched_at).filter(Boolean).sort()[0]) })}</p>
+            )}
+          </TooltipContent>
         </Tooltip>
       )}
     </p>
@@ -221,12 +224,25 @@ function useColumns(count: number) {
   return { element, columns };
 }
 
+/** The clock, re-read every minute: futures appear and disappear with their hours. */
+function useMinute() {
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(new Date()), 60_000);
+    return () => window.clearInterval(timer);
+  }, []);
+  return now;
+}
+
 /**
- * The instruments chosen in the settings (index futures only outside US stock
- * hours), in one compact row, or two on narrow screens; values are the
- * server's saved quotes.
+ * The instruments chosen in the settings, in one compact row, or two on narrow
+ * screens; values are the server's saved quotes. Index futures come only
+ * outside US stock hours (the server's rule) and only while Globex trades them
+ * with a recent last trade (``indexFuturesTrading``), so a weekend or holiday
+ * never shows a stale 0.00%. ``children`` (the sector strip) sits under the
+ * index row, and one status line under both.
  */
-export function MarketStrip() {
+export function MarketStrip({ children, basis }: { children?: ReactNode; basis?: ReactNode }) {
   const { t } = useTranslation();
   const visible = usePageVisible();
   const intervals = useRefreshIntervals();
@@ -234,9 +250,15 @@ export function MarketStrip() {
     ...homeQuery,
     refetchInterval: visible ? intervals.home_poll_seconds * 1000 : false,
   });
-  const quotes = query.data?.market ?? [];
+  const display = useDisplaySettings();
+  const now = useMinute();
+  const offHours = useMemo(
+    () => new Set((display.data?.instruments ?? []).filter((item) => item.off_hours_only).map((item) => item.symbol)),
+    [display.data],
+  );
+  const quotes = (query.data?.market ?? []).filter((quote) => !offHours.has(quote.symbol) || indexFuturesTrading(now, quote.source_time));
   const updating = useFirstUpdate(query.isFetching);
-  const count = query.isPending ? 10 : Math.max(quotes.length, 1);
+  const count = query.isPending ? 8 : Math.max(quotes.length, 1);
   const { element, columns } = useColumns(count);
   const fillers = (columns - (count % columns)) % columns;
   return (
@@ -254,10 +276,11 @@ export function MarketStrip() {
           : quotes.map((quote) => <QuoteTile key={quote.symbol} quote={quote} updating={updating} />)}
         {Array.from({ length: fillers }, (_, index) => <div key={`filler-${index}`} className="bg-card" aria-hidden />)}
       </div>
+      {children}
       {query.error ? (
         <p className="px-1 pt-1.5 text-xs text-destructive">{query.error.message}</p>
       ) : (
-        <StripStatus quotes={quotes} updating={updating} />
+        <StripStatus quotes={quotes} updating={updating}>{basis}</StripStatus>
       )}
     </section>
   );

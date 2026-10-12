@@ -68,7 +68,7 @@ class AnalysisInput(Strict):
     request_id: str = Field(min_length=1, max_length=128)
     kind: Literal["monthly", "interval"] = "monthly"
     tickers: list[str] = Field(min_length=1, max_length=20)
-    historical_years: int = Field(default=8, ge=1, le=30)
+    historical_years: int = Field(default=10, ge=1, le=30)
     # Defaults to this year (for an interval, the latest one already begun).
     current_year: int | None = Field(default=None, ge=1900, le=9998)
     start_mmdd: str = Field(default="09-20", pattern=r"^\d{2}-\d{2}$")
@@ -207,6 +207,8 @@ class CacheSource(BaseModel):
     symbol: str
     fetched_at: str
     expires_at: str
+    # Built from the local long-term daily prices rather than fetched for this research.
+    local: bool = False
 
 
 class ResearchFreshness(BaseModel):
@@ -361,9 +363,10 @@ class MarketBar(Output):
 
 
 class MarketChart(Output):
-    """Where the daily bars come from: ``history`` (the six-month fetch, 24 hours),
+    """Where the daily bars come from: ``long`` (the local long-term daily prices,
+    kept and updated after each session), ``history`` (the six-month fetch, 24 hours),
     ``cache`` (a cached price range), ``quote`` (the quote's last 40 days) or none."""
-    source: Literal["history", "cache", "quote"] | None = None
+    source: Literal["long", "history", "cache", "quote"] | None = None
     start: str | None = None
     end: str | None = None
     fetched_at: str | None = None

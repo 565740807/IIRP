@@ -23,6 +23,7 @@ from iirp.insider.prices import (
     display_ticker,
     effective_price,
     estimate_prices,
+    foreign_issuers,
     mismatch_ratio_text,
     money_text,
     overview_settings,
@@ -341,7 +342,7 @@ def overview(s, *, index="all", days=30, role="all", min_amount=Decimal(0), excl
     quote_symbols = quote_symbols[:settings["max_quote_symbols"]]
     pending = sum(quotes.get(symbol, {}).get("fetched_at") is None for symbol in quote_symbols)
 
-    return {
+    result = {
         "as_of": at.isoformat(), "indices": index_status(s),
         "cluster_buys": _section([company_view(item, quotes) for item in shown["cluster_buys"]],
                                  len(cluster_buys), mismatched(cluster_buys)),
@@ -363,6 +364,18 @@ def overview(s, *, index="all", days=30, role="all", min_amount=Decimal(0), excl
         "quote_symbols": quote_symbols, "quotes_pending": pending,
         "price_mismatch_ratio": mismatch_ratio_text(),
     }
+    # The foreign-listing note, read only for the transactions on screen.
+    ids = [row["id"] for name in ("large_buys", "large_sales", "executive_buys", "holding_increases")
+           for row in shown[name]]
+    ids += [row["id"] for name in ("cluster_buys", "cluster_sales", "companies")
+            for totals in shown[name] for row in totals["rows"]]
+    foreign = foreign_issuers(s, ids)
+    for name in shown:
+        for item in result[name]["items"]:
+            for field in ("price", "buy_price", "sell_price"):
+                if field in item:
+                    item[field]["foreign_listing"] = item["issuer_id"] in foreign
+    return result
 
 
 def _owner_views(s, versions):

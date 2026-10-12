@@ -32,7 +32,7 @@ from iirp.analysis.prices import endpoint_change
 from iirp.analysis.sector_benchmarks import SectorReference, public_sector
 
 CALCULATION_VERSION = "research-v12-sector"
-DEFAULT_YEARS = 8
+DEFAULT_YEARS = 10
 MAX_YEARS = 30
 
 

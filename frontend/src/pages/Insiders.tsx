@@ -14,6 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { IndexMarks } from "@/components/insider/IndexMarks";
 import { InsiderOverview } from "@/components/insider/InsiderOverview";
+import { InfoTip } from "@/components/ui/info";
 
 type Candidate = Schemas["LookupCandidate"];
 
@@ -128,42 +129,49 @@ function SecResults({ query }: { query: string }) {
   );
 }
 
-/** Companies and insiders opened recently in this browser; can be cleared. */
+/** Companies and insiders opened recently in this browser, as one row of links; can be cleared. */
 function RecentlyViewed() {
   const { t } = useTranslation();
+  const location = useLocation();
   const [items, setItems] = useState<RecentEntity[]>(() => readRecent());
   if (!items.length) return null;
   return (
-    <section className="rounded-lg border bg-card">
-      <header className="flex items-center gap-2 border-b px-4 py-2.5">
-        <History className="size-4 text-muted-foreground" strokeWidth={1.8} />
-        <h2 className="text-sm font-semibold">{t("ui.lookup.recent_title")}</h2>
-        <span className="text-xs text-muted-foreground">{t("ui.lookup.recent_hint")}</span>
-        <Button
-          type="button"
-          size="sm"
-          variant="ghost"
-          className="ml-auto h-7 text-xs text-muted-foreground"
-          onClick={() => {
-            clearRecent();
-            setItems([]);
-          }}
-        >
-          <X />
-          {t("ui.lookup.recent_clear")}
-        </Button>
-      </header>
-      <div className="grid gap-x-2 p-1.5 md:grid-cols-2">
-        {items.map((item) => (
-          <ResultRow
-            key={`${item.kind}:${item.id}`}
-            to={`/${item.kind === "company" ? "companies" : "people"}/${item.id}`}
-            icon={item.kind === "company" ? Building2 : User}
-            name={readableCase(item.name)}
-            detail={item.ticker}
-          />
-        ))}
+    <section className="flex min-w-0 items-center gap-2 text-xs" aria-label={t("ui.lookup.recent_title")}>
+      <span className="inline-flex shrink-0 items-center gap-1 text-muted-foreground" title={t("ui.lookup.recent_hint")}>
+        <History className="size-3.5" strokeWidth={1.8} />
+        {t("ui.lookup.recent_title")}
+      </span>
+      <div className="flex min-w-0 flex-1 gap-1.5 overflow-hidden">
+        {items.map((item) => {
+          const name = readableCase(item.name);
+          return (
+            <Link
+              key={`${item.kind}:${item.id}`}
+              to={`/${item.kind === "company" ? "companies" : "people"}/${item.id}`}
+              state={sourceContext(location)}
+              title={name}
+              className="inline-flex max-w-56 shrink-0 items-center gap-1 rounded-md border bg-card px-2 py-1 hover:bg-accent"
+            >
+              {item.kind === "company" ? <Building2 className="size-3 shrink-0 text-muted-foreground" /> : <User className="size-3 shrink-0 text-muted-foreground" />}
+              {item.ticker && <span className="font-semibold tabular-nums">{item.ticker}</span>}
+              <span className="truncate">{name}</span>
+            </Link>
+          );
+        })}
       </div>
+      <Button
+        type="button"
+        size="xs"
+        variant="ghost"
+        className="shrink-0 text-muted-foreground"
+        onClick={() => {
+          clearRecent();
+          setItems([]);
+        }}
+      >
+        <X />
+        {t("ui.lookup.recent_clear")}
+      </Button>
     </section>
   );
 }
@@ -213,7 +221,7 @@ export function InsidersPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [term]);
   return (
-    <div className="mx-auto space-y-4">
+    <div className="space-y-3">
       <form
         className="relative"
         onSubmit={(event) => {
@@ -228,14 +236,14 @@ export function InsidersPage() {
           onChange={(event) => setInput(event.target.value)}
           placeholder={t("ui.lookup.placeholder")}
           aria-label={t("ui.lookup.placeholder")}
-          className="h-12 w-full rounded-lg border bg-card pr-36 pl-11 text-base shadow-xs outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/30"
+          className="h-12 w-full rounded-lg border bg-card pr-44 pl-11 text-base shadow-xs outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/30"
         />
+        <InfoTip className="absolute top-1/2 right-36 -translate-y-1/2" side="bottom">{t("ui.lookup.hint")}</InfoTip>
         <Button type="submit" size="sm" variant="outline" className="absolute top-1/2 right-2 -translate-y-1/2" disabled={!input.trim()}>
           <Globe />
           {t("ui.lookup.search_sec")}
         </Button>
       </form>
-      <p className="px-1 text-xs text-muted-foreground">{t("ui.lookup.hint")}</p>
       {!term && !secQuery && <RecentlyViewed />}
 
       {term && (

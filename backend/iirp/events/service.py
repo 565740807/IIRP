@@ -415,7 +415,8 @@ def _publish(s, request, scope, security, cache):
                 "sector_dataset_id": sector_cache.id if sector_cache else None, "sector": sector,
                 "price_sources": [{"symbol": item.symbol,
                     "fetched_at": source.fetched_at.isoformat(),
-                    "expires_at": source.expires_at.isoformat()}
+                    "expires_at": source.expires_at.isoformat(),
+                    "local": source.provider == "local_long_prices"}
                     for source in (cache, paired, sector_cache) if source
                     for item in (s.get(Security, source.security_id),)],
                 "price_fetched_at": cache.fetched_at.isoformat() if cache else None,

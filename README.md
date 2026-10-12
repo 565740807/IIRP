@@ -51,10 +51,11 @@ the page then shows it as set in the config file.)
 What happens next: the worker follows new SEC filings (every minute or two on trading
 days) and backfills the last 6 months of Form 3/4/5 filings, about 75,000 filings and
 3 GB, which takes roughly a day at the polite rate IIRP uses (at most 2 requests per
-second). Home-page market quotes refresh while the page is open: S&P 500, Nasdaq
-Composite, Nasdaq 100, Dow Jones, Russell 2000, VIX, the 10-year Treasury yield (in %
-with changes in basis points), the US Dollar Index, gold and WTI crude; S&P 500 and
-Nasdaq 100 futures outside US stock hours while they trade; bitcoin on request. Choose
+second). Home-page market quotes refresh while the page is open, in one row: S&P
+500, Nasdaq 100, Dow Jones, Russell 2000, VIX, the 10-year Treasury yield (in % with
+changes in basis points), gold and WTI crude. The Nasdaq Composite, the US Dollar Index,
+S&P 500 and Nasdaq 100 futures (shown outside US stock hours, only while they trade)
+and bitcoin can be added. Choose
 them under the gear icon at the top right. You can switch each automatic update off
 under **Data & tasks → Automatic updates**.
 
@@ -153,7 +154,7 @@ in one click.
 
 ![Monthly analysis: January–December distributions, one candle per year and the month ranking](docs/images/monthly.png)
 
-- **Monthly**: for up to 20 tickers over the last n years (default 8 plus this year),
+- **Monthly**: for up to 20 tickers over the last n years (default 10 plus this year),
   each month's return from the first trading day's open to the last trading day's
   close. You get a year × month heat map, box plots of each month across the years,
   one candle per year, and per month the median, the share of up years with a 95%

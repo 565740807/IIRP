@@ -77,7 +77,7 @@ function CandleChart({ dates, candles, label }: { dates: string[]; candles: Cand
         boundaryGap: true,
         axisLine: { lineStyle: { color: CHART.axis } },
         axisTick: { show: false },
-        axisLabel: { color: CHART.muted, fontSize: 10, hideOverlap: true, formatter: (value: string) => value.slice(5) },
+        axisLabel: { color: CHART.muted, fontSize: CHART.font, hideOverlap: true, formatter: (value: string) => value.slice(5) },
       },
       yAxis: {
         type: "value",
@@ -85,7 +85,7 @@ function CandleChart({ dates, candles, label }: { dates: string[]; candles: Cand
         position: "right",
         splitNumber: 3,
         splitLine: { lineStyle: { color: CHART.grid } },
-        axisLabel: { color: CHART.muted, fontSize: 10 },
+        axisLabel: { color: CHART.muted, fontSize: CHART.font },
       },
       dataZoom: [{ type: "inside" }],
       series: [{
@@ -111,7 +111,7 @@ function SectorChartRow({ item, dates, candles, name }: { item: PricedRow; dates
         <span className="font-medium">{name}</span>
         <span className="font-mono text-xs text-muted-foreground">{item.etf}</span>
         {item.first_date && candles.length > 0 && candles[0].date > dates[0] && (
-          <span className="text-[11px] text-muted-foreground">{t("ui.sectors.chart_since", { day: formatDay(item.first_date, { year: true }) })}</span>
+          <span className="text-xs text-muted-foreground">{t("ui.sectors.chart_since", { day: formatDay(item.first_date, { year: true }) })}</span>
         )}
       </div>
       {seen

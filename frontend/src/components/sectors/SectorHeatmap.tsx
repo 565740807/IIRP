@@ -94,7 +94,7 @@ export function SectorHeatmap({ items, period, onSelect, name, label }: {
           },
           rich: {
             name: { fontSize: 13, fontWeight: 600, lineHeight: 18 },
-            etf: { fontSize: 11, lineHeight: 16, opacity: 0.85 },
+            etf: { fontSize: CHART.font, lineHeight: 16, opacity: 0.85 },
             change: { fontSize: 15, fontWeight: 700, lineHeight: 22 },
           },
         },

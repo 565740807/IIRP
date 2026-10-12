@@ -1,5 +1,4 @@
 import { useTranslation } from "react-i18next";
-import { LoaderCircle } from "lucide-react";
 import { tm } from "@/i18n";
 import { directionClass, formatDay, formatSignedRatio } from "@/lib/format";
 import type { TickerPrices } from "@/lib/windows";
@@ -12,7 +11,7 @@ type Prices = Pick<TickerPrices, "status"> & { reason?: string | null };
 /**
  * One before- or after-n change: signed and colored (up or down color);
  * empty with the expected date when that session has not come yet, "intraday"
- * before today's close, a spinner while prices are being fetched.
+ * before today's close, a quiet dash while prices are being fetched.
  */
 export function WindowCell({
   change,
@@ -41,11 +40,15 @@ export function WindowCell({
         <TooltipContent>{t(`ui.window.${side}_tip`, { n, range })}</TooltipContent>
       </Tooltip>
     );
+  // Prices still on their way: a quiet dash (the reason on hover), never a column of spinners.
   if (ticker?.status === "fetching" || (!change && ticker?.status === "not_fetched"))
     return (
-      <span className={cn(base, "text-muted-foreground")} aria-label={t("ui.window.fetching")}>
-        <LoaderCircle className="size-3 motion-safe:animate-spin" />
-      </span>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span className={cn(base, "cursor-default text-muted-foreground/70")} aria-label={t("ui.window.fetching")}>—</span>
+        </TooltipTrigger>
+        <TooltipContent>{t("ui.window.fetching")}</TooltipContent>
+      </Tooltip>
     );
   const label = change?.status === "intraday" ? t("ui.window.intraday") : "—";
   const reason =
@@ -63,7 +66,7 @@ export function WindowCell({
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <span className={cn(base, "cursor-default text-muted-foreground", change?.status === "intraday" && "text-[11px] font-medium text-warn")}>{label}</span>
+        <span className={cn(base, "cursor-default text-muted-foreground", change?.status === "intraday" && "text-xs font-medium text-warn")}>{label}</span>
       </TooltipTrigger>
       <TooltipContent className="max-w-xs">{reason}</TooltipContent>
     </Tooltip>

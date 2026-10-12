@@ -18,7 +18,6 @@ import {
   type SeasonalKind,
   type TickerResult,
 } from "@/lib/analysis";
-import { formatDay } from "@/lib/format";
 import { rememberAnalysis } from "@/lib/navigation";
 import { validMonthDay } from "@/lib/sectorState";
 import { cn } from "@/lib/utils";
@@ -28,7 +27,10 @@ import { AnalysisLayout } from "@/components/analysis/AnalysisLayout";
 import { Conditions, DEFAULT_CONDITIONS, type ConditionValues } from "@/components/analysis/Conditions";
 import { BasisChoice, SectorBadge, SectorNote } from "@/components/analysis/References";
 import { BoxPlot } from "@/components/analysis/BoxPlot";
-import { CacheTimes } from "@/components/analysis/CacheTimes";
+import { SourceLine } from "@/components/analysis/CacheTimes";
+import { FoldSection } from "@/components/ui/fold";
+import { InfoTip } from "@/components/ui/info";
+import { PageContents } from "@/components/ui/page-contents";
 import { MonthGrid } from "@/components/analysis/MonthGrid";
 import { Progress } from "@/components/analysis/Progress";
 import { ConclusionCard, Method } from "@/components/analysis/Summary";
@@ -68,11 +70,12 @@ function conditionsOf(analysis: Analysis): ConditionValues {
   };
 }
 
-function Section({ title, actions, children, className }: { title: React.ReactNode; actions?: React.ReactNode; children: React.ReactNode; className?: string }) {
+function Section({ id, title, info, actions, children, className }: { id?: string; title: React.ReactNode; info?: React.ReactNode; actions?: React.ReactNode; children: React.ReactNode; className?: string }) {
   return (
-    <section className={cn("space-y-2", className)}>
+    <section id={id} className={cn("scroll-mt-28 space-y-2", className)}>
       <header className="flex flex-wrap items-center gap-2">
-        <h2 className="text-sm font-semibold">{title}</h2>
+        <h2 className="section-title">{title}</h2>
+        {info && <InfoTip>{info}</InfoTip>}
         {actions && <div className="ml-auto flex items-center gap-1.5">{actions}</div>}
       </header>
       {children}
@@ -90,21 +93,16 @@ function Empty({ kind }: { kind: SeasonalKind }) {
   );
 }
 
-/** Fetched/expiry times and the CSV exports that keep a result after 24 hours. */
+/** Where the prices came from (one line, details on request) and the CSV exports that keep a result after 24 hours. */
 function DataLine({ analysis, refreshing }: { analysis: Analysis; refreshing: boolean }) {
   const { t } = useTranslation();
   const fresh = analysis.freshness;
   return (
-    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
-      {refreshing || fresh?.expired ? (
-        <span className="inline-flex items-center gap-1.5">
-          <LoaderCircle className="size-3.5 motion-safe:animate-spin" />
-          {t("ui.analysis.expired_refetching")}
-        </span>
-      ) : <CacheTimes sources={fresh?.sources ?? []} expires={fresh?.price_expires_at} />}
-      {fresh?.research_cutoff && <span>{t("ui.analysis.cutoff", { day: formatDay(fresh.research_cutoff, { year: true }) })}</span>}
+    <div className="flex flex-wrap items-start gap-x-3 gap-y-1">
+      <SourceLine sources={fresh?.sources ?? []} expires={fresh?.price_expires_at} cutoff={fresh?.research_cutoff}
+        refreshing={refreshing || !!fresh?.expired} />
       {analysis.results.length > 0 && (
-        <span className="ml-auto inline-flex items-center gap-1">
+        <span className="ml-auto inline-flex items-center gap-1 text-xs text-muted-foreground">
           <span>{t("ui.analysis.export")}</span>
           {(["stats", "detail"] as const).map((table) => (
             <Button key={table} asChild size="sm" variant="outline" className="h-7 text-xs">
@@ -153,7 +151,8 @@ function TickerChips({ analysis, focused, onFocus }: { analysis: Analysis; focus
   );
 }
 
-function Results({ kind, analysis, month, setMonth, focused, setFocused, view, setView }: {
+function Results({ kind, analysis, month, setMonth, focused, setFocused, view, setView, chips }: {
+  chips: React.ReactNode;
   kind: SeasonalKind;
   analysis: Analysis;
   month: number;
@@ -177,31 +176,50 @@ function Results({ kind, analysis, month, setMonth, focused, setFocused, view, s
   const pairing = result.data.metadata.benchmark;
   const sector = result.data.metadata.sector;
   const sectorIncluded = result.data.metadata.sector_comparison_included;
+  const legend = t(benchmark ? "ui.analysis.chart_legend_benchmark" : "ui.analysis.chart_legend", { benchmark: benchmark ?? "" });
+  const contents = [
+    { id: "a-summary", label: t("ui.analysis.toc.summary") },
+    ...(kind === "monthly" ? [{ id: "a-heat", label: t("ui.analysis.toc.heat") }] : []),
+    { id: "a-box", label: t("ui.analysis.toc.box") },
+    { id: "a-candles", label: t("ui.analysis.toc.candles") },
+    { id: "a-ranking", label: t("ui.analysis.toc.ranking") },
+    { id: "a-details", label: t("ui.analysis.toc.details") },
+  ];
   return (
     <>
-      <SectorNote reference={sector} included={sectorIncluded} />
-      <BasisChoice value={basis} onChange={setBasis} benchmark={!!benchmark} sector={!!sector?.symbol && !!sectorIncluded} />
-      <ConclusionCard symbol={result.symbol} period={period} benchmark={benchmark} across={analysis.comparisons?.[key]} />
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+        {chips}
+        <SectorNote reference={sector} included={sectorIncluded} />
+        <span className="ml-auto"><BasisChoice value={basis} onChange={setBasis} benchmark={!!benchmark} sector={!!sector?.symbol && !!sectorIncluded} /></span>
+      </div>
+      <section id="a-summary" className="scroll-mt-28">
+        <ConclusionCard symbol={result.symbol} period={period} benchmark={benchmark} across={analysis.comparisons?.[key]} />
+      </section>
       {pairing && pairing.status !== "available" && (
         <p className="rounded-md border border-warn/30 bg-warn-soft px-3 py-2 text-xs text-warn">{t("ui.analysis.benchmark_pending", { name: pairing.symbol })}</p>
       )}
+      <PageContents items={contents} />
       {kind === "monthly" && (
-        <Section title={t("ui.analysis.grid_title", { ticker: result.symbol })}>
+        <Section id="a-heat" title={t("ui.analysis.grid_title", { ticker: result.symbol })}>
           <MonthGrid periods={result.data.periods} selected={month} onSelect={setMonth} />
-          <h2 className="text-sm font-semibold">{t("ui.analysis.box.months")}</h2>
-          <div className="rounded-lg border bg-card"><BoxPlot groups={result.data.periods.map((p) => ({ key: p.key, label: monthName(p.month!), stats: distribution(p.stats, basis), points: p.years.filter((y) => y.status === "complete" || (y.current && y.status === "in_progress")).map((y) => ({ id: `${p.key}:${y.year}`, label: y.current ? t("ui.analysis.box.current", { year: y.year }) : String(y.year), value: candleValue(y, basis), current: y.current })) }))} title={t("ui.analysis.box.months")} onGroup={(key) => setMonth(Number(key))} /></div>
-          <p className="text-xs text-muted-foreground">{t("ui.analysis.box.legend")}</p>
         </Section>
       )}
-      {kind === "interval" && <Section title={t("ui.analysis.box.tickers")}><div className="rounded-lg border bg-card"><BoxPlot groups={others.map((item) => ({ key: item.symbol, label: item.symbol, stats: distribution(item.period.stats, basis), points: item.period.years.filter((y) => y.status === "complete" || (y.current && y.status === "in_progress")).map((y) => ({ id: `${item.symbol}:${y.year}`, label: `${item.symbol} · ${y.current ? t("ui.analysis.box.current", { year: yearLabel(y, item.period.cross_year) }) : yearLabel(y, item.period.cross_year)}`, value: candleValue(y, basis), current: y.current })) }))} title={t("ui.analysis.box.tickers")} onGroup={setFocused} /></div><p className="text-xs text-muted-foreground">{t("ui.analysis.box.legend")}</p></Section>}
-      <Section title={t("ui.analysis.chart_title", { ticker: result.symbol, period: name })}>
+      <FoldSection id={`analysis.${kind}.box`} anchor="a-box" open title={kind === "monthly" ? t("ui.analysis.box.months") : t("ui.analysis.box.tickers")}
+        meta={<InfoTip>{t("ui.analysis.box.legend")}</InfoTip>}>
+        {kind === "monthly" ? (
+          <div className="rounded-lg border bg-card"><BoxPlot groups={result.data.periods.map((p) => ({ key: p.key, label: monthName(p.month!), stats: distribution(p.stats, basis), points: p.years.filter((y) => y.status === "complete" || (y.current && y.status === "in_progress")).map((y) => ({ id: `${p.key}:${y.year}`, label: y.current ? t("ui.analysis.box.current", { year: y.year }) : String(y.year), value: candleValue(y, basis), current: y.current })) }))} title={t("ui.analysis.box.months")} onGroup={(key) => setMonth(Number(key))} /></div>
+        ) : (
+          <div className="rounded-lg border bg-card"><BoxPlot groups={others.map((item) => ({ key: item.symbol, label: item.symbol, stats: distribution(item.period.stats, basis), points: item.period.years.filter((y) => y.status === "complete" || (y.current && y.status === "in_progress")).map((y) => ({ id: `${item.symbol}:${y.year}`, label: `${item.symbol} · ${y.current ? t("ui.analysis.box.current", { year: yearLabel(y, item.period.cross_year) }) : yearLabel(y, item.period.cross_year)}`, value: candleValue(y, basis), current: y.current })) }))} title={t("ui.analysis.box.tickers")} onGroup={setFocused} /></div>
+        )}
+      </FoldSection>
+      <Section id="a-candles" title={t("ui.analysis.chart_title", { ticker: result.symbol, period: name })} info={legend}>
         <div className="rounded-lg border bg-card px-2 pt-2">
           <YearCandles candles={period.years} cross={period.cross_year} benchmark={benchmark} sector={sector?.symbol} title={`${result.symbol} ${name}`} />
-          {sector?.symbol && <p className="px-2 pb-1 text-xs text-muted-foreground">{t("ui.analysis.sector.chart_legend", { benchmark: benchmark ?? "", sector: sector.symbol })}</p>}
-          <p className="px-2 pb-2 text-xs text-muted-foreground">{t(benchmark ? "ui.analysis.chart_legend_benchmark" : "ui.analysis.chart_legend", { benchmark: benchmark ?? "" })}</p>
+          {sector?.symbol && <p className="px-2 pb-2 text-xs text-muted-foreground">{t("ui.analysis.sector.chart_legend", { benchmark: benchmark ?? "", sector: sector.symbol })}</p>}
         </div>
       </Section>
       <Section
+        id="a-ranking"
         title={kind === "monthly" && view === "months" ? t("ui.analysis.rank_months", { ticker: result.symbol }) : t("ui.analysis.rank_tickers", { period: name })}
         actions={
           kind === "monthly" && multiple ? (
@@ -222,9 +240,9 @@ function Results({ kind, analysis, month, setMonth, focused, setFocused, view, s
           <TickerTable rows={others} basis={basis} sector={!!sectorIncluded} benchmark={benchmark} selected={result.symbol} onSelect={setFocused} />
         )}
       </Section>
-      <Section title={t("ui.analysis.detail_title", { ticker: result.symbol, period: name })}>
+      <FoldSection id={`analysis.${kind}.details`} anchor="a-details" title={t("ui.analysis.detail_title", { ticker: result.symbol, period: name })}>
         <DetailTable period={period} sector={sector?.symbol} benchmark={benchmark} />
-      </Section>
+      </FoldSection>
     </>
   );
 }
@@ -301,7 +319,7 @@ export function SeasonalPage({ kind }: { kind: SeasonalKind }) {
       {analysis && (
         <>
           <div className="space-y-1">
-            <h1 className="text-lg font-semibold tracking-tight">
+            <h1 className="page-title">
               {t(`ui.analysis.heading.${kind}`)}
               <span className="ml-2 text-base font-normal text-muted-foreground">{(analysis.params.tickers as string[]).join(", ")}</span>
             </h1>
@@ -309,9 +327,9 @@ export function SeasonalPage({ kind }: { kind: SeasonalKind }) {
           </div>
           {refresh.error && <p className="text-sm text-destructive">{refresh.error.message}</p>}
           <Progress items={analysis.progress ?? []} onRetry={() => refresh.mutate(true)} retrying={refresh.isPending} />
-          <TickerChips analysis={analysis} focused={focused} onFocus={(symbol) => update({ t: symbol })} />
           {analysis.results.length > 0 ? (
             <Results key={analysis.id}
+              chips={<TickerChips analysis={analysis} focused={focused} onFocus={(symbol) => update({ t: symbol })} />}
               kind={kind}
               analysis={analysis}
               month={month}

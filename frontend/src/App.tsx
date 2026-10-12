@@ -13,8 +13,9 @@ import {
 } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { MotionConfig } from "motion/react";
-import { FileSearch, LoaderCircle } from "lucide-react";
+import { FileSearch } from "lucide-react";
 import { AppShell } from "./components/shell/AppShell";
+import { BlockSkeleton } from "./components/ui/states";
 import { RefreshProvider } from "./lib/refresh";
 import { FEATURES } from "./features";
 import { HomePage } from "./pages/Home";
@@ -153,9 +154,11 @@ function Workbench() {
     <AppShell>
       <Suspense
         fallback={
-          <div className="flex items-center gap-2 py-10 text-sm text-muted-foreground" role="status">
-            <LoaderCircle className="size-4 motion-safe:animate-spin" />
-            {t("ui.loading")}
+          // Page code still loading: placeholders in the page's usual shape, no spinner.
+          <div className="space-y-4">
+            <BlockSkeleton height="h-10" className="max-w-md" />
+            <BlockSkeleton height="h-72" />
+            <BlockSkeleton height="h-48" />
           </div>
         }
       >

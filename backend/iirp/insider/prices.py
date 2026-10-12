@@ -176,7 +176,35 @@ def price_comparison(price, quote=None, *, estimated=False, low=None, high=None,
             "amount": money_text(amount), "amount_estimated": amount_estimated,
             "reported_amount": money_text(reported_amount),
             "price_check": check["status"],
-            "mismatch_ratio": _fixed(check["ratio"], Decimal(1)) if mismatch else None}
+            "mismatch_ratio": _fixed(check["ratio"], Decimal(1)) if mismatch else None,
+            "foreign_listing": False}
+
+
+# A security title naming the home-market share rather than the US listing, so the
+# filed price may be per local share (or converted) while the current price is the
+# US listing's: an exchange-suffixed ticker in brackets ("Common Shares (2330.TW)",
+# "Ordinary Participation Certificates (CEMEX.CPO)"), a non-US depositary receipt
+# ("Brazilian Depositary Receipts"), or ordinary shares that a depositary share
+# represents. American depositary shares themselves trade as the US listing and
+# are not marked. Only shown as a note; prices and checks are unchanged.
+FOREIGN_TITLE = re.compile(
+    r"\(\s*[0-9A-Z]{1,8}\.[A-Z]{1,4}\s*\)|brazilian depositary|represented by (?:american )?depositary|represented by ads",
+    re.IGNORECASE)
+
+
+def foreign_listing(title):
+    return bool(title and FOREIGN_TITLE.search(title))
+
+
+def foreign_issuers(s, event_ids):
+    """Issuers among these transactions whose filed security is a foreign listing."""
+    from iirp.models import TransactionEvent
+
+    if not event_ids:
+        return set()
+    rows = s.execute(select(TransactionEvent.issuer_id, TransactionEvent.data["security_title"].astext)
+                     .where(TransactionEvent.id.in_(list(event_ids))))
+    return {issuer for issuer, title in rows if foreign_listing(title)}
 
 
 def effective_price(row, estimates):
@@ -211,11 +239,13 @@ def feed_prices(s, revision_ids):
                           for _, row in pairs if row["id"] in facts])
     estimates = estimate_prices(s, (), bars)
     buckets = {}
+    issuer_of = {}
     for revision, row in pairs:
         event = facts.get(row["id"])
         if event is None:
             continue
         bucket = buckets.setdefault(revision.id + ":" + _trader_key(row), [])
+        issuer_of[revision.id + ":" + _trader_key(row)] = revision.issuer_id
         ticker = tickers[id(row)]
         data = {"ticker": ticker, "transaction_date": event.transaction_date,
                 "reported_price": event.reported_price, "price_range_low": event.price_range_low,
@@ -226,6 +256,7 @@ def feed_prices(s, revision_ids):
         eligible = (row.get("status") == "CURRENT" and not row.get("is_amendment_update")
                     and not row.get("date_anomaly"))
         bucket.append((price, event.trade_shares, estimated, low, high, symbol, eligible, check))
+    foreign = foreign_issuers(s, facts)
     output = {}
     for key, trades in buckets.items():
         known = [(price, shares) for price, shares, *_ in trades
@@ -255,4 +286,5 @@ def feed_prices(s, revision_ids):
                                        amount=amount, amount_estimated=estimated,
                                        reported_amount=reported,
                                        check=combined_check(item[7] for item in trades))
+        output[key]["foreign_listing"] = issuer_of[key] in foreign
     return {"items": output, "price_mismatch_ratio": mismatch_ratio_text()}

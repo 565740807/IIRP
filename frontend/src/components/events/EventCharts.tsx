@@ -116,8 +116,8 @@ export function ReactionCandles({ result, benchmark, title, selected, onSelect, 
           return lines.join("<br/>");
         },
       },
-      xAxis: { type: "category", data: labels, axisLine: { lineStyle: { color: AXIS } }, axisTick: { show: false }, axisLabel: { color: MUTED, fontSize: 11, hideOverlap: true } },
-      yAxis: { type: "value", position: "right", splitLine: { lineStyle: { color: GRID } }, axisLabel: { color: MUTED, fontSize: 11, formatter: percentAxis } },
+      xAxis: { type: "category", data: labels, axisLine: { lineStyle: { color: AXIS } }, axisTick: { show: false }, axisLabel: { color: MUTED, fontSize: CHART.font, hideOverlap: true } },
+      yAxis: { type: "value", position: "right", splitLine: { lineStyle: { color: GRID } }, axisLabel: { color: MUTED, fontSize: CHART.font, formatter: percentAxis } },
       series: [
         {
           type: "candlestick",
@@ -181,9 +181,9 @@ export function PathChart({ result, benchmark, showBenchmark, showSector, title,
         boundaryGap: false,
         axisLine: { lineStyle: { color: AXIS } },
         axisTick: { show: false },
-        axisLabel: { color: MUTED, fontSize: 11, hideOverlap: true },
+        axisLabel: { color: MUTED, fontSize: CHART.font, hideOverlap: true },
       },
-      yAxis: { type: "value", position: "right", splitLine: { lineStyle: { color: GRID } }, axisLabel: { color: MUTED, fontSize: 11, formatter: percentAxis } },
+      yAxis: { type: "value", position: "right", splitLine: { lineStyle: { color: GRID } }, axisLabel: { color: MUTED, fontSize: CHART.font, formatter: percentAxis } },
       series: [
         ...result.rows.map((row) => ({
           type: "line" as const, id: row.id, name: row.name,
@@ -300,9 +300,9 @@ export function EventKline({ row, height = 220 }: { row: EventRow; height?: numb
         data: candles.map((candle) => `${offsetLabel(candle.offset)}\n${formatDay(candle.date, { year: false })}`),
         axisLine: { lineStyle: { color: AXIS } },
         axisTick: { show: false },
-        axisLabel: { color: MUTED, fontSize: 10, hideOverlap: true },
+        axisLabel: { color: MUTED, fontSize: CHART.font, hideOverlap: true },
       },
-      yAxis: { type: "value", scale: true, position: "right", splitLine: { lineStyle: { color: GRID } }, axisLabel: { color: MUTED, fontSize: 11 } },
+      yAxis: { type: "value", scale: true, position: "right", splitLine: { lineStyle: { color: GRID } }, axisLabel: { color: MUTED, fontSize: CHART.font } },
       series: [
         {
           type: "candlestick",

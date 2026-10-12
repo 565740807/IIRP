@@ -40,7 +40,7 @@ export function BoxPlot({ groups, title, selected, onSelect, onGroup, height = 2
         const s = item.seriesName === benchmarkLabel ? g.benchmark! : g.stats;
         return `${escapeHtml(g.label)} · ${escapeHtml(item.seriesName)}<br/>${t("ui.analysis.col.median")} ${pct(s.median, 2)}<br/>${t("ui.analysis.col.quartiles")} ${pct(s.q25, 2)} – ${pct(s.q75, 2)}<br/>${t("ui.analysis.box.whiskers")} ${pct(s.whisker_low, 2)} – ${pct(s.whisker_high, 2)}<br/>N ${s.n}`;
       } },
-      xAxis: { type: "category", data: groups.map((g) => g.label), show: !compact, axisTick: { show: false }, axisLabel: { fontSize: 11, hideOverlap: true } },
+      xAxis: { type: "category", data: groups.map((g) => g.label), show: !compact, axisTick: { show: false }, axisLabel: { fontSize: CHART.font, hideOverlap: true } },
       yAxis: { type: "value", position: "right", show: !compact, axisLabel: { formatter: (v: number) => pct(v) }, splitLine: { lineStyle: { color: CHART.grid } } },
       series: [
         { type: "boxplot", name: t("ui.analysis.box.sample"), data: groups.map((g) => ({ value: box(g.stats), itemStyle: { color: CHART.box, borderColor: CHART.ink, borderWidth: 1.5 } })), boxWidth: compact ? [12, 24] : [16, 45] },

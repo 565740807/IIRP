@@ -101,7 +101,7 @@ export function SectorTable({ items, historyYears, sort, desc, setSort, selected
             {getValue()}
             <ChevronRight className="size-3.5 text-muted-foreground group-hover:text-foreground" aria-hidden/>
           </button>
-          <span className="text-[11px] text-muted-foreground">{t("ui.sectors.drill", { count: row.original.groups })}</span>
+          <span className="text-xs text-muted-foreground">{t("ui.sectors.drill", { count: row.original.groups })}</span>
           <SinceNote item={row.original} years={historyYears}/>
         </span>
       ),
@@ -112,7 +112,7 @@ export function SectorTable({ items, historyYears, sort, desc, setSort, selected
       header: () => (
         <span className="flex flex-col items-end leading-tight">
           <span>{t(`ui.sectors.period.${period}`)}</span>
-          {starts[period] && <span className="text-[10px] font-normal text-muted-foreground">
+          {starts[period] && <span className="text-xs font-normal text-muted-foreground">
             {t("ui.sectors.versus_close", { day: formatDay(starts[period]) })}
           </span>}
         </span>

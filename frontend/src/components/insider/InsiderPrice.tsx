@@ -1,6 +1,6 @@
 import { createContext, useContext } from "react";
 import { useTranslation } from "react-i18next";
-import { TriangleAlert } from "lucide-react";
+import { Globe, TriangleAlert } from "lucide-react";
 import { formatCompact, formatDay, formatPrice, formatSignedPercent, directionClass } from "@/lib/format";
 import type { PriceComparison } from "@/lib/insiderOverview";
 import { cn } from "@/lib/utils";
@@ -19,10 +19,10 @@ function PriceCheckTag({ price, compact = false }: { price?: PriceComparison | n
   if (price.price_check === "mismatch") {
     const label = t("ui.overview.price_check.mismatch", { ratio: formatCompact(price.mismatch_ratio) });
     if (compact) return <TriangleAlert className="size-3 shrink-0 self-center text-warn" aria-label={label}/>;
-    return <span className="mr-1 rounded bg-secondary px-1 text-[10px] text-warn">{label}</span>;
+    return <span className="mr-1 rounded bg-secondary px-1 text-xs text-warn">{label}</span>;
   }
   if (price.price_check === "unchecked" && !compact) {
-    return <span className="mr-1 text-[10px] text-muted-foreground">
+    return <span className="mr-1 text-xs text-muted-foreground">
       {t("ui.overview.price_check.unchecked")}
     </span>;
   }
@@ -56,11 +56,11 @@ export function TradePrice({ price, average = false, compact = false }: { price?
       {compact
         ? <span className="flex min-w-0 cursor-default items-baseline justify-end gap-0.5 whitespace-nowrap tabular-nums">
           <PriceCheckTag price={price} compact/>
-          <span className={cn("min-w-0 truncate", text.length > 8 && "text-[10px]")}>{text}</span>
+          <span className="min-w-0 truncate">{text}</span>
         </span>
         : <span className="cursor-default whitespace-nowrap tabular-nums">
           <PriceCheckTag price={price}/>
-          {price?.estimated && <span className="mr-1 text-[10px] text-muted-foreground">{t("ui.overview.estimated")}</span>}
+          {price?.estimated && <span className="mr-1 text-xs text-muted-foreground">{t("ui.overview.estimated")}</span>}
           {text}
         </span>}
     </TooltipTrigger>
@@ -74,19 +74,24 @@ export function TradePrice({ price, average = false, compact = false }: { price?
   </Tooltip>;
 }
 
-export function CurrentPrice({ price, compact = false }: { price?: PriceComparison | null; compact?: boolean }) {
+/** The current price and its change from the trade price; ``relation`` adds the higher / near / lower tag. */
+export function CurrentPrice({ price, compact = false, relation = true }: { price?: PriceComparison | null; compact?: boolean; relation?: boolean }) {
   const { t } = useTranslation();
   const suspect = price?.price_check === "mismatch";
   return <Tooltip>
     <TooltipTrigger asChild>
-      <span className={cn("inline-flex cursor-default items-baseline justify-end gap-1 whitespace-nowrap tabular-nums", compact ? "text-[11px]" : "text-xs")}>
+      <span className={cn("inline-flex cursor-default items-baseline justify-end gap-1 whitespace-nowrap tabular-nums", compact && "text-xs")}>
         <span>{formatPrice(price?.current_price)}</span>
         {/* A suspect reported price makes the comparison meaningless. */}
         {!suspect && price?.change_percent != null && <span className={directionClass(price.change_percent)}>{formatSignedPercent(price.change_percent)}</span>}
-        {!suspect && price?.relation && <span className="rounded bg-secondary px-1 text-[10px] text-muted-foreground">{t(`ui.overview.relation.${price.relation}`)}</span>}
+        {!suspect && relation && price?.relation && <span className="rounded bg-secondary px-1 text-xs text-muted-foreground">{t(`ui.overview.relation.${price.relation}`)}</span>}
+        {price?.foreign_listing && (compact
+          ? <Globe className="size-3 shrink-0 self-center text-warn" aria-label={t("ui.overview.foreign_note")}/>
+          : <span className="rounded border border-warn/40 px-1 text-xs text-warn">{t("ui.overview.foreign_tag")}</span>)}
       </span>
     </TooltipTrigger>
     <TooltipContent className="max-w-xs flex-col items-start">
+      {price?.foreign_listing && <p className="font-medium">{t("ui.overview.foreign_note")}</p>}
       <p>{t(suspect ? "ui.overview.comparison_suspect" : "ui.overview.comparison_rule")}</p>
       {price?.estimated && <p>{t("ui.overview.comparison_estimated")}</p>}
       {price?.quote_status && <p>{t(`ui.overview.quote_status.${price.quote_status}`, { day: formatDay(price.quote_date, { year: true }) })}</p>}
@@ -100,7 +105,7 @@ export function CurrentQuoteStatus({ prices }: { prices: readonly PriceCompariso
   const closed = [...new Set(prices.filter((price) => price.quote_status === "closed").map((price) => price.quote_date).filter((day): day is string => !!day))].sort();
   const delayed = [...new Set(prices.filter((price) => price.quote_status === "delayed").map((price) => price.quote_date).filter((day): day is string => !!day))].sort();
   return <>
-    {closed.length > 0 && <span className="text-[11px] text-muted-foreground">{t("ui.overview.quote_status.closed", { day: closed.map((day) => formatDay(day, { year: true })).join(" · ") })}</span>}
-    {delayed.length > 0 && <span className="text-[11px] text-warn">{t("ui.overview.quote_status.delayed", { day: delayed.map((day) => formatDay(day, { year: true })).join(" · ") })}</span>}
+    {closed.length > 0 && <span className="text-xs text-muted-foreground">{t("ui.overview.quote_status.closed", { day: closed.map((day) => formatDay(day, { year: true })).join(" · ") })}</span>}
+    {delayed.length > 0 && <span className="text-xs text-warn">{t("ui.overview.quote_status.delayed", { day: delayed.map((day) => formatDay(day, { year: true })).join(" · ") })}</span>}
   </>;
 }

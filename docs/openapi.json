@@ -4421,7 +4421,7 @@
             "maximum": 30.0,
             "minimum": 1.0,
             "title": "Historical Years",
-            "default": 8
+            "default": 10
           },
           "current_year": {
             "anyOf": [
@@ -5095,6 +5095,11 @@
           "expires_at": {
             "type": "string",
             "title": "Expires At"
+          },
+          "local": {
+            "type": "boolean",
+            "title": "Local",
+            "default": false
           }
         },
         "type": "object",
@@ -12118,6 +12123,7 @@
               {
                 "type": "string",
                 "enum": [
+                  "long",
                   "history",
                   "cache",
                   "quote"
@@ -12188,7 +12194,7 @@
           "days"
         ],
         "title": "MarketChart",
-        "description": "Where the daily bars come from: ``history`` (the six-month fetch, 24 hours),\n``cache`` (a cached price range), ``quote`` (the quote's last 40 days) or none."
+        "description": "Where the daily bars come from: ``long`` (the local long-term daily prices,\nkept and updated after each session), ``history`` (the six-month fetch, 24 hours),\n``cache`` (a cached price range), ``quote`` (the quote's last 40 days) or none."
       },
       "MarketDetailOutput": {
         "properties": {
@@ -13211,6 +13217,11 @@
               }
             ],
             "title": "Mismatch Ratio"
+          },
+          "foreign_listing": {
+            "type": "boolean",
+            "title": "Foreign Listing",
+            "default": false
           }
         },
         "type": "object",
@@ -13228,7 +13239,8 @@
           "amount_estimated",
           "reported_amount",
           "price_check",
-          "mismatch_ratio"
+          "mismatch_ratio",
+          "foreign_listing"
         ],
         "title": "PriceComparison"
       },

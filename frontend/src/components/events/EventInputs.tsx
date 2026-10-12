@@ -7,6 +7,7 @@ import { client, unwrap, type Schemas } from "@/lib/api-client";
 import { SESSIONS, eventsJson, fiscalLabel, sessionLabel, useContextWindow, useEventSets, type EventItem, type EventKind } from "@/lib/events";
 import { formatDay, formatLocal } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { Explain, InfoTip } from "@/components/ui/info";
 import { ReferenceChoice } from "@/components/analysis/References";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -139,14 +140,13 @@ function PromptStep({ kind, open, span }: { kind: EventKind; open: boolean; span
           {t("ui.events.prompt.view_edit")}
         </Button>
       </div>
-      <div className="flex gap-1.5 rounded-md bg-muted/50 p-2 text-xs text-muted-foreground">
-        <Info className="mt-0.5 size-3.5 shrink-0" />
-        <ol className="list-decimal space-y-0.5 pl-3.5">
+      <Explain summary={<span className="inline-flex items-center gap-1"><Info className="size-3.5 shrink-0" />{t("ui.events.prompt.two_step_1")}</span>}>
+        <ol className="list-decimal space-y-0.5 pl-4">
           <li>{t("ui.events.prompt.two_step_1")}</li>
           <li>{t("ui.events.prompt.two_step_2")}</li>
           <li>{t("ui.events.prompt.two_step_3")}</li>
         </ol>
-      </div>
+      </Explain>
       <p className="text-xs text-muted-foreground">
         {prompt.data?.is_default ? t("ui.events.prompt.default") : t("ui.events.prompt.custom", { time: formatLocal(prompt.data?.updated_at) })}
       </p>
@@ -253,7 +253,7 @@ function PreviewDialog({
                       {event.name}
                       {kind === "earnings" && <span className="ml-1 text-xs text-muted-foreground">{fiscalLabel(event)}</span>}
                       {event.uncertain && (
-                        <span className="ml-1.5 inline-flex items-center gap-0.5 rounded border border-doubt/40 px-1 text-[11px] font-medium text-doubt">
+                        <span className="ml-1.5 inline-flex items-center gap-0.5 rounded border border-doubt/40 px-1 text-xs font-medium text-doubt">
                           <TriangleAlert className="size-3" />
                           {t("ui.events.preview.uncertain")}
                         </span>
@@ -414,6 +414,7 @@ function Choices({ n, setN, presets, defaultN, min, max, benchmark, setBenchmark
       <div className="space-y-1.5">
         <div className="flex items-center gap-1.5">
           <Label>{t("ui.events.n_label")}</Label>
+          <InfoTip>{t("ui.events.n_hint", { n })}</InfoTip>
           {busy && <LoaderCircle className="size-3 text-muted-foreground motion-safe:animate-spin" />}
           {n !== defaultN && (
             <button type="button" onClick={() => setN(null)} className="ml-auto text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline">
@@ -441,7 +442,6 @@ function Choices({ n, setN, presets, defaultN, min, max, benchmark, setBenchmark
             className={cn(input, "w-14 text-center tabular-nums", custom && "border-primary font-medium")}
           />
         </div>
-        <p className="text-xs text-muted-foreground">{t("ui.events.n_hint", { n })}</p>
       </div>
       <ReferenceChoice value={benchmark} onChange={setBenchmark} />
       <ReferenceChoice value={sectorBenchmark} onChange={setSectorBenchmark} sector />
@@ -516,7 +516,7 @@ function SavedSets({ kind, n, benchmark, sectorBenchmark, current, onAnalysis }:
                 </form>
               ) : (
                 <button type="button" onClick={() => setSelected(active ? null : item.id)} className="block w-full px-2 py-1.5 text-left">
-                  <span className="block truncate text-sm font-medium">{item.title}</span>
+                  <span className="block truncate text-sm font-medium" title={item.title}>{item.title}</span>
                   <span className="block truncate text-xs text-muted-foreground">
                     {t("ui.events.saved.meta", { tickers: item.tickers.join(", "), count: item.event_count, first: item.first_date?.slice(0, 4), last: item.last_date?.slice(0, 4) })}
                   </span>

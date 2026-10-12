@@ -233,6 +233,24 @@ def test_market_detail_shows_six_months_and_prefers_the_history_fetch(security_i
         s.get(MarketQuote, "SYNTH").data = refreshed
     result = market_detail("SYNTH")
     assert result["chart"]["source"] == "history" and len(result["bars"]) == 120
+    # A symbol kept in the long-term daily prices reads them first: no expiry, nothing to fetch.
+    from iirp.models import LongPriceBar, LongPriceSeries
+    with session() as s, s.begin():
+        series = LongPriceSeries(symbol="SYNTH", security_id=security_id, retain_from=days[0], start_date=days[0],
+                                 end_date=days[-1], complete_through=days[-1], fetched_at=datetime.now(timezone.utc),
+                                 needs_full=False, details={})
+        s.add(series)
+        s.flush()
+        for i, day in enumerate(days):
+            s.add(LongPriceBar(cache_id=series.id, session_date=day, open=Decimal(5), high=Decimal(6), low=Decimal(4),
+                               close=Decimal(5 + i), volume=1, dividends=0, splits=0, status="VALID"))
+    result = market_detail("SYNTH")
+    assert result["chart"]["source"] == "long" and result["chart"]["expires_at"] is None
+    assert result["history"]["status"] == "fresh" and Decimal(result["bars"][-1]["close"]) == 5 + len(days) - 1
+    assert result["bars"][0]["date"] >= first
+    with session() as s, s.begin():
+        s.get(LongPriceSeries, series.id).active = False
+    assert market_detail("SYNTH")["chart"]["source"] == "history"
     with pytest.raises(LookupError):
         market_detail("NOPE")
 

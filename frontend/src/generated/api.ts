@@ -1430,7 +1430,7 @@ export interface components {
             tickers: string[];
             /**
              * Historical Years
-             * @default 8
+             * @default 10
              */
             historical_years: number;
             /** Current Year */
@@ -1649,6 +1649,11 @@ export interface components {
             fetched_at: string;
             /** Expires At */
             expires_at: string;
+            /**
+             * Local
+             * @default false
+             */
+            local: boolean;
         };
         /**
          * Candle
@@ -3836,12 +3841,13 @@ export interface components {
         };
         /**
          * MarketChart
-         * @description Where the daily bars come from: ``history`` (the six-month fetch, 24 hours),
+         * @description Where the daily bars come from: ``long`` (the local long-term daily prices,
+         *     kept and updated after each session), ``history`` (the six-month fetch, 24 hours),
          *     ``cache`` (a cached price range), ``quote`` (the quote's last 40 days) or none.
          */
         MarketChart: {
             /** Source */
-            source: ("history" | "cache" | "quote") | null;
+            source: ("long" | "history" | "cache" | "quote") | null;
             /** Start */
             start: string | null;
             /** End */
@@ -4181,6 +4187,11 @@ export interface components {
             price_check: "ok" | "mismatch" | "unchecked" | "not_applicable";
             /** Mismatch Ratio */
             mismatch_ratio: string | null;
+            /**
+             * Foreign Listing
+             * @default false
+             */
+            foreign_listing: boolean;
         };
         /**
          * PriceContext

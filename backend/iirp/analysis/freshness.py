@@ -18,6 +18,9 @@ from iirp.models import (
     now,
 )
 
+# Provider of a price cache rebuilt from the local long-term daily prices.
+LOCAL = "local_long_prices"
+
 
 def freshness(s, request, items=()):
     """When the prices behind this research were fetched and when they expire.
@@ -50,7 +53,8 @@ def freshness(s, request, items=()):
     caches = s.execute(select(PriceCache, Security.symbol).join(Security, Security.id == PriceCache.security_id)
                        .where(PriceCache.id.in_(cache_ids)).order_by(PriceCache.expires_at, Security.symbol)).all()
     sources = [{"symbol": symbol, "fetched_at": cache.fetched_at.isoformat(),
-                "expires_at": cache.expires_at.isoformat()} for cache, symbol in caches]
+                "expires_at": cache.expires_at.isoformat(), "local": cache.provider == LOCAL}
+               for cache, symbol in caches]
     frozen = [source for item in inputs for source in item.get("price_sources", [])]
     missing = cache_ids - {cache.id for cache, _ in caches}
     # Older results did not freeze input times. Finished fetches retain the

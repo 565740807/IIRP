@@ -144,7 +144,7 @@ export function EventsPage({ kind }: { kind: EventKind }) {
       {analysis && (
         <>
           <div className="space-y-1">
-            <h1 className="text-lg font-semibold tracking-tight">
+            <h1 className="page-title">
               {analysis.title}
               <span className="ml-2 text-base font-normal text-muted-foreground">
                 {t(analysis.benchmark ? "ui.events.heading_meta" : "ui.events.heading_meta_none", { count: analysis.event_count, n: analysis.n, benchmark: benchmarkName(analysis.benchmark) })}
@@ -171,9 +171,9 @@ export function EventsPage({ kind }: { kind: EventKind }) {
             </span>
             {query.isFetching && <LoaderCircle className="size-3 motion-safe:animate-spin" />}
           </div>
-          <TickerChips analysis={analysis} focused={focused} onFocus={(symbol) => update({ t: symbol })} />
           {ready ? (
-            <EventResults key={`${analysis.id}:${JSON.stringify(filters)}`} analysis={analysis} kind={kind} focused={focused} onFocus={(symbol) => update({ t: symbol })} />
+            <EventResults key={`${analysis.id}:${JSON.stringify(filters)}`} analysis={analysis} kind={kind} focused={focused} onFocus={(symbol) => update({ t: symbol })}
+              chips={<TickerChips analysis={analysis} focused={focused} onFocus={(symbol) => update({ t: symbol })} />} />
           ) : (
             !analysis.progress.some((item) => item.step !== "failed") && (
               <p className="rounded-md border bg-card px-3 py-2 text-sm text-muted-foreground">

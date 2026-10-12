@@ -29,7 +29,7 @@ function SectorTile({ item, count }: { item: SectorItem; count: number }) {
             flash === "down" && "bg-down-flash duration-150",
           )}
         >
-          <span className="flex min-w-0 items-baseline gap-1 text-[11px] text-muted-foreground">
+          <span className="flex min-w-0 items-baseline gap-1 text-xs text-muted-foreground">
             {rank != null && <span className="shrink-0 font-semibold tabular-nums text-foreground/70">{rank}</span>}
             <span className="truncate">{t(`ui.sectors.short.${item.id}`)}</span>
           </span>
@@ -80,7 +80,7 @@ export function TodayBasis({ data }: { data: { items: readonly { periods?: Secto
  */
 export function SectorStrip() {
   const { t } = useTranslation();
-  const { query, error } = useSectors();
+  const { query } = useSectors();
   const data = query.data;
   return (
     <section aria-label={t("ui.sectors.strip_label")} className="mt-2">
@@ -94,11 +94,20 @@ export function SectorStrip() {
             ))
           : data.items.map((item) => <SectorTile key={item.id} item={item} count={data.items.length} />)}
       </div>
-      <p className="flex flex-wrap items-center gap-x-2 px-1 pt-1.5 text-xs text-muted-foreground" role="status">
-        <Link to="/sectors" className="font-medium text-foreground hover:underline">{t("ui.sectors.strip_title")}</Link>
-        {data && <TodayBasis data={data} />}
-        {error && <span className="text-destructive">{error.message}</span>}
-      </p>
     </section>
+  );
+}
+
+/** The sector strip's basis for the shared status line under the home strips. */
+export function SectorBasis() {
+  const { t } = useTranslation();
+  const { query, error } = useSectors();
+  const data = query.data;
+  return (
+    <span className="inline-flex flex-wrap items-center gap-x-2">
+      <Link to="/sectors" className="font-medium text-foreground hover:underline">{t("ui.sectors.strip_title")}</Link>
+      {data && <TodayBasis data={data} />}
+      {error && <span className="text-destructive">{error.message}</span>}
+    </span>
   );
 }

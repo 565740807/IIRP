@@ -18,7 +18,7 @@ export function CoverageBadge({ coverage, same }: { coverage: Coverage; same?: b
     <span className="inline-flex flex-wrap items-center gap-1">
       <Tooltip>
         <TooltipTrigger asChild>
-          <span className={cn("cursor-default rounded border px-1.5 py-px text-[11px] whitespace-nowrap",
+          <span className={cn("cursor-default rounded border px-1.5 py-px text-xs whitespace-nowrap",
             coverage === "complete" && "border-foreground/30 text-foreground",
             coverage === "partial" && "border-foreground/20 text-muted-foreground",
             coverage === "reference" && "border-dashed border-foreground/25 text-muted-foreground",
@@ -28,7 +28,7 @@ export function CoverageBadge({ coverage, same }: { coverage: Coverage; same?: b
         </TooltipTrigger>
         <TooltipContent className="max-w-xs">{t(`ui.sectors.coverage_rule.${coverage}`)}</TooltipContent>
       </Tooltip>
-      {same && <span className="rounded bg-secondary px-1.5 py-px text-[11px] whitespace-nowrap text-muted-foreground">{t("ui.sectors.same_as_sector")}</span>}
+      {same && <span className="rounded bg-secondary px-1.5 py-px text-xs whitespace-nowrap text-muted-foreground">{t("ui.sectors.same_as_sector")}</span>}
     </span>
   );
 }
@@ -71,8 +71,12 @@ function ReferenceRow({ row, group, selected, toggle, historyYears }: {
           <SinceNote item={row} years={historyYears}/>
         </span>
       </td>
-      <td className="px-2 py-1.5"><span className="inline-flex items-center gap-1 font-mono">{row.etf}<FetchMark fetch={row.fetch}/></span></td>
-      <td className="px-2 py-1.5"><CoverageBadge coverage="reference"/></td>
+      <td className="px-2 py-1.5">
+        <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
+          <span className="inline-flex items-center gap-1 font-mono">{row.etf}<FetchMark fetch={row.fetch}/></span>
+          <CoverageBadge coverage="reference"/>
+        </span>
+      </td>
       {PERIODS.map((period) => (
         <td key={period} className="px-2 py-1.5 text-right opacity-80"><ChangeCell change={periodChange(row, period)} period={period}/></td>
       ))}
@@ -123,12 +127,11 @@ export function SectorGroupTable({ items, historyYears, sort, desc, setSort, sel
           <tr className="border-b">
             <th className="w-8 py-2 pl-3"><span className="sr-only">{t("ui.sectors.select")}</span></th>
             {header("name", t("ui.sectors.column.group"))}
-            {header("etf", t("ui.sectors.column.primary"))}
-            <th className="px-2 py-2 text-left text-xs font-medium whitespace-nowrap text-muted-foreground">{t("ui.sectors.column.coverage")}</th>
+            {header("etf", `${t("ui.sectors.column.primary")} · ${t("ui.sectors.column.coverage")}`)}
             {PERIODS.map((period) => <Fragment key={period}>{header(period, (
               <span className="flex flex-col items-end leading-tight">
                 <span>{t(`ui.sectors.period.${period}`)}</span>
-                {starts[period] && <span className="text-[10px] font-normal text-muted-foreground">{t("ui.sectors.versus_close", { day: formatDay(starts[period]) })}</span>}
+                {starts[period] && <span className="text-xs font-normal text-muted-foreground">{t("ui.sectors.versus_close", { day: formatDay(starts[period]) })}</span>}
               </span>
             ), true)}</Fragment>)}
           </tr>
@@ -146,23 +149,26 @@ export function SectorGroupTable({ items, historyYears, sort, desc, setSort, sel
                   <td className="px-2 py-2">
                     <span className="flex flex-col">
                       <span className={cn("font-medium", !item.etf && "font-normal")}>{label}</span>
-                      {showSector && <span className="text-[11px] text-muted-foreground">{t(`ui.sectors.name.${item.sector}`)}</span>}
+                      {showSector && <span className="text-xs text-muted-foreground">{t(`ui.sectors.name.${item.sector}`)}</span>}
                       {item.etf && <SinceNote item={item} years={historyYears}/>}
                       {item.alternates.length > 0 && !onlySelected && (
                         <button type="button" onClick={() => flip(item.id)} aria-expanded={expanded}
-                          className="inline-flex w-fit items-center gap-0.5 text-[11px] text-muted-foreground hover:text-foreground">
+                          className="inline-flex w-fit items-center gap-0.5 text-xs text-muted-foreground hover:text-foreground">
                           <ChevronRight className={cn("size-3 transition-transform duration-200", expanded && "rotate-90")}/>
                           {t("ui.sectors.references", { count: item.alternates.length, etfs: item.alternates.map((row) => row.etf).join(", ") })}
                         </button>
                       )}
                     </span>
                   </td>
+                  {/* The primary ETF and how well it covers the group share one cell. */}
                   <td className="px-2 py-2">
-                    {item.etf
-                      ? <span className="inline-flex items-center gap-1 font-mono text-xs">{item.etf}<FetchMark fetch={item.fetch}/></span>
-                      : <span className="text-xs">—</span>}
+                    <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
+                      {item.etf
+                        ? <span className="inline-flex items-center gap-1 font-mono text-xs">{item.etf}<FetchMark fetch={item.fetch}/></span>
+                        : <span className="text-xs">—</span>}
+                      <CoverageBadge coverage={item.coverage} same={item.same_as_sector}/>
+                    </span>
                   </td>
-                  <td className="px-2 py-2"><CoverageBadge coverage={item.coverage} same={item.same_as_sector}/></td>
                   {item.periods
                     ? PERIODS.map((period) => (
                       <td key={period} className="px-2 py-2 text-right">

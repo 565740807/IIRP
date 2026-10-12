@@ -382,6 +382,9 @@ def test_retained_sector_prices_are_materialized_without_external_requests():
     view = requests.get_analysis(created["id"])
     assert sector_for(view)["status"] == "available"
     assert view["results"][0]["data"]["periods"][0]["stats"]["sector_paired_n"] == 1
+    # The page names where each input came from: XLK from the local long-term prices.
+    local = {source["symbol"]: source["local"] for source in view["freshness"]["sources"]}
+    assert local["XLK"] is True and local["NVDA"] is False
     with session() as s:
         assert s.scalar(select(PriceCache.provider).where(PriceCache.security_id == etf)) == "local_long_prices"
         assert not s.scalar(select(Job.id).where(Job.kind == "market_history"))

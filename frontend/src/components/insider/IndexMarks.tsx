@@ -14,7 +14,7 @@ export function IndexMarks({ indexes, className }: { indexes?: readonly string[]
         <span
           key={index}
           title={t(`ui.index_mark.${index}_tip`)}
-          className="rounded-sm border px-1 text-[10px] leading-4 font-semibold tracking-wide text-muted-foreground"
+          className="rounded-sm border px-1 text-xs leading-4 font-semibold tracking-wide text-muted-foreground"
         >
           {t(`ui.index_mark.${index}`)}
         </span>

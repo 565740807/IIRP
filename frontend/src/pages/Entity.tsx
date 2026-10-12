@@ -21,6 +21,9 @@ import { useInsiderN, useTradeWindows } from "@/lib/windows";
 import { sourceHref } from "@/lib/navigation";
 import { rememberEntity } from "@/lib/recent";
 import { cn } from "@/lib/utils";
+import { choiceFrom, withChoice } from "@/lib/urlChoice";
+import { EmptyState } from "@/components/ui/states";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -33,6 +36,7 @@ import { money, price, TradeTable, type Trade } from "@/components/insider/Trade
 
 type History = Schemas["EntityHistory"];
 const PAGE = 200;
+const ROW_SCOPES = ["focus", "all"] as const;
 const MAX_ROWS = 2000;
 
 /** Range from the link, else the one remembered for this page type, else 6 months. */
@@ -229,6 +233,13 @@ export function EntityPage({ kind }: { kind: PageKind }) {
     });
   }, [chartRows, bars.data, t]);
 
+  // "Key trades" (open-market purchases and sales, P/S) by default; "all" in the link shows every row.
+  const [params, setParams] = useSearchParams();
+  const scope = choiceFrom(params, "rows", ROW_SCOPES, "focus");
+  const setScope = (next: string) => setParams((previous) => withChoice(previous, "rows", next, "focus"), { replace: true });
+  const keyRows = useMemo(() => rows.filter((row) => side(row) !== null), [rows]);
+  const shownRows = scope === "all" ? rows : keyRows;
+
   const select = (rowId: string) => {
     setSelected(rowId);
     document.getElementById(`trade-${rowId}`)?.scrollIntoView({ block: "center", behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
@@ -244,7 +255,8 @@ export function EntityPage({ kind }: { kind: PageKind }) {
           </Link>
           <h2 className="flex items-baseline gap-2 text-xl font-semibold tracking-tight">
             {kind === "company" && data?.entity.ticker && <span className="rounded bg-secondary px-1.5 text-base tabular-nums">{data.entity.ticker}</span>}
-            <span className="truncate">{name}</span>
+            {/* Until the filings arrive the name is only known from the link that opened the page. */}
+            {!data && !(location.state as { name?: string } | null)?.name ? <Skeleton className="h-6 w-56" /> : <span className="truncate">{name}</span>}
             {kind === "company" && <IndexMarks indexes={data?.entity.indexes} className="self-center" />}
             <span className="text-xs font-normal text-muted-foreground tabular-nums">CIK {Number(id) || id}</span>
             {kind === "company" && tickerState && !tickerState.confirmed && tickerState.status === "ready" && (
@@ -273,7 +285,7 @@ export function EntityPage({ kind }: { kind: PageKind }) {
               </button>
             ))
           ) : (
-            <span className="font-medium">{ticker ? t("ui.entity.chart_title", { ticker }) : t("ui.entity.chart_none")}</span>
+            !data ? <Skeleton className="h-4 w-24" /> : <span className="font-medium">{ticker ? t("ui.entity.chart_title", { ticker }) : t("ui.entity.chart_none")}</span>
           )}
           <span className="ml-auto inline-flex items-center gap-3 text-muted-foreground">
             <span className="inline-flex items-center gap-1"><span className="text-up">▲</span>{t("ui.entity.legend.buy")}</span>
@@ -285,7 +297,10 @@ export function EntityPage({ kind }: { kind: PageKind }) {
           <PriceChart bars={bars.data.bars} markers={markers} selected={selected} onSelect={select} height={280} zoom />
         ) : (
           <div className="grid h-[280px] place-items-center text-sm text-muted-foreground">
-            {!ticker ? (
+            {!data ? (
+              // The filings (and with them the ticker) are still loading.
+              <Skeleton className="h-full w-full" />
+            ) : !ticker ? (
               t("ui.entity.chart_none")
             ) : tickerState?.status === "fetching" || tickerState?.status === "not_fetched" || bars.isPending ? (
               <span className="inline-flex items-center gap-2"><LoaderCircle className="size-4 motion-safe:animate-spin" />{t("ui.entity.chart_fetching", { ticker })}</span>
@@ -305,16 +320,30 @@ export function EntityPage({ kind }: { kind: PageKind }) {
         </div>
       ) : (
         <>
-          <div className="flex flex-wrap items-baseline gap-2">
-            <Headline data={data} kind={kind} range={range} />
-            {history.isFetching && <LoaderCircle className="size-3.5 text-muted-foreground motion-safe:animate-spin" />}
-          </div>
           {rows.length ? (
-            <TradeTable rows={rows} kind={kind} personId={id} windows={windows} n={n} selected={selected} onSelect={setSelected} />
+            <TradeTable rows={shownRows} kind={kind} personId={id} windows={windows} n={n} selected={selected} onSelect={setSelected}
+              empty={<EmptyState title={t("ui.entity.focus_empty")} reason={t("ui.entity.focus_empty_reason", { count: rows.length })}
+                action={<Button size="sm" variant="outline" onClick={() => setScope("all")}>{t("ui.entity.show_all", { count: rows.length })}</Button>} />}
+              toolbar={<>
+                <Headline data={data} kind={kind} range={range} />
+                {history.isFetching && <LoaderCircle className="size-3.5 text-muted-foreground motion-safe:animate-spin" />}
+                <ToggleGroup type="single" size="sm" variant="outline" spacing={0} value={scope} aria-label={t("ui.entity.rows_label")}
+                  className="ml-auto" onValueChange={(value) => value && setScope(value)}>
+                  <ToggleGroupItem value="focus" className="px-2.5" title={t("ui.feed.filter_tip.focus")}>
+                    {t("ui.entity.rows.focus")} <span className="text-muted-foreground tabular-nums">{keyRows.length}</span>
+                  </ToggleGroupItem>
+                  <ToggleGroupItem value="all" className="px-2.5">
+                    {t("ui.entity.rows.all")} <span className="text-muted-foreground tabular-nums">{rows.length}</span>
+                  </ToggleGroupItem>
+                </ToggleGroup>
+              </>} />
           ) : (
-            <p className="rounded-lg border bg-card px-4 py-10 text-center text-sm text-muted-foreground">
-              {data.status === "NOT_FETCHED" ? t("ui.entity.empty_not_fetched") : t("ui.entity.empty")}
-            </p>
+            <>
+              <Headline data={data} kind={kind} range={range} />
+              <p className="rounded-lg border bg-card px-4 py-10 text-center text-sm text-muted-foreground">
+                {data.status === "NOT_FETCHED" ? t("ui.entity.empty_not_fetched") : t("ui.entity.empty")}
+              </p>
+            </>
           )}
           {data.truncated && <p className="text-xs text-muted-foreground">{t("ui.entity.truncated", { count: rows.length })}</p>}
         </>

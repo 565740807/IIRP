@@ -235,7 +235,7 @@ def test_benchmark_is_fetched_once_and_quick_switches_reuse_analyses():
     old_view = event_service.get_analysis(older_input["analysis_id"])
     assert len(yahoo.calls) == 3
     assert old_view["freshness"]["price_expires_at"].isoformat() == early
-    assert old_view["freshness"]["sources"][0] == {"symbol": "^GSPC", "fetched_at": fetched, "expires_at": early}
+    assert old_view["freshness"]["sources"][0] == {"symbol": "^GSPC", "fetched_at": fetched, "expires_at": early, "local": False}
     assert {source["symbol"] for source in old_view["freshness"]["sources"]} == {"AAPL", "MSFT", "^GSPC"}
     with session() as s:
         assert all(row.expires_at.isoformat() == early for row in s.scalars(

@@ -27,7 +27,9 @@ import { NControl } from "@/components/insider/NControl";
 import { INDICES, useOverviewChoice, useVisibleStocks, useStockQuotes, type IndexFilter as Index } from "@/lib/insiderOverview";
 import { IndexFilter, IndexStatus } from "@/components/insider/IndexFilter";
 import { CurrentQuoteStatus, MismatchRatio } from "@/components/insider/InsiderPrice";
-import { CARD_COLUMNS, FeedCard, FeedWindows, FeedPrices, LINE_COLUMNS } from "./FeedCard";
+import { CARD_COLUMNS, FEED_OPTIONAL, FeedCard, FeedColumnChoice, FeedWindows, FeedPrices, LINE_GRID, lineColumns } from "./FeedCard";
+import { useColumnChoices } from "@/lib/viewPrefs";
+import { ColumnSettings } from "@/components/ui/column-settings";
 
 const FILTERS = ["focus", "buy", "sell", "derivative", "other", "all"] as const;
 type Filter = (typeof FILTERS)[number];
@@ -244,6 +246,8 @@ export function InsiderStream() {
     return () => window.clearInterval(timer);
   }, []);
 
+  const columnChoices = useColumnChoices("home.feed", FEED_OPTIONAL);
+  const columns = useMemo(() => ({ shares: columnChoices.visible("shares"), compare: columnChoices.visible("compare") }), [columnChoices]);
   const choose = (name: "filter" | "order", value: string) =>
     setParams((previous) => {
       const next = new URLSearchParams(previous);
@@ -276,10 +280,19 @@ export function InsiderStream() {
             <ToggleGroupItem value="accepted" className="px-2.5">{t("ui.feed.order.accepted")}</ToggleGroupItem>
             <ToggleGroupItem value="transaction" className="px-2.5">{t("ui.feed.order.transaction")}</ToggleGroupItem>
           </ToggleGroup>
+          <ColumnSettings
+            changed={columnChoices.changed}
+            onReset={columnChoices.reset}
+            onChange={columnChoices.set}
+            columns={[
+              { id: "shares", label: t("ui.feed.column.shares"), shown: columns.shares },
+              { id: "compare", label: t("ui.feed.column.compare"), shown: columns.compare },
+            ]}
+          />
         </div>
       </div>
 
-      <div className="mb-2 flex flex-wrap items-center gap-x-4 gap-y-1"><IndexStatus value={index}/><CurrentQuoteStatus prices={Object.values(prices.data?.items ?? {})}/></div>
+      <div className="mb-1.5 flex flex-wrap items-center gap-x-4 gap-y-1"><IndexStatus value={index}/><CurrentQuoteStatus prices={Object.values(prices.data?.items ?? {})}/></div>
       <AnimatePresence>
         {pending > 0 && !atTop && (
           <motion.div
@@ -301,18 +314,17 @@ export function InsiderStream() {
       {quoteError && <p className="text-xs text-warn">{quoteError.message}</p>}
       {prices.error && <p className="text-xs text-warn">{prices.error.message}</p>}
       {stream.error && <p className="text-sm text-destructive">{stream.error.message}</p>}
-      <div className={cn(CARD_COLUMNS, "border-l-[3px] border-transparent px-3 pb-1 text-[11px] font-medium text-muted-foreground")} aria-hidden>
+      <div className={cn(CARD_COLUMNS, "border-l-[3px] border-transparent px-3 pb-1 text-xs font-medium text-muted-foreground")} aria-hidden>
         <span>{t("ui.feed.column.company")}</span>
-        <span className={LINE_COLUMNS}>
+        <span className={LINE_GRID} style={{ gridTemplateColumns: lineColumns(columns) }}>
           <span>{t("ui.feed.column.insider")}</span>
           <span>{t("ui.feed.column.action")}</span>
-          <span className="text-right">{t("ui.feed.column.shares")}</span>
+          {columns.shares && <span className="text-right">{t("ui.feed.column.shares")}</span>}
           <span className="text-right">{t("ui.feed.column.amount")}</span>
-          <span className="text-right">{t("ui.overview.column.trade_price")}</span>
-          <span className="text-right">{t("ui.overview.column.current")}</span>
-          <span className="text-right">{t("ui.feed.column.traded")}</span>
+          <span className="text-right">{t("ui.feed.column.price_now")}</span>
           <span className="text-right" title={t("ui.window.before_head_long", { n })}>{t("ui.window.before_head", { n })}</span>
           <span className="text-right" title={t("ui.window.after_head_long", { n })}>{t("ui.window.after_head", { n })}</span>
+          <span className="text-right">{t("ui.feed.column.traded")}</span>
         </span>
         <span className="text-right">{t("ui.feed.column.filed")}</span>
       </div>
@@ -329,6 +341,7 @@ export function InsiderStream() {
       ) : !groups.length ? (
         <p className="rounded-lg border bg-card px-4 py-10 text-center text-sm text-muted-foreground">{t("ui.feed.empty")}</p>
       ) : (
+        <FeedColumnChoice.Provider value={columns}>
         <FeedWindows.Provider value={shared}>
         <FeedPrices.Provider value={prices.data?.items ?? {}}>
         <MismatchRatio.Provider value={prices.data?.price_mismatch_ratio ?? null}>
@@ -360,6 +373,7 @@ export function InsiderStream() {
         </MismatchRatio.Provider>
         </FeedPrices.Provider>
         </FeedWindows.Provider>
+        </FeedColumnChoice.Provider>
       )}
       {groups.length > 0 && (
         <div className="flex h-12 items-center justify-center text-xs text-muted-foreground">

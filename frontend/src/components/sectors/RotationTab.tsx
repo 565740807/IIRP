@@ -1,5 +1,7 @@
 import { useTranslation } from "react-i18next";
 import { useRotation } from "@/lib/rotation";
+import { Explain } from "@/components/ui/info";
+import { PageContents } from "@/components/ui/page-contents";
 import type { SectorState } from "@/lib/sectorState";
 import {
   RotationDetailView,
@@ -31,9 +33,16 @@ export function RotationTab({ state, update }: {
   if (!data.periods.length || !data.detail) {
     return <p className="rounded-md border bg-card px-3 py-2 text-sm text-muted-foreground">{t("ui.rotation.empty")}</p>;
   }
+  const contents = [
+    { id: "r-summary", label: t("ui.analysis.toc.summary") },
+    ...(!interval ? [{ id: "r-heat", label: t("ui.analysis.toc.heat") }] : []),
+    { id: "r-ranking", label: t("ui.analysis.toc.ranking") },
+    { id: "r-box", label: t("ui.analysis.toc.box") },
+    { id: "r-yearly", label: t("ui.rotation.toc.yearly") },
+  ];
   return (
     <div className="space-y-5">
-      <div className="relative space-y-1">
+      <div id="r-summary" className="relative scroll-mt-28 space-y-1">
         {query.isFetching && (
           <div className="absolute inset-x-0 -top-2 h-0.5 overflow-hidden" role="progressbar" aria-label={t("ui.rotation.loading")}>
             <div className="h-full w-full origin-left bg-primary/60 motion-safe:animate-progress" />
@@ -43,16 +52,17 @@ export function RotationTab({ state, update }: {
         <RotationFacts data={data} />
         {query.error && <p className="text-xs text-destructive">{query.error.message}</p>}
       </div>
+      <PageContents items={contents} />
       {!interval && month != null && (
-        <RotationSection title={t(`ui.rotation.heat_title.${choice.rank}`)} hint={t("ui.rotation.heat_hint")}>
+        <RotationSection id="r-heat" title={t(`ui.rotation.heat_title.${choice.rank}`)} hint={t("ui.rotation.heat_hint")}>
           <RotationHeat data={data} choice={choice} selected={month} onSelect={(next) => update({ month: next })} />
         </RotationSection>
       )}
       <RotationDetailView data={data} choice={choice} />
-      <RotationSection title={t("ui.rotation.yearly_title")} hint={t(`ui.rotation.yearly_hint.${choice.rank}`)}>
+      <RotationSection id="r-yearly" title={t("ui.rotation.yearly_title")} hint={t(`ui.rotation.yearly_hint.${choice.rank}`)}>
         <RotationYearly data={data} choice={choice} selected={interval ? null : month} onSelect={(next) => update({ month: next })} />
       </RotationSection>
-      <p className="text-xs text-muted-foreground">{t("ui.rotation.method")}</p>
+      <Explain summary={t("ui.rotation.method")}/>
     </div>
   );
 }

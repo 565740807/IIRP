@@ -16,7 +16,7 @@ import {
 } from "@/lib/events";
 import { formatDay } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { Quartiles, Signed, SortableTable, num } from "@/components/analysis/Tables";
+import { Quartiles, Signed, SortableTable, hiddenBeyond, num } from "@/components/analysis/Tables";
 import { EventKline } from "@/components/events/EventCharts";
 import { RowContext } from "@/components/events/EventContext";
 import { SectorBadge } from "@/components/analysis/References";
@@ -92,6 +92,7 @@ export function WindowTable({ result, benchmark, basis = "absolute" }: { result:
     return [
       column.accessor("key", {
         id: "window",
+        enableHiding: false,
         header: t("ui.events.col.window"),
         enableSorting: false,
         cell: ({ row }) => <span className="font-medium whitespace-nowrap" title={row.original.tip}>{row.original.label}</span>,
@@ -103,8 +104,12 @@ export function WindowTable({ result, benchmark, basis = "absolute" }: { result:
     () => WINDOWS.map((key) => ({ key, label: windowLabel(key, result.n), tip: windowFormula(key), stats: result.summary[key] })),
     [result],
   );
-  return <SortableTable data={data} columns={columns} initial={[]} rowKey={(row) => row.key} />;
+  const hidden = hiddenBeyond(columns.map((column) => column.id!), STAT_PRIORITY, 8);
+  return <SortableTable data={data} columns={columns} initial={[]} rowKey={(row) => row.key} tableId="events.windows" hidden={hidden} />;
 }
+
+// Columns shown first when a statistics table has more than eight; the rest start in the column settings.
+const STAT_PRIORITY = ["window", "quarter", "ticker", "n", "median", "reaction", "up", "excess", "sector_excess", "mean", "quartiles", "before", "after", "gap", "abs", "beat", "sector_beat", "sector_return"];
 
 /** Earnings by fiscal quarter: all events and Q1–Q4 for the chosen window. */
 export function QuarterTable({ result, benchmark, basis = "absolute" }: { result: EventResult; benchmark: string | null; basis?: Basis }) {
@@ -114,7 +119,7 @@ export function QuarterTable({ result, benchmark, basis = "absolute" }: { result
   const columns = useMemo(() => {
     const column = createColumnHelper<StatsRow>();
     return [
-      column.accessor("key", { id: "quarter", header: t("ui.events.col.quarter"), enableSorting: false, cell: ({ row }) => <span className="font-medium">{row.original.label}</span> }),
+      column.accessor("key", { id: "quarter", enableHiding: false, header: t("ui.events.col.quarter"), enableSorting: false, cell: ({ row }) => <span className="font-medium">{row.original.label}</span> }),
       ...stats,
     ] as ColumnDef<StatsRow, any>[];
   }, [stats, t]);
@@ -140,7 +145,8 @@ export function QuarterTable({ result, benchmark, basis = "absolute" }: { result
           </button>
         ))}
       </div>
-      <SortableTable pinnedTop="all" data={data} columns={columns} initial={[{ id: "median", desc: true }]} rowKey={(row) => row.key} rank={(row, sorting) => quarterRank(row.ranks, window, basis, sorting[0])} />
+      <SortableTable pinnedTop="all" data={data} columns={columns} initial={[{ id: "median", desc: true }]} rowKey={(row) => row.key} rank={(row, sorting) => quarterRank(row.ranks, window, basis, sorting[0])}
+        tableId="events.quarters" hidden={hiddenBeyond(columns.map((column) => column.id!), STAT_PRIORITY, 7)} />
     </div>
   );
 }
@@ -153,7 +159,7 @@ export function TickerRankTable({ results, benchmark, selected, onSelect }: { re
     const median = (key: WindowKey, header: string) =>
       column.accessor((row) => num(row.summary[key]?.median), { id: key, header, meta: { numeric: true }, cell: ({ row }) => <Signed value={row.original.summary[key]?.median} /> });
     return [
-      column.accessor("symbol", { id: "ticker", header: t("ui.analysis.col.ticker"), cell: ({ row }) => <span className="font-semibold tabular-nums">{row.original.symbol}<SectorBadge reference={row.original.sector} /></span> }),
+      column.accessor("symbol", { id: "ticker", enableHiding: false, header: t("ui.analysis.col.ticker"), cell: ({ row }) => <span className="font-semibold tabular-nums">{row.original.symbol}<SectorBadge reference={row.original.sector} /></span> }),
       column.accessor((row) => row.summary.reaction?.n ?? 0, { id: "n", header: "N", meta: { numeric: true }, cell: ({ row }) => row.original.summary.reaction?.n ?? 0 }),
       column.accessor((row) => num(row.summary.reaction?.median), {
         id: "reaction",
@@ -189,7 +195,8 @@ export function TickerRankTable({ results, benchmark, selected, onSelect }: { re
       ] : []),
     ] as ColumnDef<EventResult, any>[];
   }, [t, benchmark, results]);
-  return <SortableTable data={results} columns={columns} initial={[{ id: "reaction", desc: true }]} rowKey={(row) => row.symbol} selected={selected} onSelect={onSelect} />;
+  return <SortableTable data={results} columns={columns} initial={[{ id: "reaction", desc: true }]} rowKey={(row) => row.symbol} selected={selected} onSelect={onSelect}
+    tableId="events.tickers" hidden={hiddenBeyond(columns.map((column) => column.id!), STAT_PRIORITY, 8)} />;
 }
 
 function WindowCell({ row, window, benchmark, sector }: { row: EventRow; window: WindowKey; benchmark: string | null; sector?: string | null }) {
@@ -202,14 +209,17 @@ function WindowCell({ row, window, benchmark, sector }: { row: EventRow; window:
     <span className="inline-flex flex-col items-end leading-tight" title={`${formatDay(value.start_date, { year: true })} → ${formatDay(value.end_date, { year: true })}`}>
       <span className={cn(window === "reaction" && "font-medium")}><Signed value={value.value} digits={2} /></span>
       {benchmark && value.benchmark != null && (
-        <span className="text-[11px] text-muted-foreground">
+        <span className="text-xs text-muted-foreground">
           {benchmarkName(benchmark)} {pct(value.benchmark, 2)}
         </span>
       )}
-      {sector && value.sector != null && <span className="text-[11px] text-muted-foreground">{sector} {pct(value.sector, 2)} · {t("ui.analysis.sector.col.excess")} <Signed value={value.sector_excess} digits={2} /></span>}
+      {sector && value.sector != null && <span className="text-xs text-muted-foreground">{sector} {pct(value.sector, 2)} · {t("ui.analysis.sector.col.excess")} <Signed value={value.sector_excess} digits={2} /></span>}
     </span>
   );
 }
+
+// The number of context items (also in each event's opened row) starts in the column settings.
+const DETAIL_HIDDEN = ["context"];
 
 /** Every event: dates, session, R and the windows (benchmark under each); click a row for its K-line. */
 export function EventDetailTable({ result, benchmark, selected, onSelect }: { result: EventResult; benchmark: string | null; selected: string | null; onSelect: (id: string) => void }) {
@@ -219,12 +229,13 @@ export function EventDetailTable({ result, benchmark, selected, onSelect }: { re
     return [
       column.accessor("name", {
         id: "name",
+        enableHiding: false,
         header: t("ui.events.col.event"),
         cell: ({ row }) => (
           <span className="flex min-w-0 flex-col">
             <span className="font-medium">
               {row.original.name}
-              {row.original.uncertain && <span className="ml-1.5 rounded border border-doubt/40 bg-doubt-soft px-1 text-[11px] font-medium text-doubt">{t("ui.events.preview.uncertain")}</span>}
+              {row.original.uncertain && <span className="ml-1.5 rounded border border-doubt/40 bg-doubt-soft px-1 text-xs font-medium text-doubt">{t("ui.events.preview.uncertain")}</span>}
             </span>
             <span className="text-xs text-muted-foreground">
               {[fiscalLabel(row.original), ...row.original.notes.map((note) => t(`ui.events.note.${note}`)), row.original.note].filter(Boolean).join(" · ")}
@@ -250,7 +261,7 @@ export function EventDetailTable({ result, benchmark, selected, onSelect }: { re
         cell: ({ row }) => (row.original.context.length ? (
           <span className="inline-flex items-center gap-1 tabular-nums">
             {t("ui.events.preview.context", { count: row.original.context.length })}
-            {row.original.macro_events.length > 0 && <span className="rounded border border-foreground/30 px-1 text-[10px] font-semibold">{t("ui.events.context.major")}</span>}
+            {row.original.macro_events.length > 0 && <span className="rounded border border-foreground/30 px-1 text-xs font-semibold">{t("ui.events.context.major")}</span>}
           </span>
         ) : "—"),
       }),
@@ -271,6 +282,8 @@ export function EventDetailTable({ result, benchmark, selected, onSelect }: { re
       columns={columns}
       initial={[{ id: "reaction", desc: true }]}
       rowKey={key}
+      tableId="events.rows"
+      hidden={DETAIL_HIDDEN}
       selected={selected}
       onSelect={onSelect}
       expanded={(row) => (

@@ -64,7 +64,7 @@ export function MonthGrid({ periods, selected, onSelect }: { periods: Period[]; 
                       style={tint(candle.change)}
                     >
                       {candle.change == null ? (candle.status === "not_started" ? "" : "·") : pct(candle.change)}
-                      {progress && <span className="align-super text-[9px]">*</span>}
+                      {progress && <span className="align-super text-xs">*</span>}
                     </button>
                   </td>
                 );

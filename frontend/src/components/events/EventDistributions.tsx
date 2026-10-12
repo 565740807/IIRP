@@ -37,10 +37,9 @@ export function EventDistributions({ result, results, benchmark, selected, onSel
   </div>;
   const benchmarkLabel = basis === "absolute" && compare && benchmark ? benchmarkName(benchmark) : undefined;
   return <section className="space-y-2">
-    <div className="flex flex-wrap items-center justify-between gap-2"><h2 className="text-sm font-semibold">{t("ui.events.box.windows")}</h2>{control}</div>
+    <div className="flex flex-wrap items-center justify-end gap-2">{control}</div>
     <div className="rounded-lg border bg-card"><BoxPlot groups={WINDOWS.map((key) => group(key, windowLabel(key, result.n), result, key, result.rows, result.summary[key], basis))} title={t("ui.events.box.windows")} selected={selected} onSelect={onSelect} benchmarkLabel={benchmarkLabel} /></div>
-    <p className="text-xs text-muted-foreground">{t("ui.events.box.legend")}</p>
-    {result.quarters?.length ? <><h2 className="text-sm font-semibold">{t("ui.events.box.quarters")} · {windowLabel(window, result.n)}</h2><div className="rounded-lg border bg-card"><BoxPlot groups={result.quarters.map((q) => group(`Q${q.fiscal_quarter}`, `Q${q.fiscal_quarter}`, result, window, result.rows.filter((r) => r.fiscal_quarter === q.fiscal_quarter), q.summary[window], basis))} title={t("ui.events.box.quarters")} selected={selected} onSelect={onSelect} benchmarkLabel={benchmarkLabel} /></div></> : null}
-    {results.length > 1 && <><h2 className="text-sm font-semibold">{t("ui.events.box.tickers")} · {windowLabel(window, result.n)}</h2><div className="rounded-lg border bg-card"><BoxPlot groups={results.map((r) => group(r.symbol, r.symbol, r, window, r.rows, r.summary[window], basis))} title={t("ui.events.box.tickers")} selected={selected} onSelect={onSelect} benchmarkLabel={benchmarkLabel} /></div></>}
+    {result.quarters?.length ? <><h3 className="card-title">{t("ui.events.box.quarters")} · {windowLabel(window, result.n)}</h3><div className="rounded-lg border bg-card"><BoxPlot groups={result.quarters.map((q) => group(`Q${q.fiscal_quarter}`, `Q${q.fiscal_quarter}`, result, window, result.rows.filter((r) => r.fiscal_quarter === q.fiscal_quarter), q.summary[window], basis))} title={t("ui.events.box.quarters")} selected={selected} onSelect={onSelect} benchmarkLabel={benchmarkLabel} /></div></> : null}
+    {results.length > 1 && <><h3 className="card-title">{t("ui.events.box.tickers")} · {windowLabel(window, result.n)}</h3><div className="rounded-lg border bg-card"><BoxPlot groups={results.map((r) => group(r.symbol, r.symbol, r, window, r.rows, r.summary[window], basis))} title={t("ui.events.box.tickers")} selected={selected} onSelect={onSelect} benchmarkLabel={benchmarkLabel} /></div></>}
   </section>;
 }

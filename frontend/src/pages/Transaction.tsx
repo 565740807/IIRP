@@ -12,6 +12,7 @@ import { useInsiderN } from "@/lib/windows";
 import { sourceContext, sourceHref } from "@/lib/navigation";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
+import { InfoTip } from "@/components/ui/info";
 import { Skeleton } from "@/components/ui/skeleton";
 import { NControl } from "@/components/insider/NControl";
 import { PriceChart } from "@/components/insider/PriceChart";
@@ -147,7 +148,7 @@ export function TransactionPage() {
           <Fact label={t("ui.trades.action")}><span className={sideClass(row)} title={actionLabel(row, t)}>{actionLabel(row, t)}</span></Fact>
           <Fact label={t("ui.trades.traded")}>
             {formatDay(row.transaction_date, { year: true })}
-            {row.date_anomaly && <Badge variant="outline" className="ml-1.5 h-5 border-warn/40 px-1 text-[11px] text-warn" title={t("ui.feed.date_anomaly_detail", { trade: formatDay(row.date_anomaly.transaction_date, { year: true }), accepted: formatDay(row.date_anomaly.accepted_date, { year: true }) })}>{t("ui.feed.date_anomaly")}</Badge>}
+            {row.date_anomaly && <Badge variant="outline" className="ml-1.5 h-5 border-warn/40 px-1 text-xs text-warn" title={t("ui.feed.date_anomaly_detail", { trade: formatDay(row.date_anomaly.transaction_date, { year: true }), accepted: formatDay(row.date_anomaly.accepted_date, { year: true }) })}>{t("ui.feed.date_anomaly")}</Badge>}
           </Fact>
           <Fact label={t("ui.detail.accepted")}><span title={t("ui.time.local", { time: formatLocal(row.accepted_at) })}>{formatEt(row.accepted_at)}</span></Fact>
           <Fact label={t("ui.detail.lag")}>{context.disclosure_lag_calendar_days == null ? "—" : t("ui.detail.lag_days", { count: context.disclosure_lag_calendar_days })}</Fact>
@@ -177,7 +178,10 @@ export function TransactionPage() {
 
       <section className="rounded-lg border bg-card px-4 py-3">
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-          <h3 className="text-sm font-semibold">{context.ticker ? t("ui.detail.price_title", { ticker: context.ticker, n }) : t("ui.entity.chart_none")}</h3>
+          <h3 className="card-title inline-flex items-center gap-1.5">
+            {context.ticker ? t("ui.detail.price_title", { ticker: context.ticker, n }) : t("ui.entity.chart_none")}
+            <InfoTip>{t("ui.detail.basis.note", { n })}</InfoTip>
+          </h3>
           {context.price_fetched_at && <span className="text-xs text-muted-foreground">{t("ui.entity.prices_as_of", { time: formatEt(context.price_fetched_at) })}</span>}
           <NControl className="ml-auto" />
         </div>
@@ -215,7 +219,7 @@ export function TransactionPage() {
                 </div>
               </div>
             ))}
-            <p className="text-xs text-muted-foreground">{t("ui.detail.basis.note", { n })}</p>
+
           </div>
         </div>
       </section>

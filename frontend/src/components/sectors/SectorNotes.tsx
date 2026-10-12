@@ -21,7 +21,7 @@ export function SinceNote({ item, years }: { item: { first_date?: string | null;
   const target = years ?? 8;
   if (!item.first_date || item.full_years >= target) return null;
   return (
-    <span className="text-[11px] text-muted-foreground">
+    <span className="text-xs text-muted-foreground">
       {t("ui.sectors.since", { day: formatDay(item.first_date, { year: true }), years: item.full_years, target })}
     </span>
   );
@@ -37,7 +37,7 @@ export function FetchMark({ fetch }: { fetch?: PriceFetch | null }) {
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <span className="inline-flex cursor-default items-center gap-0.5 font-sans text-[11px] text-warn">
+        <span className="inline-flex cursor-default items-center gap-0.5 font-sans text-xs text-warn">
           <CircleAlert className="size-3" aria-hidden/>{t(`ui.sectors.fetch.${fetch.status}`)}
         </span>
       </TooltipTrigger>

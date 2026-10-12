@@ -13,6 +13,7 @@ from iirp.models import (
     ACTIVE,
     Batch,
     Job,
+    LongPriceSeries,
     MarketQuote,
     RequestScope,
     Security,
@@ -160,9 +161,12 @@ def _bars(records):
 def market_detail(symbol):
     """One home-strip symbol: its saved quote and the last six months of daily bars.
 
-    The bars come from the 24-hour six-month fetch kept with the quote, else
-    from a cached price range, else from the quote's last 40 days. Nothing is
-    fetched here; ``history.status`` tells the page whether to ask for them.
+    The bars come from the local long-term daily prices when the symbol is kept
+    there (the S&P 500 and Nasdaq-100 indexes among them), else from the
+    24-hour six-month fetch kept with the quote, else from a cached price
+    range, else from the quote's last 40 days. ``chart.source`` names which
+    (``long``, ``history``, ``cache``, ``quote``). Nothing is fetched here;
+    ``history.status`` tells the page whether to ask for them.
     """
     from iirp.market.quote_publication import HISTORY_DAYS, fresh_history
     from iirp.market.yahoo import MARKETS
@@ -177,11 +181,20 @@ def market_detail(symbol):
         saved = row.data if row else {}
         history = fresh_history(saved, current)
         chart = {"source": None, "fetched_at": None, "expires_at": None}
-        if history:
+        security = s.scalar(select(Security).where(Security.symbol == symbol).order_by(Security.id).limit(1))
+        kept = security and s.scalar(select(LongPriceSeries).where(
+            LongPriceSeries.security_id == security.id, LongPriceSeries.active.is_(True)))
+        long_bars = price_bars(s, security.id, kept.id)[0] if kept and kept.start_date and kept.fetched_at \
+            and kept.start_date.isoformat() <= start else []
+        long_bars = [bar for bar in long_bars if bar["date"] >= start and bar.get("status") == "VALID"]
+        if long_bars:
+            # Kept for good and updated after each session: no expiry.
+            bars = _bars(long_bars)
+            chart.update(source="long", fetched_at=kept.fetched_at.isoformat(), expires_at=None)
+        elif history:
             bars = _bars(history["records"])
             chart.update(source="history", fetched_at=history["fetched_at"], expires_at=history["expires_at"])
         else:
-            security = s.scalar(select(Security).where(Security.symbol == symbol).order_by(Security.id).limit(1))
             cached, cache = price_bars(s, security.id) if security else ([], None)
             cached = [bar for bar in cached if bar["date"] >= start and bar.get("status") == "VALID"]
             if cache and cached and cached[0]["date"] <= (date.fromisoformat(start) + timedelta(days=7)).isoformat():
@@ -194,7 +207,7 @@ def market_detail(symbol):
                              fetched_at=row.fetched_at.isoformat() if row and bars else None)
         bars = [bar for bar in bars if bar["date"] >= start]
         batch = _history_batch(s, symbol)
-        if history or chart["source"] == "cache":
+        if history or chart["source"] in ("long", "cache"):
             status, reason = "fresh", None
         elif batch is not None and batch.status in ACTIVE:
             status, reason = "fetching", None

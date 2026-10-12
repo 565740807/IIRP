@@ -12,6 +12,8 @@ echarts.use([CandlestickChart, ScatterChart, GridComponent, TooltipComponent, Ma
 export type Bar = { date: string; open?: string | null; high?: string | null; low?: string | null; close?: string | null };
 export type Marker = { id: string; date: string; price: number; side: "buy" | "sell"; size: number; label: string };
 export type DayLine = { date: string; label: string };
+// Height of one day-line label row above the plot.
+const LABEL_ROW = 18;
 
 /**
  * Daily candles in the up/down colors with insider buys and sells on top:
@@ -68,6 +70,7 @@ export function PriceChart({
     // A trade on a non-session day sits on the next session's candle.
     const place = (day: string) => dates.find((value) => value >= day) ?? dates.at(-1);
     const number = new Intl.NumberFormat(locale(), { maximumFractionDigits: 2 });
+    const shownLines = lines.filter((line) => place(line.date));
     const series = (side: "buy" | "sell") => ({
       type: "scatter" as const,
       name: side,
@@ -91,7 +94,8 @@ export function PriceChart({
       {
         animation: !reduce,
         animationDuration: 250,
-        grid: { left: 8, right: 56, top: 12, bottom: zoom ? 44 : 24, containLabel: false },
+        // Day-line labels sit above the plot, one row each, so none lies on a candle.
+        grid: { left: 8, right: 56, top: 12 + LABEL_ROW * shownLines.length, bottom: zoom ? 44 : 24, containLabel: false },
         tooltip: {
           trigger: "item",
           confine: true,
@@ -109,14 +113,14 @@ export function PriceChart({
           boundaryGap: true,
           axisLine: { lineStyle: { color: CHART.axis } },
           axisTick: { show: false },
-          axisLabel: { color: CHART.muted, fontSize: 11, hideOverlap: true, formatter: (value: string) => value.slice(5) },
+          axisLabel: { color: CHART.muted, fontSize: CHART.font, hideOverlap: true, formatter: (value: string) => value.slice(5) },
         },
         yAxis: {
           type: "value",
           scale: true,
           position: "right",
           splitLine: { lineStyle: { color: CHART.grid } },
-          axisLabel: { color: CHART.muted, fontSize: 11 },
+          axisLabel: { color: CHART.muted, fontSize: CHART.font },
         },
         dataZoom: zoom ? [{ type: "inside" }, { type: "slider", height: 18, bottom: 6, borderColor: "transparent", showDetail: false }] : [],
         series: [
@@ -125,15 +129,20 @@ export function PriceChart({
             name: "price",
             data: bars.map((bar) => [Number(bar.open), Number(bar.close), Number(bar.low), Number(bar.high)]),
             itemStyle: { color: UP, color0: DOWN, borderColor: UP, borderColor0: DOWN },
-            markLine: lines.length
+            markLine: shownLines.length
               ? {
                   symbol: "none",
                   silent: true,
-                  label: { formatter: "{b}", color: INK, fontSize: 11, position: "insideEndTop" },
                   lineStyle: { color: INK, type: "dashed", width: 1 },
-                  data: lines
-                    .filter((line) => place(line.date))
-                    .map((line) => ({ name: line.label, xAxis: index.get(place(line.date)!) })),
+                  data: shownLines.map((line, row) => ({
+                    name: line.label,
+                    xAxis: index.get(place(line.date)!),
+                    // Horizontal, at the top end of the line; a later line's label one row higher.
+                    label: {
+                      formatter: "{b}", color: INK, fontSize: CHART.font, position: "end", distance: 4 + LABEL_ROW * row,
+                      backgroundColor: CHART.surface, padding: [1, 4], borderRadius: 3,
+                    },
+                  })),
                 }
               : undefined,
           },

@@ -15,14 +15,17 @@ import { directionClass, formatDay, formatPrice } from "@/lib/format";
 import { SectorBadge } from "@/components/analysis/References";
 import { UpShare } from "@/components/analysis/UpShare";
 import { cn } from "@/lib/utils";
+import { useTableColumns } from "@/components/ui/column-settings";
 
 // Column value types differ per column; TanStack needs `any` to hold them in one list.
 /* eslint-disable @typescript-eslint/no-explicit-any */
-export type Meta = { numeric?: boolean; tip?: string };
+export type Meta = { numeric?: boolean; tip?: string; label?: ReactNode };
 
 /**
  * Sortable TanStack table with the app's compact styling. ``expanded`` renders
- * a full-width row under the selected one (the event details' K-line).
+ * a full-width row under the selected one (the event details' K-line). With a
+ * ``tableId`` the header carries a "Columns" button: ``hidden`` columns start
+ * there, and the reader's choice is remembered in this browser.
  */
 export function SortableTable<T>({
   data,
@@ -35,6 +38,9 @@ export function SortableTable<T>({
   rank,
   rowTone,
   pinnedTop,
+  tableId,
+  hidden = NO_COLUMNS,
+  toolbar,
 }: {
   data: T[];
   columns: ColumnDef<T, any>[];
@@ -46,13 +52,18 @@ export function SortableTable<T>({
   rank?: (row: T, sorting: SortingState) => number | undefined;
   rowTone?: (row: T, sorting: SortingState) => string;
   pinnedTop?: string;
+  tableId?: string;
+  hidden?: readonly string[];
+  toolbar?: ReactNode;
 }) {
   const { t } = useTranslation();
   const [sorting, setSorting] = useState<SortingState>(initial);
+  const choices = useTableColumns(tableId ?? "", hidden);
+  const ids = columns.map((column) => column.id ?? (column as { accessorKey?: string }).accessorKey ?? "");
   const table = useReactTable({
     data,
     columns,
-    state: { sorting },
+    state: { sorting, columnVisibility: tableId ? choices.state(ids) : {} },
     onSortingChange: setSorting,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
@@ -60,6 +71,13 @@ export function SortableTable<T>({
     sortDescFirst: true,
   });
   return (
+    <div>
+    {(tableId || toolbar) && (
+      <div className="flex min-h-7 flex-wrap items-center gap-2 pb-1.5">
+        {toolbar}
+        {tableId && choices.settings(table, "ml-auto")}
+      </div>
+    )}
     <div className="overflow-x-auto rounded-lg border bg-card">
       <table className="w-full text-sm">
         <thead>
@@ -117,8 +135,19 @@ export function SortableTable<T>({
         </tbody>
       </table>
     </div>
+    </div>
   );
 }
+
+const NO_COLUMNS: readonly string[] = [];
+
+/** At most ``limit`` columns show by default, in ``priority`` order; the rest start in the column settings. */
+export function hiddenBeyond(ids: readonly string[], priority: readonly string[], limit = 8) {
+  const ranked = [...ids].sort((a, b) => (priority.indexOf(a) + 1 || 99) - (priority.indexOf(b) + 1 || 99));
+  return ranked.slice(limit);
+}
+
+const RANK_PRIORITY = ["month", "ticker", "median", "n", "up", "excess", "sector_excess", "mean", "quartiles", "best", "worst", "beat", "sector_beat", "sector_return"];
 
 export const Signed = ({ value, digits = 1 }: { value: unknown; digits?: number }) => <span className={directionClass(value)}>{pct(value, digits)}</span>;
 
@@ -215,10 +244,11 @@ export function MonthTable({ periods, benchmark, sector = false, basis = "absolu
   const stats = useStatColumns(benchmark, sector, basis);
   const columns = useMemo(() => {
     const column = createColumnHelper<StatsRow>();
-    return [column.accessor((row) => Number(row.key), { id: "month", header: t("ui.analysis.col.month"), cell: ({ row }) => <span className="font-medium">{row.original.label}</span> }), ...stats] as ColumnDef<StatsRow, any>[];
+    return [column.accessor((row) => Number(row.key), { id: "month", enableHiding: false, header: t("ui.analysis.col.month"), cell: ({ row }) => <span className="font-medium">{row.original.label}</span> }), ...stats] as ColumnDef<StatsRow, any>[];
   }, [stats, t]);
   const data = useMemo(() => periods.map((period) => ({ key: period.key, label: periodName(period), stats: period.stats })), [periods]);
-  return <SortableTable data={data} columns={columns} initial={[{ id: "median", desc: true }]} rowKey={(row) => row.key} selected={String(selected)} onSelect={(key) => onSelect(Number(key))} />;
+  const hidden = hiddenBeyond(columns.map((column) => column.id!), RANK_PRIORITY, 8);
+  return <SortableTable data={data} columns={columns} initial={[{ id: "median", desc: true }]} rowKey={(row) => row.key} selected={String(selected)} onSelect={(key) => onSelect(Number(key))} tableId="analysis.months" hidden={hidden} />;
 }
 
 /** The chosen month or interval for every ticker, ranked by median. */
@@ -228,14 +258,17 @@ export function TickerTable({ rows, benchmark, sector = false, basis = "absolute
   const columns = useMemo(() => {
     const column = createColumnHelper<StatsRow>();
     return [
-      column.accessor("key", { id: "ticker", header: t("ui.analysis.col.ticker"), cell: ({ row }) => <span className="font-semibold tabular-nums">{row.original.key}<SectorBadge reference={row.original.sector} /></span> }),
+      column.accessor("key", { id: "ticker", enableHiding: false, header: t("ui.analysis.col.ticker"), cell: ({ row }) => <span className="font-semibold tabular-nums">{row.original.key}<SectorBadge reference={row.original.sector} /></span> }),
       column.accessor((row) => distribution(row.stats, basis).n, { id: "n", header: "N", meta: { numeric: true, tip: t("ui.analysis.col.n_tip") }, cell: ({ row }) => `${distribution(row.original.stats, basis).n}/${row.original.stats.target_n}` }),
       ...stats,
     ] as ColumnDef<StatsRow, any>[];
   }, [stats, t, basis]);
   const data = useMemo<StatsRow[]>(() => rows.map((row) => ({ key: row.symbol, label: row.symbol, stats: row.period.stats, sector: row.sector })), [rows]);
-  return <SortableTable data={data} columns={columns} initial={[{ id: "median", desc: true }]} rowKey={(row) => row.key} selected={selected} onSelect={onSelect} />;
+  const hidden = hiddenBeyond(columns.map((column) => column.id!), RANK_PRIORITY, 8);
+  return <SortableTable data={data} columns={columns} initial={[{ id: "median", desc: true }]} rowKey={(row) => row.key} selected={selected} onSelect={onSelect} tableId="analysis.tickers" hidden={hidden} />;
 }
+
+const DETAIL_HIDDEN = ["open", "close"];
 
 /** Every year of the chosen period: actual first and last sessions, open, close and the benchmark's change. */
 export function DetailTable({ period, benchmark, sector }: { period: Period; benchmark: string | null; sector?: string | null }) {
@@ -244,11 +277,13 @@ export function DetailTable({ period, benchmark, sector }: { period: Period; ben
     const column = createColumnHelper<Candle>();
     const list: ColumnDef<Candle, any>[] = [
       column.accessor("year", {
+        id: "year",
+        enableHiding: false,
         header: t("ui.analysis.col.year"),
         cell: ({ row }) => (
           <span className="font-medium tabular-nums">
             {yearLabel(row.original, period.cross_year)}
-            {row.original.current && <span className="ml-1.5 rounded bg-secondary px-1 text-[11px] font-normal text-muted-foreground">{t(row.original.status === "in_progress" ? "ui.analysis.status.in_progress" : "ui.analysis.this_year")}</span>}
+            {row.original.current && <span className="ml-1.5 rounded bg-secondary px-1 text-xs font-normal text-muted-foreground">{t(row.original.status === "in_progress" ? "ui.analysis.status.in_progress" : "ui.analysis.this_year")}</span>}
           </span>
         ),
       }),
@@ -296,5 +331,5 @@ export function DetailTable({ period, benchmark, sector }: { period: Period; ben
     return list as ColumnDef<Candle, any>[];
   }, [t, benchmark, sector, period.cross_year]);
   const data = useMemo(() => period.years.filter((candle) => !(candle.current && candle.status === "not_started")).slice().reverse(), [period]);
-  return <SortableTable data={data} columns={columns} initial={[{ id: "year", desc: true }]} rowKey={(row) => String(row.year)} />;
+  return <SortableTable data={data} columns={columns} initial={[{ id: "year", desc: true }]} rowKey={(row) => String(row.year)} tableId="analysis.years" hidden={DETAIL_HIDDEN} />;
 }

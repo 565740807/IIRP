@@ -97,6 +97,41 @@
   --animate-progress: progress 1.2s ease-in-out infinite;
 }
 
+/*
+ * Type and spacing scale. Body text is 14px (text-sm) and never under 13px;
+ * tables, captions and notes are 12px (text-xs), the smallest size used
+ * anywhere. Headings have three fixed levels: the page title, a section title
+ * and a card title. Cards share one radius, border and padding, and stacked
+ * parts of a page are 1rem apart (space-y-4).
+ */
+@utility page-title {
+  font-size: 1.125rem;
+  line-height: 1.75rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+@utility section-title {
+  font-size: 0.9375rem;
+  line-height: 1.375rem;
+  font-weight: 600;
+}
+@utility card-title {
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  font-weight: 600;
+}
+@utility note {
+  font-size: 0.75rem;
+  line-height: 1.125rem;
+  color: var(--muted-foreground);
+}
+@utility panel {
+  border-radius: var(--radius);
+  border-width: 1px;
+  border-color: var(--border);
+  background-color: var(--card);
+}
+
 @keyframes breathe {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.45; }

@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import {
@@ -18,9 +18,12 @@ import { sourceContext } from "@/lib/navigation";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { useTableColumns } from "@/components/ui/column-settings";
 import { WindowCell } from "./WindowCell";
 
 export type Trade = Schemas["InsiderTransaction"];
+// Shown from the column settings: the filing time, holdings after the trade, ownership and the 10b5-1 flag.
+const TRADE_HIDDEN = ["filed", "after", "ownership", "plan"];
 const column = createColumnHelper<Trade>();
 
 /** A filing that names no currency is in US dollars; only another currency is shown. */
@@ -49,7 +52,7 @@ function DateAnomaly({ row }: { row: Trade }) {
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <Badge variant="outline" className="h-5 border-warn/40 px-1 text-[11px] text-warn">{t("ui.feed.date_anomaly")}</Badge>
+        <Badge variant="outline" className="h-5 border-warn/40 px-1 text-xs text-warn">{t("ui.feed.date_anomaly")}</Badge>
       </TooltipTrigger>
       <TooltipContent className="max-w-xs">
         {t("ui.feed.date_anomaly_detail", {
@@ -74,6 +77,8 @@ export function TradeTable({
   n,
   selected,
   onSelect,
+  toolbar,
+  empty,
 }: {
   rows: Trade[];
   kind: "company" | "person";
@@ -82,6 +87,8 @@ export function TradeTable({
   n: number;
   selected: string | null;
   onSelect: (id: string) => void;
+  toolbar?: ReactNode;
+  empty?: ReactNode;
 }) {
   const { t } = useTranslation();
   const location = useLocation();
@@ -90,10 +97,16 @@ export function TradeTable({
     () => [
       column.accessor((row) => row.transaction_date ?? "", {
         id: "traded",
+        enableHiding: false,
         header: t("ui.trades.traded"),
         cell: ({ row }) => (
           <span className="inline-flex items-center gap-1 whitespace-nowrap tabular-nums">
-            {formatDay(row.original.transaction_date)}
+            {/* The date opens the trade's detail page; a click elsewhere on the row marks it on the chart. */}
+            <Link to={`/transactions/${row.original.id}`} state={sourceContext(location)} onClick={(event) => event.stopPropagation()}
+              className="inline-flex items-center gap-0.5 font-medium hover:underline" title={t("ui.trades.open")}>
+              {formatDay(row.original.transaction_date)}
+              <ChevronRight className="size-3.5 text-muted-foreground" aria-hidden />
+            </Link>
             <DateAnomaly row={row.original} />
           </span>
         ),
@@ -114,11 +127,12 @@ export function TradeTable({
         ? column.accessor((row) => row.owners.map((owner) => owner.name).join(", "), {
             id: "insider",
             header: t("ui.trades.insider"),
+            enableHiding: false,
             cell: ({ row }) => (
-              <div className="min-w-0 max-w-44">
+              <div className="w-48 min-w-0">
                 {row.original.owners.map((owner) => (
                   <div key={owner.id} className="leading-tight">
-                    <Link to={`/people/${owner.id}`} state={sourceContext(location)} onClick={(event) => event.stopPropagation()} className="block truncate font-medium hover:underline">
+                    <Link to={`/people/${owner.id}`} state={sourceContext(location)} onClick={(event) => event.stopPropagation()} className="block truncate font-medium hover:underline" title={readableCase(owner.name)}>
                       {readableCase(owner.name)}
                     </Link>
                     {owner.roles.length > 0 && <span className="block truncate text-xs text-muted-foreground" title={rolesText(owner)}>{rolesText(owner)}</span>}
@@ -130,15 +144,19 @@ export function TradeTable({
         : column.accessor((row) => row.ticker ?? row.issuer_name ?? "", {
             id: "company",
             header: t("ui.trades.company"),
+            enableHiding: false,
             cell: ({ row }) => {
               const owner = row.original.owners.find((item) => item.id === personId) ?? row.original.owners[0];
+              const company = readableCase(row.original.issuer_name ?? row.original.issuer_id);
               return (
-                <div className="min-w-0 max-w-44 leading-tight">
-                  <Link to={`/companies/${row.original.issuer_id}`} state={sourceContext(location)} onClick={(event) => event.stopPropagation()} className="inline-flex min-w-0 items-baseline gap-1.5 hover:underline">
-                    <span className="rounded bg-secondary px-1 text-xs font-semibold tabular-nums">{row.original.ticker ?? "—"}</span>
-                    <span className="truncate font-medium">{readableCase(row.original.issuer_name ?? row.original.issuer_id)}</span>
+                // A fixed width and a clipped, single-line name: the cell never runs into the action.
+                <div className="w-56 min-w-0 leading-tight">
+                  <Link to={`/companies/${row.original.issuer_id}`} state={sourceContext(location)} onClick={(event) => event.stopPropagation()} title={company}
+                    className="flex max-w-full min-w-0 items-baseline gap-1.5 hover:underline">
+                    <span className="shrink-0 rounded bg-secondary px-1 text-xs font-semibold tabular-nums">{row.original.ticker ?? "—"}</span>
+                    <span className="min-w-0 truncate font-medium">{company}</span>
                   </Link>
-                  {owner && owner.roles.length > 0 && <div className="truncate text-xs text-muted-foreground">{rolesText(owner)}</div>}
+                  {owner && owner.roles.length > 0 && <div className="truncate text-xs text-muted-foreground" title={rolesText(owner)}>{rolesText(owner)}</div>}
                 </div>
               );
             },
@@ -149,7 +167,7 @@ export function TradeTable({
         cell: ({ row }) => {
           // Long labels ("Option exercise (M) (derivative)") stay on one line; hover shows all.
           const label = actionLabel(row.original, t);
-          return <span title={label} className={cn("block max-w-40 truncate font-medium", sideClass(row.original))}>{label}</span>;
+          return <span title={label} className={cn("block max-w-48 truncate font-medium", sideClass(row.original))}>{label}</span>;
         },
       }),
       column.accessor((row) => Number(row.shares ?? NaN), {
@@ -211,6 +229,7 @@ export function TradeTable({
       }),
       column.accessor((row) => plan(row.raw_10b5_1_flag) ?? "", {
         id: "plan",
+        meta: { label: t("ui.trades.plan") },
         header: () => (
           <Tooltip>
             <TooltipTrigger className="cursor-default">{t("ui.trades.plan")}</TooltipTrigger>
@@ -224,8 +243,8 @@ export function TradeTable({
       }),
       column.accessor((row) => Number(windows.get({ ticker: row.ticker, date: row.date_anomaly ? null : row.transaction_date })?.before?.value ?? NaN), {
         id: "before",
+        meta: { numeric: true, label: t("ui.window.before_head_long", { n }) },
         header: () => <span title={t("ui.window.before_head_long", { n })}>{t("ui.window.before_head", { n })}</span>,
-        meta: { numeric: true },
         cell: ({ row }) => (
           <WindowCell n={n} side="before" ticker={windows.ticker(row.original.ticker)}
             change={windows.get({ ticker: row.original.ticker, date: row.original.date_anomaly ? null : row.original.transaction_date })?.before} />
@@ -233,36 +252,33 @@ export function TradeTable({
       }),
       column.accessor((row) => Number(windows.get({ ticker: row.ticker, date: row.date_anomaly ? null : row.transaction_date })?.after?.value ?? NaN), {
         id: "after_n",
+        meta: { numeric: true, label: t("ui.window.after_head_long", { n }) },
         header: () => <span title={t("ui.window.after_head_long", { n })}>{t("ui.window.after_head", { n })}</span>,
-        meta: { numeric: true },
         cell: ({ row }) => (
           <WindowCell n={n} side="after" ticker={windows.ticker(row.original.ticker)}
             change={windows.get({ ticker: row.original.ticker, date: row.original.date_anomaly ? null : row.original.transaction_date })?.after} />
         ),
       }),
-      column.display({
-        id: "open",
-        header: () => <span className="sr-only">{t("ui.trades.open")}</span>,
-        cell: ({ row }) => (
-          <Link to={`/transactions/${row.original.id}`} state={sourceContext(location)} onClick={(event) => event.stopPropagation()}
-            className="grid size-6 place-items-center rounded text-muted-foreground hover:bg-accent hover:text-foreground" aria-label={t("ui.trades.open")}>
-            <ChevronRight className="size-4" />
-          </Link>
-        ),
-      }),
     ],
     [t, kind, personId, location, windows, n],
   );
+  const choices = useTableColumns("insider.trades", TRADE_HIDDEN);
   const table = useReactTable({
     data: rows,
     columns,
-    state: { sorting },
+    state: { sorting, columnVisibility: choices.state(columns.map((item) => item.id!)) },
     onSortingChange: setSorting,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
     sortDescFirst: true,
   });
   return (
+    <div>
+    <div className="flex min-h-7 flex-wrap items-center gap-x-3 gap-y-1 pb-1.5">
+      {toolbar}
+      {choices.settings(table, "ml-auto")}
+    </div>
+    {!rows.length && empty ? empty : (
     <div className="overflow-x-auto rounded-lg border bg-card">
       <table className="w-full text-sm">
         <thead className="bg-card">
@@ -273,7 +289,7 @@ export function TradeTable({
                 const sorted = header.column.getIsSorted();
                 return (
                   <th key={header.id} className={cn("px-1.5 py-2 text-xs font-medium whitespace-nowrap text-muted-foreground first:pl-3", numeric ? "text-right" : "text-left")}>
-                    {header.column.getCanSort() && header.id !== "open" ? (
+                    {header.column.getCanSort() ? (
                       <button type="button" onClick={header.column.getToggleSortingHandler()} className={cn("inline-flex items-center gap-0.5 hover:text-foreground", sorted && "text-foreground")}>
                         {flexRender(header.column.columnDef.header, header.getContext())}
                         {sorted === "asc" ? <ArrowUp className="size-3" /> : sorted === "desc" ? <ArrowDown className="size-3" /> : null}
@@ -311,6 +327,8 @@ export function TradeTable({
           ))}
         </tbody>
       </table>
+    </div>
+    )}
     </div>
   );
 }

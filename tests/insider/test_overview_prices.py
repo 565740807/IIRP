@@ -358,3 +358,38 @@ def test_feed_line_amount_leaves_out_only_its_suspect_rows():
     assert line["price_check"] == "mismatch"
     assert line["amount"] == "500.00"
     assert line["reported_amount"] == "500500.00"
+
+
+@pytest.mark.parametrize(("title", "foreign"), [
+    ("Common Shares (2330.TW)", True),
+    ("Ordinary Participation Certificates (CEMEX.CPO)", True),
+    ("Brazilian Depositary Receipts", True),
+    ("Ordinary Shares (represented by American depositary shares)", True),
+    ("American Depositary Shares", False),
+    ("American Depositary Shares (TSM)", False),
+    ("Common Stock", False),
+    ("Class A Common Stock, par value $0.0001", False),
+    (None, False),
+])
+def test_foreign_listing_titles(title, foreign):
+    from iirp.insider.prices import foreign_listing
+    assert foreign_listing(title) is foreign
+
+
+def test_foreign_listing_note_in_the_overview_and_the_feed():
+    with session() as s, s.begin():
+        seed(s, issuer="0001046179", ticker="TSMX", price="79.39", data={"security_title": "Common Shares (2330.TW)"})
+        seed(s, issuer="0000000101", ticker="HOME", price="50", data={"security_title": "Common Stock"})
+        quote(s, "TSMX", "453.31")
+        quote(s, "HOME", "50")
+        _refresh_groups(s, {("0001046179", DAY), ("0000000101", DAY)})
+    trades = {item["ticker"]: item["price"] for item in read()["large_buys"]["items"]}
+    assert trades["TSMX"]["foreign_listing"] is True and trades["HOME"]["foreign_listing"] is False
+    # The note never changes the comparison itself.
+    assert trades["TSMX"]["relation"] == "higher" and trades["TSMX"]["price"] == "79.39"
+    with session() as s, s.begin():
+        groups = {group["issuer_id"]: group for group in read_feed(s)["groups"]}
+        items = feed_prices(s, [group["revision_id"] for group in groups.values()])["items"]
+    by_revision = {key.split(":")[0]: value for key, value in items.items()}
+    assert by_revision[groups["0001046179"]["revision_id"]]["foreign_listing"] is True
+    assert by_revision[groups["0000000101"]["revision_id"]]["foreign_listing"] is False

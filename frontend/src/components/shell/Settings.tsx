@@ -203,10 +203,10 @@ function StripSection({ display }: { display?: Display }) {
               <span className="flex min-w-0 flex-col">
                 <span className="flex min-w-0 items-baseline gap-2">
                   <span className="truncate">{tm(item.name)}</span>
-                  <span className="shrink-0 font-mono text-[11px] text-muted-foreground">{item.symbol}</span>
+                  <span className="shrink-0 font-mono text-xs text-muted-foreground">{item.symbol}</span>
                 </span>
                 {(item.off_hours_only || !item.default) && (
-                  <span className="text-[11px] text-muted-foreground">
+                  <span className="text-xs text-muted-foreground">
                     {t(item.off_hours_only ? "ui.settings.strip.off_hours" : "ui.settings.strip.optional")}
                   </span>
                 )}
