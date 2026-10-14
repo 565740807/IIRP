@@ -15,7 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { InfoTip } from "@/components/ui/info";
 import { Skeleton } from "@/components/ui/skeleton";
 import { NControl } from "@/components/insider/NControl";
-import { PriceChart } from "@/components/insider/PriceChart";
+import { BandLegend, PriceChart, type Band } from "@/components/insider/PriceChart";
 import { money, price, type Trade } from "@/components/insider/TradeTable";
 import { WindowCell } from "@/components/insider/WindowCell";
 import { AmendmentReview } from "@/components/insider/AmendmentReview";
@@ -119,6 +119,12 @@ export function TransactionPage() {
     ...(row.transaction_date ? [{ date: row.transaction_date, label: t("ui.detail.line.trade") }] : []),
     ...(acceptedDay ? [{ date: acceptedDay, label: t("ui.detail.line.filed") }] : []),
   ];
+  // The n sessions before and after the trade, and after the filing, shaded behind the candles.
+  const bands: Band[] = [
+    ...(trade?.before_date && trade.baseline_date ? [{ start: trade.before_date, end: trade.baseline_date, tone: "before" as const, label: t("ui.notable.trade.band.before", { n }) }] : []),
+    ...(trade?.baseline_date && trade.after_date ? [{ start: trade.baseline_date, end: trade.after_date, tone: "after" as const, label: t("ui.notable.trade.band.after", { n }) }] : []),
+    ...(disclosure?.baseline_date && disclosure.after_date ? [{ start: disclosure.baseline_date, end: disclosure.after_date, tone: "published" as const, label: t("ui.notable.trade.band.published", { n }) }] : []),
+  ];
   return (
     <div className="space-y-4">
       <div>
@@ -182,12 +188,16 @@ export function TransactionPage() {
             {context.ticker ? t("ui.detail.price_title", { ticker: context.ticker, n }) : t("ui.entity.chart_none")}
             <InfoTip>{t("ui.detail.basis.note", { n })}</InfoTip>
           </h3>
+          {context.ticker && <span className="text-xs text-muted-foreground">{t("ui.notable.trade.unit")}</span>}
           {context.price_fetched_at && <span className="text-xs text-muted-foreground">{t("ui.entity.prices_as_of", { time: formatEt(context.price_fetched_at) })}</span>}
           <NControl className="ml-auto" />
         </div>
         <div className="mt-2 grid gap-3 md:grid-cols-[minmax(0,1fr)_17rem]">
           {context.bars?.length ? (
-            <PriceChart bars={context.bars} lines={lines} height={260} />
+            <div className="min-w-0">
+              <PriceChart bars={context.bars} lines={lines} bands={bands} height={260} />
+              <BandLegend bands={bands} className="mt-1 px-2" />
+            </div>
           ) : (
             <div className="grid h-[260px] place-items-center text-sm text-muted-foreground">
               {["FETCHING", "NOT_FETCHED"].includes(String(context.status)) ? (

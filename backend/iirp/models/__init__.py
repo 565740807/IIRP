@@ -57,6 +57,14 @@ from iirp.models.market import (  # noqa: F401
     Security,
     SecurityIdentifier,
 )
+from iirp.models.notable import NotablePerson  # noqa: F401
+from iirp.models.notifications import Notification, NotificationPush  # noqa: F401
+from iirp.models.political import (  # noqa: F401
+    PoliticalPage,
+    PoliticalPerson,
+    PoliticalReport,
+    PoliticalTransaction,
+)
 from iirp.models.sources import (  # noqa: F401
     Coverage,
     CoverageSegment,
@@ -65,3 +73,4 @@ from iirp.models.sources import (  # noqa: F401
     SourceObservation,
     SourcePoll,
 )
+from iirp.models.watchlist import WatchlistItem  # noqa: F401

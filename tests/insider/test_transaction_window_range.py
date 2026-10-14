@@ -84,3 +84,29 @@ def test_request_identity_cannot_replay_another_transaction():
     transaction_window(first, request_id)
     with pytest.raises(ValueError, match="common.request_id_reused"):
         transaction_window(second, request_id)
+
+
+def test_transaction_detail_reads_long_term_prices_without_a_disposable_cache():
+    from freezegun import freeze_time
+    from iirp.analysis.calendar import sessions
+    from iirp.insider.transactions import transaction_detail
+    from iirp.models import LongPriceBar, LongPriceSeries, now
+
+    with freeze_time("2026-09-17T21:00:00+00:00"):
+        event_id = _mapped_event("2026-09-10", "2026-09-11T18:00:00-04:00")
+        with session() as s, s.begin():
+            event = s.get(TransactionEvent, event_id)
+            security_id = event.data["security_mapping"]["security_id"]
+            series = LongPriceSeries(symbol="DEMO", security_id=security_id,
+                                     retain_from=date(2026, 8, 1), start_date=date(2026, 8, 1),
+                                     end_date=date(2026, 9, 17), complete_through=date(2026, 9, 17),
+                                     fetched_at=now(), needs_full=False)
+            s.add(series)
+            s.flush()
+            s.add_all(LongPriceBar(cache_id=series.id, session_date=day, open=25, high=26,
+                                   low=24, close=25.5, status="VALID")
+                      for day in sessions(date(2026, 8, 1), date(2026, 9, 17)))
+        context = transaction_detail(event_id)["data"]["price_context"]
+        assert context["status"] == "READY" and context["source"] == "local_long_prices"
+        assert context["bars"] and context["price_expires_at"] is None
+        assert not context["price_expired"]

@@ -13,6 +13,7 @@ from iirp.insider.feed import (
     open_feed_session,
 )
 from iirp.insider.feed_index import delta, pending
+from iirp.insider.feed_index import scope as scope_groups_of
 from iirp.messages import UserError, msg
 from iirp.models import Filing, Issuer, Job, now
 
@@ -109,22 +110,24 @@ def feed_updates(s, session_id, *, include_groups=False, target_session_id="", c
         if cursor:
             raise UserError("feed.delta_target_missing")
         target = None
-    changed, removed = changes(target)
-    index = saved.filters.get("index", "all")
-    if index != "all":
-        from iirp.insider.feed_index import _index_groups
-        allowed = set(s.scalars(_index_groups(index)))
-        changed = [entry for entry in changed if entry[1] in allowed]
-        removed = [key for key in removed if key in allowed]
+    index, tickers = saved.filters.get("index", "all"), saved.filters.get("watchlist")
+    scope = {"index": index, **({"watchlist": tickers} if tickers is not None else {})}
+    groups = scope_groups_of(s, index, tickers)
+    allowed = None if groups is None else set(groups if isinstance(groups, list) else s.scalars(groups))
+
+    def within(changed, removed):
+        if allowed is None:
+            return changed, removed
+        return [entry for entry in changed if entry[1] in allowed], [key for key in removed if key in allowed]
+
+    changed, removed = within(*changes(target))
     offset = _offset(cursor)
     # The first content read opens a target watermark; every delta page is then
     # computed between the same two watermarks and never shifts its boundary.
+    # It keeps the base session's index and watched codes.
     if include_groups and target is None and (changed or removed):
-        target = open_feed_session(s, kind, order, delta_from=saved.id, index=index)
-        changed, removed = changes(target)
-        if index != "all":
-            changed = [entry for entry in changed if entry[1] in allowed]
-            removed = [key for key in removed if key in allowed]
+        target = open_feed_session(s, kind, order, groups, delta_from=saved.id, **scope)
+        changed, removed = within(*changes(target))
     summary, preview = pending_feed_metadata(s, preview=include_groups and offset == 0)
     page = changed[offset:offset + 20]
     return {

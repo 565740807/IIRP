@@ -207,6 +207,10 @@ def main():
     handler = RotatingFileHandler(logdir / "worker-events.log", maxBytes=5 * 1024**2, backupCount=4)
     logging.basicConfig(level=logging.INFO, handlers=[handler])
     ensure_defaults()
+    from iirp.notable.people import seed_defaults
+
+    # The followed people start from config/notable-people.toml once.
+    seed_defaults()
     from iirp.insider.feed_index import ensure_cluster, reconcile
 
     with session() as s, s.begin():
@@ -221,6 +225,7 @@ def main():
         from iirp.jobs.handlers import execute_business
         from iirp.jobs.planner import plan_tick
         from iirp.jobs.schedule import schedule_tick
+        from iirp.political.service import schedule as political_schedule
         from iirp.storage.maintenance import operational_log_tick
 
         lanes = {
@@ -232,6 +237,10 @@ def main():
             "compute": (1, {"research_compute"}),
             "diagnostic": (1, {"fixture_check", "sec_probe", "market_probe"}),
             "maintenance": (1, {"maintenance_backup", "maintenance_clean", "market_long_manage", "index_constituents"}),
+            "political": (1, {"political_index", "political_document"}),
+            "political_ocr": (1, {"political_page", "political_manifest"}),
+            # Phone pushes: one sender, so messages keep their spacing.
+            "notify": (1, {"notification_push"}),
         }
         from iirp.extensions import jobs as extension_jobs
 
@@ -245,6 +254,8 @@ def main():
         release_stale_lease()
         futures = {}
         last_plan = 0.0
+        political_startup = True
+        last_notifications = 0.0
         poll_future = None
         chores, last_chores = None, 0.0
         from iirp.jobs.operation_pool import OperationPool
@@ -253,6 +264,10 @@ def main():
             return STOP or owner.stopping()
         drained = False
         def business(job):
+            if job.kind == "notification_push":
+                from iirp.notifications.push import run as push
+
+                return push(job, stopping)
             if job.kind in extension_handlers:
                 return extension_handlers[job.kind](job, stopping)
             try:
@@ -273,7 +288,17 @@ def main():
                             tick()
                             plan_tick(time_budget_seconds=1.0)
                             schedule_tick()
+                            try:
+                                political_startup = political_schedule(startup=political_startup)
+                            except Exception as exc:
+                                logging.exception("government schedule failed type=%s", type(exc).__name__)
                             operational_log_tick()
+                            if time.monotonic() - last_notifications >= 30:
+                                # Followed people's new trades and rule matches; pushes queue themselves.
+                                last_notifications = time.monotonic()
+                                from iirp.notifications.scan import tick as notification_tick
+
+                                notification_tick()
                             if (drained and (poll_future is None or poll_future.done())
                                     and len(futures) < 5
                                     and sum(value == "sec" for value in futures.values()) < lanes["sec"][0]

@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next";
-import { motion } from "motion/react";
+import * as m from "motion/react-m";
 import { ChevronRight } from "lucide-react";
 import { conclusion, pct, share, periodName, type Period, type SeasonalKind } from "@/lib/analysis";
 import type { Schemas } from "@/lib/api-client";
@@ -24,7 +24,7 @@ export function ConclusionCard({
   const { t } = useTranslation();
   const current = period.years.find((candle) => candle.current);
   return (
-    <motion.section
+    <m.section
       key={`${symbol}:${period.key}`}
       initial={{ opacity: 0.4 }}
       animate={{ opacity: 1 }}
@@ -62,7 +62,7 @@ export function ConclusionCard({
           })}
         </p>
       )}
-    </motion.section>
+    </m.section>
   );
 }
 

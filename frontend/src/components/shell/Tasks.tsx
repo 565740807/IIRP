@@ -1,12 +1,12 @@
 import { useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { LoaderCircle } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { ClipboardList, LoaderCircle } from "lucide-react";
 import { client, unwrap, type Schemas } from "@/lib/api-client";
 import { tm } from "@/i18n";
 import { formatAgo } from "@/lib/format";
-import { usePageVisible } from "@/lib/refresh";
+import { ACTIVE_TASKS as ACTIVE, useMyBatches } from "@/lib/personalTasks";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -15,21 +15,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 type Batch = Schemas["BatchView"];
 type Action = Schemas["BatchAction"]["action"];
-const ACTIVE = ["QUEUED", "RUNNING", "PAUSE_REQUESTED", "CANCEL_REQUESTED", "RETRY_WAIT", "WAITING"];
-
-function useMyBatches(category: string, enabled = true) {
-  const visible = usePageVisible();
-  return useQuery({
-    queryKey: ["my-tasks", category],
-    queryFn: () =>
-      unwrap(client.GET("/api/v1/batches", { params: { query: { category, view: "personal" } } })),
-    enabled,
-    // Follow running work closely, otherwise a slow heartbeat; nothing while hidden.
-    refetchInterval: (query) =>
-      !visible ? false : query.state.data?.items.some((batch) => ACTIVE.includes(batch.status)) ? 2000 : 15000,
-  });
-}
-
 /** Controls a batch offers in its state (same rules as the Data page). */
 export function actions(status: string): Action[] {
   return [
@@ -104,10 +89,11 @@ function TaskRow({ batch, onNavigate }: { batch: Batch; onNavigate: () => void }
 }
 
 /** Top-bar entry for the reader's own tasks, with a drawer of active and attention items. */
-export function TaskEntry() {
+export function TaskPanel({ open, onOpenChange: setOpen, initialCategory }: {
+  open: boolean; onOpenChange: (open: boolean) => void; initialCategory: "active" | "attention";
+}) {
   const { t } = useTranslation();
-  const [open, setOpen] = useState(false);
-  const [category, setCategory] = useState<"active" | "attention">("active");
+  const [category, setCategory] = useState<"active" | "attention">(initialCategory);
   const summary = useMyBatches("active");
   const list = useMyBatches(category, open);
   const counts = summary.data?.counts ?? {};
@@ -115,19 +101,6 @@ export function TaskEntry() {
   const attention = counts.attention ?? 0;
   return (
     <>
-      <Button
-        variant="ghost"
-        onClick={() => {
-          setCategory(running || !attention ? "active" : "attention");
-          setOpen(true);
-        }}
-        aria-label={t("ui.tasks.entry_label", { running, attention })}
-      >
-        {running ? <LoaderCircle className="motion-safe:animate-spin" /> : <ClipboardList />}
-        <span>{t("ui.tasks.title")}</span>
-        {running > 0 && <Badge className="tabular-nums">{running}</Badge>}
-        {!running && attention > 0 && <Badge variant="outline" className="tabular-nums">{attention}</Badge>}
-      </Button>
       <Sheet open={open} onOpenChange={setOpen}>
         <SheetContent className="w-[420px] sm:max-w-[420px]">
           <SheetHeader>

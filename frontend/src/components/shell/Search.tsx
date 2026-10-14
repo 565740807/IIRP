@@ -7,8 +7,9 @@ import { client, unwrap } from "@/lib/api-client";
 import { tm } from "@/i18n";
 import { sourceContext } from "@/lib/navigation";
 import { cn } from "@/lib/utils";
+import { FollowStar } from "@/components/notable/FollowStar";
 
-/** Local search only: companies, people and securities already saved. */
+/** Local search only: companies, people and securities already saved, also by their aliases (config/aliases.toml). */
 export function Search() {
   const { t } = useTranslation();
   const location = useLocation();
@@ -29,9 +30,11 @@ export function Search() {
     staleTime: 30_000,
   });
   const items = results.data?.items ?? [];
+  // Analysing the term as a ticker is offered only when it could be one (not for a name such as an alias).
+  const ticker = /^[A-Za-z0-9.^=-]{1,12}$/.test(term);
   const options = [
     ...items.map((item) => ({ key: `${item.kind}-${item.id}`, href: item.href, item })),
-    { key: "analysis", href: `/analysis/monthly?ticker=${encodeURIComponent(term.toUpperCase())}`, item: null },
+    ...(ticker ? [{ key: "analysis", href: `/analysis/monthly?ticker=${encodeURIComponent(term.toUpperCase())}`, item: null }] : []),
   ];
   const close = () => {
     setOpen(false);
@@ -62,7 +65,7 @@ export function Search() {
             setOpen(false);
             event.currentTarget.blur();
           }
-          if (!term || !["ArrowDown", "ArrowUp", "Enter"].includes(event.key)) return;
+          if (!term || !options.length || !["ArrowDown", "ArrowUp", "Enter"].includes(event.key)) return;
           event.preventDefault();
           if (event.key === "Enter") {
             navigate(options[active].href, { state: sourceContext(location) });
@@ -98,31 +101,34 @@ export function Search() {
                   : t("ui.search.none")}
           </p>
           {options.map((option, index) => (
-            <Link
-              key={option.key}
-              id={`search-option-${index}`}
-              role="option"
-              aria-selected={active === index}
-              to={option.href}
-              state={sourceContext(location)}
-              onMouseDown={(event) => event.preventDefault()}
-              onMouseEnter={() => setActive(index)}
-              onClick={close}
-              className={cn(
-                "flex items-baseline gap-2 rounded-md px-2 py-1.5 text-sm",
-                active === index && "bg-accent",
-              )}
-            >
-              {option.item ? (
-                <>
-                  <span className="truncate font-medium">{option.item.name}</span>
-                  {option.item.ticker && <span className="text-xs text-muted-foreground tabular-nums">{option.item.ticker}</span>}
-                  <span className="ml-auto text-xs text-muted-foreground">{t(`ui.search.kind.${option.item.kind}`)}</span>
-                </>
-              ) : (
-                <span className="text-muted-foreground">{t("ui.search.analysis", { ticker: term.toUpperCase() })}</span>
-              )}
-            </Link>
+            <div key={option.key} className={cn("flex items-center gap-1 rounded-md pr-1", active === index && "bg-accent")}>
+              <Link
+                id={`search-option-${index}`}
+                role="option"
+                aria-selected={active === index}
+                to={option.href}
+                state={sourceContext(location)}
+                onMouseDown={(event) => event.preventDefault()}
+                onMouseEnter={() => setActive(index)}
+                onClick={close}
+                className="flex min-w-0 flex-1 items-baseline gap-2 px-2 py-1.5 text-sm"
+              >
+                {option.item ? (
+                  <>
+                    <span className="truncate font-medium">{option.item.name}</span>
+                    {option.item.ticker && <span className="text-xs text-muted-foreground tabular-nums">{option.item.ticker}</span>}
+                    {option.item.detail && <span className="truncate text-xs text-muted-foreground">{option.item.detail}</span>}
+                    {option.item.alias && (
+                      <span className="shrink-0 rounded bg-muted px-1.5 text-xs text-muted-foreground">{t("ui.search.alias", { alias: option.item.alias })}</span>
+                    )}
+                    <span className="ml-auto shrink-0 text-xs text-muted-foreground">{t(`ui.search.kind.${option.item.kind}`)}</span>
+                  </>
+                ) : (
+                  <span className="text-muted-foreground">{t("ui.search.analysis", { ticker: term.toUpperCase() })}</span>
+                )}
+              </Link>
+              {option.item?.notable_key && <FollowStar personKey={option.item.notable_key} name={option.item.name} size="xs" />}
+            </div>
           ))}
           {results.data && <p className="px-2 pt-1 pb-1.5 text-xs text-muted-foreground">{tm(results.data.data.message)}</p>}
         </div>

@@ -1,4 +1,5 @@
-import { AnimatePresence, motion } from "motion/react";
+import { AnimatePresence, LazyMotion, domMax } from "motion/react";
+import * as m from "motion/react-m";
 import { useTranslation } from "react-i18next";
 import { Check, CircleAlert, LoaderCircle } from "lucide-react";
 import { tm } from "@/i18n";
@@ -17,7 +18,7 @@ function Row({ item }: { item: Item }) {
   const { t } = useTranslation();
   const at = position(item.step);
   return (
-    <motion.li layout initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} className="grid grid-cols-[4.5rem_minmax(0,1fr)] items-center gap-3 py-1">
+    <m.li layout initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} className="grid grid-cols-[4.5rem_minmax(0,1fr)] items-center gap-3 py-1">
       <span className="truncate text-sm font-semibold tabular-nums">{item.symbol}</span>
       {item.step === "failed" ? (
         <span className="flex min-w-0 items-center gap-1.5 text-sm text-destructive">
@@ -36,7 +37,7 @@ function Row({ item }: { item: Item }) {
               <li key={step} className="flex items-center gap-1.5">
                 {index > 0 && (
                   <span className="relative h-px w-6 overflow-hidden bg-border">
-                    <motion.span className="absolute inset-0 origin-left bg-primary" initial={false} animate={{ scaleX: at >= index ? 1 : 0 }} transition={{ duration: 0.3 }} />
+                    <m.span className="absolute inset-0 origin-left bg-primary" initial={false} animate={{ scaleX: at >= index ? 1 : 0 }} transition={{ duration: 0.3 }} />
                   </span>
                 )}
                 <span
@@ -56,7 +57,7 @@ function Row({ item }: { item: Item }) {
           {item.step === "queued" && <span className="text-muted-foreground">{t("ui.analysis.progress.queued")}</span>}
         </ol>
       )}
-    </motion.li>
+    </m.li>
   );
 }
 
@@ -70,9 +71,9 @@ export function Progress({ items, onRetry, retrying }: { items: Item[]; onRetry?
   const done = items.filter((item) => item.step === "done").length;
   const failed = items.some((item) => item.step === "failed");
   return (
-    <AnimatePresence initial={false}>
+    <LazyMotion features={domMax}><AnimatePresence initial={false}>
       {visible && (
-        <motion.section
+        <m.section
           key="progress"
           initial={{ opacity: 0, height: 0 }}
           animate={{ opacity: 1, height: "auto" }}
@@ -90,15 +91,15 @@ export function Progress({ items, onRetry, retrying }: { items: Item[]; onRetry?
             )}
           </header>
           <div className="relative h-0.5 overflow-hidden bg-secondary">
-            <motion.div className="absolute inset-y-0 left-0 bg-primary" initial={false} animate={{ width: `${(done / Math.max(items.length, 1)) * 100}%` }} transition={{ duration: 0.4 }} />
+            <m.div className="absolute inset-y-0 left-0 bg-primary" initial={false} animate={{ width: `${(done / Math.max(items.length, 1)) * 100}%` }} transition={{ duration: 0.4 }} />
           </div>
           <ul className="max-h-72 overflow-y-auto px-4 py-2">
             {items.map((item) => (
               <Row key={item.symbol} item={item} />
             ))}
           </ul>
-        </motion.section>
+        </m.section>
       )}
-    </AnimatePresence>
+    </AnimatePresence></LazyMotion>
   );
 }

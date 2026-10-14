@@ -1,0 +1,33 @@
+# Government disclosure retention and polite source cadence (US Eastern).
+[collection]
+congress_start = "2025-01-01"
+oge_start = "2025-01-20"
+request_gap_seconds = 1.1
+request_timeout_seconds = 15
+connect_timeout_seconds = 5
+max_file_bytes = 67108864
+batch_reports = 8
+max_pending_pages = 8
+parser_version = "political-v4"
+
+[cadence]
+congress_business_seconds = 3600
+congress_other_seconds = 21600
+oge_seconds = 43200
+retry_initial_seconds = 900
+retry_max_seconds = 86400
+
+[ocr]
+dpi = 200
+timeout_seconds = 75
+threads = 1
+
+[sources]
+house_index = "https://disclosures-clerk.house.gov/public_disc/financial-pdfs/{year}FD.zip"
+senate_index = "https://efdsearch.senate.gov/search/"
+oge_index = "https://www.oge.gov/web/oge.nsf/Officials%20Individual%20Disclosures%20Search%20Collection"
+white_house_index = "https://www.whitehouse.gov/disclosures/"
+index_pages_per_task = 3
+
+[matching]
+fuzzy_threshold = 0.94

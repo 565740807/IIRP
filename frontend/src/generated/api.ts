@@ -148,7 +148,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Feed */
+        /**
+         * Feed
+         * @description ``watchlist`` keeps the watched companies (the codes as the session opens).
+         */
         get: operations["feed_api_v1_feed_get"];
         put?: never;
         post?: never;
@@ -257,6 +260,342 @@ export interface paths {
         get: operations["source_api_v1_sources__digest__get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/political/transactions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Transactions */
+        get: operations["transactions_api_v1_political_transactions_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/political/people": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** People */
+        get: operations["people_api_v1_political_people_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/political/sources": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Sources */
+        get: operations["sources_api_v1_political_sources_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/political/sources/{source}/refresh": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Refresh */
+        post: operations["refresh_api_v1_political_sources__source__refresh_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/political/reports/{report_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Report */
+        get: operations["report_api_v1_political_reports__report_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/political/reports/{report_id}/file": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** File */
+        get: operations["file_api_v1_political_reports__report_id__file_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/notable/people": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read People
+         * @description The followed people; ``all`` adds everyone the "all" timeline covers, unmarked.
+         */
+        get: operations["read_people_api_v1_notable_people_get"];
+        put?: never;
+        /** Add Person */
+        post: operations["add_person_api_v1_notable_people_post"];
+        /** Remove Person */
+        delete: operations["remove_person_api_v1_notable_people_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/notable/people/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Restore Defaults
+         * @description Add back the default people who were removed; people the user added stay.
+         */
+        post: operations["restore_defaults_api_v1_notable_people_restore_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/notable/person": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read Person */
+        get: operations["read_person_api_v1_notable_person_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/notable/trades": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read Trades
+         * @description Followed people's trades from the three sources, newest publication first.
+         */
+        get: operations["read_trades_api_v1_notable_trades_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/notable/trades/{transaction_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read Political Trade
+         * @description One House or OGE row with its report, for the trade detail page.
+         */
+        get: operations["read_political_trade_api_v1_notable_trades__transaction_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/notable/reports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read Reports
+         * @description One filing or government report per group; row filters never split a group across pages.
+         */
+        get: operations["read_reports_api_v1_notable_reports_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/notable/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read Summary
+         * @description How one person's coded stock trades moved n sessions after the trade and after publication.
+         */
+        get: operations["read_summary_api_v1_notable_summary_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/notifications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read Notifications
+         * @description Newest first, with the unread count.
+         */
+        get: operations["read_notifications_api_v1_notifications_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/notifications/read": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Mark Read */
+        post: operations["mark_read_api_v1_notifications_read_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/notifications/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read Settings */
+        get: operations["read_settings_api_v1_notifications_settings_get"];
+        /** Change Settings */
+        put: operations["change_settings_api_v1_notifications_settings_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/notifications/settings/topic": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * New Topic
+         * @description A new random topic; phones subscribed to the old one stop receiving.
+         */
+        post: operations["new_topic_api_v1_notifications_settings_topic_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/notifications/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Send Test
+         * @description Queue a test push; the worker sends it within seconds.
+         */
+        post: operations["send_test_api_v1_notifications_test_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1112,6 +1451,48 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/insider/activity": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read Activity
+         * @description Open-market purchases and sales of up to 200 codes over the last ``days``
+         *     calendar days, by the overview's rules; local reads only.
+         */
+        get: operations["read_activity_api_v1_insider_activity_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/insider/sectors": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read Sector Activity
+         * @description Open-market purchases and sales by each company's saved sector and industry
+         *     group, by the overview's rules; local reads only.
+         */
+        get: operations["read_sector_activity_api_v1_insider_sectors_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/insider/indices": {
         parameters: {
             query?: never;
@@ -1400,6 +1781,99 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/watchlist": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read Watchlist */
+        get: operations["read_watchlist_api_v1_watchlist_get"];
+        put?: never;
+        /** Add To Watchlist */
+        post: operations["add_to_watchlist_api_v1_watchlist_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/watchlist/{ticker}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Remove From Watchlist */
+        delete: operations["remove_from_watchlist_api_v1_watchlist__ticker__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/watchlist/import": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Import Watchlist */
+        post: operations["import_watchlist_api_v1_watchlist_import_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/watchlist/news": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read News
+         * @description New open-market Insider purchases and sales of the watched codes since each code's
+         *     start (the later of when it was added and the last acknowledgement); local reads only.
+         */
+        get: operations["read_news_api_v1_watchlist_news_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/watchlist/acknowledged": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Acknowledge Watchlist
+         * @description News up to ``at`` (the time the page read it) has been seen.
+         */
+        put: operations["acknowledge_watchlist_api_v1_watchlist_acknowledged_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1411,6 +1885,38 @@ export interface components {
              * @enum {string}
              */
             action: "pause" | "resume" | "cancel" | "retry";
+        };
+        /**
+         * ActivitySide
+         * @description Distinct insiders, transactions and their counted amount on one side.
+         */
+        ActivitySide: {
+            /** People */
+            people: number;
+            /** Trades */
+            trades: number;
+            /** Amount */
+            amount: string | null;
+        };
+        /** ActivityTrader */
+        ActivityTrader: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            /** Roles */
+            roles: string[];
+            /**
+             * Side
+             * @enum {string}
+             */
+            side: "buy" | "sell";
+            /** Trades */
+            trades: number;
+            /** Amount */
+            amount: string | null;
+            /** Last Date */
+            last_date: string;
         };
         /**
          * AnalysisInput
@@ -3186,6 +3692,40 @@ export interface components {
                 [key: string]: unknown;
             };
         };
+        /** GroupActivity */
+        GroupActivity: {
+            /** Companies */
+            companies: number;
+            /** Buy Companies */
+            buy_companies: number;
+            /** Sell Companies */
+            sell_companies: number;
+            /** Buy Amount */
+            buy_amount: string | null;
+            /** Sell Amount */
+            sell_amount: string | null;
+            /** Net Amount */
+            net_amount: string | null;
+            /**
+             * Amount Estimated
+             * @default false
+             */
+            amount_estimated: boolean;
+            /**
+             * Missing Price Rows
+             * @default 0
+             */
+            missing_price_rows: number;
+            /**
+             * Price Mismatch Rows
+             * @default 0
+             */
+            price_mismatch_rows: number;
+            /** Id */
+            id: string;
+            /** Sector */
+            sector: string;
+        };
         /** GroupRef */
         GroupRef: {
             /** Id */
@@ -3383,12 +3923,101 @@ export interface components {
             /** Indices */
             indices: components["schemas"]["IndexStatus"][];
         };
+        /** InsiderActivity */
+        InsiderActivity: {
+            /** Issuer Id */
+            issuer_id: string;
+            /** Name */
+            name: string;
+            /** Ticker */
+            ticker: string | null;
+            buy: components["schemas"]["ActivitySide"];
+            sell: components["schemas"]["ActivitySide"];
+            /** Net Amount */
+            net_amount: string | null;
+            /** Last Date */
+            last_date: string;
+            /** Plan Trades */
+            plan_trades: number;
+            /**
+             * Amount Estimated
+             * @default false
+             */
+            amount_estimated: boolean;
+            /**
+             * Missing Price Rows
+             * @default 0
+             */
+            missing_price_rows: number;
+            /**
+             * Price Mismatch Rows
+             * @default 0
+             */
+            price_mismatch_rows: number;
+            /** Traders */
+            traders: components["schemas"]["ActivityTrader"][];
+            /** Trader Count */
+            trader_count: number;
+        };
+        /** InsiderActivityOutput */
+        InsiderActivityOutput: {
+            /** As Of */
+            as_of: string;
+            /** Days */
+            days: number;
+            /** Start Date */
+            start_date: string;
+            /** End Date */
+            end_date: string;
+            /** Items */
+            items: {
+                [key: string]: components["schemas"]["InsiderActivity"];
+            };
+        };
+        /** InsiderNews */
+        InsiderNews: {
+            /** Ticker */
+            ticker: string;
+            /** Issuer Id */
+            issuer_id: string;
+            /** Name */
+            name: string;
+            /**
+             * Since
+             * Format: date-time
+             */
+            since: string;
+            /**
+             * Latest At
+             * Format: date-time
+             */
+            latest_at: string;
+            /** Trades */
+            trades: number;
+            /** Buys */
+            buys: number;
+            /** Sales */
+            sales: number;
+            /** Traders */
+            traders: components["schemas"]["NewsTrader"][];
+            /** Trader Count */
+            trader_count: number;
+        };
         /** InsiderOverview */
         InsiderOverview: {
             /** Indices */
             indices: components["schemas"]["IndexStatus"][];
             /** As Of */
             as_of: string;
+            /** Sector */
+            sector: string;
+            /** Sectors */
+            sectors: string[];
+            /**
+             * Watchlist
+             * @default false
+             */
+            watchlist: boolean;
             cluster_buys: components["schemas"]["CompanySection"];
             cluster_sales: components["schemas"]["CompanySection"];
             large_buys: components["schemas"]["TradeSection"];
@@ -3896,6 +4525,350 @@ export interface components {
             /** Symbols */
             symbols: string[];
         };
+        /** NewsOwner */
+        NewsOwner: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+        };
+        /**
+         * NewsTrader
+         * @description The new trades of the same filing owners on one side.
+         */
+        NewsTrader: {
+            /** Id */
+            id: string;
+            /**
+             * Side
+             * @enum {string}
+             */
+            side: "buy" | "sell";
+            /** Owners */
+            owners: components["schemas"]["NewsOwner"][];
+            /** Amount */
+            amount: string | null;
+            /**
+             * Amount Partial
+             * @default false
+             */
+            amount_partial: boolean;
+            /**
+             * Amount Estimated
+             * @default false
+             */
+            amount_estimated: boolean;
+            /**
+             * Price Mismatch
+             * @default false
+             */
+            price_mismatch: boolean;
+            /** Trades */
+            trades: number;
+            /** First Date */
+            first_date: string;
+            /** Last Date */
+            last_date: string;
+            /**
+             * Accepted At
+             * Format: date-time
+             */
+            accepted_at: string;
+        };
+        /** NotableAdd */
+        NotableAdd: {
+            /** Key */
+            key: string;
+            /** Name */
+            name?: string | null;
+        };
+        /** NotablePeopleOutput */
+        NotablePeopleOutput: {
+            /** Items */
+            items: components["schemas"]["NotablePersonEntry"][];
+            /** Limit */
+            limit: number;
+            /** Default Count */
+            default_count: number;
+        };
+        /** NotablePersonEntry */
+        NotablePersonEntry: {
+            /** Key */
+            key: string;
+            /**
+             * Source
+             * @enum {string}
+             */
+            source: "sec" | "house" | "oge";
+            /** Name */
+            name: string;
+            /** Category */
+            category: ("investor" | "investment_firm" | "founder_ceo" | "house" | "president" | "cabinet") | null;
+            note: components["schemas"]["Note"] | null;
+            /** Cik */
+            cik: string | null;
+            /** District */
+            district: string | null;
+            /** Position */
+            position: string | null;
+            /** Default */
+            default: boolean;
+            /** Local */
+            local: boolean;
+            /** Watched */
+            watched: boolean;
+            /** Added At */
+            added_at: string | null;
+        };
+        /** NotablePersonOutput */
+        NotablePersonOutput: {
+            /** Key */
+            key: string;
+            /**
+             * Source
+             * @enum {string}
+             */
+            source: "sec" | "house" | "oge";
+            /** Name */
+            name: string;
+            /** Category */
+            category: ("investor" | "investment_firm" | "founder_ceo" | "house" | "president" | "cabinet") | null;
+            note: components["schemas"]["Note"] | null;
+            /** Cik */
+            cik: string | null;
+            /** District */
+            district: string | null;
+            /** Position */
+            position: string | null;
+            /** Default */
+            default: boolean;
+            /** Local */
+            local: boolean;
+            /** Watched */
+            watched: boolean;
+            /** Added At */
+            added_at: string | null;
+            /** Roles */
+            roles: string[];
+            /** Title */
+            title: string | null;
+            /** Reports */
+            reports: components["schemas"]["PoliticalReportLink"][];
+            filings: components["schemas"]["SecFilings"] | null;
+        };
+        /** NotableReport */
+        NotableReport: {
+            /** Id */
+            id: string;
+            /**
+             * Source
+             * @enum {string}
+             */
+            source: "sec" | "house" | "oge";
+            /** Published */
+            published: string | null;
+            /** Published At */
+            published_at: string | null;
+            person: components["schemas"]["TradePerson"];
+            /** Others */
+            others: components["schemas"]["TradePerson"][];
+            /** Url */
+            url: string | null;
+            /** Amendment */
+            amendment: boolean;
+            /** Counts */
+            counts: {
+                [key: string]: number;
+            };
+            /** Equities */
+            equities: number;
+            /** Sides */
+            sides: {
+                [key: string]: number;
+            };
+            /** Preview Ids */
+            preview_ids: string[];
+            /** Trades */
+            trades: components["schemas"]["NotableTrade"][];
+        };
+        /** NotableReportsOutput */
+        NotableReportsOutput: {
+            /** Items */
+            items: components["schemas"]["NotableReport"][];
+            /** Total */
+            total: number;
+            /** Next Cursor */
+            next_cursor: string | null;
+        };
+        /** NotableRestoreOutput */
+        NotableRestoreOutput: {
+            /** Items */
+            items: components["schemas"]["NotablePersonEntry"][];
+            /** Limit */
+            limit: number;
+            /** Default Count */
+            default_count: number;
+            /** Added */
+            added: number;
+        };
+        /** NotableTrade */
+        NotableTrade: {
+            /** Id */
+            id: string;
+            /**
+             * Source
+             * @enum {string}
+             */
+            source: "sec" | "house" | "oge";
+            /** Published */
+            published: string | null;
+            /** Published At */
+            published_at: string | null;
+            person: components["schemas"]["TradePerson"];
+            /** Others */
+            others: components["schemas"]["TradePerson"][];
+            /** Ticker */
+            ticker: string | null;
+            /** Asset Name */
+            asset_name: string | null;
+            /** Issuer Id */
+            issuer_id: string | null;
+            /**
+             * Asset Kind
+             * @enum {string}
+             */
+            asset_kind: "stock" | "bond" | "option" | "fund" | "other";
+            /**
+             * Side
+             * @enum {string}
+             */
+            side: "buy" | "sell" | "exchange" | "unknown";
+            /** Partial */
+            partial: boolean;
+            /** Plan */
+            plan: boolean | null;
+            /** Shares */
+            shares: string | null;
+            /** Price */
+            price: string | null;
+            /** Amount */
+            amount: string | null;
+            /** Amount Low */
+            amount_low: string | null;
+            /** Amount High */
+            amount_high: string | null;
+            /** Currency */
+            currency: string | null;
+            /** Transaction Date */
+            transaction_date: string | null;
+            /** Lag Days */
+            lag_days: number | null;
+            /** Url */
+            url: string | null;
+            /** Accession */
+            accession: string | null;
+            /** Report Id */
+            report_id: string | null;
+            /** Amendment */
+            amendment: boolean;
+            /** Owner */
+            owner: string | null;
+            /** Ocr */
+            ocr: boolean;
+            /** Review */
+            review: string[];
+            /** Price Ticker */
+            price_ticker: string | null;
+            /** Price None */
+            price_none: ("bond" | "fund" | "other" | "no_ticker") | null;
+            /** Published Basis */
+            published_basis: string | null;
+        };
+        /** NotableTradesOutput */
+        NotableTradesOutput: {
+            /** Items */
+            items: components["schemas"]["NotableTrade"][];
+            /** Total */
+            total: number;
+            /** Next Cursor */
+            next_cursor: string | null;
+        };
+        /** Note */
+        Note: {
+            /** En */
+            en: string;
+            /** Zh */
+            zh: string;
+        };
+        /** NotificationItem */
+        NotificationItem: {
+            /** Id */
+            id: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "trade" | "rule_executive" | "rule_cluster";
+            /** Person Key */
+            person_key: string | null;
+            /** Issuer Id */
+            issuer_id: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Read */
+            read: boolean;
+            /** Data */
+            data: {
+                [key: string]: unknown;
+            };
+        };
+        /** NotificationSettingsOutput */
+        NotificationSettingsOutput: {
+            /** Enabled */
+            enabled: boolean;
+            /** Enabled At */
+            enabled_at: string | null;
+            rules: components["schemas"]["RuleSettings"];
+            ntfy: components["schemas"]["NtfySettings"];
+            push: components["schemas"]["PushStatus"];
+        };
+        /** NotificationsOutput */
+        NotificationsOutput: {
+            /** Items */
+            items: components["schemas"]["NotificationItem"][];
+            /** Unread */
+            unread: number;
+            /** Enabled */
+            enabled: boolean;
+            /** More */
+            more: boolean;
+        };
+        /** NtfyChange */
+        NtfyChange: {
+            /** Enabled */
+            enabled?: boolean | null;
+            /** Server */
+            server?: string | null;
+            /** Language */
+            language?: ("en" | "zh") | null;
+        };
+        /** NtfySettings */
+        NtfySettings: {
+            /** Enabled */
+            enabled: boolean;
+            /** Server */
+            server: string;
+            /** Topic */
+            topic: string | null;
+            /**
+             * Language
+             * @enum {string}
+             */
+            language: "en" | "zh";
+        };
         /** OverviewPriceKey */
         OverviewPriceKey: {
             /** Ticker */
@@ -4096,6 +5069,18 @@ export interface components {
             /** Sector Mean Excess */
             sector_mean_excess?: string | null;
         };
+        /** PersonSummaryOutput */
+        PersonSummaryOutput: {
+            /** N */
+            n: number;
+            /** Small */
+            small: number;
+            sides: components["schemas"]["SummarySides"];
+            /** Rows */
+            rows: number;
+            /** No Code */
+            no_code: number;
+        };
         /** PolicyRequest */
         PolicyRequest: {
             /** Sec Enabled */
@@ -4116,6 +5101,295 @@ export interface components {
             next_run_at: string | null;
             /** Scope */
             scope: string;
+        };
+        /** PoliticalPeopleOutput */
+        PoliticalPeopleOutput: {
+            /** Items */
+            items: components["schemas"]["PoliticalPersonSummary"][];
+        };
+        /** PoliticalPersonSummary */
+        PoliticalPersonSummary: {
+            /** Id */
+            id: string;
+            /**
+             * Source
+             * @enum {string}
+             */
+            source: "house" | "senate" | "oge";
+            /** Name */
+            name: string;
+            /** District */
+            district: string | null;
+            /** Position */
+            position: string | null;
+            /** Report Count */
+            report_count: number;
+            /** Latest Report Date */
+            latest_report_date: string | null;
+        };
+        /** PoliticalPersonView */
+        PoliticalPersonView: {
+            /** Id */
+            id: string;
+            /**
+             * Source
+             * @enum {string}
+             */
+            source: "house" | "senate" | "oge";
+            /** Name */
+            name: string;
+            /** District */
+            district: string | null;
+            /** Position */
+            position: string | null;
+        };
+        /** PoliticalReportLink */
+        PoliticalReportLink: {
+            /** Id */
+            id: string;
+            /** Report Date */
+            report_date: string | null;
+            /** Url */
+            url: string;
+            /** File Url */
+            file_url: string | null;
+            /** Amendment */
+            amendment: boolean;
+            /** Superseded */
+            superseded: boolean;
+            /** Status */
+            status: string;
+            /** Ocr Pages */
+            ocr_pages: number;
+            /** Page Count */
+            page_count: number;
+        };
+        /** PoliticalReportOutput */
+        PoliticalReportOutput: {
+            /** Id */
+            id: string;
+            /**
+             * Source
+             * @enum {string}
+             */
+            source: "house" | "senate" | "oge";
+            /** External Id */
+            external_id: string;
+            person: components["schemas"]["PoliticalPersonView"];
+            /** Filed Date */
+            filed_date: string | null;
+            /** Report Date */
+            report_date: string | null;
+            /** Report Date Source */
+            report_date_source: string | null;
+            /** Url */
+            url: string;
+            /** File Url */
+            file_url: string | null;
+            /** Source Hash */
+            source_hash: string | null;
+            /** Amendment Of Id */
+            amendment_of_id: string | null;
+            /** Amendment Status */
+            amendment_status: string;
+            /** Status */
+            status: string;
+            /** Parser Version */
+            parser_version: string | null;
+            /** Page Count */
+            page_count: number;
+            /** Pages Done */
+            pages_done: number;
+            /** Ocr Pages */
+            ocr_pages: number;
+            /** Ocr Seconds */
+            ocr_seconds: number;
+            /** Rows */
+            rows: components["schemas"]["PoliticalTransactionView"][];
+            /** Review Rows */
+            review_rows: components["schemas"]["PoliticalTransactionView"][];
+        };
+        /** PoliticalSourceStatus */
+        PoliticalSourceStatus: {
+            /**
+             * Source
+             * @enum {string}
+             */
+            source: "house" | "senate" | "oge";
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "unknown" | "available" | "unavailable";
+            /** Checking */
+            checking: boolean;
+            /** Last Error */
+            last_error: string | null;
+            /** Last Check At */
+            last_check_at: string | null;
+            /** Next Check At */
+            next_check_at: string | null;
+            /** Report Count */
+            report_count: number;
+            /** Active Report Count */
+            active_report_count: number;
+            /** Transaction Count */
+            transaction_count: number;
+            /** Review Count */
+            review_count: number;
+            /** Page Count */
+            page_count: number;
+            /** Pages Done */
+            pages_done: number;
+            /** Ocr Pages */
+            ocr_pages: number;
+            /** Ocr Seconds */
+            ocr_seconds: number;
+            /** Pending Reports */
+            pending_reports: number;
+        };
+        /** PoliticalSourcesOutput */
+        PoliticalSourcesOutput: {
+            /** Items */
+            items: components["schemas"]["PoliticalSourceStatus"][];
+        };
+        /** PoliticalTradeOutput */
+        PoliticalTradeOutput: {
+            trade: components["schemas"]["NotableTrade"];
+            /** Raw Row */
+            raw_row: string;
+            /** Page */
+            page: number;
+            /** Row Number */
+            row_number: number;
+            /** Asset Type */
+            asset_type: string;
+            /** Ticker Origin */
+            ticker_origin: string | null;
+            /** Option Type */
+            option_type: string | null;
+            /** Strike Price */
+            strike_price: string | null;
+            /** Expiration Date */
+            expiration_date: string | null;
+            /** Notification Date */
+            notification_date: string | null;
+            report: components["schemas"]["TradeReport"];
+        };
+        /** PoliticalTransactionEntry */
+        PoliticalTransactionEntry: {
+            /** Id */
+            id: string;
+            /** Report Id */
+            report_id: string;
+            /** Page */
+            page: number;
+            /** Row Number */
+            row_number: number;
+            /** Owner */
+            owner: string;
+            /** Asset Name */
+            asset_name: string;
+            /** Ticker */
+            ticker: string | null;
+            /** Ticker Origin */
+            ticker_origin: string | null;
+            /** Issuer Ticker */
+            issuer_ticker: string | null;
+            /** Issuer Ticker Origin */
+            issuer_ticker_origin: string | null;
+            /** Asset Type */
+            asset_type: string;
+            /** Option Type */
+            option_type: string | null;
+            /** Strike Price */
+            strike_price: string | null;
+            /** Expiration Date */
+            expiration_date: string | null;
+            /** Transaction Type */
+            transaction_type: string;
+            /** Transaction Date */
+            transaction_date: string | null;
+            /** Notification Date */
+            notification_date: string | null;
+            /** Amount Low */
+            amount_low: string | null;
+            /** Amount High */
+            amount_high: string | null;
+            /** Raw Row */
+            raw_row: string;
+            /** Confidence */
+            confidence: string;
+            /** Warnings */
+            warnings: string[];
+            /**
+             * Source
+             * @enum {string}
+             */
+            source: "house" | "senate" | "oge";
+            /** Filed Date */
+            filed_date: string | null;
+            /** Report Date */
+            report_date: string | null;
+            /** Report Date Source */
+            report_date_source: string | null;
+            person: components["schemas"]["PoliticalPersonView"];
+        };
+        /** PoliticalTransactionView */
+        PoliticalTransactionView: {
+            /** Id */
+            id: string;
+            /** Report Id */
+            report_id: string;
+            /** Page */
+            page: number;
+            /** Row Number */
+            row_number: number;
+            /** Owner */
+            owner: string;
+            /** Asset Name */
+            asset_name: string;
+            /** Ticker */
+            ticker: string | null;
+            /** Ticker Origin */
+            ticker_origin: string | null;
+            /** Issuer Ticker */
+            issuer_ticker: string | null;
+            /** Issuer Ticker Origin */
+            issuer_ticker_origin: string | null;
+            /** Asset Type */
+            asset_type: string;
+            /** Option Type */
+            option_type: string | null;
+            /** Strike Price */
+            strike_price: string | null;
+            /** Expiration Date */
+            expiration_date: string | null;
+            /** Transaction Type */
+            transaction_type: string;
+            /** Transaction Date */
+            transaction_date: string | null;
+            /** Notification Date */
+            notification_date: string | null;
+            /** Amount Low */
+            amount_low: string | null;
+            /** Amount High */
+            amount_high: string | null;
+            /** Raw Row */
+            raw_row: string;
+            /** Confidence */
+            confidence: string;
+            /** Warnings */
+            warnings: string[];
+        };
+        /** PoliticalTransactionsOutput */
+        PoliticalTransactionsOutput: {
+            /** Items */
+            items: components["schemas"]["PoliticalTransactionEntry"][];
+            /** Total */
+            total: number;
+            /** Next Cursor */
+            next_cursor: string | null;
         };
         /** PreferenceInput */
         PreferenceInput: {
@@ -4309,6 +5583,23 @@ export interface components {
             /** Batch Ids */
             batch_ids: string[];
         };
+        /** PushStatus */
+        PushStatus: {
+            /** Last Status */
+            last_status: ("sent" | "failed") | null;
+            /** Last Kind */
+            last_kind: ("single" | "digest" | "test") | null;
+            /** Last At */
+            last_at: string | null;
+            /** Last Error */
+            last_error: string | null;
+            /** Sent Today */
+            sent_today: number;
+            /** Daily Limit */
+            daily_limit: number;
+            /** Waiting */
+            waiting: number;
+        };
         /** QuoteSession */
         QuoteSession: {
             /** Start */
@@ -4324,6 +5615,16 @@ export interface components {
             months: number;
             /** Count */
             count: number;
+        };
+        /** ReadInput */
+        ReadInput: {
+            /** Ids */
+            ids?: string[];
+            /**
+             * All
+             * @default false
+             */
+            all: boolean;
         };
         /** RecentAnalysesOutput */
         RecentAnalysesOutput: {
@@ -4667,6 +5968,39 @@ export interface components {
             first: components["schemas"]["RotationLeader"] | null;
             last: components["schemas"]["RotationLeader"] | null;
         };
+        /** RuleChange */
+        RuleChange: {
+            /** Enabled */
+            enabled?: boolean | null;
+            /** Scope */
+            scope?: ("index_watchlist" | "all") | null;
+            /** Executive Min */
+            executive_min?: number | null;
+            /** Cluster People */
+            cluster_people?: number | null;
+            /** Cluster Days */
+            cluster_days?: number | null;
+            /** Exclude Plans */
+            exclude_plans?: boolean | null;
+        };
+        /** RuleSettings */
+        RuleSettings: {
+            /** Enabled */
+            enabled: boolean;
+            /**
+             * Scope
+             * @enum {string}
+             */
+            scope: "index_watchlist" | "all";
+            /** Executive Min */
+            executive_min: number;
+            /** Cluster People */
+            cluster_people: number;
+            /** Cluster Days */
+            cluster_days: number;
+            /** Exclude Plans */
+            exclude_plans: boolean;
+        };
         /** ScopeView */
         ScopeView: {
             /** Id */
@@ -4708,7 +6042,7 @@ export interface components {
              * Kind
              * @enum {string}
              */
-            kind: "company" | "person" | "security";
+            kind: "company" | "person" | "security" | "politician";
             /** Name */
             name: string;
             /** Href */
@@ -4719,6 +6053,12 @@ export interface components {
             security_id: string | null;
             /** Issuer Id */
             issuer_id: string | null;
+            /** Alias */
+            alias: string | null;
+            /** Notable Key */
+            notable_key: string | null;
+            /** Detail */
+            detail: string | null;
         };
         /**
          * SearchOutput
@@ -4755,6 +6095,15 @@ export interface components {
             /** Email */
             email: string | null;
         };
+        /** SecFilings */
+        SecFilings: {
+            /** Count */
+            count: number;
+            /** Latest At */
+            latest_at: string | null;
+            /** Edgar Url */
+            edgar_url: string;
+        };
         /** SecUserAgentState */
         SecUserAgentState: {
             /** Configured */
@@ -4771,6 +6120,91 @@ export interface components {
              * @enum {string}
              */
             source: "config_file" | "web" | "none";
+        };
+        /** SectorActivity */
+        SectorActivity: {
+            /** Companies */
+            companies: number;
+            /** Buy Companies */
+            buy_companies: number;
+            /** Sell Companies */
+            sell_companies: number;
+            /** Buy Amount */
+            buy_amount: string | null;
+            /** Sell Amount */
+            sell_amount: string | null;
+            /** Net Amount */
+            net_amount: string | null;
+            /**
+             * Amount Estimated
+             * @default false
+             */
+            amount_estimated: boolean;
+            /**
+             * Missing Price Rows
+             * @default 0
+             */
+            missing_price_rows: number;
+            /**
+             * Price Mismatch Rows
+             * @default 0
+             */
+            price_mismatch_rows: number;
+            /** Id */
+            id: string;
+            /** Ungrouped */
+            ungrouped: number;
+        };
+        /** SectorActivityOutput */
+        SectorActivityOutput: {
+            /** As Of */
+            as_of: string;
+            /** Days */
+            days: number;
+            /** Start Date */
+            start_date: string;
+            /** End Date */
+            end_date: string;
+            /** Companies */
+            companies: number;
+            /** Sectors */
+            sectors: components["schemas"]["SectorActivity"][];
+            /** Groups */
+            groups: components["schemas"]["GroupActivity"][];
+            unclassified: components["schemas"]["SectorActivityTotals"];
+        };
+        /**
+         * SectorActivityTotals
+         * @description Distinct companies and counted amounts of a set of companies' trades.
+         */
+        SectorActivityTotals: {
+            /** Companies */
+            companies: number;
+            /** Buy Companies */
+            buy_companies: number;
+            /** Sell Companies */
+            sell_companies: number;
+            /** Buy Amount */
+            buy_amount: string | null;
+            /** Sell Amount */
+            sell_amount: string | null;
+            /** Net Amount */
+            net_amount: string | null;
+            /**
+             * Amount Estimated
+             * @default false
+             */
+            amount_estimated: boolean;
+            /**
+             * Missing Price Rows
+             * @default 0
+             */
+            missing_price_rows: number;
+            /**
+             * Price Mismatch Rows
+             * @default 0
+             */
+            price_mismatch_rows: number;
         };
         /** SectorCandle */
         SectorCandle: {
@@ -5142,6 +6576,13 @@ export interface components {
             /** Ytd */
             ytd: number | null;
         };
+        /** SettingsChange */
+        SettingsChange: {
+            /** Enabled */
+            enabled?: boolean | null;
+            rules?: components["schemas"]["RuleChange"] | null;
+            ntfy?: components["schemas"]["NtfyChange"] | null;
+        };
         /**
          * SideTotal
          * @description Open-market purchases (buy) or sales (sell) in the range: owners, shares, known amount.
@@ -5322,6 +6763,33 @@ export interface components {
             /** Off Hours Only */
             off_hours_only: boolean;
         };
+        /** SummarySide */
+        SummarySide: {
+            /** Trades */
+            trades: number;
+            after: components["schemas"]["SummaryStat"];
+            published: components["schemas"]["SummaryStat"];
+        };
+        /** SummarySides */
+        SummarySides: {
+            buy: components["schemas"]["SummarySide"];
+            sell: components["schemas"]["SummarySide"];
+        };
+        /** SummaryStat */
+        SummaryStat: {
+            /** Count */
+            count: number;
+            /** Up */
+            up: number;
+            /** Median */
+            median: string | null;
+            /** Values */
+            values: string[];
+            /** Pending */
+            pending: number;
+            /** Missing */
+            missing: number;
+        };
         /** SystemOutput */
         SystemOutput: {
             /** Version */
@@ -5400,6 +6868,44 @@ export interface components {
             date: string;
             /** Issuer Id */
             issuer_id?: string | null;
+        };
+        /** TradePerson */
+        TradePerson: {
+            /** Key */
+            key: string;
+            /** Name */
+            name: string;
+            /** Watched */
+            watched: boolean;
+            /** Category */
+            category: ("investor" | "investment_firm" | "founder_ceo" | "house" | "president" | "cabinet") | null;
+            /** Roles */
+            roles: string[];
+            /** Title */
+            title: string | null;
+            /** District */
+            district: string | null;
+        };
+        /** TradeReport */
+        TradeReport: {
+            /** Id */
+            id: string;
+            /** Report Date */
+            report_date: string | null;
+            /** Filed Date */
+            filed_date: string | null;
+            /** Url */
+            url: string;
+            /** File Url */
+            file_url: string | null;
+            /** Superseded */
+            superseded: boolean;
+            /** Amendment */
+            amendment: boolean;
+            /** Ocr Pages */
+            ocr_pages: number;
+            /** Page Count */
+            page_count: number;
         };
         /** TradeSection */
         TradeSection: {
@@ -5533,6 +7039,78 @@ export interface components {
             input?: unknown;
             /** Context */
             ctx?: Record<string, never>;
+        };
+        /** WatchlistAcknowledge */
+        WatchlistAcknowledge: {
+            /**
+             * At
+             * Format: date-time
+             */
+            at: string;
+        };
+        /** WatchlistAdd */
+        WatchlistAdd: {
+            /** Ticker */
+            ticker: string;
+        };
+        /** WatchlistEntry */
+        WatchlistEntry: {
+            /** Ticker */
+            ticker: string;
+            /** Name */
+            name: string | null;
+            /** Issuer Id */
+            issuer_id: string | null;
+            /** Local */
+            local: boolean;
+            /**
+             * Added At
+             * Format: date-time
+             */
+            added_at: string;
+        };
+        /** WatchlistImport */
+        WatchlistImport: {
+            /** Text */
+            text: string;
+        };
+        /** WatchlistImportOutput */
+        WatchlistImportOutput: {
+            /** Items */
+            items: components["schemas"]["WatchlistEntry"][];
+            /** Limit */
+            limit: number;
+            /** Acknowledged At */
+            acknowledged_at: string | null;
+            /** Added */
+            added: string[];
+            /** Existing */
+            existing: string[];
+            /** Invalid */
+            invalid: string[];
+            /** Over Limit */
+            over_limit: string[];
+        };
+        /** WatchlistNews */
+        WatchlistNews: {
+            /**
+             * As Of
+             * Format: date-time
+             */
+            as_of: string;
+            /** Acknowledged At */
+            acknowledged_at: string | null;
+            /** Insider */
+            insider: components["schemas"]["InsiderNews"][];
+        };
+        /** WatchlistOutput */
+        WatchlistOutput: {
+            /** Items */
+            items: components["schemas"]["WatchlistEntry"][];
+            /** Limit */
+            limit: number;
+            /** Acknowledged At */
+            acknowledged_at: string | null;
         };
         /** WindowChange */
         WindowChange: {
@@ -5860,6 +7438,7 @@ export interface operations {
                 type?: string;
                 order?: string;
                 index?: string;
+                watchlist?: boolean;
             };
             header?: never;
             path?: never;
@@ -6025,6 +7604,636 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    transactions_api_v1_political_transactions_get: {
+        parameters: {
+            query?: {
+                person_id?: string | null;
+                person?: string | null;
+                ticker?: string | null;
+                source?: ("house" | "senate" | "oge") | null;
+                direction?: ("buy" | "sell" | "exchange") | null;
+                transaction_from?: string | null;
+                transaction_to?: string | null;
+                report_from?: string | null;
+                report_to?: string | null;
+                limit?: number;
+                cursor?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PoliticalTransactionsOutput"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    people_api_v1_political_people_get: {
+        parameters: {
+            query?: {
+                source?: ("house" | "senate" | "oge") | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PoliticalPeopleOutput"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    sources_api_v1_political_sources_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PoliticalSourcesOutput"];
+                };
+            };
+        };
+    };
+    refresh_api_v1_political_sources__source__refresh_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                source: "house" | "senate" | "oge";
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PoliticalSourcesOutput"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    report_api_v1_political_reports__report_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                report_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PoliticalReportOutput"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    file_api_v1_political_reports__report_id__file_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                report_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_people_api_v1_notable_people_get: {
+        parameters: {
+            query?: {
+                scope?: "watched" | "all";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotablePeopleOutput"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    add_person_api_v1_notable_people_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NotableAdd"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotablePeopleOutput"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    remove_person_api_v1_notable_people_delete: {
+        parameters: {
+            query: {
+                key: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotablePeopleOutput"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    restore_defaults_api_v1_notable_people_restore_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotableRestoreOutput"];
+                };
+            };
+        };
+    };
+    read_person_api_v1_notable_person_get: {
+        parameters: {
+            query: {
+                key: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotablePersonOutput"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_trades_api_v1_notable_trades_get: {
+        parameters: {
+            query?: {
+                scope?: "watched" | "all";
+                person?: string | null;
+                source?: ("sec" | "house" | "oge") | null;
+                direction?: ("buy" | "sell" | "exchange") | null;
+                ticker?: string | null;
+                issuer_id?: string | null;
+                published_from?: string | null;
+                published_to?: string | null;
+                limit?: number;
+                cursor?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotableTradesOutput"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_political_trade_api_v1_notable_trades__transaction_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                transaction_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PoliticalTradeOutput"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_reports_api_v1_notable_reports_get: {
+        parameters: {
+            query?: {
+                scope?: "watched" | "all";
+                assets?: "equities" | "all";
+                person?: string | null;
+                source?: ("sec" | "house" | "oge") | null;
+                direction?: ("buy" | "sell" | "exchange") | null;
+                ticker?: string | null;
+                published_from?: string | null;
+                published_to?: string | null;
+                limit?: number;
+                cursor?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotableReportsOutput"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_summary_api_v1_notable_summary_get: {
+        parameters: {
+            query: {
+                key: string;
+                n?: number | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PersonSummaryOutput"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_notifications_api_v1_notifications_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+                before?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationsOutput"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    mark_read_api_v1_notifications_read_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReadInput"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationsOutput"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_settings_api_v1_notifications_settings_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationSettingsOutput"];
+                };
+            };
+        };
+    };
+    change_settings_api_v1_notifications_settings_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SettingsChange"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationSettingsOutput"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    new_topic_api_v1_notifications_settings_topic_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationSettingsOutput"];
+                };
+            };
+        };
+    };
+    send_test_api_v1_notifications_test_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationSettingsOutput"];
                 };
             };
         };
@@ -7915,6 +10124,8 @@ export interface operations {
                 exclude_cluster_plans?: boolean;
                 company_sort?: "net_buy" | "net_sell" | "buy" | "sell" | "people";
                 company_limit?: number | null;
+                sector?: string;
+                watchlist?: boolean;
             };
             header?: never;
             path?: never;
@@ -7929,6 +10140,69 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["InsiderOverview"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_activity_api_v1_insider_activity_get: {
+        parameters: {
+            query?: {
+                tickers?: string;
+                days?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InsiderActivityOutput"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_sector_activity_api_v1_insider_sectors_get: {
+        parameters: {
+            query?: {
+                days?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SectorActivityOutput"];
                 };
             };
             /** @description Validation Error */
@@ -8376,6 +10650,176 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ManagementReceipt"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_watchlist_api_v1_watchlist_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WatchlistOutput"];
+                };
+            };
+        };
+    };
+    add_to_watchlist_api_v1_watchlist_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WatchlistAdd"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WatchlistOutput"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    remove_from_watchlist_api_v1_watchlist__ticker__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ticker: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WatchlistOutput"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    import_watchlist_api_v1_watchlist_import_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WatchlistImport"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WatchlistImportOutput"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_news_api_v1_watchlist_news_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WatchlistNews"];
+                };
+            };
+        };
+    };
+    acknowledge_watchlist_api_v1_watchlist_acknowledged_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WatchlistAcknowledge"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WatchlistOutput"];
                 };
             };
             /** @description Validation Error */

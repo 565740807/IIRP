@@ -1,6 +1,6 @@
 import createClient, { type Middleware } from "openapi-fetch";
 import i18n from "@/i18n";
-import { decodeMessage, tm } from "@/i18n";
+import { decodeMessage, tm, prepareMessages } from "@/i18n";
 import type { components, paths } from "@/generated/api";
 
 /**
@@ -54,6 +54,7 @@ export async function unwrap<T>(
     if (error instanceof DOMException && error.name === "AbortError") throw error;
     throw new ApiError(i18n.t("ui.error.offline"), 0, error);
   }
+  await prepareMessages(result.error ?? result.data);
   if (result.error !== undefined || !result.response.ok) {
     const detail = (result.error as { detail?: unknown } | undefined)?.detail;
     throw new ApiError(errorText(detail, result.response.status), result.response.status, detail);

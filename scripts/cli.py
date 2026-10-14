@@ -238,6 +238,7 @@ def main():
             "build",
             "check",
             "test",
+            "e2e",
             "python",
             "lint",
             "frontend",
@@ -277,6 +278,10 @@ def main():
         )
     elif args.action == "frontend":
         frontend(args.args or ["npm", "run", "build"])
+    elif args.action == "e2e":
+        from e2e import docker
+
+        docker(_app_image(), _postgres_image(), frontend)
     elif args.action == "test":
         isolated_tests(["/workspace/.tools/linux-python/bin/python", "-m", "pytest",
                         *(args.args or ["tests", "-q"])])

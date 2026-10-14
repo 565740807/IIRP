@@ -39,12 +39,20 @@ OVERVIEW_COLUMNS = (
 )
 
 
+# A ticker text naming several classes: they are separated by commas, semicolons or spaces.
+MULTI_CLASS = "[,;[:space:]]"
+
+
 class Issuer(Base):
     __tablename__ = "issuer"
     id: Mapped[str] = mapped_column(String(10), primary_key=True)
     name: Mapped[str] = mapped_column(Text)
-    # Ticker stated by the most recently accepted filing (lookup only).
+    # Ticker stated by the most recently accepted filing (lookup only), in upper case.
     ticker: Mapped[str | None] = mapped_column(String(32), index=True)
+    __table_args__ = (
+        # The few issuers whose ticker names several classes ("BRK.A, BRK.B"), for code matching.
+        Index("ix_issuer_multi_class", "id", postgresql_where=text(f"ticker ~ '{MULTI_CLASS}'")),
+    )
 
 
 class Owner(Base):
@@ -129,6 +137,8 @@ class TransactionEvent(Base):
         Index("ix_event_recent_accepted_at", accepted_at.desc().nulls_last(), id.desc()),
         Index("ix_event_overview", "transaction_date", postgresql_include=list(OVERVIEW_COLUMNS),
               postgresql_where=text(OVERVIEW_ROWS)),
+        # The transactions of a few filers (the followed people) by CIK.
+        Index("ix_event_owner_ids", "owner_ids", postgresql_using="gin"),
     )
 
 
@@ -200,6 +210,8 @@ class FeedGroupCurrent(Base):
     __table_args__ = (
         Index("ix_feed_group_current_seq", "seq", postgresql_where=text("seq IS NOT NULL")),
         Index("ix_feed_group_current_xid", "xid", postgresql_where=text("xid IS NOT NULL")),
+        # The groups of a few companies (a watchlist) without reading every pointer.
+        Index("ix_feed_group_current_issuer", "issuer_id"),
     )
 
 

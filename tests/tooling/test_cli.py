@@ -140,3 +140,79 @@ def test_missing_env_with_existing_database_volume_is_refused(isolated_profile, 
     with pytest.raises(SystemExit):
         cli.create_env()
     assert not (isolated_profile / "deploy/.env").exists()
+
+
+@pytest.mark.parametrize("database", ["iirp_v1", "postgres", "iirp_v1_test_", "iirp_v1_test_a-b"])
+def test_browser_fixture_writer_refuses_non_test_databases(monkeypatch, database):
+    from types import SimpleNamespace
+
+    from scripts import e2e_data
+
+    monkeypatch.setattr(e2e_data, "settings", lambda: SimpleNamespace(
+        database_url=f"postgresql+psycopg://synthetic@localhost/{database}"))
+    with pytest.raises(SystemExit, match="iirp_v1_test_"):
+        e2e_data.require_test_database()
+
+
+def test_browser_artifacts_cannot_enter_repository(tmp_path, monkeypatch):
+    from scripts import e2e
+
+    monkeypatch.setattr(e2e, "ROOT", tmp_path)
+    monkeypatch.setenv("IIRP_E2E_OUTPUT_DIR", str(tmp_path / "artifacts"))
+    with pytest.raises(SystemExit, match="outside"):
+        e2e.output_directory()
+
+
+def test_browser_fixture_writer_refuses_an_installation_database_server(monkeypatch):
+    from types import SimpleNamespace
+
+    from scripts import e2e_data
+
+    monkeypatch.setattr(e2e_data, "settings", lambda: SimpleNamespace(
+        database_url="postgresql+psycopg://synthetic@postgres/iirp_v1_test_e2e"))
+    with pytest.raises(SystemExit, match="iirp_v1_test_"):
+        e2e_data.require_test_database()
+
+
+def test_browser_failure_keeps_logs_and_removes_the_whole_temporary_stack(tmp_path, monkeypatch):
+    import subprocess
+    from types import SimpleNamespace
+
+    from scripts import e2e
+
+    root = tmp_path / "checkout"
+    (root / "deploy").mkdir(parents=True)
+    (root / "deploy/playwright-image.txt").write_text("synthetic-playwright@sha256:" + "0" * 64)
+    output = tmp_path / "evidence"
+    output.mkdir()
+    monkeypatch.setattr(e2e, "ROOT", root)
+    monkeypatch.setattr(e2e, "CLOCKS", {"intraday": "2026-10-09T15:00:00+00:00"})
+    monkeypatch.setattr(e2e, "output_directory", lambda: output)
+    monkeypatch.setattr(e2e.signal, "signal", lambda *_args: None)
+    commands, cleanup = [], []
+
+    def fake_run(command, **_kwargs):
+        commands.append(command)
+        if any(part.endswith("-browser") for part in command):
+            raise subprocess.CalledProcessError(1, command)
+        if "-web" in " ".join(command):
+            (output / "intraday/fixtures.json").write_text("{}")
+
+    def fake_subprocess(command, **_kwargs):
+        cleanup.append(command)
+        return SimpleNamespace(returncode=0, stdout="true")
+
+    monkeypatch.setattr(e2e, "run", fake_run)
+    monkeypatch.setattr(e2e.subprocess, "run", fake_subprocess)
+    with pytest.raises(subprocess.CalledProcessError):
+        e2e.docker("synthetic-app", "synthetic-pg", lambda _args: None)
+    network_command = next(command for command in commands if command[:3] == ["docker", "network", "create"])
+    name = network_command[-1]
+    assert "--internal" in network_command
+    postgres = next(command for command in commands if name + "-pg" in command)
+    assert "--tmpfs" in postgres and "POSTGRES_DB=iirp_v1_test_e2e" in postgres
+    assert not any(part in ("compose", "-p", "--publish") for command in commands for part in command)
+    for suffix in ["browser", "web", "pg"]:
+        assert ["docker", "rm", "-f", name + "-" + suffix] in cleanup
+    assert ["docker", "network", "rm", name] in cleanup
+    assert (output / "intraday/web.log").is_file()

@@ -5,6 +5,7 @@ from types import SimpleNamespace
 
 import pytest
 from dateutil.relativedelta import relativedelta
+from iirp.analysis import calendar
 from iirp.db import session
 from iirp.jobs.batches import _create, defaults
 from iirp.jobs.queue import claim
@@ -43,6 +44,11 @@ FIRST = date(2026, 8, 3)
 def clock(monkeypatch):
     monkeypatch.setattr(long_prices, "now", lambda: STAMP)
     monkeypatch.setattr(long_prices, "last_completed_session", lambda **_: LAST)
+    # Calls without a timestamp read the wall clock; pin them to STAMP so the
+    # synthetic series ending on LAST stays the latest completed session.
+    completed = calendar.last_completed_session
+    monkeypatch.setattr(calendar, "last_completed_session",
+                        lambda as_of=None, calendar="XNYS": completed(as_of or STAMP, calendar))
 
 
 def series(s, security_id):
@@ -240,8 +246,12 @@ def test_real_analysis_and_expired_result_recompute_without_yahoo_requests(secur
     from iirp.models import AnalysisResult
 
     from tests.analysis.test_performance_pipeline import finish_compute, params
+    from tests.clock import set_clock
     calls = []
     monkeypatch.setattr(yahoo, "fetch_market", lambda *args: calls.append(args))
+    # A monthly study runs through the latest close, so the request's clock
+    # must agree with the series' last session.
+    set_clock(monkeypatch, lambda: STAMP)
     with session() as s, s.begin():
         row = series(s, security_id)
         first = date(2024, 1, 2)
@@ -255,9 +265,9 @@ def test_real_analysis_and_expired_result_recompute_without_yahoo_requests(secur
     with session() as s, s.begin():
         for result in s.scalars(select(AnalysisResult)):
             assert result.expires_at <= datetime.now(timezone.utc) + timedelta(hours=24)
-            result.expires_at = datetime.now(timezone.utc) - timedelta(seconds=1)
+            result.expires_at = STAMP - timedelta(seconds=1)
         for cache in s.scalars(select(PriceCache)):
-            cache.expires_at = datetime.now(timezone.utc) - timedelta(seconds=1)
+            cache.expires_at = STAMP - timedelta(seconds=1)
     expire_price_cache()
     child = requests.refresh_analysis(created["id"])
     planner.plan_tick()

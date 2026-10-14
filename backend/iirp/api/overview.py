@@ -1,5 +1,6 @@
 """Typed, local-only Insider overview reads and durable stock quote requests."""
 
+import re
 from decimal import Decimal
 from typing import Annotated, Literal
 
@@ -13,6 +14,7 @@ from iirp.messages import UserError
 
 router = APIRouter(prefix="/api/v1/insider")
 Index = Literal["all", "sp500", "nasdaq100"]
+TICKER = re.compile(r"[A-Za-z0-9][A-Za-z0-9.^=-]{0,19}")
 
 
 def _query_integer(value):
@@ -122,6 +124,11 @@ CompanySort = Literal["net_buy", "net_sell", "buy", "sell", "people"]
 
 class InsiderOverview(Indices):
     as_of: str
+    # The sector filter ("all", a sector id or "unclassified") and the sector ids it offers.
+    sector: str
+    sectors: list[str]
+    # Only the watched companies (their issuer or filing ticker states a watched code).
+    watchlist: bool = False
     cluster_buys: CompanySection
     cluster_sales: CompanySection
     large_buys: TradeSection
@@ -146,12 +153,100 @@ class FeedPrices(Output):
     price_mismatch_ratio: str
 
 
+class ActivitySide(Output):
+    """Distinct insiders, transactions and their counted amount on one side."""
+    people: int
+    trades: int
+    amount: str | None = None
+
+
+class ActivityTrader(Output):
+    id: str
+    name: str
+    roles: list[str] = Field(default_factory=list)
+    side: Literal["buy", "sell"]
+    trades: int
+    amount: str | None = None
+    last_date: str
+
+
+class InsiderActivity(Output):
+    issuer_id: str
+    name: str
+    ticker: str | None = None
+    buy: ActivitySide
+    sell: ActivitySide
+    net_amount: str | None = None
+    last_date: str
+    # 10b5-1 plan transactions among the counted ones.
+    plan_trades: int
+    amount_estimated: bool = False
+    missing_price_rows: int = 0
+    price_mismatch_rows: int = 0
+    # The largest insiders by amount (at most three) and how many there are in all.
+    traders: list[ActivityTrader]
+    trader_count: int
+
+
+class InsiderActivityOutput(Output):
+    as_of: str
+    days: int
+    start_date: str
+    end_date: str
+    # Keyed by the requested code in upper case with "." read as "-"; codes
+    # without any open-market purchase or sale in the window are left out.
+    items: dict[str, InsiderActivity]
+
+
+class SectorActivityTotals(Output):
+    """Distinct companies and counted amounts of a set of companies' trades."""
+    companies: int
+    buy_companies: int
+    sell_companies: int
+    buy_amount: str | None = None
+    sell_amount: str | None = None
+    net_amount: str | None = None
+    amount_estimated: bool = False
+    missing_price_rows: int = 0
+    price_mismatch_rows: int = 0
+
+
+class SectorActivity(SectorActivityTotals):
+    id: str
+    # Companies of this sector without a GICS sub-industry, so in no industry group.
+    ungrouped: int
+
+
+class GroupActivity(SectorActivityTotals):
+    id: str
+    sector: str
+
+
+class SectorActivityOutput(Output):
+    as_of: str
+    days: int
+    start_date: str
+    end_date: str
+    companies: int
+    sectors: list[SectorActivity]
+    groups: list[GroupActivity]
+    # Companies without a saved sector: counted nowhere else.
+    unclassified: SectorActivityTotals
+
+
 class StockQuotesInput(BaseModel):
     symbols: list[str] = Field(min_length=1, max_length=200)
 
 
 class StockQuotesOutput(Output):
     requested: list[str]
+
+
+def _known_sector(sector: str):
+    from iirp.analysis.sectors import sector_ids
+
+    if sector not in ("all", "unclassified", *sector_ids()):
+        raise HTTPException(422, str(UserError("sectors.unknown", sector=sector)))
 
 
 @router.get("/overview", response_model=InsiderOverview)
@@ -161,19 +256,46 @@ def read_overview(index: Index = "all", days: Period = 30,
                   exclude_plans: bool = False, cluster_days: ClusterWindow = 7,
                   cluster_people: ClusterPeople = 2, exclude_cluster_plans: bool = True,
                   company_sort: CompanySort = "net_buy",
-                  company_limit: int | None = Query(default=None, ge=1, le=2000)):
+                  company_limit: int | None = Query(default=None, ge=1, le=2000),
+                  sector: str = Query(default="all", max_length=64), watchlist: bool = False):
     from iirp.market.classification import Memberships
 
+    _known_sector(sector)
     with session() as s:
         result = overview(s, index=index, days=days, role=role, min_amount=min_amount,
                           exclude_plans=exclude_plans, cluster_days=cluster_days,
                           cluster_people=cluster_people, exclude_cluster_plans=exclude_cluster_plans,
-                          company_sort=company_sort, company_limit=company_limit)
+                          company_sort=company_sort, company_limit=company_limit, sector=sector,
+                          watchlist=watchlist)
         members = Memberships(s)
         for key in ("cluster_buys", "cluster_sales", "large_buys", "large_sales", "executive_buys",
                     "holding_increases", "companies"):
             members.mark(result[key]["items"])
         return result
+
+
+@router.get("/activity", response_model=InsiderActivityOutput)
+def read_activity(tickers: str = Query(default="", max_length=4000),
+                  days: int = Query(default=30, ge=1, le=90)):
+    """Open-market purchases and sales of up to 200 codes over the last ``days``
+    calendar days, by the overview's rules; local reads only."""
+    from iirp.insider.activity import MAX_TICKERS, activity
+
+    codes = list(dict.fromkeys(filter(None, (value.strip() for value in tickers.split(",")))))
+    if len(codes) > MAX_TICKERS or any(not TICKER.fullmatch(code) for code in codes):
+        raise HTTPException(422, str(UserError("insider.activity_tickers_invalid", limit=MAX_TICKERS)))
+    with session() as s:
+        return activity(s, codes, days=days)
+
+
+@router.get("/sectors", response_model=SectorActivityOutput)
+def read_sector_activity(days: int = Query(default=30, ge=1, le=90)):
+    """Open-market purchases and sales by each company's saved sector and industry
+    group, by the overview's rules; local reads only."""
+    from iirp.insider.activity import sector_activity
+
+    with session() as s:
+        return sector_activity(s, days=days)
 
 
 @router.get("/indices", response_model=Indices)

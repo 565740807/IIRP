@@ -139,6 +139,9 @@ def fetch_sec(url):
 
 
 def operation(kind, target):
+    if kind.startswith("political_"):
+        from iirp.political.operations import operation as political_operation
+        return political_operation(kind, target)
     if kind == "market_long_manage":
         return {}
     if kind == "market_long_history":

@@ -16,9 +16,22 @@ import base64
 import json
 from datetime import date, datetime, timezone
 
-from sqlalchemy import String, and_, cast, delete, func, or_, select, text, tuple_, update, values
+from sqlalchemy import (
+    String,
+    and_,
+    cast,
+    delete,
+    func,
+    literal,
+    or_,
+    select,
+    text,
+    tuple_,
+    update,
+    values,
+)
 from sqlalchemy import column as sql_column
-from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy.dialects.postgresql import ARRAY, insert
 from sqlalchemy.types import DateTime
 
 from iirp.messages import UserError
@@ -140,19 +153,72 @@ def in_listing(row, kind, order):
     return _asof_key(row, kind, order) is not None
 
 
-def _index_groups(index):
+def _watched_issuers(s, index, tickers):
+    """Issuers whose ticker states one of ``tickers`` (and on the index list unless "all").
+    Tickers are stored in upper case: a single-class ticker is found by the ticker index under
+    either spelling ("." or "-"); the few multi-class ones (ix_issuer_multi_class) are split."""
+    from iirp.insider.overview import index_predicate, states_any
+    from iirp.models import Issuer
+    from iirp.models.insider import MULTI_CLASS
+
+    spellings = sorted({spelling for key in tickers for spelling in (key, key.replace("-", "."))})
+    # Literal SQL, so the planner can prove the partial index's predicate.
+    multi_class = text(f"issuer.ticker ~ '{MULTI_CLASS}'")
+    found = set()
+    for condition in (Issuer.ticker.in_(spellings), and_(multi_class, states_any(Issuer.ticker, tickers))):
+        query = select(Issuer.id).where(condition)
+        if index != "all":
+            query = query.where(index_predicate(Issuer.id, Issuer.ticker, index))
+        found.update(s.scalars(query))
+    return found
+
+
+def scope_groups(index):
+    """Current groups of the companies on an index list."""
     from iirp.insider.overview import index_predicate
     from iirp.models import Issuer
 
-    return select(FeedGroupCurrent.group_key).join(Issuer, Issuer.id == FeedGroupCurrent.issuer_id).where(
-        index_predicate(Issuer.id, Issuer.ticker, index))
+    return (select(FeedGroupCurrent.group_key).join(Issuer, Issuer.id == FeedGroupCurrent.issuer_id)
+            .where(index_predicate(Issuer.id, Issuer.ticker, index)))
 
 
-def listing(s, watermark, kind, order, *, after=None, limit=PAGE_SIZE, index="all"):
+def scope(s, index="all", tickers=None):
+    """What ``listing`` and ``count`` keep: None for every group, a subquery for an index
+    filter, or the group keys of a watchlist's few companies, read once per request (their
+    issuers first, then their groups by ix_feed_group_current_issuer), so the listing reads
+    only those rows by primary key."""
+    if tickers is not None:
+        issuers = _watched_issuers(s, index, tickers)
+        return list(s.scalars(select(FeedGroupCurrent.group_key).where(FeedGroupCurrent.issuer_id.in_(_keys(issuers)))))
+    return scope_groups(index) if index != "all" else None
+
+
+def _keys(values):
+    """A set of keys as one array parameter, unnested in a subquery: the planner then probes
+    the primary key for each, instead of scanning an index and testing every row's key."""
+    return select(func.unnest(literal(sorted(values), ARRAY(String))).column_valued("key"))
+
+
+def _within(query, column, groups):
+    if groups is None:
+        return query
+    return query.where(column.in_(_keys(groups) if isinstance(groups, list) else groups))
+
+
+def _changed_in_scope(s, watermark, groups):
+    changed = changed_groups(s, watermark)
+    if groups is not None and changed:
+        changed &= set(groups) if isinstance(groups, list) else set(
+            s.scalars(groups.where(FeedGroupCurrent.group_key.in_(changed))))
+    return changed
+
+
+def listing(s, watermark, kind, order, *, after=None, limit=PAGE_SIZE, groups=None):
     """Ordered (key, group_key, revision_id) entries of the watermark after ``after``.
 
     Returns up to ``limit + 1`` entries so the caller can tell whether more
-    exist; ``limit=None`` returns the complete ordered listing.
+    exist; ``limit=None`` returns the complete ordered listing. ``groups``
+    (``scope``) narrows it to an index's or a watchlist's companies.
     """
     o = FeedGroupOrder
     query = (
@@ -162,15 +228,12 @@ def listing(s, watermark, kind, order, *, after=None, limit=PAGE_SIZE, index="al
     )
     if after is not None:
         query = query.where(tuple_(o.sort_key, o.accepted_at, o.group_key) < tuple_(*after))
-    if index != "all":
-        query = query.where(o.group_key.in_(_index_groups(index)))
+    query = _within(query, o.group_key, groups)
     if limit is not None:
         query = query.limit(limit + 1)
     entries = [((row.sort_key, row.accepted_at, row.group_key), row.group_key, row.revision_id)
                for row in s.execute(query)]
-    changed = changed_groups(s, watermark)
-    if index != "all" and changed:
-        changed &= set(s.scalars(_index_groups(index).where(FeedGroupCurrent.group_key.in_(changed))))
+    changed = _changed_in_scope(s, watermark, groups)
     if changed:
         entries = [entry for entry in entries if entry[1] not in changed]
         for group_key, row in asof_revisions(s, watermark, changed).items():
@@ -181,15 +244,11 @@ def listing(s, watermark, kind, order, *, after=None, limit=PAGE_SIZE, index="al
     return entries if limit is None else entries[: limit + 1]
 
 
-def count(s, watermark, kind, order, index="all"):
+def count(s, watermark, kind, order, groups=None):
     o = FeedGroupOrder
     query = select(func.count()).select_from(o).where(o.kind == kind, o.sort_order == order, visible(o, watermark))
-    if index != "all":
-        query = query.where(o.group_key.in_(_index_groups(index)))
-    total = s.scalar(query)
-    changed = changed_groups(s, watermark)
-    if index != "all" and changed:
-        changed &= set(s.scalars(_index_groups(index).where(FeedGroupCurrent.group_key.in_(changed))))
+    total = s.scalar(_within(query, o.group_key, groups))
+    changed = _changed_in_scope(s, watermark, groups)
     return total + sum(
         _asof_key(row, kind, order) is not None
         for row in asof_revisions(s, watermark, changed).values()

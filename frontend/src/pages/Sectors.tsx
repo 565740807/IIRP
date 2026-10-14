@@ -1,7 +1,8 @@
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { AnimatePresence, useReducedMotion, LazyMotion, domMax } from "motion/react";
+import * as m from "motion/react-m";
 import { BarChart3, CandlestickChart, ChevronRight, LayoutGrid, LoaderCircle, Table2 } from "lucide-react";
 import { formatDay, formatEt } from "@/lib/format";
 import {
@@ -38,6 +39,7 @@ import { FetchProgress } from "@/components/sectors/SectorNotes";
 import { RotationTab } from "@/components/sectors/RotationTab";
 import { MonthDay } from "@/components/analysis/Conditions";
 import { Explain } from "@/components/ui/info";
+import { useInsiderSectors } from "@/components/sectors/InsiderNet";
 
 const VIEW_ICONS = { table: Table2, heatmap: LayoutGrid, kline: CandlestickChart } as const;
 const YEAR_OPTIONS = ROTATION_YEARS.map(String);
@@ -72,7 +74,7 @@ function groupSelected(item: SectorGroupItem, selected: readonly string[]) {
  * The eleven S&P 500 sectors and their 25 industry groups as a table, a
  * heatmap or stacked K-lines; every choice lives in the URL.
  */
-export function SectorsPage() {
+function SectorContent() {
   const { t } = useTranslation();
   const reduce = useReducedMotion();
   const { query, error } = useSectors({ foreground: true });
@@ -84,6 +86,10 @@ export function SectorsPage() {
   const performanceTab = state.tab === "performance";
   const groups = useSectorGroups(state.sector, groupLevel && performanceTab);
   const groupData = groups.data;
+  // The tables' Insider column reads saved trades and classifications only.
+  const insider = useInsiderSectors(performanceTab && state.view === "table");
+  // The tables put their column settings at the end of the selection row.
+  const [columnsSlot, setColumnsSlot] = useState<HTMLElement | null>(null);
   const candles = useSectorCandles(state.range, state.interval, performanceTab && state.view === "kline", state.level, state.sector);
   const items = useMemo(() => (data?.items ?? []).filter((item) => !state.onlySelected || state.selected.includes(item.etf)), [data, state.onlySelected, state.selected]);
   const groupItems = useMemo(() => (groupData?.items ?? []).filter((item) => !state.onlySelected || groupSelected(item, state.selected)), [groupData, state.onlySelected, state.selected]);
@@ -151,13 +157,13 @@ export function SectorsPage() {
           )}
         </div>
         <AnimatePresence mode="wait" initial={false}>
-          <motion.div key={`${state.tab}-${state.level}`}
+          <m.div key={`${state.tab}-${state.level}`}
             initial={reduce ? { opacity: 0 } : { opacity: 0, y: 6 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0 }}
             transition={{ duration: reduce ? 0.1 : 0.2, ease: "easeOut" }}>
             <RotationTab state={state} update={update}/>
-          </motion.div>
+          </m.div>
         </AnimatePresence>
       </> : <>
       <header className="space-y-1">
@@ -252,11 +258,12 @@ export function SectorsPage() {
               <Link to={links.monthly} className="font-medium hover:underline">{t("ui.sectors.monthly")}</Link>
               <Link to={links.interval} className="font-medium hover:underline">{t("ui.sectors.interval")}</Link>
             </>}
+          {state.view === "table" && <span ref={setColumnsSlot} className="contents"/>}
         </span>
       </div>
 
       <AnimatePresence mode="wait" initial={false}>
-        <motion.div key={`${state.level}-${state.sector ?? ""}-${state.view}`}
+        <m.div key={`${state.level}-${state.sector ?? ""}-${state.view}`}
           initial={reduce ? { opacity: 0 } : { opacity: 0, y: 6 }}
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0 }}
@@ -268,7 +275,8 @@ export function SectorsPage() {
           ) : groupLevel ? (
             state.view === "table" ? (
               <SectorGroupTable items={groupItems} historyYears={shown.history_years} sort={state.sort} desc={state.desc}
-                setSort={setSort} selected={state.selected} toggle={toggle} onlySelected={state.onlySelected} showSector={!state.sector}/>
+                setSort={setSort} selected={state.selected} toggle={toggle} onlySelected={state.onlySelected} showSector={!state.sector}
+                insider={insider.data} columnsSlot={columnsSlot}/>
             ) : state.view === "heatmap" ? (
               <SectorHeatmap items={rankedGroups(groupItems)} period={state.period} onSelect={toggle} name={groupName} label={levelLabel}/>
             ) : (
@@ -276,13 +284,13 @@ export function SectorsPage() {
             )
           ) : state.view === "table" ? (
             <SectorTable items={items} historyYears={shown.history_years} sort={state.sort} desc={state.desc}
-              setSort={setSort} selected={state.selected} toggle={toggle} drill={drill}/>
+              setSort={setSort} selected={state.selected} toggle={toggle} drill={drill} insider={insider.data} columnsSlot={columnsSlot}/>
           ) : state.view === "heatmap" ? (
             <SectorHeatmap items={items} period={state.period} onSelect={toggle} name={sectorName} label={levelLabel}/>
           ) : (
             <SectorCharts items={items} data={candles.data} loading={candles.isPending} name={sectorName}/>
           )}
-        </motion.div>
+        </m.div>
       </AnimatePresence>
       {state.view === "heatmap" && <p className="text-xs text-muted-foreground">{t("ui.sectors.heatmap_rule")}</p>}
       {state.view === "kline" && candles.data && (
@@ -295,4 +303,8 @@ export function SectorsPage() {
       </>}
     </div>
   );
+}
+
+export function SectorsPage() {
+  return <LazyMotion features={domMax}><SectorContent /></LazyMotion>;
 }

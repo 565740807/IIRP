@@ -1,0 +1,513 @@
+# People followed by default: well-known investors and company leaders who file
+# SEC Form 4, members of the House of Representatives, and the President and
+# cabinet-level officials whose OGE 278-T reports are published.
+#
+# Reviewed every six months; last reviewed 2026-10. Edited by hand.
+#
+# Used once: when the followed list is empty and has never been filled, the
+# list is filled from this file. After that the list in the database is the
+# user's (adding and removing people there), and "Restore the default list"
+# in Settings adds back the people below who were removed.
+#
+# Each person:
+#   source    "sec" (Form 4 filer), "house" (House member) or "oge" (OGE 278-T filer)
+#   cik       SEC filer number (sec only); matching uses the number, never the name
+#   name      sec: the display name; house/oge: the name exactly as the disclosure
+#             index writes it, which together with the district (house) or the
+#             position (oge) identifies the person
+#   district  house only, as the House index writes it (CA11)
+#   position  oge only, as the OGE index writes it
+#   display   display name, when it differs from name (house/oge only)
+#   category  investor, investment_firm, founder_ceo, house, president, cabinet
+#   note      one sentence on who the person is, in English and Chinese
+#
+# `python -m iirp.notable.people` checks this file: duplicates, missing
+# identifiers and the CIK format.
+
+# Well-known investors and activist investors; a person and their fund are
+# listed separately, and a filing by either counts.
+
+[[person]]
+source = "sec"
+cik = "315090"
+name = "Warren E. Buffett"
+category = "investor"
+note = { en = "Chairman of Berkshire Hathaway.", zh = "伯克希尔·哈撒韦董事长。" }
+
+[[person]]
+source = "sec"
+cik = "1067983"
+name = "Berkshire Hathaway Inc"
+category = "investment_firm"
+note = { en = "Warren Buffett's holding company; files as a 10% owner.", zh = "巴菲特的控股公司，以 10% 股东身份申报。" }
+
+[[person]]
+source = "sec"
+cik = "921669"
+name = "Carl C. Icahn"
+category = "investor"
+note = { en = "Activist investor.", zh = "激进投资者。" }
+
+[[person]]
+source = "sec"
+cik = "813762"
+name = "Icahn Enterprises L.P."
+category = "investment_firm"
+note = { en = "Carl Icahn's holding company.", zh = "伊坎的控股公司。" }
+
+[[person]]
+source = "sec"
+cik = "1056513"
+name = "William A. Ackman"
+category = "investor"
+note = { en = "Founder of Pershing Square, activist investor.", zh = "潘兴广场创始人，激进投资者。" }
+
+[[person]]
+source = "sec"
+cik = "1336528"
+name = "Pershing Square Capital Management, L.P."
+category = "investment_firm"
+note = { en = "Bill Ackman's investment firm.", zh = "阿克曼的投资公司。" }
+
+[[person]]
+source = "sec"
+cik = "1767470"
+name = "Ryan Cohen"
+category = "investor"
+note = { en = "Chairman and CEO of GameStop, founder of Chewy.", zh = "GameStop 董事长兼 CEO，Chewy 创始人。" }
+
+[[person]]
+source = "sec"
+cik = "1822844"
+name = "RC Ventures LLC"
+category = "investment_firm"
+note = { en = "Ryan Cohen's investment company.", zh = "Ryan Cohen 的投资公司。" }
+
+[[person]]
+source = "sec"
+cik = "928265"
+name = "Nelson Peltz"
+category = "investor"
+note = { en = "Founder of Trian Fund Management, activist investor.", zh = "Trian 基金创始人，激进投资者。" }
+
+[[person]]
+source = "sec"
+cik = "1345471"
+name = "Trian Fund Management, L.P."
+category = "investment_firm"
+note = { en = "Nelson Peltz's investment firm.", zh = "佩尔茨的投资公司。" }
+
+[[person]]
+source = "sec"
+cik = "1300345"
+name = "Daniel S. Loeb"
+category = "investor"
+note = { en = "Founder of Third Point, activist investor.", zh = "Third Point 创始人，激进投资者。" }
+
+[[person]]
+source = "sec"
+cik = "1040273"
+name = "Third Point LLC"
+category = "investment_firm"
+note = { en = "Daniel Loeb's investment firm.", zh = "勒布的投资公司。" }
+
+[[person]]
+source = "sec"
+cik = "1791786"
+name = "Elliott Investment Management L.P."
+category = "investment_firm"
+note = { en = "Paul Singer's activist investment firm.", zh = "辛格的激进投资公司。" }
+
+[[person]]
+source = "sec"
+cik = "1517137"
+name = "Starboard Value LP"
+category = "investment_firm"
+note = { en = "Jeff Smith's activist investment firm.", zh = "杰夫·史密斯的激进投资公司。" }
+
+[[person]]
+source = "sec"
+cik = "1418814"
+name = "ValueAct Holdings, L.P."
+category = "investment_firm"
+note = { en = "Activist investment firm.", zh = "激进投资公司。" }
+
+[[person]]
+source = "sec"
+cik = "1240451"
+name = "David Einhorn"
+category = "investor"
+note = { en = "Founder of Greenlight Capital.", zh = "绿光资本创始人。" }
+
+[[person]]
+source = "sec"
+cik = "1079114"
+name = "Greenlight Capital Inc"
+category = "investment_firm"
+note = { en = "David Einhorn's investment firm.", zh = "艾因霍恩的投资公司。" }
+
+[[person]]
+source = "sec"
+cik = "1185533"
+name = "Mario J. Gabelli"
+category = "investor"
+note = { en = "Founder of GAMCO Investors.", zh = "GAMCO 投资创始人。" }
+
+[[person]]
+source = "sec"
+cik = "902012"
+name = "Bill Gates (William H. Gates III)"
+category = "investor"
+note = { en = "Co-founder of Microsoft.", zh = "微软联合创始人。" }
+
+[[person]]
+source = "sec"
+cik = "1052192"
+name = "Cascade Investment, L.L.C."
+category = "investment_firm"
+note = { en = "Bill Gates's investment company.", zh = "盖茨的投资公司。" }
+
+# Founders and leaders of large companies. Their sales are mostly under 10b5-1
+# plans; the pages and notifications say so for each sale.
+
+[[person]]
+source = "sec"
+cik = "1494730"
+name = "Elon Musk"
+category = "founder_ceo"
+note = { en = "CEO of Tesla.", zh = "特斯拉 CEO。" }
+
+[[person]]
+source = "sec"
+cik = "1197649"
+name = "Jensen Huang"
+category = "founder_ceo"
+note = { en = "Co-founder and CEO of Nvidia.", zh = "英伟达联合创始人兼 CEO。" }
+
+[[person]]
+source = "sec"
+cik = "1548760"
+name = "Mark Zuckerberg"
+category = "founder_ceo"
+note = { en = "Founder and CEO of Meta.", zh = "Meta 创始人兼 CEO。" }
+
+[[person]]
+source = "sec"
+cik = "1043298"
+name = "Jeff Bezos"
+category = "founder_ceo"
+note = { en = "Founder and executive chairman of Amazon.", zh = "亚马逊创始人、执行董事长。" }
+
+[[person]]
+source = "sec"
+cik = "1195345"
+name = "Jamie Dimon"
+category = "founder_ceo"
+note = { en = "Chairman and CEO of JPMorgan Chase.", zh = "摩根大通董事长兼 CEO。" }
+
+[[person]]
+source = "sec"
+cik = "901999"
+name = "Larry Ellison"
+category = "founder_ceo"
+note = { en = "Co-founder and chairman of Oracle.", zh = "甲骨文联合创始人、董事长。" }
+
+[[person]]
+source = "sec"
+cik = "908724"
+name = "Michael Dell"
+category = "founder_ceo"
+note = { en = "Founder, chairman and CEO of Dell Technologies.", zh = "戴尔科技创始人、董事长兼 CEO。" }
+
+[[person]]
+source = "sec"
+cik = "1214156"
+name = "Tim Cook"
+category = "founder_ceo"
+note = { en = "CEO of Apple.", zh = "苹果 CEO。" }
+
+[[person]]
+source = "sec"
+cik = "1513142"
+name = "Satya Nadella"
+category = "founder_ceo"
+note = { en = "Chairman and CEO of Microsoft.", zh = "微软董事长兼 CEO。" }
+
+[[person]]
+source = "sec"
+cik = "1534753"
+name = "Sundar Pichai"
+category = "founder_ceo"
+note = { en = "CEO of Alphabet.", zh = "Alphabet CEO。" }
+
+[[person]]
+source = "sec"
+cik = "1295032"
+name = "Sergey Brin"
+category = "founder_ceo"
+note = { en = "Co-founder of Google.", zh = "谷歌联合创始人。" }
+
+[[person]]
+source = "sec"
+cik = "1295231"
+name = "Larry Page"
+category = "founder_ceo"
+note = { en = "Co-founder of Google.", zh = "谷歌联合创始人。" }
+
+[[person]]
+source = "sec"
+cik = "1405109"
+name = "Lisa Su"
+category = "founder_ceo"
+note = { en = "Chair and CEO of AMD.", zh = "AMD 董事长兼 CEO。" }
+
+[[person]]
+source = "sec"
+cik = "1823951"
+name = "Alex Karp"
+category = "founder_ceo"
+note = { en = "Co-founder and CEO of Palantir.", zh = "Palantir 联合创始人兼 CEO。" }
+
+[[person]]
+source = "sec"
+cik = "1079782"
+name = "Michael Saylor"
+category = "founder_ceo"
+note = { en = "Co-founder and executive chairman of Strategy (MicroStrategy).", zh = "Strategy（原 MicroStrategy）联合创始人、执行董事长。" }
+
+# Members of the House of Representatives (STOCK Act periodic transaction reports).
+
+[[person]]
+source = "house"
+name = "Nancy Pelosi"
+district = "CA11"
+category = "house"
+note = { en = "Representative for California's 11th district, former Speaker of the House.", zh = "加州第 11 选区众议员，前众议院议长。" }
+
+[[person]]
+source = "house"
+name = "Rohit Khanna"
+district = "CA17"
+display = "Ro Khanna"
+category = "house"
+note = { en = "Representative for California's 17th district.", zh = "加州第 17 选区众议员。" }
+
+[[person]]
+source = "house"
+name = "Michael T. McCaul"
+district = "TX10"
+category = "house"
+note = { en = "Representative for Texas's 10th district.", zh = "得州第 10 选区众议员。" }
+
+[[person]]
+source = "house"
+name = "Josh Gottheimer"
+district = "NJ05"
+category = "house"
+note = { en = "Representative for New Jersey's 5th district.", zh = "新泽西州第 5 选区众议员。" }
+
+[[person]]
+source = "house"
+name = "Rob Bresnahan"
+district = "PA08"
+category = "house"
+note = { en = "Representative for Pennsylvania's 8th district.", zh = "宾夕法尼亚州第 8 选区众议员。" }
+
+[[person]]
+source = "house"
+name = "Tim Moore"
+district = "NC14"
+category = "house"
+note = { en = "Representative for North Carolina's 14th district.", zh = "北卡罗来纳州第 14 选区众议员。" }
+
+[[person]]
+source = "house"
+name = "Cleo Fields"
+district = "LA06"
+category = "house"
+note = { en = "Representative for Louisiana's 6th district.", zh = "路易斯安那州第 6 选区众议员。" }
+
+[[person]]
+source = "house"
+name = "Kelly Louise Morrison"
+district = "MN03"
+display = "Kelly Morrison"
+category = "house"
+note = { en = "Representative for Minnesota's 3rd district.", zh = "明尼苏达州第 3 选区众议员。" }
+
+[[person]]
+source = "house"
+name = "David J. Taylor"
+district = "OH02"
+category = "house"
+note = { en = "Representative for Ohio's 2nd district.", zh = "俄亥俄州第 2 选区众议员。" }
+
+[[person]]
+source = "house"
+name = "Suzan K. DelBene"
+district = "WA01"
+category = "house"
+note = { en = "Representative for Washington's 1st district.", zh = "华盛顿州第 1 选区众议员。" }
+
+[[person]]
+source = "house"
+name = "Scott H. Peters"
+district = "CA50"
+category = "house"
+note = { en = "Representative for California's 50th district.", zh = "加州第 50 选区众议员。" }
+
+[[person]]
+source = "house"
+name = "Thomas H. Kean Jr"
+district = "NJ07"
+category = "house"
+note = { en = "Representative for New Jersey's 7th district.", zh = "新泽西州第 7 选区众议员。" }
+
+[[person]]
+source = "house"
+name = "Gilbert Cisneros"
+district = "CA31"
+category = "house"
+note = { en = "Representative for California's 31st district.", zh = "加州第 31 选区众议员。" }
+
+[[person]]
+source = "house"
+name = "Kevin Hern"
+district = "OK01"
+category = "house"
+note = { en = "Representative for Oklahoma's 1st district.", zh = "俄克拉何马州第 1 选区众议员。" }
+
+[[person]]
+source = "house"
+name = "Jefferson Shreve"
+district = "IN06"
+category = "house"
+note = { en = "Representative for Indiana's 6th district.", zh = "印第安纳州第 6 选区众议员。" }
+
+[[person]]
+source = "house"
+name = "Marjorie Taylor Greene"
+district = "GA14"
+category = "house"
+note = { en = "Former representative for Georgia's 14th district; her earlier reports are kept.", zh = "佐治亚州第 14 选区前众议员（已离任），保留历史报告。" }
+
+# The President and cabinet-level officials (OGE Form 278-T). The Vice
+# President's reports have no public link in the OGE index yet.
+
+[[person]]
+source = "oge"
+name = "Donald J Trump"
+position = "president"
+display = "Donald J. Trump"
+category = "president"
+note = { en = "President of the United States.", zh = "美国总统。" }
+
+[[person]]
+source = "oge"
+name = "Scott Bessent"
+position = "Secretary (Department of The Treasury)"
+category = "cabinet"
+note = { en = "Secretary of the Treasury.", zh = "财政部长。" }
+
+[[person]]
+source = "oge"
+name = "Howard Lutnick"
+position = "Secretary (Department of Commerce)"
+category = "cabinet"
+note = { en = "Secretary of Commerce.", zh = "商务部长。" }
+
+[[person]]
+source = "oge"
+name = "Pete Hegseth"
+position = "Secretary (Department of Defense/Office of The Secretary)"
+category = "cabinet"
+note = { en = "Secretary of Defense.", zh = "国防部长。" }
+
+[[person]]
+source = "oge"
+name = "Pam Bondi"
+position = "Attorney General (Department of Justice)"
+category = "cabinet"
+note = { en = "Attorney General.", zh = "司法部长。" }
+
+[[person]]
+source = "oge"
+name = "Douglas J Burgum"
+position = "Secretary (Department of The Interior)"
+display = "Doug Burgum"
+category = "cabinet"
+note = { en = "Secretary of the Interior.", zh = "内政部长。" }
+
+[[person]]
+source = "oge"
+name = "Christopher A Wright"
+position = "Secretary (Department of Energy)"
+display = "Chris Wright"
+category = "cabinet"
+note = { en = "Secretary of Energy.", zh = "能源部长。" }
+
+[[person]]
+source = "oge"
+name = "Robert F Kennedy"
+position = "Secretary (Department of Health and Human Services)"
+display = "Robert F. Kennedy Jr."
+category = "cabinet"
+note = { en = "Secretary of Health and Human Services.", zh = "卫生与公众服务部长。" }
+
+[[person]]
+source = "oge"
+name = "Eric Scott Turner"
+position = "Secretary (Department of Housing and Urban Development)"
+display = "Scott Turner"
+category = "cabinet"
+note = { en = "Secretary of Housing and Urban Development.", zh = "住房与城市发展部长。" }
+
+[[person]]
+source = "oge"
+name = "Kristi Noem"
+position = "Secretary (Department of Homeland Security)"
+category = "cabinet"
+note = { en = "Secretary of Homeland Security.", zh = "国土安全部长。" }
+
+[[person]]
+source = "oge"
+name = "Markwayne Mullin"
+position = "Secretary (Department of Homeland Security)"
+category = "cabinet"
+note = { en = "Secretary of Homeland Security.", zh = "国土安全部长。" }
+
+[[person]]
+source = "oge"
+name = "Linda E McMahon"
+position = "Secretary (Department of Education)"
+display = "Linda McMahon"
+category = "cabinet"
+note = { en = "Secretary of Education.", zh = "教育部长。" }
+
+[[person]]
+source = "oge"
+name = "Lori Chavez-DeRemer"
+position = "Secretary (Department of Labor)"
+category = "cabinet"
+note = { en = "Secretary of Labor.", zh = "劳工部长。" }
+
+[[person]]
+source = "oge"
+name = "Sean Duffy"
+position = "Secretary (Department of Transportation)"
+category = "cabinet"
+note = { en = "Secretary of Transportation.", zh = "交通部长。" }
+
+[[person]]
+source = "oge"
+name = "Lee Zeldin"
+position = "Administrator (Environmental Protection Agency)"
+category = "cabinet"
+note = { en = "Administrator of the Environmental Protection Agency.", zh = "环境保护署署长。" }
+
+[[person]]
+source = "oge"
+name = "John Phelan"
+position = "Secretary (Department of The Navy)"
+category = "cabinet"
+note = { en = "Secretary of the Navy.", zh = "海军部长。" }

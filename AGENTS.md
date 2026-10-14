@@ -15,6 +15,7 @@
 - 使用 `./iirp start|stop|status|check`（Linux 与 macOS 都走 Docker Compose，默认项目 `iirp2`，实现在 `scripts/cli.py`）；`./iirp python`、`./iirp lint`、`./iirp frontend` 在锁定镜像中运行开发工具。
 - 后端代码在 `backend/iirp`。单独运行 Python 命令时设置 `PYTHONPATH=backend`。
 - 测试使用隔离的 `iirp_v1_test_*` 数据库，不访问运行库：`./iirp check` 和 `./iirp test [pytest 参数]` 启动临时 PostgreSQL 容器（tmpfs），不在正式实例的数据库服务器上建库。共享路径改动后重新跑集成测试。
+- 浏览器冒烟测试用 `./iirp e2e`（不并入 `check`）。改动路由、页面结构、交互或前端构建配置后运行；在临时完整栈、合成数据与固定的盘中 / 收盘后 / 周末时钟上检查中英文页面。只用 Chromium 和按版本及摘要锁定的 Playwright 镜像；不启动 worker、不访问正式库，失败证据路径由命令打印（仓库外）。
 - 运行配置和密钥（`deploy/.env` 等）被 `.gitignore` 忽略，不要打印或提交。`./iirp start` 在没有该文件时从 `deploy/.env.example` 生成（权限 600、随机数据库密码）；SEC 联系信息可以写在其中的 `IIRP_SEC_USER_AGENT`（优先），也可以在界面填写（存本机数据库）。
 - 数据库迁移从 `migrations/versions/0001_baseline.py` 开始，新改动写成新的迁移；运行迁移用 `python -m iirp.migrate`（参数同 `alembic`，例如 `upgrade heads`），它会带上可选功能各自的迁移目录；`tests/jobs/test_lifecycle.py` 用 `alembic check` 核对模型与迁移一致。
 - 前端类型从 `docs/openapi.json` 生成；不要在 TypeScript 中重复实现金融计算。

@@ -2,8 +2,8 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { load } from "./load.mjs";
 
-const analysis = await load("lib/analysis.ts");
-const events = await load("lib/events.ts");
+const analysis = await load("lib/analysis.ts", true);
+const events = await load("lib/events.ts", true);
 const period = { month: 1, stats: { n: 3, up: 2, up_ratio: ".6667", median: ".04", paired_n: 2, beat: 1, median_excess: ".01", sector_paired_n: 2, sector_beat: 2, sector_median_excess: ".03" } };
 
 test("conclusions mention the sector only when both references have paired data", () => {

@@ -17,6 +17,8 @@ import { actions, resultHref } from "@/components/shell/Tasks";
 import { SecContactDialog, useSecContact } from "@/components/shell/SecContact";
 import { InfoTip } from "@/components/ui/info";
 
+import { PoliticalSources } from "@/components/data/PoliticalSources";
+
 type Batch = Schemas["BatchView"];
 type Group = Schemas["HealthGroup"];
 const ACTIVE = ["QUEUED", "RUNNING", "PAUSE_REQUESTED", "CANCEL_REQUESTED", "RETRY_WAIT", "WAITING"];
@@ -119,7 +121,9 @@ function Health() {
 
 /** Automatic collection on/off: SEC filings, home quotes, daily backup. */
 function Automatic() {
-  const { t } = useTranslation();
+  // SEC status labels are shared with dialogs; wait for them independently of
+  // which namespaces happen to be requested by other API responses.
+  const { t } = useTranslation(["data", "settings", "translation"]);
   const queryClient = useQueryClient();
   const policies = useQuery({ queryKey: ["collection-policy"], queryFn: () => unwrap(client.GET("/api/v1/collection-policy")) });
   const contact = useSecContact();
@@ -446,6 +450,7 @@ export function DataPage() {
       <Health />
       <Automatic />
       <IndexLists />
+      <PoliticalSources />
       <Tasks />
       {DEVELOPMENT && (
         <p className="text-xs text-muted-foreground">

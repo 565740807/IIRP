@@ -2,7 +2,8 @@ import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { createColumnHelper } from "@tanstack/react-table";
-import { motion, useReducedMotion } from "motion/react";
+import { useReducedMotion } from "motion/react";
+import * as m from "motion/react-m";
 import { ArrowDown, ArrowUp, BarChart3, LoaderCircle } from "lucide-react";
 import i18n from "@/i18n";
 import { EMPTY_DISTRIBUTION, monthDay, monthName, pct } from "@/lib/analysis";
@@ -420,7 +421,7 @@ export function RotationDetailView({ data, choice }: { data: Rotation; choice: C
   const period = rotationPeriodName(detail);
   const fewer = fewerYears(detail.rows);
   return (
-    <motion.div key={`${detail.key}-${choice.rank}`} initial={reduce ? { opacity: 0 } : { opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }}
+    <m.div key={`${detail.key}-${choice.rank}`} initial={reduce ? { opacity: 0 } : { opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }}
       transition={{ duration: reduce ? 0.1 : 0.2, ease: "easeOut" }} className="space-y-5">
       <Section id="r-ranking" title={t("ui.rotation.ranking_title", { period })} hint={t(`ui.rotation.ranking_hint.${choice.rank}`)}>
         <RotationRanking data={data} detail={detail} choice={choice} selected={selected} onSelect={(id) => setSelected((old) => old === id ? null : id)} />
@@ -429,7 +430,7 @@ export function RotationDetailView({ data, choice }: { data: Rotation; choice: C
       <Section id="r-box" title={t("ui.rotation.box_title", { period })} hint={t(`ui.rotation.box_hint.${choice.rank}`)}>
         <RotationBoxes detail={detail} choice={choice} selected={selected} onSelect={(id) => setSelected((old) => old === id ? null : id)} />
       </Section>
-    </motion.div>
+    </m.div>
   );
 }
 

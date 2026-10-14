@@ -450,7 +450,8 @@ def wait_until(predicate, seconds=15):
 
 def test_real_worker_kill_restart_resumes_without_duplicate_objects(tmp_path):
     job = create_job("fixture_check", {})[0]
-    env = {**os.environ, "IIRP_RUNTIME_DIR": str(tmp_path), "PYTHONPATH": str(ROOT / "backend")}
+    env = {**os.environ, "IIRP_RUNTIME_DIR": str(tmp_path), "PYTHONPATH": str(ROOT / "backend"),
+           "IIRP_SEC_USER_AGENT": "IIRP contact@example.invalid"}
     args = [sys.executable, "-m", "iirp.jobs.worker"]
     proc = subprocess.Popen(
         args, cwd=ROOT, env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL

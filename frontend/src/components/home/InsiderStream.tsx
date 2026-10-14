@@ -3,7 +3,8 @@ import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-quer
 import { useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useWindowVirtualizer } from "@tanstack/react-virtual";
-import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { AnimatePresence, useReducedMotion } from "motion/react";
+import * as m from "motion/react-m";
 import { ArrowUp, LoaderCircle } from "lucide-react";
 import { client, unwrap, ApiError } from "@/lib/api-client";
 import {
@@ -27,6 +28,9 @@ import { NControl } from "@/components/insider/NControl";
 import { INDICES, useOverviewChoice, useVisibleStocks, useStockQuotes, type IndexFilter as Index } from "@/lib/insiderOverview";
 import { IndexFilter, IndexStatus } from "@/components/insider/IndexFilter";
 import { CurrentQuoteStatus, MismatchRatio } from "@/components/insider/InsiderPrice";
+import { TickerBatch } from "@/lib/tickerMarks";
+import { WATCH_DEPENDENT } from "@/lib/watchlist";
+import { useWatchFilter, WatchFilter } from "@/components/watchlist/WatchFilter";
 import { CARD_COLUMNS, FEED_OPTIONAL, FeedCard, FeedColumnChoice, FeedWindows, FeedPrices, LINE_GRID, lineColumns } from "./FeedCard";
 import { useColumnChoices } from "@/lib/viewPrefs";
 import { ColumnSettings } from "@/components/ui/column-settings";
@@ -34,8 +38,9 @@ import { ColumnSettings } from "@/components/ui/column-settings";
 const FILTERS = ["focus", "buy", "sell", "derivative", "other", "all"] as const;
 type Filter = (typeof FILTERS)[number];
 
-function streamKey(filter: Filter, order: FeedOrder, index: Index) {
-  return ["feed-stream", filter, order, index] as const;
+/** The list's cache key; a watchlist-only list is read again whenever the watchlist changes. */
+function streamKey(filter: Filter, order: FeedOrder, index: Index, watch: boolean) {
+  return ["feed-stream", filter, order, index, watch ? WATCH_DEPENDENT : "all"] as const;
 }
 
 /** Reads every delta page between the list's watermark and a new one. */
@@ -77,7 +82,14 @@ export function InsiderStream() {
   useEffect(() => {
     if (!params.has("index")) setIndex(index);
   }, [params, index]);
-  const key = streamKey(filter, order, index);
+  // "Watchlist only" is kept in the link (?watchlist=true) and applies while the watchlist has codes.
+  const [watchChoice, setWatch] = useOverviewChoice("watchlist", ["true", "false"], "false", "home");
+  useEffect(() => {
+    if (watchChoice === "true" && !params.has("watchlist")) setWatch("true");
+  }, [params, watchChoice]);
+  const { active: watch } = useWatchFilter(watchChoice === "true");
+  const watchQuery = watch ? { watchlist: true } : {};
+  const key = streamKey(filter, order, index, watch);
   const visible = usePageVisible();
   const intervals = useRefreshIntervals();
   const reduceMotion = useReducedMotion();
@@ -86,7 +98,7 @@ export function InsiderStream() {
   const stream = useQuery({
     queryKey: key,
     queryFn: async (): Promise<FeedStream> => {
-      const page = await unwrap(client.GET("/api/v1/feed", { params: { query: { type: filter, order, index } } }));
+      const page = await unwrap(client.GET("/api/v1/feed", { params: { query: { type: filter, order, index, ...watchQuery } } }));
       return {
         session: page.session_id, latest: page.session_id, order, groups: page.groups,
         nextCursor: page.next_cursor, asOf: page.as_of, fresh: {}, dropped: [],
@@ -99,7 +111,7 @@ export function InsiderStream() {
   const data = stream.data;
   const update = useCallback(
     (change: (current: FeedStream) => FeedStream) => queryClient.setQueryData<FeedStream>(key, (current) => (current ? change(current) : current)),
-    [queryClient, filter, order, index],
+    [queryClient, filter, order, index, watch],
   );
 
   // How many groups changed since the list's watermark (local read only).
@@ -130,7 +142,7 @@ export function InsiderStream() {
   const scope = useRef(0);
   useEffect(() => {
     scope.current += 1;
-  }, [filter, order, index]);
+  }, [filter, order, index, watch]);
   const apply = useCallback(async () => {
     const current = queryClient.getQueryData<FeedStream>(key);
     if (!current || applying.current) return;
@@ -148,7 +160,7 @@ export function InsiderStream() {
       applying.current = false;
       setMerging(false);
     }
-  }, [queryClient, update, filter, order, index]);
+  }, [queryClient, update, filter, order, index, watch]);
 
   // At the top (and nothing selected), new filings drop in without asking.
   useEffect(() => {
@@ -185,7 +197,7 @@ export function InsiderStream() {
     setMoreError(null);
     try {
       const page = await unwrap(client.GET("/api/v1/feed", {
-        params: { query: { session_id: current.session, cursor: current.nextCursor, type: filter, order, index } },
+        params: { query: { session_id: current.session, cursor: current.nextCursor, type: filter, order, index, ...watchQuery } },
       }));
       update((latest) => appendPage(latest, page.groups, page.next_cursor));
     } catch (error) {
@@ -193,7 +205,7 @@ export function InsiderStream() {
     } finally {
       setLoadingMore(false);
     }
-  }, [queryClient, update, loadingMore, filter, order, index]);
+  }, [queryClient, update, loadingMore, filter, order, index, watch]);
 
   const groups = data?.groups ?? [];
   const list = useRef<HTMLDivElement>(null);
@@ -224,6 +236,8 @@ export function InsiderStream() {
   });
   const keys = useMemo(() => groups.filter((group) => stocks.ids.includes(group.revision_id)).flatMap((group) => group.trader_groups.map((trader) => ({ ticker: group.ticker, date: trader.transaction_date, issuer_id: group.issuer_id }))), [groups, revisions]);
   const windows = useTradeWindows(keys, n, visible);
+  // Every loaded card's code, so the marks beside the codes are read together.
+  const tickers = useMemo(() => groups.map((group) => group.ticker), [groups]);
   const shared = useMemo(() => ({ windows, n }), [windows, n]);
   const last = items.at(-1)?.index ?? -1;
   useEffect(() => {
@@ -256,7 +270,7 @@ export function InsiderStream() {
     }, { replace: true });
 
   return (
-    <section aria-labelledby="insider-heading" className="mt-4">
+    <section aria-labelledby="insider-heading" className="@container mt-4">
       <div className="mb-2 flex flex-wrap items-center gap-x-4 gap-y-2">
         <h2 id="insider-heading" className="text-base font-semibold">{t("ui.feed.title")}</h2>
         {data && (
@@ -268,6 +282,7 @@ export function InsiderStream() {
         )}
         <div className="ml-auto flex flex-wrap items-center gap-2">
           <IndexFilter value={index} choose={setIndex}/>
+          <WatchFilter chosen={watchChoice === "true"} choose={(on) => setWatch(String(on))} collapsible/>
           <NControl />
           <ToggleGroup type="single" size="sm" variant="outline" spacing={0} value={filter} aria-label={t("ui.feed.filter_label")}
             onValueChange={(value) => value && choose("filter", value)}>
@@ -295,7 +310,7 @@ export function InsiderStream() {
       <div className="mb-1.5 flex flex-wrap items-center gap-x-4 gap-y-1"><IndexStatus value={index}/><CurrentQuoteStatus prices={Object.values(prices.data?.items ?? {})}/></div>
       <AnimatePresence>
         {pending > 0 && !atTop && (
-          <motion.div
+          <m.div
             key="pill"
             initial={{ opacity: 0, y: -8 }}
             animate={{ opacity: 1, y: 0 }}
@@ -307,7 +322,7 @@ export function InsiderStream() {
               <ArrowUp />
               {t("ui.feed.new_trades", { count: pending })}
             </Button>
-          </motion.div>
+          </m.div>
         )}
       </AnimatePresence>
 
@@ -339,12 +354,13 @@ export function InsiderStream() {
           ))}
         </div>
       ) : !groups.length ? (
-        <p className="rounded-lg border bg-card px-4 py-10 text-center text-sm text-muted-foreground">{t("ui.feed.empty")}</p>
+        <p className="rounded-lg border bg-card px-4 py-10 text-center text-sm text-muted-foreground">{t(watch ? "ui.watchlist.feed_empty" : "ui.feed.empty")}</p>
       ) : (
         <FeedColumnChoice.Provider value={columns}>
         <FeedWindows.Provider value={shared}>
         <FeedPrices.Provider value={prices.data?.items ?? {}}>
         <MismatchRatio.Provider value={prices.data?.price_mismatch_ratio ?? null}>
+        <TickerBatch tickers={tickers}>
         <div ref={list} className="relative" style={{ height: virtual.getTotalSize() }} data-testid="feed-list">
           {items.map((item) => {
             const group = groups[item.index];
@@ -359,17 +375,18 @@ export function InsiderStream() {
                 className={cn("absolute inset-x-0 top-0", gliding && "transition-transform duration-300 ease-out")}
                 style={{ transform: `translateY(${item.start - virtual.options.scrollMargin}px)` }}
               >
-                <motion.div
+                <m.div
                   initial={mark === "new" ? (reduceMotion ? { opacity: 0 } : { opacity: 0, y: -24 }) : false}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.28, ease: "easeOut", delay: mark === "new" ? Math.min(item.index, 8) * 0.05 : 0 }}
                 >
                   <FeedCard group={group} mark={mark} />
-                </motion.div>
+                </m.div>
               </div>
             );
           })}
         </div>
+        </TickerBatch>
         </MismatchRatio.Provider>
         </FeedPrices.Provider>
         </FeedWindows.Provider>

@@ -18,7 +18,7 @@ import { sourceContext } from "@/lib/navigation";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { useTableColumns } from "@/components/ui/column-settings";
+import { useTableColumns } from "@/components/ui/table-columns";
 import { WindowCell } from "./WindowCell";
 
 export type Trade = Schemas["InsiderTransaction"];

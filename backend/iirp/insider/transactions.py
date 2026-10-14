@@ -11,6 +11,7 @@ from iirp.market.cache import cache_facts, price_bars
 from iirp.messages import NotFoundError, UserError
 from iirp.models import (
     Batch,
+    LongPriceSeries,
     RequestReceipt,
     Security,
     now,
@@ -137,7 +138,8 @@ def transaction_detail(transaction_id, mapping_version=None, cutoff_date=None, n
             context["status"] = state["status"].upper() if state["status"] != "ready" else "READY"
             context["mapping_version"] = record["mapping_version"]
             context["security_id"] = sec.id
-            context["source"] = cache.provider if cache else None
+            context["source"] = ("local_long_prices" if isinstance(cache, LongPriceSeries)
+                                 else cache.provider if cache else None)
             context["price_basis"] = "SPLIT_ONLY"
             context["as_of"] = cache.fetched_at.isoformat() if cache else None
             context.update(cache_facts(cache))

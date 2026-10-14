@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type RefObject } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useLocation, useSearchParams } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { client, unwrap, type Schemas } from "@/lib/api-client";
 import { usePageVisible, useRefreshIntervals } from "@/lib/refresh";
@@ -14,13 +14,27 @@ function remembered(key: string) {
   try { return localStorage.getItem(key); } catch { return null; }
 }
 
+/** The overview's sector filter: every sector, one sector id, or companies without a saved sector. */
+export const SECTOR_FORM = /^[a-z_]{1,64}$/;
+
+/** A sector filter value as the server offers it (``sectors`` once known), else "all". */
+export function sectorChoice(value: string, sectors: readonly string[] | null) {
+  if (value === "all" || value === "unclassified") return value;
+  if (!SECTOR_FORM.test(value)) return "all";
+  return !sectors || sectors.includes(value) ? value : "all";
+}
+
 /** URL choices override optional browser preferences, with validated defaults. */
-export function useOverviewChoice(name: string, choices: readonly string[] | null, fallback: string, scope = "overview") {
+export function useOverviewChoice(name: string, choices: readonly string[] | RegExp | null, fallback: string, scope = "overview") {
+  const pathname = useRef(useLocation().pathname).current;
   const [params, setParams] = useSearchParams();
   const storage = `iirp.insider.${scope}.${name}`;
   const candidate = params.get(name) ?? remembered(storage) ?? fallback;
-  const value = choices ? choices.includes(candidate) ? candidate : fallback : /^\d+(\.\d{1,2})?$/.test(candidate) ? candidate : fallback;
+  const value = choices instanceof RegExp ? choices.test(candidate) ? candidate : fallback
+    : choices ? choices.includes(candidate) ? candidate : fallback : /^\d+(\.\d{1,2})?$/.test(candidate) ? candidate : fallback;
   const choose = (next: string) => {
+    // A delayed automatic choice belongs to its committed page only.
+    if (window.location.pathname !== pathname) return;
     try { localStorage.setItem(storage, next); } catch { /* The URL still stores the choice. */ }
     // Router callbacks do not queue like React state; preserve rapid choices
     // using the URL already written by the preceding control.

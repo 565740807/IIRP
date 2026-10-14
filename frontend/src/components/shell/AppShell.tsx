@@ -1,8 +1,8 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { lazy, Suspense, useEffect, useState, type ReactNode } from "react";
 import { Link, NavLink, useLocation } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import { Activity, BarChart3, Database, Home, LayoutGrid, RefreshCw, Users } from "lucide-react";
+import { Activity, BarChart3, Database, Home, LayoutGrid, RefreshCw, UserCheck, Users } from "lucide-react";
 import { setLanguage, tm, type Language } from "@/i18n";
 import { formatEt } from "@/lib/format";
 import { useRefresh } from "@/lib/refresh";
@@ -13,14 +13,18 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Search } from "./Search";
 import { SettingsButton } from "./Settings";
-import { SystemStatus } from "./SystemStatus";
-import { TaskEntry } from "./Tasks";
+import { PageLanguage } from "@/components/PageLanguage";
+import { BlockSkeleton } from "@/components/ui/states";
+const SystemStatus = lazy(() => import("./SystemStatus").then(module => ({ default: module.SystemStatus })));
+import { NotificationBell } from "./NotificationBell";
+import { TaskEntry } from "./TaskEntry";
 import { FEATURES } from "@/features";
 
 /** Built-in entries and the optional features (src/features), in their order. */
 const NAVIGATION = [
   { to: "/", key: "home", icon: Home, order: 10 },
   { to: "/insiders", key: "insiders", icon: Users, order: 20 },
+  { to: "/notable", key: "notable", icon: UserCheck, order: 25 },
   { to: "/sectors", key: "sectors", icon: LayoutGrid, order: 30 },
   { to: "/analysis/monthly", key: "analysis", icon: BarChart3, order: 40 },
   { to: "/data", key: "data", icon: Database, order: 50 },
@@ -31,6 +35,9 @@ const NAVIGATION = [
 function pageKey(pathname: string) {
   if (pathname === "/") return "home";
   if (pathname.startsWith("/insiders")) return "insiders";
+  if (pathname === "/notable") return "notable";
+  if (pathname.startsWith("/notable/trades/")) return "transaction";
+  if (pathname.startsWith("/notable/")) return "notable_person";
   if (pathname.startsWith("/sectors")) return "sectors";
   if (pathname.startsWith("/analysis")) return "analysis";
   if (pathname.startsWith("/data")) return "data";
@@ -156,6 +163,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             <Search />
             <div className="ml-auto flex items-center gap-1.5">
               <RefreshIndicator />
+              <NotificationBell />
               <TaskEntry />
               <SettingsButton />
               <LanguageSwitch />
@@ -170,7 +178,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             {children}
           </main>
         </div>
-        <SystemStatus open={systemOpen} onOpenChange={setSystemOpen} />
+        {systemOpen && <Suspense fallback={<BlockSkeleton height="h-64" className="fixed top-1/2 left-1/2 z-50 w-96 -translate-x-1/2 -translate-y-1/2" />}><PageLanguage namespaces={["settings", "translation"]}><SystemStatus open={systemOpen} onOpenChange={setSystemOpen} /></PageLanguage></Suspense>}
       </div>
     </TooltipProvider>
   );

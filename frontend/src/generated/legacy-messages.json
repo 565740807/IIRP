@@ -1,0 +1,2919 @@
+[
+  {
+    "code": "storage.estimate_scope",
+    "source": "^原文大小取自来源记录，备份取自各自清单（共享原文池按最新清单估算），数据库取自 PostgreSQL；目录实际占用以精确核对为准。备份估算假设对象池均未复用，恢复执行以选定清单重算$",
+    "names": []
+  },
+  {
+    "code": "http.request_too_large",
+    "source": "^本次请求至少 (.+?) 字节，当前接口最多 (.+?) 字节（含 JSON 包装与转义）。资料未保存；请检查是否重复粘贴，原文可继续修改后重试。$",
+    "names": [
+      "size",
+      "limit"
+    ]
+  },
+  {
+    "code": "sec.user_agent_hint",
+    "source": "^需填写 SEC 联系信息：在首页提示或“数据与任务 → 自动更新”里填写名字和邮箱（SEC 要求）。填写前不向 SEC 发任何请求。$",
+    "names": []
+  },
+  {
+    "code": "sec.contact_name_invalid",
+    "source": "^名字须为 1–80 个英文字母、数字、空格或 \\. , ' & \\( \\) / _ - 字符（它会放进发给 SEC 的请求头）。$",
+    "names": []
+  },
+  {
+    "code": "sec.contact_from_config",
+    "source": "^SEC 联系信息由配置文件 deploy/\\.env（IIRP_SEC_USER_AGENT）设定，请在该文件中修改后重启。$",
+    "names": []
+  },
+  {
+    "code": "price_range.complete_years",
+    "source": "^过去 (.+?) 个完整自然年（(.+?)—(.+?)）加 (.+?) 年至查询日；财报财政年度另按公司实际财年。$",
+    "names": [
+      "years",
+      "first",
+      "last",
+      "current"
+    ]
+  },
+  {
+    "code": "freshness.cache_note",
+    "source": "^指数成分股、板块 ETF 和基准在区间覆盖时复用本地长期日线。其他股票价格与分析结果仍在 24 小时后到期。$",
+    "names": []
+  },
+  {
+    "code": "diagnostics.policy_scope",
+    "source": "^仅限开发测试：小样验证调度。正式使用保留完整新增发现、三个月回补与按需八年行情规则，P2 接入。$",
+    "names": []
+  },
+  {
+    "code": "events.input.duplicate_quarter",
+    "source": "^(.+?) FY(.+?) Q(.+?) 与第 (.+?) 条重复；每个财季只保留一次首次公布$",
+    "names": [
+      "ticker",
+      "fiscal_year",
+      "fiscal_quarter",
+      "other"
+    ]
+  },
+  {
+    "code": "health.sec_contact_missing",
+    "source": "^SEC 自动更新已开启，但还没有填写 SEC 联系信息（名字和邮箱），因此不会访问 SEC。$",
+    "names": []
+  },
+  {
+    "code": "provider.yahoo.verified",
+    "source": "^仅拆股 OHLC 合约已通过普通拆股、反向拆股、股息样例；每次入库仍核对日期和价格版本。$",
+    "names": []
+  },
+  {
+    "code": "probe.market_ok",
+    "source": "^(.+?) 已取得 (.+?) 条日线样本；拆股、股息与完整覆盖待 P2/P3 核验。$",
+    "names": [
+      "ticker",
+      "count"
+    ]
+  },
+  {
+    "code": "probe.sec_ok",
+    "source": "^已读取 (.+?) 条 SEC 发现入口样本；尚未下载交易 XML，也不代表历史覆盖。$",
+    "names": [
+      "count"
+    ]
+  },
+  {
+    "code": "notifications.server_invalid",
+    "source": "^服务器要写成 http 或 https 地址，例如 https://ntfy\\.sh。$",
+    "names": []
+  },
+  {
+    "code": "system.collection_scope",
+    "source": "^最新数据优先；Insider 历史默认 (.+?) 个月，可修改；各来源可独立暂停$",
+    "names": [
+      "months"
+    ]
+  },
+  {
+    "code": "benchmark.mismatch",
+    "source": "^所选基准的证券类型、币种或交易日历未匹配；请更换ETF或核对来源，股票结果保留$",
+    "names": []
+  },
+  {
+    "code": "events.input.context_outside",
+    "source": "^日期 (.+?) 不在所选范围内（事件前 (.+?) 天到后 (.+?) 天）$",
+    "names": [
+      "date",
+      "before",
+      "after"
+    ]
+  },
+  {
+    "code": "events.input.not_object",
+    "source": "^须为 \\{\"events\": \\[\\.\\.\\.\\]\\} 形式的 JSON 对象$",
+    "names": []
+  },
+  {
+    "code": "quote.baseline.gap",
+    "source": "^前一交易日 (.+?) 收盘缺失，无法计算单日变化；最近可用收盘 (.+?)$",
+    "names": [
+      "expected",
+      "last"
+    ]
+  },
+  {
+    "code": "feed.pending.scope",
+    "source": "^本地已发现且可见、尚无解析版本的全部申报，含历史回补；不受交易行为筛选影响$",
+    "names": []
+  },
+  {
+    "code": "events.input.invalid_json",
+    "source": "^不是有效的 JSON（第 (.+?) 行第 (.+?) 列：(.+?)）$",
+    "names": [
+      "line",
+      "column",
+      "reason"
+    ]
+  },
+  {
+    "code": "events.input.url_invalid",
+    "source": "^必须是 http:// 或 https:// 链接，实际是 (.+?)$",
+    "names": [
+      "value"
+    ]
+  },
+  {
+    "code": "http.database_busy",
+    "source": "^数据正在提交，本次操作尚未确认。请稍后重试；已保存研究与任务状态保留。$",
+    "names": []
+  },
+  {
+    "code": "insider.summary_joint_owners",
+    "source": "^此保留阅读的人数含联合申报主体；重新应用本地筛选可查看仅此主体的摘要。$",
+    "names": []
+  },
+  {
+    "code": "probe.market_note",
+    "source": "^采集返回记录，非供应商原始 HTTP；仅拆股口径与日线完整性尚未核验。$",
+    "names": []
+  },
+  {
+    "code": "search.hint",
+    "source": "^输入 ticker、公司名称、人员名称或 CIK，搜索本地已保存数据。$",
+    "names": []
+  },
+  {
+    "code": "storage.object_size",
+    "source": "^来源对象必须在 1 字节至 128 MiB 内；较大清单应按范围分块。$",
+    "names": []
+  },
+  {
+    "code": "events.input.session_invalid",
+    "source": "^须为 (.+?) 之一（不确定填 unknown），收到 (.+?)$",
+    "names": [
+      "sessions",
+      "value"
+    ]
+  },
+  {
+    "code": "quote.instrument.yield",
+    "source": "^CBOE 10 年期美国国债收益率指数，单位为 %；日变化以基点表示$",
+    "names": []
+  },
+  {
+    "code": "quote.instrument.index_futures",
+    "source": "^E-mini 股指连续期货（来源口径）；首页只在美股常规时段以外显示$",
+    "names": []
+  },
+  {
+    "code": "sec.contact_email_invalid",
+    "source": "^请输入有效的邮箱地址，例如 name@your-mail\\.com。$",
+    "names": []
+  },
+  {
+    "code": "price_range.buffer",
+    "source": "^额外获取目标起点之前的收盘，作为涨跌幅计算基准；不计为额外历史年。$",
+    "names": []
+  },
+  {
+    "code": "price_range.explicit_dates",
+    "source": "^按明确选择的日期获取；尚未收盘、上市/成立前和供应商缺口不补为零。$",
+    "names": []
+  },
+  {
+    "code": "sector.prices_incomplete",
+    "source": "^(.+?) 的本地日线未覆盖所有所需区间；缺价区间不计算板块对比。$",
+    "names": [
+      "symbol"
+    ]
+  },
+  {
+    "code": "notable.person_unknown",
+    "source": "^本机披露数据里没有这个人；只能关注众议院或 OGE 索引列出的人。$",
+    "names": []
+  },
+  {
+    "code": "events.input.legacy_format",
+    "source": "^旧的导入格式已不再支持；请用页面上的提示词重新生成简短 JSON$",
+    "names": []
+  },
+  {
+    "code": "http.database_timeout",
+    "source": "^数据库响应超时，本次操作尚未确认。已保存研究仍保留，请稍后重试。$",
+    "names": []
+  },
+  {
+    "code": "diagnostics.development_only",
+    "source": "^正式采集调度将在 P2 接入；P1 不以测试采样代替真实采集。$",
+    "names": []
+  },
+  {
+    "code": "health.sec_poll_failing",
+    "source": "^SEC 最新申报：最近 (.+?) 次检查失败（(.+?)）。$",
+    "names": [
+      "count",
+      "reason"
+    ]
+  },
+  {
+    "code": "probe.fixture_done",
+    "source": "^8 个合成测试检查点已提交；不是市场或 Insider 数据。$",
+    "names": []
+  },
+  {
+    "code": "provider.yahoo.budget",
+    "source": "^串行下载；默认 8 个完整历史年，可修改；财报候选需要公告核对$",
+    "names": []
+  },
+  {
+    "code": "transaction.class_mismatch",
+    "source": "^申报普通股、证券类别和 ticker 不一致，不能建立对应关系$",
+    "names": []
+  },
+  {
+    "code": "batch.title.insider_prices",
+    "source": "^Insider 交易的价格：(.+?)（共 (.+?) 只）$",
+    "names": [
+      "symbols",
+      "count"
+    ]
+  },
+  {
+    "code": "batch.title.insider_prices",
+    "source": "^Insider 交易的价格：(.+?)（共 (.+?) 只）$",
+    "names": [
+      "symbols",
+      "count"
+    ]
+  },
+  {
+    "code": "benchmark.invalid",
+    "source": "^请选择标普500、纳斯达克综合，或输入待核对的行业ETF代码$",
+    "names": []
+  },
+  {
+    "code": "insider.amendment.possible_duplicate",
+    "source": "^不同 accession 的相似行仅标可能重复，未静默合并。$",
+    "names": []
+  },
+  {
+    "code": "market.identity_conflict",
+    "source": "^来源 (.+?)=(.+?) 与已核对证券 (.+?) 冲突$",
+    "names": [
+      "field",
+      "actual",
+      "expected"
+    ]
+  },
+  {
+    "code": "events.input.context_too_many",
+    "source": "^背景信息有 (.+?) 条，提示词要求最多 (.+?) 条$",
+    "names": [
+      "count",
+      "max"
+    ]
+  },
+  {
+    "code": "feed.scope",
+    "source": "^展示本地已解析记录；具体历史范围以索引核对和剩余缺口为准。$",
+    "names": []
+  },
+  {
+    "code": "input.filing_url_accession",
+    "source": "^请提供以 accession\\.txt 结尾的完整申报地址$",
+    "names": []
+  },
+  {
+    "code": "insider.history_local",
+    "source": "^已有记录可查看；全市场索引、原文和修订仍需按目标范围核对。$",
+    "names": []
+  },
+  {
+    "code": "quote.baseline.previous_futures",
+    "source": "^供应商前一已返回日线收盘（期货供应商口径，非已核验结算价）$",
+    "names": []
+  },
+  {
+    "code": "sec.contact_email_reserved",
+    "source": "^(.+?) 是保留的示例域名，收不到邮件，请填写真实邮箱。$",
+    "names": [
+      "domain"
+    ]
+  },
+  {
+    "code": "batch.control.cancel_requested",
+    "source": "^正在取消此批次；等待执行中的专属任务停止，已完成结果保留$",
+    "names": []
+  },
+  {
+    "code": "batch.control.pause_requested",
+    "source": "^正在暂停此批次；等待执行中的专属任务停止，已完成结果可读$",
+    "names": []
+  },
+  {
+    "code": "batch.planning.timeout",
+    "source": "^批次规划超过数据库执行期限，稍后自动重试；已完成结果可读$",
+    "names": []
+  },
+  {
+    "code": "events.input.summary_long",
+    "source": "^说明有 (.+?) 字，提示词要求不超过 (.+?) 字$",
+    "names": [
+      "count",
+      "max"
+    ]
+  },
+  {
+    "code": "price_range.legacy_scope",
+    "source": "^续作原批次已保存范围；旧版未单独记录用户目标与计算缓冲。$",
+    "names": []
+  },
+  {
+    "code": "price_range.research_conditions",
+    "source": "^按保存的研究年份与窗口获取；计算前收缓冲独立于目标范围。$",
+    "names": []
+  },
+  {
+    "code": "probe.market_empty",
+    "source": "^(.+?) 未返回日线；不能认定该证券不存在或没有交易。$",
+    "names": [
+      "ticker"
+    ]
+  },
+  {
+    "code": "provider.sec.budget",
+    "source": "^共享 2 请求/秒、最多 2 个执行单元；历史按缺口续作$",
+    "names": []
+  },
+  {
+    "code": "sec.source_object_missing",
+    "source": "^缺少包含本份 Ownership 原文的已保存来源对象。$",
+    "names": []
+  },
+  {
+    "code": "transaction.not_common_stock",
+    "source": "^这条记录并非已明确的普通股；须先核对标的股类或衍生品关系$",
+    "names": []
+  },
+  {
+    "code": "sector.invalid",
+    "source": "^板块参照必须是自动、行业组、不比较或有效 ETF 代码。$",
+    "names": []
+  },
+  {
+    "code": "political.source_unavailable",
+    "source": "^官方披露来源不可用（HTTP (.+?)）：(.+?)。$",
+    "names": [
+      "status",
+      "reason"
+    ]
+  },
+  {
+    "code": "political.parse_failed",
+    "source": "^披露报告解析失败：(.+?)。原文件已保留，供后续核对。$",
+    "names": [
+      "error"
+    ]
+  },
+  {
+    "code": "diagnostics.coverage_notice",
+    "source": "^这是测试来源能力记录。样本成功不等于正式历史覆盖完整。$",
+    "names": []
+  },
+  {
+    "code": "job.unit_failed",
+    "source": "^工作单元失败（(.+?)）；已保存数据保留，可重试此项$",
+    "names": [
+      "error"
+    ]
+  },
+  {
+    "code": "sec.form_conflict",
+    "source": "^同一 accession 的表格类型冲突，需核对来源。$",
+    "names": []
+  },
+  {
+    "code": "source.sec.file_too_large",
+    "source": "^SEC 单文件超过 64 MiB 操作预算，需拆分清单$",
+    "names": []
+  },
+  {
+    "code": "sector.prices_unavailable",
+    "source": "^(.+?) 的本地日线未覆盖所需区间，板块对比不可用。$",
+    "names": [
+      "symbol"
+    ]
+  },
+  {
+    "code": "political.http_unavailable",
+    "source": "^官方来源返回 HTTP (.+?)，请求将退避后重试。$",
+    "names": [
+      "status"
+    ]
+  },
+  {
+    "code": "notifications.daily_limit",
+    "source": "^过去 24 小时已推送 (.+?) 条，其余稍后发送。$",
+    "names": [
+      "limit"
+    ]
+  },
+  {
+    "code": "notifications.push.cluster_title",
+    "source": "^(.+?) 天内 (.+?) 位内部人买入 (.+?)$",
+    "names": [
+      "days",
+      "count",
+      "ticker"
+    ]
+  },
+  {
+    "code": "batch.planning.error",
+    "source": "^批次规划数据或规则异常，稍后自动重试；已完成结果可读$",
+    "names": []
+  },
+  {
+    "code": "batch.title.sec_history",
+    "source": "^Insider 历史回补 · (.+?)—(.+?)$",
+    "names": [
+      "start",
+      "end"
+    ]
+  },
+  {
+    "code": "events.input.boolean_required",
+    "source": "^只能是 true 或 false，实际是 (.+?)$",
+    "names": [
+      "value"
+    ]
+  },
+  {
+    "code": "market.identity_fields_missing",
+    "source": "^来源未提供足够证券身份字段，需核对股类、币种和交易所$",
+    "names": []
+  },
+  {
+    "code": "probe.sec_http",
+    "source": "^SEC 返回 HTTP (.+?)；已保留来源缺口。$",
+    "names": [
+      "status"
+    ]
+  },
+  {
+    "code": "transaction.identifier_missing",
+    "source": "^交易当日没有有效的证券标识符记录，请先核对历史有效期$",
+    "names": []
+  },
+  {
+    "code": "batch.planning.conflict",
+    "source": "^批次规划遇到并发更新，稍后自动重试；已完成结果可读$",
+    "names": []
+  },
+  {
+    "code": "diagnostics.sample_development_only",
+    "source": "^测试采样仅在开发模式可用；正式采集在 P2 接入。$",
+    "names": []
+  },
+  {
+    "code": "events.analysis_request_id_reused",
+    "source": "^同一分析 request_id 不能用于其他事件集$",
+    "names": []
+  },
+  {
+    "code": "events.input.context_limit",
+    "source": "^背景信息最多 (.+?) 条，实际 (.+?) 条$",
+    "names": [
+      "max",
+      "count"
+    ]
+  },
+  {
+    "code": "health.backup_stale",
+    "source": "^最近一次备份完成于 (.+?)，每周备份没有完成。$",
+    "names": [
+      "time"
+    ]
+  },
+  {
+    "code": "health.disk_low",
+    "source": "^磁盘空间不足：剩余 (.+?)，需要 (.+?)。$",
+    "names": [
+      "free",
+      "minimum"
+    ]
+  },
+  {
+    "code": "health.source_cooldown",
+    "source": "^(.+?) 要求暂停请求，将于 (.+?) 恢复。$",
+    "names": [
+      "source",
+      "until"
+    ]
+  },
+  {
+    "code": "http.frontend_not_built",
+    "source": "^前端尚未构建，请运行 npm run build。$",
+    "names": []
+  },
+  {
+    "code": "insider.window_items_invalid",
+    "source": "^每一项须为 TICKER\\|YYYY-MM-DD。$",
+    "names": []
+  },
+  {
+    "code": "search.scope",
+    "source": "^仅查询本地证券和主体；获取历史通过详情页明确提交。$",
+    "names": []
+  },
+  {
+    "code": "events.context_window_invalid",
+    "source": "^背景信息的天数必须是 0 到 (.+?) 的整数$",
+    "names": [
+      "max"
+    ]
+  },
+  {
+    "code": "events.input.date_format",
+    "source": "^日期须为 YYYY-MM-DD，收到 (.+?)$",
+    "names": [
+      "value"
+    ]
+  },
+  {
+    "code": "events.input.duplicate_event",
+    "source": "^与第 (.+?) 条重复（股票、日期和名称相同）$",
+    "names": [
+      "other"
+    ]
+  },
+  {
+    "code": "events.input.kind_invalid",
+    "source": "^事件类型须为 earnings 或 custom$",
+    "names": []
+  },
+  {
+    "code": "events.set_title.custom_more",
+    "source": "^(.+?) 等 · 事件 (.+?)—(.+?)$",
+    "names": [
+      "tickers",
+      "first",
+      "last"
+    ]
+  },
+  {
+    "code": "events.set_title.earnings_more",
+    "source": "^(.+?) 等 · 财报 (.+?)—(.+?)$",
+    "names": [
+      "tickers",
+      "first",
+      "last"
+    ]
+  },
+  {
+    "code": "http.database_unavailable",
+    "source": "^数据库暂不可用；操作尚未确认，请恢复连接后重试。$",
+    "names": []
+  },
+  {
+    "code": "insider.amendment.needs_row_review",
+    "source": "^修订范围需逐行核对；不因同日期或行位置自动替换。$",
+    "names": []
+  },
+  {
+    "code": "insider.amendment.original_invalid",
+    "source": "^原行必须是同发行人且具有共同申报主体的现行交易。$",
+    "names": []
+  },
+  {
+    "code": "insider.security_notice",
+    "source": "^须确认交易证券或衍生品标的与具体股类的对应关系。$",
+    "names": []
+  },
+  {
+    "code": "job.database_busy",
+    "source": "^数据库提交暂时繁忙，5 秒后重试；已保存数据保留$",
+    "names": []
+  },
+  {
+    "code": "sec.scope.continuing",
+    "source": "^继续处理剩余清单与原文；队列容量仅控制执行节奏。$",
+    "names": []
+  },
+  {
+    "code": "sec.user_agent_configured",
+    "source": "^SEC 联系信息已设置，自动更新可访问 SEC。$",
+    "names": []
+  },
+  {
+    "code": "transaction.dates_missing",
+    "source": "^交易日期或真实 SEC 接受时间缺失，需先补原文$",
+    "names": []
+  },
+  {
+    "code": "sector.industry_group_fallback",
+    "source": "^所属行业组没有主 ETF，使用所属板块 ETF。$",
+    "names": []
+  },
+  {
+    "code": "political.contact_required",
+    "source": "^请先填写 SEC 联系信息，再检查政界交易披露。$",
+    "names": []
+  },
+  {
+    "code": "batch.title.sec_entity",
+    "source": "^(.+?) 自 (.+?) 起的 SEC 申报$",
+    "names": [
+      "name",
+      "start"
+    ]
+  },
+  {
+    "code": "health.sec_poll_stale",
+    "source": "^SEC 最新申报自 (.+?) 起没有检查过。$",
+    "names": [
+      "time"
+    ]
+  },
+  {
+    "code": "health.worker_offline",
+    "source": "^后台 worker 没有运行，不会采集或计算。$",
+    "names": []
+  },
+  {
+    "code": "insider.snapshot.row_missing",
+    "source": "^阅读版本缺少不可变交易行，请重新解析该份原文。$",
+    "names": []
+  },
+  {
+    "code": "job.queue_full",
+    "source": "^队列已满（(.+?) 项），请先处理现有任务。$",
+    "names": [
+      "max"
+    ]
+  },
+  {
+    "code": "market.bar.jump",
+    "source": "^相邻交易日收盘变化达到 50%，保留原值待核对$",
+    "names": []
+  },
+  {
+    "code": "provider.yahoo.unverified",
+    "source": "^当前依赖版本与已验证口径不一致，需要重新验证。$",
+    "names": []
+  },
+  {
+    "code": "sec.document_hash_mismatch",
+    "source": "^Ownership 原文字节与来源哈希不一致。$",
+    "names": []
+  },
+  {
+    "code": "sec.issuer_cik_missing",
+    "source": "^原文发行人 CIK 缺失，保存证据后等待核对。$",
+    "names": []
+  },
+  {
+    "code": "sec.user_agent_required",
+    "source": "^请先填写 SEC 联系信息（名字和真实邮箱）。$",
+    "names": []
+  },
+  {
+    "code": "storage.reference_mismatch",
+    "source": "^来源内容引用与已保存原文不一致，不能发布证据。$",
+    "names": []
+  },
+  {
+    "code": "transaction.security_choice_invalid",
+    "source": "^只能选择已核对身份、且属于同一发行人的具体证券$",
+    "names": []
+  },
+  {
+    "code": "political.reason.blocked",
+    "source": "^来源拒绝自动访问，将退避后重试并遵守访问保护。$",
+    "names": []
+  },
+  {
+    "code": "notifications.limit_invalid",
+    "source": "^请填 (.+?) 到 (.+?) 之间的数字。$",
+    "names": [
+      "low",
+      "high"
+    ]
+  },
+  {
+    "code": "batch.control.paused",
+    "source": "^此批次已暂停；已完成结果可读，可恢复剩余工作$",
+    "names": []
+  },
+  {
+    "code": "chart.note.daily",
+    "source": "^日线序列，当日数据可能尚未收盘；不是分时走势$",
+    "names": []
+  },
+  {
+    "code": "events.input.context_category",
+    "source": "^只能是 (.+?) 之一，实际是 (.+?)$",
+    "names": [
+      "values",
+      "value"
+    ]
+  },
+  {
+    "code": "events.input.guidance_invalid",
+    "source": "^只能是 (.+?) 之一，实际是 (.+?)$",
+    "names": [
+      "values",
+      "value"
+    ]
+  },
+  {
+    "code": "events.request_id_reused",
+    "source": "^同一 request_id 不能保存不同内容$",
+    "names": []
+  },
+  {
+    "code": "events.set_title.custom",
+    "source": "^(.+?) · 事件 (.+?)—(.+?)$",
+    "names": [
+      "tickers",
+      "first",
+      "last"
+    ]
+  },
+  {
+    "code": "events.set_title.earnings",
+    "source": "^(.+?) · 财报 (.+?)—(.+?)$",
+    "names": [
+      "tickers",
+      "first",
+      "last"
+    ]
+  },
+  {
+    "code": "health.failed",
+    "source": "^(.+?) 个(.+?)任务失败：(.+?)$",
+    "names": [
+      "count",
+      "kind",
+      "reason"
+    ]
+  },
+  {
+    "code": "health.failed",
+    "source": "^(.+?) 个(.+?)任务失败：(.+?)$",
+    "names": [
+      "count",
+      "kind",
+      "reason"
+    ]
+  },
+  {
+    "code": "insider.amendment.already_resolved",
+    "source": "^该修订已经有明确结论，不能覆盖已有核对证据。$",
+    "names": []
+  },
+  {
+    "code": "insider.snapshot.observation_missing",
+    "source": "^阅读版本引用的原始观察缺失，请核对来源存储。$",
+    "names": []
+  },
+  {
+    "code": "job.cache_replaced",
+    "source": "^行情缓存已过期或已更新，等待按新缓存重新计算$",
+    "names": []
+  },
+  {
+    "code": "job.compute_skipped",
+    "source": "^已复用相同输入结果或输入已修订，等待最新计算$",
+    "names": []
+  },
+  {
+    "code": "job.interrupted",
+    "source": "^任务中断（(.+?)），请检查本地运行日志。$",
+    "names": [
+      "error"
+    ]
+  },
+  {
+    "code": "job.manual_cancelled_shared",
+    "source": "^手动需求已取消；仍有自动需求，公共工作继续。$",
+    "names": []
+  },
+  {
+    "code": "quote.retained",
+    "source": "^来源返回较旧或缺少时间的报价，保留最后有效值$",
+    "names": []
+  },
+  {
+    "code": "sec.scope.gaps",
+    "source": "^发现、原文或索引范围仍有缺口，可重试失败项。$",
+    "names": []
+  },
+  {
+    "code": "storage.disk_low",
+    "source": "^可用空间不足 10 GiB，已停止新增采集。$",
+    "names": []
+  },
+  {
+    "code": "transaction.export_format_invalid",
+    "source": "^交易价格导出格式只支持 JSON 或 CSV$",
+    "names": []
+  },
+  {
+    "code": "window.reason.no_quote",
+    "source": "^Yahoo 没有这个 ticker 的行情。$",
+    "names": []
+  },
+  {
+    "code": "display.color_invalid",
+    "source": "^颜色 (.+?) 不是 #rrggbb 格式$",
+    "names": [
+      "value"
+    ]
+  },
+  {
+    "code": "long_prices.job",
+    "source": "^日线 (.+?) · (.+?)–(.+?)$",
+    "names": [
+      "symbol",
+      "start",
+      "end"
+    ]
+  },
+  {
+    "code": "political.source_busy",
+    "source": "^该披露来源正在处理另一个请求，等待请求时隙。$",
+    "names": []
+  },
+  {
+    "code": "political.file_too_large",
+    "source": "^披露文件超过安全下载大小，仍可使用原文链接。$",
+    "names": []
+  },
+  {
+    "code": "analysis.selected_result_gone",
+    "source": "^所选结果已过期或不属于这项研究；请重新获取$",
+    "names": []
+  },
+  {
+    "code": "events.input.issue_item_field",
+    "source": "^第 (.+?) 条 (.+?)：(.+?)$",
+    "names": [
+      "index",
+      "field",
+      "message"
+    ]
+  },
+  {
+    "code": "events.input.too_many",
+    "source": "^最多 (.+?) 条，收到 (.+?) 条$",
+    "names": [
+      "max",
+      "count"
+    ]
+  },
+  {
+    "code": "insider.exclusion.needs_review",
+    "source": "^修订关系待确认，源申报数值暂未计入确认汇总$",
+    "names": []
+  },
+  {
+    "code": "insider.snapshot.expired",
+    "source": "^阅读快照不存在或已过期，请刷新后重新打开。$",
+    "names": []
+  },
+  {
+    "code": "insider.activity_tickers_invalid",
+    "source": "^最多 (.+?) 个股票代码，用逗号分隔。$",
+    "names": [
+      "limit"
+    ]
+  },
+  {
+    "code": "market.empty_response",
+    "source": "^来源返回空数据；无法据此判断未上市或无交易$",
+    "names": []
+  },
+  {
+    "code": "price_range.years_out_of_range",
+    "source": "^历史年数超出日期可表达范围；请选择合法起点$",
+    "names": []
+  },
+  {
+    "code": "probe.failed",
+    "source": "^来源验证失败（(.+?)）；已有数据保留。$",
+    "names": [
+      "error"
+    ]
+  },
+  {
+    "code": "quote.delay.daily",
+    "source": "^最近日线；未取得可配对的当前报价和来源时间$",
+    "names": []
+  },
+  {
+    "code": "quote.instrument.oil_futures",
+    "source": "^WTI 原油连续期货，美元/桶（来源口径）$",
+    "names": []
+  },
+  {
+    "code": "notifications.push.dates",
+    "source": "^交易日 (.+?) · 公布日 (.+?)$",
+    "names": [
+      "traded",
+      "published"
+    ]
+  },
+  {
+    "code": "batch.cleanup_saved",
+    "source": "^已保存缓存清理批次；可在任务中查看和控制$",
+    "names": []
+  },
+  {
+    "code": "batch.limit_invalid",
+    "source": "^每页任务数须在(.+?)至(.+?)之间$",
+    "names": [
+      "min",
+      "max"
+    ]
+  },
+  {
+    "code": "events.input.earnings_not_object",
+    "source": "^earnings 必须是 JSON 对象$",
+    "names": []
+  },
+  {
+    "code": "events.n_invalid",
+    "source": "^n 须为 (.+?)–(.+?) 的整数$",
+    "names": [
+      "min",
+      "max"
+    ]
+  },
+  {
+    "code": "probe.sec_too_large",
+    "source": "^SEC 样本超过 5 MiB 测试预算。$",
+    "names": []
+  },
+  {
+    "code": "window.reason.no_prices",
+    "source": "^Yahoo 今天没有返回日线，明天再试。$",
+    "names": []
+  },
+  {
+    "code": "sectors.rotation_interval",
+    "source": "^区间需要两个不同的月-日（MM-DD）。$",
+    "names": []
+  },
+  {
+    "code": "notifications.push.executive_title",
+    "source": "^(.+?) 买入 (.+?)：(.+?)$",
+    "names": [
+      "role",
+      "ticker",
+      "amount"
+    ]
+  },
+  {
+    "code": "notifications.push.sec_line",
+    "source": "^(.+?) (.+?)（(.+?) 行）$",
+    "names": [
+      "side",
+      "amount",
+      "rows"
+    ]
+  },
+  {
+    "code": "batch.title.insider_prices",
+    "source": "^Insider 交易的价格：(.+?)$",
+    "names": [
+      "symbols"
+    ]
+  },
+  {
+    "code": "events.input.context_not_list",
+    "source": "^context 必须是由对象组成的数组$",
+    "names": []
+  },
+  {
+    "code": "events.input.fiscal_year_required",
+    "source": "^财报须给出财年（整数，例如 2025）$",
+    "names": []
+  },
+  {
+    "code": "events.input.unknown_top_field",
+    "source": "^不认识的顶层字段；只需要 events$",
+    "names": []
+  },
+  {
+    "code": "input.filing_url_required",
+    "source": "^请提供 SEC 完整申报 txt 地址$",
+    "names": []
+  },
+  {
+    "code": "insider.cik_invalid",
+    "source": "^CIK 必须是 1 至 10 位数字。$",
+    "names": []
+  },
+  {
+    "code": "insider.snapshot.filters_changed",
+    "source": "^历史条件已经变化，请创建新的阅读快照。$",
+    "names": []
+  },
+  {
+    "code": "market.cache_superseded",
+    "source": "^已有覆盖更宽区间的缓存，本次结果未替换$",
+    "names": []
+  },
+  {
+    "code": "market.no_quote",
+    "source": "^行情来源未返回可用报价，保留最后可用值$",
+    "names": []
+  },
+  {
+    "code": "probe.sec_not_atom",
+    "source": "^SEC 响应不是预期 Atom 文档。$",
+    "names": []
+  },
+  {
+    "code": "provider.sec.needs_config",
+    "source": "^请填写含真实邮箱的 SEC 联系信息。$",
+    "names": []
+  },
+  {
+    "code": "scope.identity_review_others",
+    "source": "^证券身份或交易日历需核对；其他证券继续$",
+    "names": []
+  },
+  {
+    "code": "source.sec.http_cooldown",
+    "source": "^SEC HTTP (.+?)，共享冷却$",
+    "names": [
+      "status"
+    ]
+  },
+  {
+    "code": "stage.waiting_channel",
+    "source": "^等待 (.+?) 通道 · (.+?)$",
+    "names": [
+      "source",
+      "stage"
+    ]
+  },
+  {
+    "code": "transaction.date_unknown",
+    "source": "^原申报交易日期未知，不能核对证券有效期$",
+    "names": []
+  },
+  {
+    "code": "sector.identity_pending",
+    "source": "^正在刷新股票身份；完成后计算板块对比。$",
+    "names": []
+  },
+  {
+    "code": "notifications.scope_invalid",
+    "source": "^请选择“指数和自选股”或“全部公司”。$",
+    "names": []
+  },
+  {
+    "code": "notifications.push.cluster_body",
+    "source": "^(.+?) · 共 (.+?) 笔买入$",
+    "names": [
+      "names",
+      "rows"
+    ]
+  },
+  {
+    "code": "events.input.earnings_custom",
+    "source": "^只有财报事件可以带 earnings$",
+    "names": []
+  },
+  {
+    "code": "health.failed",
+    "source": "^1 个(.+?)任务失败：(.+?)$",
+    "names": [
+      "kind",
+      "reason"
+    ]
+  },
+  {
+    "code": "insider.exclusion.amendment_update",
+    "source": "^历史交易修订通知，金额在原交易组计入$",
+    "names": []
+  },
+  {
+    "code": "insider.exclusion.superseded",
+    "source": "^已由修订版本替代，不计入当前确认汇总$",
+    "names": []
+  },
+  {
+    "code": "job.yield_to_manual",
+    "source": "^为同通道手动请求让路，完成后自动继续$",
+    "names": []
+  },
+  {
+    "code": "market.bar.bad_action",
+    "source": "^公司行动数值不合法，原价格保留待核对$",
+    "names": []
+  },
+  {
+    "code": "provider.sec.configured",
+    "source": "^六类申报、原文、索引对账与财报附件。$",
+    "names": []
+  },
+  {
+    "code": "batch.title.sector_group_prices",
+    "source": "^行业组日线（(.+?) 只 ETF）$",
+    "names": [
+      "count"
+    ]
+  },
+  {
+    "code": "batch.title.sector_group_prices",
+    "source": "^行业组日线（(.+?) 只 ETF）$",
+    "names": [
+      "count"
+    ]
+  },
+  {
+    "code": "long_prices.gaps",
+    "source": "^日线缺少 (.+?) 个已完成交易日$",
+    "names": [
+      "count"
+    ]
+  },
+  {
+    "code": "sector.identity_failed",
+    "source": "^股票身份刷新失败，无法确定所属板块。$",
+    "names": []
+  },
+  {
+    "code": "political.cursor_invalid",
+    "source": "^交易分页游标无效，请重新加载第一页。$",
+    "names": []
+  },
+  {
+    "code": "political.reason.unofficial_link",
+    "source": "^索引链接指向官方披露来源以外的文件。$",
+    "names": []
+  },
+  {
+    "code": "political.reason.http_error",
+    "source": "^官方来源返回失败的 HTTP 响应。$",
+    "names": []
+  },
+  {
+    "code": "analysis.export_format_invalid",
+    "source": "^导出格式须为 csv 或 json$",
+    "names": []
+  },
+  {
+    "code": "batch.continue_cancelled_only",
+    "source": "^只有已取消批次才能创建关联续作批次$",
+    "names": []
+  },
+  {
+    "code": "benchmark.identity_pending",
+    "source": "^基准身份正在核对；股票结果可先阅读$",
+    "names": []
+  },
+  {
+    "code": "benchmark.prices_pending",
+    "source": "^基准行情正在获取；股票结果可先阅读$",
+    "names": []
+  },
+  {
+    "code": "events.input.context_item_not_object",
+    "source": "^每条背景信息必须是 JSON 对象$",
+    "names": []
+  },
+  {
+    "code": "job.retry_failed_only",
+    "source": "^只有失败或部分完成的任务可以重试。$",
+    "names": []
+  },
+  {
+    "code": "maintenance.busy",
+    "source": "^备份、恢复或清理正在进行，稍后重试$",
+    "names": []
+  },
+  {
+    "code": "market.duplicate_session",
+    "source": "^来源同一交易日重复，整块保留待核对$",
+    "names": []
+  },
+  {
+    "code": "probe.cooldown",
+    "source": "^来源处于冷却期，任务等待后再验证。$",
+    "names": []
+  },
+  {
+    "code": "quote.delay.delayed",
+    "source": "^供应商延迟报价，未提供确切延迟时长$",
+    "names": []
+  },
+  {
+    "code": "quote.delay.stale",
+    "source": "^来源报价尚未跟上当前时段，保留旧值$",
+    "names": []
+  },
+  {
+    "code": "source.sec.slots_stale",
+    "source": "^SEC 请求时隙连续过期，稍后重试$",
+    "names": []
+  },
+  {
+    "code": "storage.hash_mismatch",
+    "source": "^来源对象哈希不一致，需要核对存储。$",
+    "names": []
+  },
+  {
+    "code": "transaction.export_unverified",
+    "source": "^交易证券尚未核对，不能导出价格分析$",
+    "names": []
+  },
+  {
+    "code": "batch.title.sector_prices",
+    "source": "^板块日线（(.+?) 只 ETF）$",
+    "names": [
+      "count"
+    ]
+  },
+  {
+    "code": "batch.title.sector_prices",
+    "source": "^板块日线（(.+?) 只 ETF）$",
+    "names": [
+      "count"
+    ]
+  },
+  {
+    "code": "sector.mismatch",
+    "source": "^分类信息不一致，无法确定所属板块。$",
+    "names": []
+  },
+  {
+    "code": "political.reason.index_changed",
+    "source": "^官方索引格式已变化，采集前需核对。$",
+    "names": []
+  },
+  {
+    "code": "notable.person_not_found",
+    "source": "^本机数据和默认名单里都没有这个人。$",
+    "names": []
+  },
+  {
+    "code": "compute.superseded",
+    "source": "^输入已修订，此次旧版本计算未发布$",
+    "names": []
+  },
+  {
+    "code": "events.input.item_not_object",
+    "source": "^每条事件须是一个 JSON 对象$",
+    "names": []
+  },
+  {
+    "code": "events.input.name_too_long",
+    "source": "^名称不能超过 (.+?) 个字符$",
+    "names": [
+      "max"
+    ]
+  },
+  {
+    "code": "events.input.note_too_long",
+    "source": "^备注不能超过 (.+?) 个字符$",
+    "names": [
+      "max"
+    ]
+  },
+  {
+    "code": "events.input.ticker_missing",
+    "source": "^缺少股票代码，例如 \"AAPL\"$",
+    "names": []
+  },
+  {
+    "code": "events.input.unknown_field",
+    "source": "^不认识的字段；只接受 (.+?)$",
+    "names": [
+      "fields"
+    ]
+  },
+  {
+    "code": "feed.filters_changed",
+    "source": "^筛选已变化，请创建新的阅读快照。$",
+    "names": []
+  },
+  {
+    "code": "feed.order_invalid",
+    "source": "^请选择实际交易日期或最近披露排序$",
+    "names": []
+  },
+  {
+    "code": "feed.pending.stage.needs_review",
+    "source": "^原文任务已结束，仍需核对解析结果$",
+    "names": []
+  },
+  {
+    "code": "input.filing_url_unexpected",
+    "source": "^只有指定申报类型接受完整申报地址$",
+    "names": []
+  },
+  {
+    "code": "insider.amendment.action_invalid",
+    "source": "^请选择新增、替换、未变化或撤回。$",
+    "names": []
+  },
+  {
+    "code": "market.contract_unverified",
+    "source": "^Yahoo 仅拆股价格口径待核对$",
+    "names": []
+  },
+  {
+    "code": "quote.delay.closed",
+    "source": "^最近收盘/休市报价（供应商时段）$",
+    "names": []
+  },
+  {
+    "code": "sec.document_unverified",
+    "source": "^原文尚未验证，不能生成交易事实。$",
+    "names": []
+  },
+  {
+    "code": "sec.form_metadata_mismatch",
+    "source": "^原文表格类型与来源元数据不一致。$",
+    "names": []
+  },
+  {
+    "code": "window.reason.not_us_stock",
+    "source": "^不是以美元计价的美股，没有日线。$",
+    "names": []
+  },
+  {
+    "code": "sector.unavailable",
+    "source": "^没有可用的板块映射，只比较大盘。$",
+    "names": []
+  },
+  {
+    "code": "watchlist.import_too_long",
+    "source": "^一次最多粘贴 (.+?) 个字符$",
+    "names": [
+      "limit"
+    ]
+  },
+  {
+    "code": "notifications.push_error",
+    "source": "^连不上推送服务器（(.+?)）。$",
+    "names": [
+      "reason"
+    ]
+  },
+  {
+    "code": "batch.title.market_history_detail",
+    "source": "^(.+?) 最近 6 个月日线$",
+    "names": [
+      "name"
+    ]
+  },
+  {
+    "code": "events.input.date_invalid",
+    "source": "^不是真实的日历日期：(.+?)$",
+    "names": [
+      "value"
+    ]
+  },
+  {
+    "code": "events.input.fiscal_quarter_required",
+    "source": "^财报须给出财季（整数 1–4）$",
+    "names": []
+  },
+  {
+    "code": "events.input.issue_item",
+    "source": "^第 (.+?) 条：(.+?)$",
+    "names": [
+      "index",
+      "message"
+    ]
+  },
+  {
+    "code": "events.input.number_required",
+    "source": "^必须是数字，实际是 (.+?)$",
+    "names": [
+      "value"
+    ]
+  },
+  {
+    "code": "events.input.uncertain",
+    "source": "^AI 标为不确定，使用前请核对$",
+    "names": []
+  },
+  {
+    "code": "feed.page_too_large",
+    "source": "^每页明细最多 (.+?) 条。$",
+    "names": [
+      "max"
+    ]
+  },
+  {
+    "code": "http.content_length_invalid",
+    "source": "^请求长度格式无效，请重新发送。$",
+    "names": []
+  },
+  {
+    "code": "insider.amendment.original_required",
+    "source": "^该操作需要指定有效的原交易行。$",
+    "names": []
+  },
+  {
+    "code": "insider.exclusion.withdrawn",
+    "source": "^申报交易已撤回，不计入确认汇总$",
+    "names": []
+  },
+  {
+    "code": "job.title.benchmark_identity",
+    "source": "^正在核对 (.+?) 基准身份$",
+    "names": [
+      "name"
+    ]
+  },
+  {
+    "code": "job.title.benchmark_prices",
+    "source": "^正在获取 (.+?) 基准行情$",
+    "names": [
+      "name"
+    ]
+  },
+  {
+    "code": "legacy.purpose.price_review",
+    "source": "^已保留价格年度片段周度修订复核$",
+    "names": []
+  },
+  {
+    "code": "market.identity_pending",
+    "source": "^证券股类、币种或交易日历待核对$",
+    "names": []
+  },
+  {
+    "code": "market.no_data_retry",
+    "source": "^行情来源未返回可用数据，可重试$",
+    "names": []
+  },
+  {
+    "code": "quote.instrument.crypto",
+    "source": "^以美元计价的比特币，全天候交易$",
+    "names": []
+  },
+  {
+    "code": "scope.waiting_shared_compute",
+    "source": "^等待相同输入共享计算的规划完成$",
+    "names": []
+  },
+  {
+    "code": "search.too_long",
+    "source": "^搜索关键词最多(.+?)个字符$",
+    "names": [
+      "max"
+    ]
+  },
+  {
+    "code": "transaction.security_first",
+    "source": "^先核对具体股类或衍生品标的证券$",
+    "names": []
+  },
+  {
+    "code": "display.custom_colors_required",
+    "source": "^自定义需要同时选好涨和跌的颜色$",
+    "names": []
+  },
+  {
+    "code": "notifications.push.plan.partly",
+    "source": "^部分为 10b5-1 计划交易$",
+    "names": []
+  },
+  {
+    "code": "notifications.push.digest_title",
+    "source": "^IIRP：(.+?) 条新通知$",
+    "names": [
+      "count"
+    ]
+  },
+  {
+    "code": "analysis.request_id_reused",
+    "source": "^同一分析请求标识不能改变参数$",
+    "names": []
+  },
+  {
+    "code": "batch.control.cancelled",
+    "source": "^此批次已取消；已完成结果保留$",
+    "names": []
+  },
+  {
+    "code": "common.request_id_reused",
+    "source": "^同一请求标识不能改成不同参数$",
+    "names": []
+  },
+  {
+    "code": "events.input.fiscal_year_invalid",
+    "source": "^财年须为整数，例如 2025$",
+    "names": []
+  },
+  {
+    "code": "events.input.issue_whole_field",
+    "source": "^整体 (.+?)：(.+?)$",
+    "names": [
+      "field",
+      "message"
+    ]
+  },
+  {
+    "code": "events.input.json_constant",
+    "source": "^JSON 不接受 (.+?)$",
+    "names": [
+      "value"
+    ]
+  },
+  {
+    "code": "events.input.text_too_long",
+    "source": "^不能超过 (.+?) 个字符$",
+    "names": [
+      "max"
+    ]
+  },
+  {
+    "code": "events.input.ticker_invalid",
+    "source": "^股票代码格式不对：(.+?)$",
+    "names": [
+      "value"
+    ]
+  },
+  {
+    "code": "feed.delta_snapshot_mismatch",
+    "source": "^更新游标与原阅读快照不匹配。$",
+    "names": []
+  },
+  {
+    "code": "feed.pending.stage.cancelled",
+    "source": "^原文任务已取消，申报仍未解析$",
+    "names": []
+  },
+  {
+    "code": "feed.pending.stage.waiting_recovery",
+    "source": "^上次原文执行已中断，等待恢复$",
+    "names": []
+  },
+  {
+    "code": "home.quote.overdue",
+    "source": "^超过 (.+?) 分钟未更新$",
+    "names": [
+      "minutes"
+    ]
+  },
+  {
+    "code": "job.wait_for_pause",
+    "source": "^请等待任务确认暂停后再恢复。$",
+    "names": []
+  },
+  {
+    "code": "market.bar.inconsistent",
+    "source": "^OHLC 关系或成交量不合法$",
+    "names": []
+  },
+  {
+    "code": "market.symbol_unknown",
+    "source": "^(.+?) 不在首页行情条中$",
+    "names": [
+      "symbol"
+    ]
+  },
+  {
+    "code": "price_range.start_after_end",
+    "source": "^目标开始日期不能晚于截止日期$",
+    "names": []
+  },
+  {
+    "code": "quote.instrument.dollar_index",
+    "source": "^ICE 美元指数（来源口径）$",
+    "names": []
+  },
+  {
+    "code": "source.file_missing",
+    "source": "^来源文件缺失，需要恢复核对。$",
+    "names": []
+  },
+  {
+    "code": "stage.waiting_retry",
+    "source": "^等待来源重试 · (.+?)$",
+    "names": [
+      "stage"
+    ]
+  },
+  {
+    "code": "batch.title.sector_group_prices",
+    "source": "^行业组日线（1 只 ETF）$",
+    "names": []
+  },
+  {
+    "code": "display.instrument_unknown",
+    "source": "^未知的行情条品种：(.+?)$",
+    "names": [
+      "symbols"
+    ]
+  },
+  {
+    "code": "political.date_range_invalid",
+    "source": "^起始日期必须不晚于结束日期。$",
+    "names": []
+  },
+  {
+    "code": "political.reason.session_unavailable",
+    "source": "^未能建立披露来源要求的会话。$",
+    "names": []
+  },
+  {
+    "code": "notable.cursor_invalid",
+    "source": "^分页位置无效，请回到第一页。$",
+    "names": []
+  },
+  {
+    "code": "notifications.push_off",
+    "source": "^手机推送没有打开，请先打开。$",
+    "names": []
+  },
+  {
+    "code": "notifications.push_status",
+    "source": "^推送服务器返回 (.+?)。$",
+    "names": [
+      "status"
+    ]
+  },
+  {
+    "code": "analysis.result_missing",
+    "source": "^所选结果已不存在或尚未生成$",
+    "names": []
+  },
+  {
+    "code": "batch.title.symbols_more",
+    "source": "^(.+?) 等：(.+?)$",
+    "names": [
+      "symbols",
+      "purpose"
+    ]
+  },
+  {
+    "code": "batch.wait_for_pause",
+    "source": "^请等待批次实际暂停后再继续$",
+    "names": []
+  },
+  {
+    "code": "chart.basis.split_only",
+    "source": "^仅拆股调整，不含分红再投资$",
+    "names": []
+  },
+  {
+    "code": "chart.note.cache",
+    "source": "^研究日线（24 小时缓存）$",
+    "names": []
+  },
+  {
+    "code": "common.start_after_end",
+    "source": "^开始日期不能晚于结束日期。$",
+    "names": []
+  },
+  {
+    "code": "events.input.duplicate_key",
+    "source": "^字段 (.+?) 重复出现$",
+    "names": [
+      "key"
+    ]
+  },
+  {
+    "code": "events.input.events_empty",
+    "source": "^events 须为非空数组$",
+    "names": []
+  },
+  {
+    "code": "events.input.too_large",
+    "source": "^内容超过 (.+?) KB$",
+    "names": [
+      "kb"
+    ]
+  },
+  {
+    "code": "feed.delta_needs_groups",
+    "source": "^增量分页需要读取更新内容。$",
+    "names": []
+  },
+  {
+    "code": "feed.group_missing",
+    "source": "^本阅读快照中没有该公司组。$",
+    "names": []
+  },
+  {
+    "code": "feed.pending.stage.failed",
+    "source": "^原文获取或解析失败，需处理$",
+    "names": []
+  },
+  {
+    "code": "feed.pending.stage.waiting_download",
+    "source": "^等待 SEC 通道获取原文$",
+    "names": []
+  },
+  {
+    "code": "freshness.stage.error",
+    "source": "^本轮有缺口，可查看任务重试$",
+    "names": []
+  },
+  {
+    "code": "insider.amendment.evidence_missing",
+    "source": "^请保存逐行核对的依据说明。$",
+    "names": []
+  },
+  {
+    "code": "insider.exclusion.duplicate",
+    "source": "^已确认重复，不重复计入汇总$",
+    "names": []
+  },
+  {
+    "code": "insider.history_empty",
+    "source": "^本地尚无该主体的解析历史。$",
+    "names": []
+  },
+  {
+    "code": "insider.history_params_invalid",
+    "source": "^历史页大小或时间口径无效。$",
+    "names": []
+  },
+  {
+    "code": "insider.snapshot.cursor_mismatch",
+    "source": "^分页游标与阅读快照不一致。$",
+    "names": []
+  },
+  {
+    "code": "market.bar.not_positive",
+    "source": "^股票/ETF 价格必须为正$",
+    "names": []
+  },
+  {
+    "code": "market.bar.not_session",
+    "source": "^来源日期不属于证券交易日历$",
+    "names": []
+  },
+  {
+    "code": "provider.yahoo.name",
+    "source": "^Yahoo 行情与财报候选$",
+    "names": []
+  },
+  {
+    "code": "quote.baseline.missing",
+    "source": "^缺少对应前收，暂不计算涨跌$",
+    "names": []
+  },
+  {
+    "code": "quote.instrument.gold_futures",
+    "source": "^黄金连续期货（供应商口径）$",
+    "names": []
+  },
+  {
+    "code": "sec.contact_missing",
+    "source": "^SEC 联系邮箱尚未配置。$",
+    "names": []
+  },
+  {
+    "code": "sec.discovery_open",
+    "source": "^发现范围未闭合：(.+?)$",
+    "names": [
+      "reason"
+    ]
+  },
+  {
+    "code": "source.input_too_large",
+    "source": "^操作输入超过16MiB预算$",
+    "names": []
+  },
+  {
+    "code": "source.operation_failed",
+    "source": "^来源操作失败（(.+?)）$",
+    "names": [
+      "error"
+    ]
+  },
+  {
+    "code": "source.output_too_large",
+    "source": "^来源响应超过80MiB预算$",
+    "names": []
+  },
+  {
+    "code": "transaction.mapping_version_invalid",
+    "source": "^证券对应关系版本须为正整数$",
+    "names": []
+  },
+  {
+    "code": "window.title.next_open",
+    "source": "^从公开后下一次常规开盘观察$",
+    "names": []
+  },
+  {
+    "code": "batch.title.sector_prices",
+    "source": "^板块日线（1 只 ETF）$",
+    "names": []
+  },
+  {
+    "code": "watchlist.full",
+    "source": "^自选股最多 (.+?) 个$",
+    "names": [
+      "limit"
+    ]
+  },
+  {
+    "code": "political.cooldown",
+    "source": "^该披露来源处于请求冷却期。$",
+    "names": []
+  },
+  {
+    "code": "notable.full",
+    "source": "^最多关注 (.+?) 人。$",
+    "names": [
+      "limit"
+    ]
+  },
+  {
+    "code": "notable.date_range_invalid",
+    "source": "^开始日期不能晚于结束日期。$",
+    "names": []
+  },
+  {
+    "code": "notifications.language_invalid",
+    "source": "^推送语言请选择英文或中文。$",
+    "names": []
+  },
+  {
+    "code": "notifications.push.test_body",
+    "source": "^手机通知可以送到这台设备。$",
+    "names": []
+  },
+  {
+    "code": "batch.retry_failed_only",
+    "source": "^只重试失败或部分完成批次$",
+    "names": []
+  },
+  {
+    "code": "batch.title.sec_latest",
+    "source": "^更新最新 Insider$",
+    "names": []
+  },
+  {
+    "code": "events.not_found",
+    "source": "^找不到对应的事件集或分析$",
+    "names": []
+  },
+  {
+    "code": "feed.pending.stage.discovered",
+    "source": "^已发现，等待安排原文获取$",
+    "names": []
+  },
+  {
+    "code": "freshness.stage.checked",
+    "source": "^本轮已检查，等待下次检查$",
+    "names": []
+  },
+  {
+    "code": "freshness.stage.needs_config",
+    "source": "^需填写 SEC 联系信息$",
+    "names": []
+  },
+  {
+    "code": "job.title.event_prices",
+    "source": "^(.+?) · 事件行情$",
+    "names": [
+      "symbol"
+    ]
+  },
+  {
+    "code": "market.bar.missing_fields",
+    "source": "^缺少 OHLC 必需字段$",
+    "names": []
+  },
+  {
+    "code": "quote.baseline.previous",
+    "source": "^供应商前一已返回日线收盘$",
+    "names": []
+  },
+  {
+    "code": "scope.identity_review",
+    "source": "^证券身份或交易日历需核对$",
+    "names": []
+  },
+  {
+    "code": "system.database_state_failed",
+    "source": "^数据库状态读取超时或失败$",
+    "names": []
+  },
+  {
+    "code": "display.colors_identical",
+    "source": "^涨和跌需要两种不同的颜色$",
+    "names": []
+  },
+  {
+    "code": "watchlist.ticker_invalid",
+    "source": "^(.+?) 不是股票代码$",
+    "names": [
+      "ticker"
+    ]
+  },
+  {
+    "code": "political.invalid_source_url",
+    "source": "^披露链接不属于官方来源。$",
+    "names": []
+  },
+  {
+    "code": "political.reason.redirect_loop",
+    "source": "^官方来源返回过多重定向。$",
+    "names": []
+  },
+  {
+    "code": "notable.trade_not_found",
+    "source": "^本机数据里没有这笔交易。$",
+    "names": []
+  },
+  {
+    "code": "notifications.push.executive_body",
+    "source": "^(.+?)，公开市场买入$",
+    "names": [
+      "person"
+    ]
+  },
+  {
+    "code": "analysis.one_result_per_security",
+    "source": "^每只证券请选择一个结果$",
+    "names": []
+  },
+  {
+    "code": "batch.market_policy_off",
+    "source": "^行情自动更新策略已关闭$",
+    "names": []
+  },
+  {
+    "code": "events.input.date_too_early",
+    "source": "^日期早于 1990 年$",
+    "names": []
+  },
+  {
+    "code": "feed.delta_target_missing",
+    "source": "^增量分页缺少目标快照。$",
+    "names": []
+  },
+  {
+    "code": "freshness.stage.waiting_channel",
+    "source": "^等待 (.+?) 通道$",
+    "names": [
+      "source"
+    ]
+  },
+  {
+    "code": "input.interval_empty",
+    "source": "^区间的起止日期不能相同$",
+    "names": []
+  },
+  {
+    "code": "insider.amendment.not_found",
+    "source": "^待核对修订关系不存在。$",
+    "names": []
+  },
+  {
+    "code": "insider.entity_kind_invalid",
+    "source": "^请选择公司或申报主体。$",
+    "names": []
+  },
+  {
+    "code": "insider.kind.derivative",
+    "source": "^衍生品 · (.+?)$",
+    "names": [
+      "kind"
+    ]
+  },
+  {
+    "code": "insider.recent_count_invalid",
+    "source": "^最近条数必须是正整数。$",
+    "names": []
+  },
+  {
+    "code": "insider.transaction_not_saved",
+    "source": "^该交易尚未在本地保存。$",
+    "names": []
+  },
+  {
+    "code": "market.bar.unconfirmed",
+    "source": "^当日尚未完成或未来会话$",
+    "names": []
+  },
+  {
+    "code": "market.no_data",
+    "source": "^行情来源未返回可用数据$",
+    "names": []
+  },
+  {
+    "code": "sec.poll_failed",
+    "source": "^轮询失败（(.+?)）$",
+    "names": [
+      "error"
+    ]
+  },
+  {
+    "code": "source.sec.cooldown",
+    "source": "^SEC 共享来源冷却中$",
+    "names": []
+  },
+  {
+    "code": "source.sec.not_configured",
+    "source": "^SEC 联系信息未配置$",
+    "names": []
+  },
+  {
+    "code": "source.yahoo.cooldown",
+    "source": "^Yahoo 共享冷却中$",
+    "names": []
+  },
+  {
+    "code": "transaction.mapping_version_missing",
+    "source": "^证券对应关系版本不存在$",
+    "names": []
+  },
+  {
+    "code": "sectors.unknown",
+    "source": "^未知板块：(.+?)。$",
+    "names": [
+      "sector"
+    ]
+  },
+  {
+    "code": "display.strip_empty",
+    "source": "^首页行情至少选一个品种$",
+    "names": []
+  },
+  {
+    "code": "long_prices.managed",
+    "source": "^长期行情保留范围已更新$",
+    "names": []
+  },
+  {
+    "code": "political.report_not_found",
+    "source": "^未找到该交易披露报告。$",
+    "names": []
+  },
+  {
+    "code": "political.page_saved",
+    "source": "^披露页面已解析并保存。$",
+    "names": []
+  },
+  {
+    "code": "notifications.push.plan.yes",
+    "source": "^10b5-1 计划交易$",
+    "names": []
+  },
+  {
+    "code": "analysis.kind_invalid",
+    "source": "^请选择月度或区间研究$",
+    "names": []
+  },
+  {
+    "code": "common.dates_together",
+    "source": "^起止日期需要一起提供$",
+    "names": []
+  },
+  {
+    "code": "common.more",
+    "source": "^另有 (.+?) 项$",
+    "names": [
+      "count"
+    ]
+  },
+  {
+    "code": "events.input.fiscal_quarter_invalid",
+    "source": "^财季须为整数 1–4$",
+    "names": []
+  },
+  {
+    "code": "events.original_missing",
+    "source": "^原事件分析请求不存在$",
+    "names": []
+  },
+  {
+    "code": "feed.pending.stage.cancel_requested",
+    "source": "^等待确认取消原文任务$",
+    "names": []
+  },
+  {
+    "code": "feed.pending.stage.pause_requested",
+    "source": "^等待确认暂停原文任务$",
+    "names": []
+  },
+  {
+    "code": "freshness.stage.queued",
+    "source": "^正在安排最新数据检查$",
+    "names": []
+  },
+  {
+    "code": "http.client_header_missing",
+    "source": "^缺少本地客户端标识。$",
+    "names": []
+  },
+  {
+    "code": "input.years_out_of_range",
+    "source": "^年份超出日期支持范围$",
+    "names": []
+  },
+  {
+    "code": "input.years_required",
+    "source": "^至少选择一个历史年份$",
+    "names": []
+  },
+  {
+    "code": "job.saved",
+    "source": "^已保存来源与业务结果$",
+    "names": []
+  },
+  {
+    "code": "job.title.sec_probe",
+    "source": "^SEC 来源小样验证$",
+    "names": []
+  },
+  {
+    "code": "quote.instrument.volatility",
+    "source": "^CBOE 波动率指数$",
+    "names": []
+  },
+  {
+    "code": "sec.index_gap",
+    "source": "^清单缺口：(.+?)$",
+    "names": [
+      "reason"
+    ]
+  },
+  {
+    "code": "transaction.security_unverified",
+    "source": "^交易对应证券尚未核对$",
+    "names": []
+  },
+  {
+    "code": "market.stock_symbols_invalid",
+    "source": "^股票代码格式不正确。$",
+    "names": []
+  },
+  {
+    "code": "job.title.index_constituents",
+    "source": "^更新非官方指数成分股$",
+    "names": []
+  },
+  {
+    "code": "political.title.index",
+    "source": "^检查政界交易披露索引$",
+    "names": []
+  },
+  {
+    "code": "political.title.document",
+    "source": "^保存政界交易披露报告$",
+    "names": []
+  },
+  {
+    "code": "political.title.page",
+    "source": "^解析政界交易披露页面$",
+    "names": []
+  },
+  {
+    "code": "notable.ticker_invalid",
+    "source": "^请输入一个股票代码。$",
+    "names": []
+  },
+  {
+    "code": "notifications.push.more_rows",
+    "source": "^另有 (.+?) 行$",
+    "names": [
+      "count"
+    ]
+  },
+  {
+    "code": "notifications.push.more",
+    "source": "^另有 (.+?) 条$",
+    "names": [
+      "count"
+    ]
+  },
+  {
+    "code": "notifications.push.report_buys",
+    "source": "^买入 (.+?) 笔$",
+    "names": [
+      "count"
+    ]
+  },
+  {
+    "code": "notifications.push.report_buys",
+    "source": "^买入 (.+?) 笔$",
+    "names": [
+      "count"
+    ]
+  },
+  {
+    "code": "notifications.push.report_sells",
+    "source": "^卖出 (.+?) 笔$",
+    "names": [
+      "count"
+    ]
+  },
+  {
+    "code": "notifications.push.report_sells",
+    "source": "^卖出 (.+?) 笔$",
+    "names": [
+      "count"
+    ]
+  },
+  {
+    "code": "chart.basis.provider_raw",
+    "source": "^供应商日线原始口径$",
+    "names": []
+  },
+  {
+    "code": "compute.published",
+    "source": "^已发布共享计算结果$",
+    "names": []
+  },
+  {
+    "code": "feed.pending.stage.fetching_parsing",
+    "source": "^正在获取并解析原文$",
+    "names": []
+  },
+  {
+    "code": "health.backup_none",
+    "source": "^还没有完成的备份。$",
+    "names": []
+  },
+  {
+    "code": "input.ticker_enter_valid",
+    "source": "^请输入有效证券代码$",
+    "names": []
+  },
+  {
+    "code": "input.ticker_invalid",
+    "source": "^证券代码格式不合法$",
+    "names": []
+  },
+  {
+    "code": "input.ticker_required",
+    "source": "^请选择至少一个证券$",
+    "names": []
+  },
+  {
+    "code": "insider.action.purchase_market_or_private",
+    "source": "^公开市场或私人买入$",
+    "names": []
+  },
+  {
+    "code": "insider.action.sale_market_or_private",
+    "source": "^公开市场或私人卖出$",
+    "names": []
+  },
+  {
+    "code": "insider.filter_invalid",
+    "source": "^不支持的交易筛选。$",
+    "names": []
+  },
+  {
+    "code": "job.cursor_invalid",
+    "source": "^任务分页游标无效。$",
+    "names": []
+  },
+  {
+    "code": "job.title.fixture_check",
+    "source": "^本地任务与存储验证$",
+    "names": []
+  },
+  {
+    "code": "maintenance.purpose.clean",
+    "source": "^派生缓存与日志维护$",
+    "names": []
+  },
+  {
+    "code": "market.name.ES",
+    "source": "^标普 500 期货$",
+    "names": []
+  },
+  {
+    "code": "market.name.NQ",
+    "source": "^纳指 100 期货$",
+    "names": []
+  },
+  {
+    "code": "market.source_cache",
+    "source": "^24 小时行情缓存$",
+    "names": []
+  },
+  {
+    "code": "quote.session_basis",
+    "source": "^供应商返回交易时段$",
+    "names": []
+  },
+  {
+    "code": "source.no_result",
+    "source": "^来源未返回可用结果$",
+    "names": []
+  },
+  {
+    "code": "window.title.disclosure",
+    "source": "^披露前最后收盘归零$",
+    "names": []
+  },
+  {
+    "code": "window.title.transaction",
+    "source": "^交易日收盘前后股价$",
+    "names": []
+  },
+  {
+    "code": "index.download_failed",
+    "source": "^指数名单下载失败。$",
+    "names": []
+  },
+  {
+    "code": "index.parse_failed",
+    "source": "^指数名单解析失败。$",
+    "names": []
+  },
+  {
+    "code": "long_prices.action_invalid",
+    "source": "^未知的长期行情操作$",
+    "names": []
+  },
+  {
+    "code": "political.document_saved",
+    "source": "^披露原文件已保存。$",
+    "names": []
+  },
+  {
+    "code": "notable.key_invalid",
+    "source": "^这个人员标识无效。$",
+    "names": []
+  },
+  {
+    "code": "notifications.push.amended",
+    "source": "^(.+?)（修正）$",
+    "names": [
+      "title"
+    ]
+  },
+  {
+    "code": "notifications.push.plan.unknown",
+    "source": "^未注明是否计划交易$",
+    "names": []
+  },
+  {
+    "code": "notifications.push.test_title",
+    "source": "^IIRP 测试通知$",
+    "names": []
+  },
+  {
+    "code": "batch.offset_invalid",
+    "source": "^任务分页位置无效$",
+    "names": []
+  },
+  {
+    "code": "events.input.empty",
+    "source": "^请粘贴 JSON$",
+    "names": []
+  },
+  {
+    "code": "events.input.issue_whole",
+    "source": "^整体：(.+?)$",
+    "names": [
+      "message"
+    ]
+  },
+  {
+    "code": "health.database_unreadable",
+    "source": "^无法读取数据库。$",
+    "names": []
+  },
+  {
+    "code": "home.quote.refresh_failed",
+    "source": "^最近一次更新失败$",
+    "names": []
+  },
+  {
+    "code": "http.same_origin_only",
+    "source": "^只允许同源操作。$",
+    "names": []
+  },
+  {
+    "code": "insider.action.tax_or_exercise_price_withholding",
+    "source": "^税款或行权价代扣$",
+    "names": []
+  },
+  {
+    "code": "insider.date_anomaly",
+    "source": "^日期异常、待核对$",
+    "names": []
+  },
+  {
+    "code": "job.title.market_probe",
+    "source": "^行情来源小样验证$",
+    "names": []
+  },
+  {
+    "code": "scope.identity_checking",
+    "source": "^正在核对证券身份$",
+    "names": []
+  },
+  {
+    "code": "stage.market_quote",
+    "source": "^获取最新市场报价$",
+    "names": []
+  },
+  {
+    "code": "transaction.or_security_missing",
+    "source": "^交易或证券不存在$",
+    "names": []
+  },
+  {
+    "code": "long_prices.purpose",
+    "source": "^更新长期行情数据$",
+    "names": []
+  },
+  {
+    "code": "long_prices.manage_job",
+    "source": "^管理长期行情数据$",
+    "names": []
+  },
+  {
+    "code": "political.index_saved",
+    "source": "^披露索引已保存。$",
+    "names": []
+  },
+  {
+    "code": "notifications.push.over",
+    "source": "^(.+?) 以上$",
+    "names": [
+      "amount"
+    ]
+  },
+  {
+    "code": "notifications.push.amount",
+    "source": "^合计 (.+?)$",
+    "names": [
+      "amount"
+    ]
+  },
+  {
+    "code": "batch.waiting_jobs",
+    "source": "^等待可执行任务$",
+    "names": []
+  },
+  {
+    "code": "common.cursor_invalid",
+    "source": "^分页游标无效。$",
+    "names": []
+  },
+  {
+    "code": "events.input.revenue_negative",
+    "source": "^营收不能为负数$",
+    "names": []
+  },
+  {
+    "code": "events.not_event_analysis",
+    "source": "^这不是事件分析$",
+    "names": []
+  },
+  {
+    "code": "feed.pending.stage.paused",
+    "source": "^已暂停原文获取$",
+    "names": []
+  },
+  {
+    "code": "feed.pending.stage.retry_wait",
+    "source": "^来源重试等待中$",
+    "names": []
+  },
+  {
+    "code": "freshness.stage.paused",
+    "source": "^自动更新已暂停$",
+    "names": []
+  },
+  {
+    "code": "home.quote.close_pending",
+    "source": "^收盘价尚未取回$",
+    "names": []
+  },
+  {
+    "code": "insider.action.needs_review",
+    "source": "^交易含义待核对$",
+    "names": []
+  },
+  {
+    "code": "insider.owner_pending",
+    "source": "^主体身份待核对$",
+    "names": []
+  },
+  {
+    "code": "insider.role.ten_percent_owner",
+    "source": "^持股超过10%$",
+    "names": []
+  },
+  {
+    "code": "job.action_invalid",
+    "source": "^未知控制动作。$",
+    "names": []
+  },
+  {
+    "code": "legacy.purpose.weekly_review",
+    "source": "^范围内周度核对$",
+    "names": []
+  },
+  {
+    "code": "market.name.RUT",
+    "source": "^罗素 2000$",
+    "names": []
+  },
+  {
+    "code": "market.name.TNX",
+    "source": "^10 年期美债$",
+    "names": []
+  },
+  {
+    "code": "probe.ticker_invalid",
+    "source": "^无效证券标识。$",
+    "names": []
+  },
+  {
+    "code": "sec.document_missing",
+    "source": "^申报原文未取得$",
+    "names": []
+  },
+  {
+    "code": "sec.purpose.weekly",
+    "source": "^范围内周度核对$",
+    "names": []
+  },
+  {
+    "code": "stage.sec_document",
+    "source": "^下载并解析申报$",
+    "names": []
+  },
+  {
+    "code": "watchlist.time_without_zone",
+    "source": "^时间需要带时区$",
+    "names": []
+  },
+  {
+    "code": "batch.action_invalid",
+    "source": "^未知批次动作$",
+    "names": []
+  },
+  {
+    "code": "batch.category_invalid",
+    "source": "^任务分类无效$",
+    "names": []
+  },
+  {
+    "code": "batch.title.market_quotes",
+    "source": "^更新市场行情$",
+    "names": []
+  },
+  {
+    "code": "batch.view_invalid",
+    "source": "^任务视图无效$",
+    "names": []
+  },
+  {
+    "code": "events.input.context_source_missing",
+    "source": "^没有来源名称$",
+    "names": []
+  },
+  {
+    "code": "events.input.name_missing",
+    "source": "^缺少事件名称$",
+    "names": []
+  },
+  {
+    "code": "events.input.note_not_text",
+    "source": "^备注须为文字$",
+    "names": []
+  },
+  {
+    "code": "freshness.purpose",
+    "source": "^最新数据检查$",
+    "names": []
+  },
+  {
+    "code": "freshness.source_invalid",
+    "source": "^未知更新来源$",
+    "names": []
+  },
+  {
+    "code": "freshness.stage.polling",
+    "source": "^检查最新申报$",
+    "names": []
+  },
+  {
+    "code": "freshness.stage.waiting_source",
+    "source": "^等待来源恢复$",
+    "names": []
+  },
+  {
+    "code": "http.not_found",
+    "source": "^接口不存在。$",
+    "names": []
+  },
+  {
+    "code": "insider.action.other",
+    "source": "^其他交易行为$",
+    "names": []
+  },
+  {
+    "code": "job.not_found",
+    "source": "^任务不存在。$",
+    "names": []
+  },
+  {
+    "code": "job.title.sec_lookup",
+    "source": "^SEC 查找$",
+    "names": []
+  },
+  {
+    "code": "legacy.purpose.daily",
+    "source": "^自动日线更新$",
+    "names": []
+  },
+  {
+    "code": "legacy.purpose.latest_check",
+    "source": "^最新数据检查$",
+    "names": []
+  },
+  {
+    "code": "maintenance.purpose.backup",
+    "source": "^每日一致备份$",
+    "names": []
+  },
+  {
+    "code": "market.name.GSPC",
+    "source": "^标普 500$",
+    "names": []
+  },
+  {
+    "code": "market.name.IXIC",
+    "source": "^纳斯达克综合$",
+    "names": []
+  },
+  {
+    "code": "market.name.NDX",
+    "source": "^纳指 100$",
+    "names": []
+  },
+  {
+    "code": "market.name.CL",
+    "source": "^WTI 原油$",
+    "names": []
+  },
+  {
+    "code": "provider.sec.name",
+    "source": "^SEC 官方$",
+    "names": []
+  },
+  {
+    "code": "quote.unit.percent_yield",
+    "source": "^收益率（%）$",
+    "names": []
+  },
+  {
+    "code": "sec.purpose.history",
+    "source": "^有界历史回补$",
+    "names": []
+  },
+  {
+    "code": "source.not_found",
+    "source": "^来源不存在。$",
+    "names": []
+  },
+  {
+    "code": "stage.market_history",
+    "source": "^补齐历史日线$",
+    "names": []
+  },
+  {
+    "code": "stage.research_compute",
+    "source": "^计算研究结果$",
+    "names": []
+  },
+  {
+    "code": "stage.sec_discover",
+    "source": "^检查申报索引$",
+    "names": []
+  },
+  {
+    "code": "stage.sec_identity",
+    "source": "^核对公司身份$",
+    "names": []
+  },
+  {
+    "code": "window.title.disclosure_date",
+    "source": "^披露日期观察$",
+    "names": []
+  },
+  {
+    "code": "market.short.IXIC",
+    "source": "^纳斯达克综合$",
+    "names": []
+  },
+  {
+    "code": "notifications.title.push",
+    "source": "^发送手机通知$",
+    "names": []
+  },
+  {
+    "code": "analysis.not_found",
+    "source": "^分析不存在$",
+    "names": []
+  },
+  {
+    "code": "batch.not_found",
+    "source": "^批次不存在$",
+    "names": []
+  },
+  {
+    "code": "batch.scope_done",
+    "source": "^范围已处理$",
+    "names": []
+  },
+  {
+    "code": "events.input.text_required",
+    "source": "^必须是文字$",
+    "names": []
+  },
+  {
+    "code": "insider.action.exercise_or_conversion",
+    "source": "^行权或转换$",
+    "names": []
+  },
+  {
+    "code": "insider.action.grant_or_award",
+    "source": "^授予或奖励$",
+    "names": []
+  },
+  {
+    "code": "preference.not_found",
+    "source": "^策略不存在$",
+    "names": []
+  },
+  {
+    "code": "quote.unit.usd_per_ounce",
+    "source": "^美元/盎司$",
+    "names": []
+  },
+  {
+    "code": "sec.needs_more_checks",
+    "source": "^需继续核对$",
+    "names": []
+  },
+  {
+    "code": "transaction.not_found",
+    "source": "^交易不存在$",
+    "names": []
+  },
+  {
+    "code": "index.unknown",
+    "source": "^未知指数。$",
+    "names": []
+  },
+  {
+    "code": "notifications.push.plan.no",
+    "source": "^非计划交易$",
+    "names": []
+  },
+  {
+    "code": "events.input.context_title_missing",
+    "source": "^缺少标题$",
+    "names": []
+  },
+  {
+    "code": "events.input.context_url_missing",
+    "source": "^没有链接$",
+    "names": []
+  },
+  {
+    "code": "freshness.stage.ready",
+    "source": "^准备更新$",
+    "names": []
+  },
+  {
+    "code": "home.quote_not_fetched",
+    "source": "^尚未获取$",
+    "names": []
+  },
+  {
+    "code": "insider.kind.amendment_update",
+    "source": "^修订更新$",
+    "names": []
+  },
+  {
+    "code": "market.name.GC",
+    "source": "^黄金期货$",
+    "names": []
+  },
+  {
+    "code": "market.name.DXY",
+    "source": "^美元指数$",
+    "names": []
+  },
+  {
+    "code": "quote.unit.usd_per_barrel",
+    "source": "^美元/桶$",
+    "names": []
+  },
+  {
+    "code": "stage.market_identity",
+    "source": "^核对证券$",
+    "names": []
+  },
+  {
+    "code": "stage.other",
+    "source": "^处理数据$",
+    "names": []
+  },
+  {
+    "code": "stage.source.local",
+    "source": "^本地计算$",
+    "names": []
+  },
+  {
+    "code": "market.name.DJI",
+    "source": "^道琼斯$",
+    "names": []
+  },
+  {
+    "code": "market.name.BTC",
+    "source": "^比特币$",
+    "names": []
+  },
+  {
+    "code": "quote.unit.index_points",
+    "source": "^指数点$",
+    "names": []
+  },
+  {
+    "code": "common.unknown",
+    "source": "^未知$",
+    "names": []
+  },
+  {
+    "code": "insider.role.director",
+    "source": "^董事$",
+    "names": []
+  },
+  {
+    "code": "insider.role.officer",
+    "source": "^高管$",
+    "names": []
+  },
+  {
+    "code": "quote.instrument.index",
+    "source": "^指数$",
+    "names": []
+  },
+  {
+    "code": "quote.unit.usd",
+    "source": "^美元$",
+    "names": []
+  },
+  {
+    "code": "scope.maintenance",
+    "source": "^维护$",
+    "names": []
+  },
+  {
+    "code": "notifications.push.side.buy",
+    "source": "^买入$",
+    "names": []
+  },
+  {
+    "code": "notifications.push.side.sell",
+    "source": "^卖出$",
+    "names": []
+  },
+  {
+    "code": "common.none",
+    "source": "^无$",
+    "names": []
+  }
+]

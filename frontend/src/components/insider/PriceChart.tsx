@@ -1,17 +1,25 @@
 import { useEffect, useRef } from "react";
 import * as echarts from "echarts/core";
 import { CandlestickChart, ScatterChart } from "echarts/charts";
-import { DataZoomComponent, GridComponent, MarkLineComponent, TooltipComponent } from "echarts/components";
+import { DataZoomComponent, GridComponent, MarkAreaComponent, MarkLineComponent, TooltipComponent } from "echarts/components";
 import { CanvasRenderer } from "echarts/renderers";
 import { useReducedMotion } from "motion/react";
 import { locale } from "@/i18n";
 import { CHART, usePalette } from "@/lib/colors";
+import { cn } from "@/lib/utils";
 
-echarts.use([CandlestickChart, ScatterChart, GridComponent, TooltipComponent, MarkLineComponent, DataZoomComponent, CanvasRenderer]);
+echarts.use([CandlestickChart, ScatterChart, GridComponent, TooltipComponent, MarkLineComponent, MarkAreaComponent, DataZoomComponent, CanvasRenderer]);
 
 export type Bar = { date: string; open?: string | null; high?: string | null; low?: string | null; close?: string | null };
 export type Marker = { id: string; date: string; price: number; side: "buy" | "sell"; size: number; label: string };
 export type DayLine = { date: string; label: string };
+/** A shaded stretch of sessions: the n sessions before or after a day. */
+export type Band = { start: string; end: string; tone: keyof typeof BAND_TONES; label: string };
+export const BAND_TONES = {
+  before: "rgba(148, 163, 184, 0.18)",
+  after: "rgba(59, 130, 246, 0.12)",
+  published: "rgba(245, 158, 11, 0.16)",
+} as const;
 // Height of one day-line label row above the plot.
 const LABEL_ROW = 18;
 
@@ -24,6 +32,7 @@ export function PriceChart({
   bars,
   markers = [],
   lines = [],
+  bands = [],
   height = 300,
   selected,
   onSelect,
@@ -32,6 +41,7 @@ export function PriceChart({
   bars: Bar[];
   markers?: Marker[];
   lines?: DayLine[];
+  bands?: Band[];
   height?: number;
   selected?: string | null;
   onSelect?: (id: string) => void;
@@ -145,6 +155,17 @@ export function PriceChart({
                   })),
                 }
               : undefined,
+            // Shaded windows sit behind the candles; their names are in the legend under the chart.
+            markArea: bands.length
+              ? {
+                  silent: true,
+                  data: bands.filter((band) => place(band.start) && place(band.end)).map((band) => [
+                    { name: band.label, xAxis: index.get(place(band.start)!), itemStyle: { color: BAND_TONES[band.tone] } },
+                    { xAxis: index.get(place(band.end)!) },
+                  ]),
+                  label: { show: false },
+                }
+              : undefined,
           },
           series("buy"),
           series("sell"),
@@ -152,7 +173,22 @@ export function PriceChart({
       },
       { notMerge: true },
     );
-  }, [bars, markers, lines, selected, reduce, zoom, UP, DOWN, INK]);
+  }, [bars, markers, lines, bands, selected, reduce, zoom, UP, DOWN, INK]);
 
   return <div ref={element} style={{ height }} className="w-full" role="img" />;
+}
+
+/** The names of the shaded windows, one swatch each, under the chart. */
+export function BandLegend({ bands, className }: { bands: Band[]; className?: string }) {
+  if (!bands.length) return null;
+  return (
+    <ul className={cn("flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground", className)} data-band-legend>
+      {bands.map((band) => (
+        <li key={`${band.tone}-${band.start}`} className="inline-flex items-center gap-1.5">
+          <span className="inline-block size-3 rounded-sm border border-black/10" style={{ background: BAND_TONES[band.tone] }} aria-hidden />
+          {band.label}
+        </li>
+      ))}
+    </ul>
+  );
 }

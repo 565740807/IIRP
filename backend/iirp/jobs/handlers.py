@@ -93,6 +93,10 @@ def _persist(s, current, response, sources, source, observation_metadata=None):
     )
     scopes = scope_links(s, current.id)
     source_hashes = {url: item["sha256"] for url, item in sources.items()}
+    if kind.startswith("political_"):
+        from iirp.political.service import persist
+        persist(s, current, response, sources)
+        return
     if kind == "market_identity":
         resolve_metadata(s, s.get(Security, current.target["security_id"]), response)
     elif kind == "market_long_manage":
@@ -365,7 +369,7 @@ def execute_business(job, stopping=lambda: False, runner=None):
         storage_started = time.perf_counter()
         # Discovery list pages and index files can be fetched again; filing
         # documents and parsed facts are permanent. Responses: response_expiry.
-        expiry = {"expires_at": discovery_expiry()} if job.kind in {"sec_discover", "sec_identity"} else {}
+        expiry = {"expires_at": discovery_expiry()} if job.kind in {"sec_discover", "sec_identity", "political_index"} else {}
         sources = {}
         for document in data.get("source_documents", []):
             content = (

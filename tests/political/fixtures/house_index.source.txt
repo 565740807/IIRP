@@ -1,0 +1,6 @@
+House Clerk financial disclosure index, 2025FD.txt inside 2025FD.zip:
+https://disclosures-clerk.house.gov/public_disc/financial-pdfs/2025FD.zip
+
+Public government data, retrieved 2026-10-12 through an isolated preview instance.
+The fixture contains the original header and two selected PTR rows. It is a small
+test excerpt, not the complete annual index. FilingDate is the receipt date.

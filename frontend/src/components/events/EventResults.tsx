@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { motion } from "motion/react";
+import * as m from "motion/react-m";
 import { ChevronRight, Download } from "lucide-react";
 import { benchmarkName, pct, share, type Basis } from "@/lib/analysis";
 import { conclusion, context, exportHref, type EventAnalysis, type EventKind, type EventResult, type EventFilters } from "@/lib/events";
@@ -59,7 +59,7 @@ function ConclusionCard({ kind, result, across, benchmark }: { kind: EventKind; 
 
   const second = context(result, result.n, benchmark);
   return (
-    <motion.section key={result.symbol} initial={{ opacity: 0.4 }} animate={{ opacity: 1 }} transition={{ duration: 0.2 }} className="rounded-lg border bg-card px-4 py-3">
+    <m.section key={result.symbol} initial={{ opacity: 0.4 }} animate={{ opacity: 1 }} transition={{ duration: 0.2 }} className="rounded-lg border bg-card px-4 py-3">
       <p className="text-base leading-relaxed font-medium">{conclusion(result.symbol, kind, result)}</p>
       {result.summary.reaction.n > 0 && <p className="mt-1 text-xs text-muted-foreground">{t("ui.analysis.col.up_interval", { low: share(result.summary.reaction.up_low), high: share(result.summary.reaction.up_high) })}</p>}
       {second && <p className="mt-1 text-sm text-muted-foreground">{second}</p>}
@@ -74,7 +74,7 @@ function ConclusionCard({ kind, result, across, benchmark }: { kind: EventKind; 
           })}
         </p>
       )}
-    </motion.section>
+    </m.section>
   );
 }
 

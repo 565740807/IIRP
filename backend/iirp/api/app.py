@@ -114,6 +114,9 @@ async def lifespan(_app):
 
         with session() as s, s.begin():
             ensure_cluster(s)
+        from iirp.notable.people import seed_defaults
+
+        seed_defaults()
     except SQLAlchemyError:
         pass
     yield
@@ -172,6 +175,10 @@ async def same_origin(request: Request, call_next):
     )
     if request.url.path.startswith("/api/"):
         response.headers["Cache-Control"] = "no-store"
+    elif (request.method in ("GET", "HEAD") and request.url.path.startswith("/assets/")
+          and response.status_code == 200):
+        # Vite gives every built asset a content hash; HTML is revalidated.
+        response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
     return response
 
 
@@ -300,11 +307,12 @@ def home():
 
 @app.get("/api/v1/feed", response_model=FeedOutput)
 def feed(session_id: str = "", cursor: str = "", type: str = "all", order: str = "transaction",
-         index: str = Query(default="all", pattern="^(all|sp500|nasdaq100)$")):
+         index: str = Query(default="all", pattern="^(all|sp500|nasdaq100)$"), watchlist: bool = False):
+    """``watchlist`` keeps the watched companies (the codes as the session opens)."""
     from iirp.api.reads import feed
 
     try:
-        return feed(session_id, cursor, type, order, index)
+        return feed(session_id, cursor, type, order, index, watchlist)
     except ValueError as exc:
         raise HTTPException(409, str(exc)) from exc
 
@@ -386,6 +394,18 @@ def source(digest: str):
         return FileResponse(path, media_type="application/octet-stream", filename=digest)
 
 
+from iirp.api.political import router as political_router  # noqa: E402
+
+app.include_router(political_router)
+
+from iirp.api.notable import router as notable_router  # noqa: E402
+
+app.include_router(notable_router)
+
+from iirp.api.notifications import router as notifications_router  # noqa: E402
+
+app.include_router(notifications_router)
+
 from iirp.api.research import router as research_router  # noqa: E402
 
 app.include_router(research_router)
@@ -417,6 +437,10 @@ app.include_router(health_router)
 from iirp.api.long_prices import router as long_prices_router  # noqa: E402
 
 app.include_router(long_prices_router)
+
+from iirp.api.watchlist import router as watchlist_router  # noqa: E402
+
+app.include_router(watchlist_router)
 
 from iirp.extensions import routers as extension_routers  # noqa: E402
 

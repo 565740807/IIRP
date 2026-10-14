@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
@@ -182,6 +182,7 @@ function RecentlyViewed() {
  */
 export function InsidersPage() {
   const { t } = useTranslation();
+  const pathname = useRef(useLocation().pathname).current;
   const [params, setParams] = useSearchParams();
   const [input, setInput] = useState(params.get("q") ?? "");
   const term = useDebounced(input.trim());
@@ -195,19 +196,22 @@ export function InsidersPage() {
   const companies = term ? local.data?.companies ?? [] : [];
   const people = term ? local.data?.people ?? [] : [];
   const empty = term.length > 0 && local.isSuccess && local.data.query === term && !companies.length && !people.length;
-  const searchSec = (value: string) =>
+  const searchSec = (value: string) => {
+    if (window.location.pathname !== pathname) return;
     setParams(() => {
       const next = new URLSearchParams(window.location.search);
       next.set("q", value);
       next.set("sec", value);
       return next;
     }, { replace: true });
+  };
   // Nothing saved locally: look the same text up at SEC.
   useEffect(() => {
     if (empty && secQuery !== term) searchSec(term);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [empty, term]);
   useEffect(() => {
+    if (window.location.pathname !== pathname) return;
     const queryChanged = term ? params.get("q") !== term : params.has("q");
     const secChanged = params.has("sec") && params.get("sec") !== term;
     if (!queryChanged && !secChanged) return;

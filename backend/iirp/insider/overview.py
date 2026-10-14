@@ -14,7 +14,8 @@ from collections import defaultdict
 from datetime import timedelta
 from decimal import Decimal
 
-from sqlalchemy import func, or_, select, text
+from sqlalchemy import Text, func, literal, or_, select, text
+from sqlalchemy.dialects.postgresql import ARRAY
 
 from iirp.analysis.calendar import ET
 from iirp.insider.prices import (
@@ -189,7 +190,22 @@ def _section(items, total, mismatched=0):
     return {"total": total, "items": items, "price_mismatch_rows": mismatched}
 
 
-def _rows(s, *, index, days, role, exclude_plans, at):
+def ticker_tokens(*texts):
+    """Every stated class of the given ticker texts, upper case, "." read as "-"."""
+    return {token.upper().replace(".", "-")
+            for text in texts for token in re.split(r"[,;\s]+", text or "") if token}
+
+
+def states_any(text, tickers):
+    """SQL: the ticker text states one of ``tickers`` (keys as ``ticker_tokens`` gives them)
+    in any of its classes; never true for an empty list."""
+    stated = func.upper(func.replace(text, ".", "-"))
+    return func.regexp_split_to_array(stated, r"[,;\s]+").op("&&")(literal(sorted(tickers), ARRAY(Text)))
+
+
+def _rows(s, *, index="all", days, role="all", exclude_plans=False, at, tickers=None):
+    """Window rows; ``tickers`` (keys as ``ticker_tokens`` gives them) keeps the rows
+    whose issuer ticker or filing ticker states one of them."""
     end = at.astimezone(ET).date()
     event = TransactionEvent
     # Every selected column and every condition except the accepted-date check
@@ -211,6 +227,8 @@ def _rows(s, *, index, days, role, exclude_plans, at):
         event.transaction_date <= func.date(func.timezone("America/New_York", event.accepted_at)),
         index_predicate(event.issuer_id, func.coalesce(event.filing_ticker, Issuer.ticker), index),
     )
+    if tickers is not None:
+        statement = statement.where(states_any(func.concat_ws(" ", Issuer.ticker, event.filing_ticker), tickers))
     if exclude_plans:
         statement = statement.where(event.is_plan.is_(False))
     if role == "executive":
@@ -220,6 +238,23 @@ def _rows(s, *, index, days, role, exclude_plans, at):
     elif role == "ten_percent":
         statement = statement.where(event.is_ten_percent.is_(True))
     return [dict(row) for row in s.execute(statement).mappings()]
+
+
+def company_sectors(s, rows):
+    """Issuer → (sector id, industry group id), each possibly None, from the saved
+    classification (``iirp.market.classification.SavedSectors``), by the code of
+    the issuer's latest row that states one."""
+    from iirp.market.classification import SavedSectors
+
+    latest = {}
+    for row in rows:
+        ticker = display_ticker(row["issuer_ticker"], row["filing_ticker"])
+        order = (row["transaction_date"], row["id"])
+        if ticker and (row["issuer_id"] not in latest or order > latest[row["issuer_id"]][0]):
+            latest[row["issuer_id"]] = (order, ticker)
+    saved = SavedSectors(s, [quote_symbol(ticker) for _, ticker in latest.values()])
+    return {issuer: saved.of(issuer, latest[issuer][1] if issuer in latest else None)
+            for issuer in {row["issuer_id"] for row in rows}}
 
 
 def _priced(s, rows, settings):
@@ -252,12 +287,26 @@ def _holding_change(row):
 
 def overview(s, *, index="all", days=30, role="all", min_amount=Decimal(0), exclude_plans=False,
              cluster_days=7, cluster_people=2, exclude_cluster_plans=True,
-             company_sort="net_buy", company_limit=None, at=None):
+             company_sort="net_buy", company_limit=None, sector="all", watchlist=False, at=None):
+    """``sector`` is "all", a sector id, or "unclassified" for companies without a saved sector.
+    ``watchlist`` keeps the trades whose issuer or filing ticker states a watched code."""
+    from iirp.analysis.sectors import sector_ids
+
     at = at or now()
     settings = overview_settings()
     company_limit = company_limit or settings["company_page_rows"]
     factor = settings["candidate_factor"]
-    rows = _rows(s, index=index, days=days, role=role, exclude_plans=exclude_plans, at=at)
+    tickers = None
+    if watchlist:
+        from iirp.watchlist import keys
+
+        tickers = keys(s)
+    rows = _rows(s, index=index, days=days, role=role, exclude_plans=exclude_plans, at=at, tickers=tickers)
+    if sector != "all":
+        # After the index-only read: the sector is the company's, from saved data only.
+        classes = company_sectors(s, rows)
+        wanted = None if sector == "unclassified" else sector
+        rows = [row for row in rows if classes[row["issuer_id"]][0] == wanted]
     quotes = _priced(s, rows, settings)
     keys = {(row["ticker"], row["transaction_date"].isoformat(), row["issuer_id"])
             for row in rows if row["price"] is None and row["symbol"]}
@@ -343,7 +392,8 @@ def overview(s, *, index="all", days=30, role="all", min_amount=Decimal(0), excl
     pending = sum(quotes.get(symbol, {}).get("fetched_at") is None for symbol in quote_symbols)
 
     result = {
-        "as_of": at.isoformat(), "indices": index_status(s),
+        "as_of": at.isoformat(), "indices": index_status(s), "sector": sector, "sectors": sector_ids(),
+        "watchlist": watchlist,
         "cluster_buys": _section([company_view(item, quotes) for item in shown["cluster_buys"]],
                                  len(cluster_buys), mismatched(cluster_buys)),
         "cluster_sales": _section([company_view(item, quotes) for item in shown["cluster_sales"]],

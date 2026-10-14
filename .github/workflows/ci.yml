@@ -64,6 +64,8 @@ jobs:
           echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt noble-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends postgresql-client-18
+      - name: Install Tesseract OCR for scanned disclosure parsing
+        run: sudo apt-get install -y --no-install-recommends tesseract-ocr tesseract-ocr-eng
       - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
         with:
           version: 0.12.10
@@ -116,6 +118,8 @@ jobs:
           echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt noble-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends postgresql-client-18
+      - name: Install Tesseract OCR for scanned disclosure parsing
+        run: sudo apt-get install -y --no-install-recommends tesseract-ocr tesseract-ocr-eng
       - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
         with:
           version: 0.12.10
@@ -148,6 +152,72 @@ jobs:
       - run: npm run typecheck
       - run: npm test
       - run: npm run build
+  e2e:
+    name: End-to-end smoke (Playwright)
+    # A push to main in a private repository was already checked on its pull request.
+    if: github.event_name != 'schedule' && !(github.event_name == 'push' && github.event.repository.private)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:18.6-bookworm@sha256:1c59e2c3c818eaa0f0628f695b36e7c9e362d6b219b36a54a32df645cbd7e1af
+        env:
+          POSTGRES_USER: iirp
+          POSTGRES_PASSWORD: ci-only-password
+          POSTGRES_DB: iirp_v1_test_e2e
+        ports:
+          - 5432:5432
+        options: >-
+          --tmpfs /var/lib/postgresql:rw,size=2g
+          --health-cmd "pg_isready -U iirp -d iirp_v1_test_e2e"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      PG_PASSWORD: ci-only-password
+      IIRP_PG_BIN: /usr/lib/postgresql/18/bin
+      PYTHONPATH: backend
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        with:
+          version: 0.12.10
+          python-version: "3.13"
+          enable-cache: true
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24.16.0
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Isolated browser runtime
+        run: |
+          echo "IIRP_DATABASE_URL=postgresql+psycopg://iirp:${PG_PASSWORD}@127.0.0.1:5432/iirp_v1_test_e2e" >> "$GITHUB_ENV"
+          echo "IIRP_RUNTIME_DIR=${RUNNER_TEMP}/iirp-e2e-runtime" >> "$GITHUB_ENV"
+          echo "IIRP_E2E_OUTPUT_DIR=${RUNNER_TEMP}/iirp-e2e" >> "$GITHUB_ENV"
+          echo "PYTHONPATH=.:backend" >> "$GITHUB_ENV"
+      - run: uv sync --frozen
+      - run: npm ci
+        working-directory: frontend
+      - uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5
+        with:
+          path: ~/.cache/ms-playwright
+          key: chromium-${{ runner.os }}-${{ hashFiles('frontend/package-lock.json') }}
+      - name: Install Chromium and system dependencies
+        run: npx --no-install playwright install --with-deps chromium
+        working-directory: frontend
+      - run: npm run build
+        working-directory: frontend
+      - name: Smoke tests with intraday, after-close and weekend clocks
+        run: uv run python -m scripts.e2e
+      - name: Upload browser failure evidence
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: playwright-smoke
+          path: ${{ runner.temp }}/iirp-e2e
+          retention-days: 7
   secrets:
     name: Secret scan (gitleaks)
     # A push to main in a private repository was already checked on its pull request.

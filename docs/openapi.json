@@ -291,6 +291,7 @@
     "/api/v1/feed": {
       "get": {
         "summary": "Feed",
+        "description": "``watchlist`` keeps the watched companies (the codes as the session opens).",
         "operationId": "feed_api_v1_feed_get",
         "parameters": [
           {
@@ -342,6 +343,16 @@
               "pattern": "^(all|sp500|nasdaq100)$",
               "default": "all",
               "title": "Index"
+            }
+          },
+          {
+            "name": "watchlist",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Watchlist"
             }
           }
         ],
@@ -510,6 +521,1261 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/political/transactions": {
+      "get": {
+        "summary": "Transactions",
+        "operationId": "transactions_api_v1_political_transactions_get",
+        "parameters": [
+          {
+            "name": "person_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 36
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Person Id"
+            }
+          },
+          {
+            "name": "person",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 200
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Person"
+            }
+          },
+          {
+            "name": "ticker",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 24
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Ticker"
+            }
+          },
+          {
+            "name": "source",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "house",
+                    "senate",
+                    "oge"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Source"
+            }
+          },
+          {
+            "name": "direction",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "buy",
+                    "sell",
+                    "exchange"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Direction"
+            }
+          },
+          {
+            "name": "transaction_from",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Transaction From"
+            }
+          },
+          {
+            "name": "transaction_to",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Transaction To"
+            }
+          },
+          {
+            "name": "report_from",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Report From"
+            }
+          },
+          {
+            "name": "report_to",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Report To"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 20,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 320,
+              "default": "",
+              "title": "Cursor"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PoliticalTransactionsOutput"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/political/people": {
+      "get": {
+        "summary": "People",
+        "operationId": "people_api_v1_political_people_get",
+        "parameters": [
+          {
+            "name": "source",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "house",
+                    "senate",
+                    "oge"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Source"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PoliticalPeopleOutput"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/political/sources": {
+      "get": {
+        "summary": "Sources",
+        "operationId": "sources_api_v1_political_sources_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PoliticalSourcesOutput"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/political/sources/{source}/refresh": {
+      "post": {
+        "summary": "Refresh",
+        "operationId": "refresh_api_v1_political_sources__source__refresh_post",
+        "parameters": [
+          {
+            "name": "source",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "enum": [
+                "house",
+                "senate",
+                "oge"
+              ],
+              "type": "string",
+              "title": "Source"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PoliticalSourcesOutput"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/political/reports/{report_id}": {
+      "get": {
+        "summary": "Report",
+        "operationId": "report_api_v1_political_reports__report_id__get",
+        "parameters": [
+          {
+            "name": "report_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Report Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PoliticalReportOutput"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/political/reports/{report_id}/file": {
+      "get": {
+        "summary": "File",
+        "operationId": "file_api_v1_political_reports__report_id__file_get",
+        "parameters": [
+          {
+            "name": "report_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Report Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/notable/people": {
+      "get": {
+        "summary": "Read People",
+        "description": "The followed people; ``all`` adds everyone the \"all\" timeline covers, unmarked.",
+        "operationId": "read_people_api_v1_notable_people_get",
+        "parameters": [
+          {
+            "name": "scope",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "watched",
+                "all"
+              ],
+              "type": "string",
+              "default": "watched",
+              "title": "Scope"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotablePeopleOutput"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Add Person",
+        "operationId": "add_person_api_v1_notable_people_post",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NotableAdd"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotablePeopleOutput"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Remove Person",
+        "operationId": "remove_person_api_v1_notable_people_delete",
+        "parameters": [
+          {
+            "name": "key",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 5,
+              "maxLength": 300,
+              "title": "Key"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotablePeopleOutput"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/notable/people/restore": {
+      "post": {
+        "summary": "Restore Defaults",
+        "description": "Add back the default people who were removed; people the user added stay.",
+        "operationId": "restore_defaults_api_v1_notable_people_restore_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotableRestoreOutput"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/notable/person": {
+      "get": {
+        "summary": "Read Person",
+        "operationId": "read_person_api_v1_notable_person_get",
+        "parameters": [
+          {
+            "name": "key",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 5,
+              "maxLength": 300,
+              "title": "Key"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotablePersonOutput"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/notable/trades": {
+      "get": {
+        "summary": "Read Trades",
+        "description": "Followed people's trades from the three sources, newest publication first.",
+        "operationId": "read_trades_api_v1_notable_trades_get",
+        "parameters": [
+          {
+            "name": "scope",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "watched",
+                "all"
+              ],
+              "type": "string",
+              "default": "watched",
+              "title": "Scope"
+            }
+          },
+          {
+            "name": "person",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 5,
+                  "maxLength": 300
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Person"
+            }
+          },
+          {
+            "name": "source",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "sec",
+                    "house",
+                    "oge"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Source"
+            }
+          },
+          {
+            "name": "direction",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "buy",
+                    "sell",
+                    "exchange"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Direction"
+            }
+          },
+          {
+            "name": "ticker",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 24
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Ticker"
+            }
+          },
+          {
+            "name": "issuer_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 10
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Issuer Id"
+            }
+          },
+          {
+            "name": "published_from",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Published From"
+            }
+          },
+          {
+            "name": "published_to",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Published To"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 25,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 400,
+              "default": "",
+              "title": "Cursor"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotableTradesOutput"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/notable/trades/{transaction_id}": {
+      "get": {
+        "summary": "Read Political Trade",
+        "description": "One House or OGE row with its report, for the trade detail page.",
+        "operationId": "read_political_trade_api_v1_notable_trades__transaction_id__get",
+        "parameters": [
+          {
+            "name": "transaction_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Transaction Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PoliticalTradeOutput"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/notable/reports": {
+      "get": {
+        "summary": "Read Reports",
+        "description": "One filing or government report per group; row filters never split a group across pages.",
+        "operationId": "read_reports_api_v1_notable_reports_get",
+        "parameters": [
+          {
+            "name": "scope",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "watched",
+                "all"
+              ],
+              "type": "string",
+              "default": "watched",
+              "title": "Scope"
+            }
+          },
+          {
+            "name": "assets",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "equities",
+                "all"
+              ],
+              "type": "string",
+              "default": "equities",
+              "title": "Assets"
+            }
+          },
+          {
+            "name": "person",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 5,
+                  "maxLength": 300
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Person"
+            }
+          },
+          {
+            "name": "source",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "sec",
+                    "house",
+                    "oge"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Source"
+            }
+          },
+          {
+            "name": "direction",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "buy",
+                    "sell",
+                    "exchange"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Direction"
+            }
+          },
+          {
+            "name": "ticker",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 24
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Ticker"
+            }
+          },
+          {
+            "name": "published_from",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Published From"
+            }
+          },
+          {
+            "name": "published_to",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Published To"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 25,
+              "minimum": 1,
+              "default": 5,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 400,
+              "default": "",
+              "title": "Cursor"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotableReportsOutput"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/notable/summary": {
+      "get": {
+        "summary": "Read Summary",
+        "description": "How one person's coded stock trades moved n sessions after the trade and after publication.",
+        "operationId": "read_summary_api_v1_notable_summary_get",
+        "parameters": [
+          {
+            "name": "key",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 5,
+              "maxLength": 300,
+              "title": "Key"
+            }
+          },
+          {
+            "name": "n",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "N"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PersonSummaryOutput"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/notifications": {
+      "get": {
+        "summary": "Read Notifications",
+        "description": "Newest first, with the unread count.",
+        "operationId": "read_notifications_api_v1_notifications_get",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 30,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "before",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Before"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationsOutput"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/notifications/read": {
+      "post": {
+        "summary": "Mark Read",
+        "operationId": "mark_read_api_v1_notifications_read_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReadInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationsOutput"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/notifications/settings": {
+      "get": {
+        "summary": "Read Settings",
+        "operationId": "read_settings_api_v1_notifications_settings_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationSettingsOutput"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "summary": "Change Settings",
+        "operationId": "change_settings_api_v1_notifications_settings_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SettingsChange"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationSettingsOutput"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/notifications/settings/topic": {
+      "post": {
+        "summary": "New Topic",
+        "description": "A new random topic; phones subscribed to the old one stop receiving.",
+        "operationId": "new_topic_api_v1_notifications_settings_topic_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationSettingsOutput"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/notifications/test": {
+      "post": {
+        "summary": "Send Test",
+        "description": "Queue a test push; the worker sends it within seconds.",
+        "operationId": "send_test_api_v1_notifications_test_post",
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationSettingsOutput"
                 }
               }
             }
@@ -3676,6 +4942,27 @@
               ],
               "title": "Company Limit"
             }
+          },
+          {
+            "name": "sector",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 64,
+              "default": "all",
+              "title": "Sector"
+            }
+          },
+          {
+            "name": "watchlist",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Watchlist"
+            }
           }
         ],
         "responses": {
@@ -3685,6 +4972,103 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/InsiderOverview"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/insider/activity": {
+      "get": {
+        "summary": "Read Activity",
+        "description": "Open-market purchases and sales of up to 200 codes over the last ``days``\ncalendar days, by the overview's rules; local reads only.",
+        "operationId": "read_activity_api_v1_insider_activity_get",
+        "parameters": [
+          {
+            "name": "tickers",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 4000,
+              "default": "",
+              "title": "Tickers"
+            }
+          },
+          {
+            "name": "days",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 90,
+              "minimum": 1,
+              "default": 30,
+              "title": "Days"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InsiderActivityOutput"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/insider/sectors": {
+      "get": {
+        "summary": "Read Sector Activity",
+        "description": "Open-market purchases and sales by each company's saved sector and industry\ngroup, by the overview's rules; local reads only.",
+        "operationId": "read_sector_activity_api_v1_insider_sectors_get",
+        "parameters": [
+          {
+            "name": "days",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 90,
+              "minimum": 1,
+              "default": 30,
+              "title": "Days"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SectorActivityOutput"
                 }
               }
             }
@@ -4366,6 +5750,197 @@
           }
         }
       }
+    },
+    "/api/v1/watchlist": {
+      "get": {
+        "summary": "Read Watchlist",
+        "operationId": "read_watchlist_api_v1_watchlist_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WatchlistOutput"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Add To Watchlist",
+        "operationId": "add_to_watchlist_api_v1_watchlist_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WatchlistAdd"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WatchlistOutput"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/watchlist/{ticker}": {
+      "delete": {
+        "summary": "Remove From Watchlist",
+        "operationId": "remove_from_watchlist_api_v1_watchlist__ticker__delete",
+        "parameters": [
+          {
+            "name": "ticker",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 32,
+              "title": "Ticker"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WatchlistOutput"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/watchlist/import": {
+      "post": {
+        "summary": "Import Watchlist",
+        "operationId": "import_watchlist_api_v1_watchlist_import_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WatchlistImport"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WatchlistImportOutput"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/watchlist/news": {
+      "get": {
+        "summary": "Read News",
+        "description": "New open-market Insider purchases and sales of the watched codes since each code's\nstart (the later of when it was added and the last acknowledgement); local reads only.",
+        "operationId": "read_news_api_v1_watchlist_news_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WatchlistNews"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/watchlist/acknowledged": {
+      "put": {
+        "summary": "Acknowledge Watchlist",
+        "description": "News up to ``at`` (the time the page read it) has been seen.",
+        "operationId": "acknowledge_watchlist_api_v1_watchlist_acknowledged_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WatchlistAcknowledge"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WatchlistOutput"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -4389,6 +5964,94 @@
           "action"
         ],
         "title": "ActionRequest"
+      },
+      "ActivitySide": {
+        "properties": {
+          "people": {
+            "type": "integer",
+            "title": "People"
+          },
+          "trades": {
+            "type": "integer",
+            "title": "Trades"
+          },
+          "amount": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Amount"
+          }
+        },
+        "type": "object",
+        "required": [
+          "people",
+          "trades",
+          "amount"
+        ],
+        "title": "ActivitySide",
+        "description": "Distinct insiders, transactions and their counted amount on one side."
+      },
+      "ActivityTrader": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "roles": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Roles"
+          },
+          "side": {
+            "type": "string",
+            "enum": [
+              "buy",
+              "sell"
+            ],
+            "title": "Side"
+          },
+          "trades": {
+            "type": "integer",
+            "title": "Trades"
+          },
+          "amount": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Amount"
+          },
+          "last_date": {
+            "type": "string",
+            "title": "Last Date"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "roles",
+          "side",
+          "trades",
+          "amount",
+          "last_date"
+        ],
+        "title": "ActivityTrader"
       },
       "AnalysisInput": {
         "properties": {
@@ -9929,6 +11592,93 @@
         "type": "object",
         "title": "GenericOutput"
       },
+      "GroupActivity": {
+        "properties": {
+          "companies": {
+            "type": "integer",
+            "title": "Companies"
+          },
+          "buy_companies": {
+            "type": "integer",
+            "title": "Buy Companies"
+          },
+          "sell_companies": {
+            "type": "integer",
+            "title": "Sell Companies"
+          },
+          "buy_amount": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Buy Amount"
+          },
+          "sell_amount": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sell Amount"
+          },
+          "net_amount": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Net Amount"
+          },
+          "amount_estimated": {
+            "type": "boolean",
+            "title": "Amount Estimated",
+            "default": false
+          },
+          "missing_price_rows": {
+            "type": "integer",
+            "title": "Missing Price Rows",
+            "default": 0
+          },
+          "price_mismatch_rows": {
+            "type": "integer",
+            "title": "Price Mismatch Rows",
+            "default": 0
+          },
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "sector": {
+            "type": "string",
+            "title": "Sector"
+          }
+        },
+        "type": "object",
+        "required": [
+          "companies",
+          "buy_companies",
+          "sell_companies",
+          "buy_amount",
+          "sell_amount",
+          "net_amount",
+          "amount_estimated",
+          "missing_price_rows",
+          "price_mismatch_rows",
+          "id",
+          "sector"
+        ],
+        "title": "GroupActivity"
+      },
       "GroupRef": {
         "properties": {
           "id": {
@@ -10551,6 +12301,196 @@
         ],
         "title": "Indices"
       },
+      "InsiderActivity": {
+        "properties": {
+          "issuer_id": {
+            "type": "string",
+            "title": "Issuer Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "ticker": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ticker"
+          },
+          "buy": {
+            "$ref": "#/components/schemas/ActivitySide"
+          },
+          "sell": {
+            "$ref": "#/components/schemas/ActivitySide"
+          },
+          "net_amount": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Net Amount"
+          },
+          "last_date": {
+            "type": "string",
+            "title": "Last Date"
+          },
+          "plan_trades": {
+            "type": "integer",
+            "title": "Plan Trades"
+          },
+          "amount_estimated": {
+            "type": "boolean",
+            "title": "Amount Estimated",
+            "default": false
+          },
+          "missing_price_rows": {
+            "type": "integer",
+            "title": "Missing Price Rows",
+            "default": 0
+          },
+          "price_mismatch_rows": {
+            "type": "integer",
+            "title": "Price Mismatch Rows",
+            "default": 0
+          },
+          "traders": {
+            "items": {
+              "$ref": "#/components/schemas/ActivityTrader"
+            },
+            "type": "array",
+            "title": "Traders"
+          },
+          "trader_count": {
+            "type": "integer",
+            "title": "Trader Count"
+          }
+        },
+        "type": "object",
+        "required": [
+          "issuer_id",
+          "name",
+          "ticker",
+          "buy",
+          "sell",
+          "net_amount",
+          "last_date",
+          "plan_trades",
+          "amount_estimated",
+          "missing_price_rows",
+          "price_mismatch_rows",
+          "traders",
+          "trader_count"
+        ],
+        "title": "InsiderActivity"
+      },
+      "InsiderActivityOutput": {
+        "properties": {
+          "as_of": {
+            "type": "string",
+            "title": "As Of"
+          },
+          "days": {
+            "type": "integer",
+            "title": "Days"
+          },
+          "start_date": {
+            "type": "string",
+            "title": "Start Date"
+          },
+          "end_date": {
+            "type": "string",
+            "title": "End Date"
+          },
+          "items": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/InsiderActivity"
+            },
+            "type": "object",
+            "title": "Items"
+          }
+        },
+        "type": "object",
+        "required": [
+          "as_of",
+          "days",
+          "start_date",
+          "end_date",
+          "items"
+        ],
+        "title": "InsiderActivityOutput"
+      },
+      "InsiderNews": {
+        "properties": {
+          "ticker": {
+            "type": "string",
+            "title": "Ticker"
+          },
+          "issuer_id": {
+            "type": "string",
+            "title": "Issuer Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "since": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Since"
+          },
+          "latest_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Latest At"
+          },
+          "trades": {
+            "type": "integer",
+            "title": "Trades"
+          },
+          "buys": {
+            "type": "integer",
+            "title": "Buys"
+          },
+          "sales": {
+            "type": "integer",
+            "title": "Sales"
+          },
+          "traders": {
+            "items": {
+              "$ref": "#/components/schemas/NewsTrader"
+            },
+            "type": "array",
+            "title": "Traders"
+          },
+          "trader_count": {
+            "type": "integer",
+            "title": "Trader Count"
+          }
+        },
+        "type": "object",
+        "required": [
+          "ticker",
+          "issuer_id",
+          "name",
+          "since",
+          "latest_at",
+          "trades",
+          "buys",
+          "sales",
+          "traders",
+          "trader_count"
+        ],
+        "title": "InsiderNews"
+      },
       "InsiderOverview": {
         "properties": {
           "indices": {
@@ -10563,6 +12503,22 @@
           "as_of": {
             "type": "string",
             "title": "As Of"
+          },
+          "sector": {
+            "type": "string",
+            "title": "Sector"
+          },
+          "sectors": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Sectors"
+          },
+          "watchlist": {
+            "type": "boolean",
+            "title": "Watchlist",
+            "default": false
           },
           "cluster_buys": {
             "$ref": "#/components/schemas/CompanySection"
@@ -10627,6 +12583,9 @@
         "required": [
           "indices",
           "as_of",
+          "sector",
+          "sectors",
+          "watchlist",
           "cluster_buys",
           "cluster_sales",
           "large_buys",
@@ -12316,6 +14275,1233 @@
         "title": "MarketStripSettings",
         "description": "Home-strip instruments to show (symbols from ``instruments``)."
       },
+      "NewsOwner": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name"
+        ],
+        "title": "NewsOwner"
+      },
+      "NewsTrader": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "side": {
+            "type": "string",
+            "enum": [
+              "buy",
+              "sell"
+            ],
+            "title": "Side"
+          },
+          "owners": {
+            "items": {
+              "$ref": "#/components/schemas/NewsOwner"
+            },
+            "type": "array",
+            "title": "Owners"
+          },
+          "amount": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Amount"
+          },
+          "amount_partial": {
+            "type": "boolean",
+            "title": "Amount Partial",
+            "default": false
+          },
+          "amount_estimated": {
+            "type": "boolean",
+            "title": "Amount Estimated",
+            "default": false
+          },
+          "price_mismatch": {
+            "type": "boolean",
+            "title": "Price Mismatch",
+            "default": false
+          },
+          "trades": {
+            "type": "integer",
+            "title": "Trades"
+          },
+          "first_date": {
+            "type": "string",
+            "title": "First Date"
+          },
+          "last_date": {
+            "type": "string",
+            "title": "Last Date"
+          },
+          "accepted_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Accepted At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "side",
+          "owners",
+          "amount",
+          "amount_partial",
+          "amount_estimated",
+          "price_mismatch",
+          "trades",
+          "first_date",
+          "last_date",
+          "accepted_at"
+        ],
+        "title": "NewsTrader",
+        "description": "The new trades of the same filing owners on one side."
+      },
+      "NotableAdd": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "maxLength": 300,
+            "minLength": 5,
+            "title": "Key"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          }
+        },
+        "type": "object",
+        "required": [
+          "key"
+        ],
+        "title": "NotableAdd"
+      },
+      "NotablePeopleOutput": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/NotablePersonEntry"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "limit": {
+            "type": "integer",
+            "title": "Limit"
+          },
+          "default_count": {
+            "type": "integer",
+            "title": "Default Count"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "limit",
+          "default_count"
+        ],
+        "title": "NotablePeopleOutput"
+      },
+      "NotablePersonEntry": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "sec",
+              "house",
+              "oge"
+            ],
+            "title": "Source"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "category": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "investor",
+                  "investment_firm",
+                  "founder_ceo",
+                  "house",
+                  "president",
+                  "cabinet"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Category"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Note"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "cik": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cik"
+          },
+          "district": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "District"
+          },
+          "position": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Position"
+          },
+          "default": {
+            "type": "boolean",
+            "title": "Default"
+          },
+          "local": {
+            "type": "boolean",
+            "title": "Local"
+          },
+          "watched": {
+            "type": "boolean",
+            "title": "Watched"
+          },
+          "added_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Added At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "key",
+          "source",
+          "name",
+          "category",
+          "note",
+          "cik",
+          "district",
+          "position",
+          "default",
+          "local",
+          "watched",
+          "added_at"
+        ],
+        "title": "NotablePersonEntry"
+      },
+      "NotablePersonOutput": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "sec",
+              "house",
+              "oge"
+            ],
+            "title": "Source"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "category": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "investor",
+                  "investment_firm",
+                  "founder_ceo",
+                  "house",
+                  "president",
+                  "cabinet"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Category"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Note"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "cik": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cik"
+          },
+          "district": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "District"
+          },
+          "position": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Position"
+          },
+          "default": {
+            "type": "boolean",
+            "title": "Default"
+          },
+          "local": {
+            "type": "boolean",
+            "title": "Local"
+          },
+          "watched": {
+            "type": "boolean",
+            "title": "Watched"
+          },
+          "added_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Added At"
+          },
+          "roles": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Roles"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "reports": {
+            "items": {
+              "$ref": "#/components/schemas/PoliticalReportLink"
+            },
+            "type": "array",
+            "title": "Reports"
+          },
+          "filings": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SecFilings"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "key",
+          "source",
+          "name",
+          "category",
+          "note",
+          "cik",
+          "district",
+          "position",
+          "default",
+          "local",
+          "watched",
+          "added_at",
+          "roles",
+          "title",
+          "reports",
+          "filings"
+        ],
+        "title": "NotablePersonOutput"
+      },
+      "NotableReport": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "sec",
+              "house",
+              "oge"
+            ],
+            "title": "Source"
+          },
+          "published": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Published"
+          },
+          "published_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Published At"
+          },
+          "person": {
+            "$ref": "#/components/schemas/TradePerson"
+          },
+          "others": {
+            "items": {
+              "$ref": "#/components/schemas/TradePerson"
+            },
+            "type": "array",
+            "title": "Others"
+          },
+          "url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Url"
+          },
+          "amendment": {
+            "type": "boolean",
+            "title": "Amendment"
+          },
+          "counts": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Counts"
+          },
+          "equities": {
+            "type": "integer",
+            "title": "Equities"
+          },
+          "sides": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Sides"
+          },
+          "preview_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Preview Ids"
+          },
+          "trades": {
+            "items": {
+              "$ref": "#/components/schemas/NotableTrade"
+            },
+            "type": "array",
+            "title": "Trades"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "source",
+          "published",
+          "published_at",
+          "person",
+          "others",
+          "url",
+          "amendment",
+          "counts",
+          "equities",
+          "sides",
+          "preview_ids",
+          "trades"
+        ],
+        "title": "NotableReport"
+      },
+      "NotableReportsOutput": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/NotableReport"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total",
+          "next_cursor"
+        ],
+        "title": "NotableReportsOutput"
+      },
+      "NotableRestoreOutput": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/NotablePersonEntry"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "limit": {
+            "type": "integer",
+            "title": "Limit"
+          },
+          "default_count": {
+            "type": "integer",
+            "title": "Default Count"
+          },
+          "added": {
+            "type": "integer",
+            "title": "Added"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "limit",
+          "default_count",
+          "added"
+        ],
+        "title": "NotableRestoreOutput"
+      },
+      "NotableTrade": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "sec",
+              "house",
+              "oge"
+            ],
+            "title": "Source"
+          },
+          "published": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Published"
+          },
+          "published_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Published At"
+          },
+          "person": {
+            "$ref": "#/components/schemas/TradePerson"
+          },
+          "others": {
+            "items": {
+              "$ref": "#/components/schemas/TradePerson"
+            },
+            "type": "array",
+            "title": "Others"
+          },
+          "ticker": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ticker"
+          },
+          "asset_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Asset Name"
+          },
+          "issuer_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Issuer Id"
+          },
+          "asset_kind": {
+            "type": "string",
+            "enum": [
+              "stock",
+              "bond",
+              "option",
+              "fund",
+              "other"
+            ],
+            "title": "Asset Kind"
+          },
+          "side": {
+            "type": "string",
+            "enum": [
+              "buy",
+              "sell",
+              "exchange",
+              "unknown"
+            ],
+            "title": "Side"
+          },
+          "partial": {
+            "type": "boolean",
+            "title": "Partial"
+          },
+          "plan": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Plan"
+          },
+          "shares": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Shares"
+          },
+          "price": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Price"
+          },
+          "amount": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Amount"
+          },
+          "amount_low": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Amount Low"
+          },
+          "amount_high": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Amount High"
+          },
+          "currency": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Currency"
+          },
+          "transaction_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Transaction Date"
+          },
+          "lag_days": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lag Days"
+          },
+          "url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Url"
+          },
+          "accession": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Accession"
+          },
+          "report_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Report Id"
+          },
+          "amendment": {
+            "type": "boolean",
+            "title": "Amendment"
+          },
+          "owner": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Owner"
+          },
+          "ocr": {
+            "type": "boolean",
+            "title": "Ocr"
+          },
+          "review": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Review"
+          },
+          "price_ticker": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Price Ticker"
+          },
+          "price_none": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "bond",
+                  "fund",
+                  "other",
+                  "no_ticker"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Price None"
+          },
+          "published_basis": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Published Basis"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "source",
+          "published",
+          "published_at",
+          "person",
+          "others",
+          "ticker",
+          "asset_name",
+          "issuer_id",
+          "asset_kind",
+          "side",
+          "partial",
+          "plan",
+          "shares",
+          "price",
+          "amount",
+          "amount_low",
+          "amount_high",
+          "currency",
+          "transaction_date",
+          "lag_days",
+          "url",
+          "accession",
+          "report_id",
+          "amendment",
+          "owner",
+          "ocr",
+          "review",
+          "price_ticker",
+          "price_none",
+          "published_basis"
+        ],
+        "title": "NotableTrade"
+      },
+      "NotableTradesOutput": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/NotableTrade"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total",
+          "next_cursor"
+        ],
+        "title": "NotableTradesOutput"
+      },
+      "Note": {
+        "properties": {
+          "en": {
+            "type": "string",
+            "title": "En"
+          },
+          "zh": {
+            "type": "string",
+            "title": "Zh"
+          }
+        },
+        "type": "object",
+        "required": [
+          "en",
+          "zh"
+        ],
+        "title": "Note"
+      },
+      "NotificationItem": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "trade",
+              "rule_executive",
+              "rule_cluster"
+            ],
+            "title": "Kind"
+          },
+          "person_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Person Key"
+          },
+          "issuer_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Issuer Id"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "read": {
+            "type": "boolean",
+            "title": "Read"
+          },
+          "data": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Data"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "kind",
+          "person_key",
+          "issuer_id",
+          "created_at",
+          "read",
+          "data"
+        ],
+        "title": "NotificationItem"
+      },
+      "NotificationSettingsOutput": {
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "title": "Enabled"
+          },
+          "enabled_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Enabled At"
+          },
+          "rules": {
+            "$ref": "#/components/schemas/RuleSettings"
+          },
+          "ntfy": {
+            "$ref": "#/components/schemas/NtfySettings"
+          },
+          "push": {
+            "$ref": "#/components/schemas/PushStatus"
+          }
+        },
+        "type": "object",
+        "required": [
+          "enabled",
+          "enabled_at",
+          "rules",
+          "ntfy",
+          "push"
+        ],
+        "title": "NotificationSettingsOutput"
+      },
+      "NotificationsOutput": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/NotificationItem"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "unread": {
+            "type": "integer",
+            "title": "Unread"
+          },
+          "enabled": {
+            "type": "boolean",
+            "title": "Enabled"
+          },
+          "more": {
+            "type": "boolean",
+            "title": "More"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "unread",
+          "enabled",
+          "more"
+        ],
+        "title": "NotificationsOutput"
+      },
+      "NtfyChange": {
+        "properties": {
+          "enabled": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Enabled"
+          },
+          "server": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Server"
+          },
+          "language": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "en",
+                  "zh"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Language"
+          }
+        },
+        "type": "object",
+        "title": "NtfyChange"
+      },
+      "NtfySettings": {
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "title": "Enabled"
+          },
+          "server": {
+            "type": "string",
+            "title": "Server"
+          },
+          "topic": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Topic"
+          },
+          "language": {
+            "type": "string",
+            "enum": [
+              "en",
+              "zh"
+            ],
+            "title": "Language"
+          }
+        },
+        "type": "object",
+        "required": [
+          "enabled",
+          "server",
+          "topic",
+          "language"
+        ],
+        "title": "NtfySettings"
+      },
       "OverviewPriceKey": {
         "properties": {
           "ticker": {
@@ -12963,6 +16149,38 @@
         "title": "PeriodStats",
         "description": "Complete past years only; ``target_n`` is how many were asked for."
       },
+      "PersonSummaryOutput": {
+        "properties": {
+          "n": {
+            "type": "integer",
+            "title": "N"
+          },
+          "small": {
+            "type": "integer",
+            "title": "Small"
+          },
+          "sides": {
+            "$ref": "#/components/schemas/SummarySides"
+          },
+          "rows": {
+            "type": "integer",
+            "title": "Rows"
+          },
+          "no_code": {
+            "type": "integer",
+            "title": "No Code"
+          }
+        },
+        "type": "object",
+        "required": [
+          "n",
+          "small",
+          "sides",
+          "rows",
+          "no_code"
+        ],
+        "title": "PersonSummaryOutput"
+      },
       "PolicyRequest": {
         "properties": {
           "sec_enabled": {
@@ -13018,6 +16236,1104 @@
           "scope"
         ],
         "title": "PolicyView"
+      },
+      "PoliticalPeopleOutput": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/PoliticalPersonSummary"
+            },
+            "type": "array",
+            "title": "Items"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "title": "PoliticalPeopleOutput"
+      },
+      "PoliticalPersonSummary": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "house",
+              "senate",
+              "oge"
+            ],
+            "title": "Source"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "district": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "District"
+          },
+          "position": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Position"
+          },
+          "report_count": {
+            "type": "integer",
+            "title": "Report Count"
+          },
+          "latest_report_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latest Report Date"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "source",
+          "name",
+          "district",
+          "position",
+          "report_count",
+          "latest_report_date"
+        ],
+        "title": "PoliticalPersonSummary"
+      },
+      "PoliticalPersonView": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "house",
+              "senate",
+              "oge"
+            ],
+            "title": "Source"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "district": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "District"
+          },
+          "position": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Position"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "source",
+          "name",
+          "district",
+          "position"
+        ],
+        "title": "PoliticalPersonView"
+      },
+      "PoliticalReportLink": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "report_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Report Date"
+          },
+          "url": {
+            "type": "string",
+            "title": "Url"
+          },
+          "file_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "File Url"
+          },
+          "amendment": {
+            "type": "boolean",
+            "title": "Amendment"
+          },
+          "superseded": {
+            "type": "boolean",
+            "title": "Superseded"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "ocr_pages": {
+            "type": "integer",
+            "title": "Ocr Pages"
+          },
+          "page_count": {
+            "type": "integer",
+            "title": "Page Count"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "report_date",
+          "url",
+          "file_url",
+          "amendment",
+          "superseded",
+          "status",
+          "ocr_pages",
+          "page_count"
+        ],
+        "title": "PoliticalReportLink"
+      },
+      "PoliticalReportOutput": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "house",
+              "senate",
+              "oge"
+            ],
+            "title": "Source"
+          },
+          "external_id": {
+            "type": "string",
+            "title": "External Id"
+          },
+          "person": {
+            "$ref": "#/components/schemas/PoliticalPersonView"
+          },
+          "filed_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Filed Date"
+          },
+          "report_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Report Date"
+          },
+          "report_date_source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Report Date Source"
+          },
+          "url": {
+            "type": "string",
+            "title": "Url"
+          },
+          "file_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "File Url"
+          },
+          "source_hash": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Hash"
+          },
+          "amendment_of_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Amendment Of Id"
+          },
+          "amendment_status": {
+            "type": "string",
+            "title": "Amendment Status"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "parser_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parser Version"
+          },
+          "page_count": {
+            "type": "integer",
+            "title": "Page Count"
+          },
+          "pages_done": {
+            "type": "integer",
+            "title": "Pages Done"
+          },
+          "ocr_pages": {
+            "type": "integer",
+            "title": "Ocr Pages"
+          },
+          "ocr_seconds": {
+            "type": "number",
+            "title": "Ocr Seconds"
+          },
+          "rows": {
+            "items": {
+              "$ref": "#/components/schemas/PoliticalTransactionView"
+            },
+            "type": "array",
+            "title": "Rows"
+          },
+          "review_rows": {
+            "items": {
+              "$ref": "#/components/schemas/PoliticalTransactionView"
+            },
+            "type": "array",
+            "title": "Review Rows"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "source",
+          "external_id",
+          "person",
+          "filed_date",
+          "report_date",
+          "report_date_source",
+          "url",
+          "file_url",
+          "source_hash",
+          "amendment_of_id",
+          "amendment_status",
+          "status",
+          "parser_version",
+          "page_count",
+          "pages_done",
+          "ocr_pages",
+          "ocr_seconds",
+          "rows",
+          "review_rows"
+        ],
+        "title": "PoliticalReportOutput"
+      },
+      "PoliticalSourceStatus": {
+        "properties": {
+          "source": {
+            "type": "string",
+            "enum": [
+              "house",
+              "senate",
+              "oge"
+            ],
+            "title": "Source"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "unknown",
+              "available",
+              "unavailable"
+            ],
+            "title": "Status"
+          },
+          "checking": {
+            "type": "boolean",
+            "title": "Checking"
+          },
+          "last_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Error"
+          },
+          "last_check_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Check At"
+          },
+          "next_check_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Check At"
+          },
+          "report_count": {
+            "type": "integer",
+            "title": "Report Count"
+          },
+          "active_report_count": {
+            "type": "integer",
+            "title": "Active Report Count"
+          },
+          "transaction_count": {
+            "type": "integer",
+            "title": "Transaction Count"
+          },
+          "review_count": {
+            "type": "integer",
+            "title": "Review Count"
+          },
+          "page_count": {
+            "type": "integer",
+            "title": "Page Count"
+          },
+          "pages_done": {
+            "type": "integer",
+            "title": "Pages Done"
+          },
+          "ocr_pages": {
+            "type": "integer",
+            "title": "Ocr Pages"
+          },
+          "ocr_seconds": {
+            "type": "number",
+            "title": "Ocr Seconds"
+          },
+          "pending_reports": {
+            "type": "integer",
+            "title": "Pending Reports"
+          }
+        },
+        "type": "object",
+        "required": [
+          "source",
+          "status",
+          "checking",
+          "last_error",
+          "last_check_at",
+          "next_check_at",
+          "report_count",
+          "active_report_count",
+          "transaction_count",
+          "review_count",
+          "page_count",
+          "pages_done",
+          "ocr_pages",
+          "ocr_seconds",
+          "pending_reports"
+        ],
+        "title": "PoliticalSourceStatus"
+      },
+      "PoliticalSourcesOutput": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/PoliticalSourceStatus"
+            },
+            "type": "array",
+            "title": "Items"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "title": "PoliticalSourcesOutput"
+      },
+      "PoliticalTradeOutput": {
+        "properties": {
+          "trade": {
+            "$ref": "#/components/schemas/NotableTrade"
+          },
+          "raw_row": {
+            "type": "string",
+            "title": "Raw Row"
+          },
+          "page": {
+            "type": "integer",
+            "title": "Page"
+          },
+          "row_number": {
+            "type": "integer",
+            "title": "Row Number"
+          },
+          "asset_type": {
+            "type": "string",
+            "title": "Asset Type"
+          },
+          "ticker_origin": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ticker Origin"
+          },
+          "option_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Option Type"
+          },
+          "strike_price": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Strike Price"
+          },
+          "expiration_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expiration Date"
+          },
+          "notification_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notification Date"
+          },
+          "report": {
+            "$ref": "#/components/schemas/TradeReport"
+          }
+        },
+        "type": "object",
+        "required": [
+          "trade",
+          "raw_row",
+          "page",
+          "row_number",
+          "asset_type",
+          "ticker_origin",
+          "option_type",
+          "strike_price",
+          "expiration_date",
+          "notification_date",
+          "report"
+        ],
+        "title": "PoliticalTradeOutput"
+      },
+      "PoliticalTransactionEntry": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "report_id": {
+            "type": "string",
+            "title": "Report Id"
+          },
+          "page": {
+            "type": "integer",
+            "title": "Page"
+          },
+          "row_number": {
+            "type": "integer",
+            "title": "Row Number"
+          },
+          "owner": {
+            "type": "string",
+            "title": "Owner"
+          },
+          "asset_name": {
+            "type": "string",
+            "title": "Asset Name"
+          },
+          "ticker": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ticker"
+          },
+          "ticker_origin": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ticker Origin"
+          },
+          "issuer_ticker": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Issuer Ticker"
+          },
+          "issuer_ticker_origin": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Issuer Ticker Origin"
+          },
+          "asset_type": {
+            "type": "string",
+            "title": "Asset Type"
+          },
+          "option_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Option Type"
+          },
+          "strike_price": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Strike Price"
+          },
+          "expiration_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expiration Date"
+          },
+          "transaction_type": {
+            "type": "string",
+            "title": "Transaction Type"
+          },
+          "transaction_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Transaction Date"
+          },
+          "notification_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notification Date"
+          },
+          "amount_low": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Amount Low"
+          },
+          "amount_high": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Amount High"
+          },
+          "raw_row": {
+            "type": "string",
+            "title": "Raw Row"
+          },
+          "confidence": {
+            "type": "string",
+            "title": "Confidence"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Warnings"
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "house",
+              "senate",
+              "oge"
+            ],
+            "title": "Source"
+          },
+          "filed_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Filed Date"
+          },
+          "report_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Report Date"
+          },
+          "report_date_source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Report Date Source"
+          },
+          "person": {
+            "$ref": "#/components/schemas/PoliticalPersonView"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "report_id",
+          "page",
+          "row_number",
+          "owner",
+          "asset_name",
+          "ticker",
+          "ticker_origin",
+          "issuer_ticker",
+          "issuer_ticker_origin",
+          "asset_type",
+          "option_type",
+          "strike_price",
+          "expiration_date",
+          "transaction_type",
+          "transaction_date",
+          "notification_date",
+          "amount_low",
+          "amount_high",
+          "raw_row",
+          "confidence",
+          "warnings",
+          "source",
+          "filed_date",
+          "report_date",
+          "report_date_source",
+          "person"
+        ],
+        "title": "PoliticalTransactionEntry"
+      },
+      "PoliticalTransactionView": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "report_id": {
+            "type": "string",
+            "title": "Report Id"
+          },
+          "page": {
+            "type": "integer",
+            "title": "Page"
+          },
+          "row_number": {
+            "type": "integer",
+            "title": "Row Number"
+          },
+          "owner": {
+            "type": "string",
+            "title": "Owner"
+          },
+          "asset_name": {
+            "type": "string",
+            "title": "Asset Name"
+          },
+          "ticker": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ticker"
+          },
+          "ticker_origin": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ticker Origin"
+          },
+          "issuer_ticker": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Issuer Ticker"
+          },
+          "issuer_ticker_origin": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Issuer Ticker Origin"
+          },
+          "asset_type": {
+            "type": "string",
+            "title": "Asset Type"
+          },
+          "option_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Option Type"
+          },
+          "strike_price": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Strike Price"
+          },
+          "expiration_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expiration Date"
+          },
+          "transaction_type": {
+            "type": "string",
+            "title": "Transaction Type"
+          },
+          "transaction_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Transaction Date"
+          },
+          "notification_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notification Date"
+          },
+          "amount_low": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Amount Low"
+          },
+          "amount_high": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Amount High"
+          },
+          "raw_row": {
+            "type": "string",
+            "title": "Raw Row"
+          },
+          "confidence": {
+            "type": "string",
+            "title": "Confidence"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Warnings"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "report_id",
+          "page",
+          "row_number",
+          "owner",
+          "asset_name",
+          "ticker",
+          "ticker_origin",
+          "issuer_ticker",
+          "issuer_ticker_origin",
+          "asset_type",
+          "option_type",
+          "strike_price",
+          "expiration_date",
+          "transaction_type",
+          "transaction_date",
+          "notification_date",
+          "amount_low",
+          "amount_high",
+          "raw_row",
+          "confidence",
+          "warnings"
+        ],
+        "title": "PoliticalTransactionView"
+      },
+      "PoliticalTransactionsOutput": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/PoliticalTransactionEntry"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total",
+          "next_cursor"
+        ],
+        "title": "PoliticalTransactionsOutput"
       },
       "PreferenceInput": {
         "properties": {
@@ -13669,6 +17985,87 @@
         ],
         "title": "PricesOutput"
       },
+      "PushStatus": {
+        "properties": {
+          "last_status": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "sent",
+                  "failed"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Status"
+          },
+          "last_kind": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "single",
+                  "digest",
+                  "test"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Kind"
+          },
+          "last_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last At"
+          },
+          "last_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Error"
+          },
+          "sent_today": {
+            "type": "integer",
+            "title": "Sent Today"
+          },
+          "daily_limit": {
+            "type": "integer",
+            "title": "Daily Limit"
+          },
+          "waiting": {
+            "type": "integer",
+            "title": "Waiting"
+          }
+        },
+        "type": "object",
+        "required": [
+          "last_status",
+          "last_kind",
+          "last_at",
+          "last_error",
+          "sent_today",
+          "daily_limit",
+          "waiting"
+        ],
+        "title": "PushStatus"
+      },
       "QuoteSession": {
         "properties": {
           "start": {
@@ -13716,6 +18113,25 @@
           "count"
         ],
         "title": "RangeSettings"
+      },
+      "ReadInput": {
+        "properties": {
+          "ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 200,
+            "title": "Ids"
+          },
+          "all": {
+            "type": "boolean",
+            "title": "All",
+            "default": false
+          }
+        },
+        "type": "object",
+        "title": "ReadInput"
       },
       "RecentAnalysesOutput": {
         "properties": {
@@ -14863,6 +19279,124 @@
         ],
         "title": "RotationYearLeaders"
       },
+      "RuleChange": {
+        "properties": {
+          "enabled": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Enabled"
+          },
+          "scope": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "index_watchlist",
+                  "all"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scope"
+          },
+          "executive_min": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Executive Min"
+          },
+          "cluster_people": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cluster People"
+          },
+          "cluster_days": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cluster Days"
+          },
+          "exclude_plans": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Exclude Plans"
+          }
+        },
+        "type": "object",
+        "title": "RuleChange"
+      },
+      "RuleSettings": {
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "title": "Enabled"
+          },
+          "scope": {
+            "type": "string",
+            "enum": [
+              "index_watchlist",
+              "all"
+            ],
+            "title": "Scope"
+          },
+          "executive_min": {
+            "type": "integer",
+            "title": "Executive Min"
+          },
+          "cluster_people": {
+            "type": "integer",
+            "title": "Cluster People"
+          },
+          "cluster_days": {
+            "type": "integer",
+            "title": "Cluster Days"
+          },
+          "exclude_plans": {
+            "type": "boolean",
+            "title": "Exclude Plans"
+          }
+        },
+        "type": "object",
+        "required": [
+          "enabled",
+          "scope",
+          "executive_min",
+          "cluster_people",
+          "cluster_days",
+          "exclude_plans"
+        ],
+        "title": "RuleSettings"
+      },
       "ScopeView": {
         "properties": {
           "id": {
@@ -14951,7 +19485,8 @@
             "enum": [
               "company",
               "person",
-              "security"
+              "security",
+              "politician"
             ],
             "title": "Kind"
           },
@@ -14995,6 +19530,39 @@
               }
             ],
             "title": "Issuer Id"
+          },
+          "alias": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Alias"
+          },
+          "notable_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notable Key"
+          },
+          "detail": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Detail"
           }
         },
         "type": "object",
@@ -15005,7 +19573,10 @@
           "href",
           "ticker",
           "security_id",
-          "issuer_id"
+          "issuer_id",
+          "alias",
+          "notable_key",
+          "detail"
         ],
         "title": "SearchItem"
       },
@@ -15104,6 +19675,37 @@
         "title": "SecContactOutput",
         "description": "SEC contact for the User-Agent; ``config_file`` (deploy/.env) wins and is read-only here."
       },
+      "SecFilings": {
+        "properties": {
+          "count": {
+            "type": "integer",
+            "title": "Count"
+          },
+          "latest_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latest At"
+          },
+          "edgar_url": {
+            "type": "string",
+            "title": "Edgar Url"
+          }
+        },
+        "type": "object",
+        "required": [
+          "count",
+          "latest_at",
+          "edgar_url"
+        ],
+        "title": "SecFilings"
+      },
       "SecUserAgentState": {
         "properties": {
           "configured": {
@@ -15140,6 +19742,224 @@
           "source"
         ],
         "title": "SecUserAgentState"
+      },
+      "SectorActivity": {
+        "properties": {
+          "companies": {
+            "type": "integer",
+            "title": "Companies"
+          },
+          "buy_companies": {
+            "type": "integer",
+            "title": "Buy Companies"
+          },
+          "sell_companies": {
+            "type": "integer",
+            "title": "Sell Companies"
+          },
+          "buy_amount": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Buy Amount"
+          },
+          "sell_amount": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sell Amount"
+          },
+          "net_amount": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Net Amount"
+          },
+          "amount_estimated": {
+            "type": "boolean",
+            "title": "Amount Estimated",
+            "default": false
+          },
+          "missing_price_rows": {
+            "type": "integer",
+            "title": "Missing Price Rows",
+            "default": 0
+          },
+          "price_mismatch_rows": {
+            "type": "integer",
+            "title": "Price Mismatch Rows",
+            "default": 0
+          },
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "ungrouped": {
+            "type": "integer",
+            "title": "Ungrouped"
+          }
+        },
+        "type": "object",
+        "required": [
+          "companies",
+          "buy_companies",
+          "sell_companies",
+          "buy_amount",
+          "sell_amount",
+          "net_amount",
+          "amount_estimated",
+          "missing_price_rows",
+          "price_mismatch_rows",
+          "id",
+          "ungrouped"
+        ],
+        "title": "SectorActivity"
+      },
+      "SectorActivityOutput": {
+        "properties": {
+          "as_of": {
+            "type": "string",
+            "title": "As Of"
+          },
+          "days": {
+            "type": "integer",
+            "title": "Days"
+          },
+          "start_date": {
+            "type": "string",
+            "title": "Start Date"
+          },
+          "end_date": {
+            "type": "string",
+            "title": "End Date"
+          },
+          "companies": {
+            "type": "integer",
+            "title": "Companies"
+          },
+          "sectors": {
+            "items": {
+              "$ref": "#/components/schemas/SectorActivity"
+            },
+            "type": "array",
+            "title": "Sectors"
+          },
+          "groups": {
+            "items": {
+              "$ref": "#/components/schemas/GroupActivity"
+            },
+            "type": "array",
+            "title": "Groups"
+          },
+          "unclassified": {
+            "$ref": "#/components/schemas/SectorActivityTotals"
+          }
+        },
+        "type": "object",
+        "required": [
+          "as_of",
+          "days",
+          "start_date",
+          "end_date",
+          "companies",
+          "sectors",
+          "groups",
+          "unclassified"
+        ],
+        "title": "SectorActivityOutput"
+      },
+      "SectorActivityTotals": {
+        "properties": {
+          "companies": {
+            "type": "integer",
+            "title": "Companies"
+          },
+          "buy_companies": {
+            "type": "integer",
+            "title": "Buy Companies"
+          },
+          "sell_companies": {
+            "type": "integer",
+            "title": "Sell Companies"
+          },
+          "buy_amount": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Buy Amount"
+          },
+          "sell_amount": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sell Amount"
+          },
+          "net_amount": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Net Amount"
+          },
+          "amount_estimated": {
+            "type": "boolean",
+            "title": "Amount Estimated",
+            "default": false
+          },
+          "missing_price_rows": {
+            "type": "integer",
+            "title": "Missing Price Rows",
+            "default": 0
+          },
+          "price_mismatch_rows": {
+            "type": "integer",
+            "title": "Price Mismatch Rows",
+            "default": 0
+          }
+        },
+        "type": "object",
+        "required": [
+          "companies",
+          "buy_companies",
+          "sell_companies",
+          "buy_amount",
+          "sell_amount",
+          "net_amount",
+          "amount_estimated",
+          "missing_price_rows",
+          "price_mismatch_rows"
+        ],
+        "title": "SectorActivityTotals",
+        "description": "Distinct companies and counted amounts of a set of companies' trades."
       },
       "SectorCandle": {
         "properties": {
@@ -16352,6 +21172,43 @@
         ],
         "title": "SectorWeights"
       },
+      "SettingsChange": {
+        "properties": {
+          "enabled": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Enabled"
+          },
+          "rules": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RuleChange"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "ntfy": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/NtfyChange"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "title": "SettingsChange"
+      },
       "SideTotal": {
         "properties": {
           "side": {
@@ -17044,6 +21901,91 @@
         ],
         "title": "StripInstrument"
       },
+      "SummarySide": {
+        "properties": {
+          "trades": {
+            "type": "integer",
+            "title": "Trades"
+          },
+          "after": {
+            "$ref": "#/components/schemas/SummaryStat"
+          },
+          "published": {
+            "$ref": "#/components/schemas/SummaryStat"
+          }
+        },
+        "type": "object",
+        "required": [
+          "trades",
+          "after",
+          "published"
+        ],
+        "title": "SummarySide"
+      },
+      "SummarySides": {
+        "properties": {
+          "buy": {
+            "$ref": "#/components/schemas/SummarySide"
+          },
+          "sell": {
+            "$ref": "#/components/schemas/SummarySide"
+          }
+        },
+        "type": "object",
+        "required": [
+          "buy",
+          "sell"
+        ],
+        "title": "SummarySides"
+      },
+      "SummaryStat": {
+        "properties": {
+          "count": {
+            "type": "integer",
+            "title": "Count"
+          },
+          "up": {
+            "type": "integer",
+            "title": "Up"
+          },
+          "median": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Median"
+          },
+          "values": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Values"
+          },
+          "pending": {
+            "type": "integer",
+            "title": "Pending"
+          },
+          "missing": {
+            "type": "integer",
+            "title": "Missing"
+          }
+        },
+        "type": "object",
+        "required": [
+          "count",
+          "up",
+          "median",
+          "values",
+          "pending",
+          "missing"
+        ],
+        "title": "SummaryStat"
+      },
       "SystemOutput": {
         "properties": {
           "version": {
@@ -17306,6 +22248,157 @@
           "date"
         ],
         "title": "TradeKey"
+      },
+      "TradePerson": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "watched": {
+            "type": "boolean",
+            "title": "Watched"
+          },
+          "category": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "investor",
+                  "investment_firm",
+                  "founder_ceo",
+                  "house",
+                  "president",
+                  "cabinet"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Category"
+          },
+          "roles": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Roles"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "district": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "District"
+          }
+        },
+        "type": "object",
+        "required": [
+          "key",
+          "name",
+          "watched",
+          "category",
+          "roles",
+          "title",
+          "district"
+        ],
+        "title": "TradePerson"
+      },
+      "TradeReport": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "report_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Report Date"
+          },
+          "filed_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Filed Date"
+          },
+          "url": {
+            "type": "string",
+            "title": "Url"
+          },
+          "file_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "File Url"
+          },
+          "superseded": {
+            "type": "boolean",
+            "title": "Superseded"
+          },
+          "amendment": {
+            "type": "boolean",
+            "title": "Amendment"
+          },
+          "ocr_pages": {
+            "type": "integer",
+            "title": "Ocr Pages"
+          },
+          "page_count": {
+            "type": "integer",
+            "title": "Page Count"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "report_date",
+          "filed_date",
+          "url",
+          "file_url",
+          "superseded",
+          "amendment",
+          "ocr_pages",
+          "page_count"
+        ],
+        "title": "TradeReport"
       },
       "TradeSection": {
         "properties": {
@@ -17638,6 +22731,232 @@
           "type"
         ],
         "title": "ValidationError"
+      },
+      "WatchlistAcknowledge": {
+        "properties": {
+          "at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "at"
+        ],
+        "title": "WatchlistAcknowledge"
+      },
+      "WatchlistAdd": {
+        "properties": {
+          "ticker": {
+            "type": "string",
+            "maxLength": 32,
+            "minLength": 1,
+            "title": "Ticker"
+          }
+        },
+        "type": "object",
+        "required": [
+          "ticker"
+        ],
+        "title": "WatchlistAdd"
+      },
+      "WatchlistEntry": {
+        "properties": {
+          "ticker": {
+            "type": "string",
+            "title": "Ticker"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "issuer_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Issuer Id"
+          },
+          "local": {
+            "type": "boolean",
+            "title": "Local"
+          },
+          "added_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Added At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "ticker",
+          "name",
+          "issuer_id",
+          "local",
+          "added_at"
+        ],
+        "title": "WatchlistEntry"
+      },
+      "WatchlistImport": {
+        "properties": {
+          "text": {
+            "type": "string",
+            "maxLength": 10000,
+            "title": "Text"
+          }
+        },
+        "type": "object",
+        "required": [
+          "text"
+        ],
+        "title": "WatchlistImport"
+      },
+      "WatchlistImportOutput": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/WatchlistEntry"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "limit": {
+            "type": "integer",
+            "title": "Limit"
+          },
+          "acknowledged_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Acknowledged At"
+          },
+          "added": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Added"
+          },
+          "existing": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Existing"
+          },
+          "invalid": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Invalid"
+          },
+          "over_limit": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Over Limit"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "limit",
+          "acknowledged_at",
+          "added",
+          "existing",
+          "invalid",
+          "over_limit"
+        ],
+        "title": "WatchlistImportOutput"
+      },
+      "WatchlistNews": {
+        "properties": {
+          "as_of": {
+            "type": "string",
+            "format": "date-time",
+            "title": "As Of"
+          },
+          "acknowledged_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Acknowledged At"
+          },
+          "insider": {
+            "items": {
+              "$ref": "#/components/schemas/InsiderNews"
+            },
+            "type": "array",
+            "title": "Insider"
+          }
+        },
+        "type": "object",
+        "required": [
+          "as_of",
+          "acknowledged_at",
+          "insider"
+        ],
+        "title": "WatchlistNews"
+      },
+      "WatchlistOutput": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/WatchlistEntry"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "limit": {
+            "type": "integer",
+            "title": "Limit"
+          },
+          "acknowledged_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Acknowledged At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "limit",
+          "acknowledged_at"
+        ],
+        "title": "WatchlistOutput"
       },
       "WindowChange": {
         "properties": {

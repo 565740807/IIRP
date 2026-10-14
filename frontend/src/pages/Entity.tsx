@@ -28,6 +28,10 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { IndexMarks } from "@/components/insider/IndexMarks";
+import { TickerMarks } from "@/lib/tickerMarks";
+import { WatchStar } from "@/components/watchlist/Watch";
+import { CompanyNotable } from "@/components/notable/CompanyNotable";
+import { FollowStar } from "@/components/notable/FollowStar";
 import { NControl } from "@/components/insider/NControl";
 import { PriceChart, type Marker } from "@/components/insider/PriceChart";
 import { RangeControl } from "@/components/insider/RangeControl";
@@ -255,9 +259,12 @@ export function EntityPage({ kind }: { kind: PageKind }) {
           </Link>
           <h2 className="flex items-baseline gap-2 text-xl font-semibold tracking-tight">
             {kind === "company" && data?.entity.ticker && <span className="rounded bg-secondary px-1.5 text-base tabular-nums">{data.entity.ticker}</span>}
+            {kind === "company" && data?.entity.ticker && <WatchStar ticker={data.entity.ticker} className="-mx-1 self-center"/>}
             {/* Until the filings arrive the name is only known from the link that opened the page. */}
             {!data && !(location.state as { name?: string } | null)?.name ? <Skeleton className="h-6 w-56" /> : <span className="truncate">{name}</span>}
+            {kind === "person" && <FollowStar personKey={`sec:${id}`} name={name} className="-mx-1 self-center" />}
             {kind === "company" && <IndexMarks indexes={data?.entity.indexes} className="self-center" />}
+            {kind === "company" && <TickerMarks ticker={data?.entity.ticker} className="self-center text-sm font-normal" />}
             <span className="text-xs font-normal text-muted-foreground tabular-nums">CIK {Number(id) || id}</span>
             {kind === "company" && tickerState && !tickerState.confirmed && tickerState.status === "ready" && (
               <Badge variant="outline" title={t("ui.entity.pending_tip")}>{t("ui.entity.pending")}</Badge>
@@ -348,6 +355,7 @@ export function EntityPage({ kind }: { kind: PageKind }) {
           {data.truncated && <p className="text-xs text-muted-foreground">{t("ui.entity.truncated", { count: rows.length })}</p>}
         </>
       )}
+      {kind === "company" && data && <CompanyNotable issuerId={id} ticker={data.entity.ticker} />}
     </div>
   );
 }

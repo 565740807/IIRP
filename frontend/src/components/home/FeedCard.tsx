@@ -1,7 +1,8 @@
 import { createContext, memo, useContext, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { AnimatePresence, motion } from "motion/react";
+import { AnimatePresence } from "motion/react";
+import * as m from "motion/react-m";
 import { ChevronDown } from "lucide-react";
 import { tm } from "@/i18n";
 import { codeKey, primarySummary, readableCase, rolesText, side } from "@/lib/insider";
@@ -15,6 +16,8 @@ import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { IndexMarks } from "@/components/insider/IndexMarks";
+import { TickerMarks } from "@/lib/tickerMarks";
+import { WatchMark } from "@/components/watchlist/Watch";
 import { WindowCell } from "@/components/insider/WindowCell";
 
 type TraderGroup = FeedGroup["trader_groups"][number];
@@ -218,20 +221,22 @@ export const FeedCard = memo(function FeedCard({ group, mark }: { group: FeedGro
           className="flex min-w-0 items-baseline gap-1.5 hover:underline"
           title={company}
         >
-          <span className="shrink-0 rounded bg-secondary px-1 text-xs font-semibold tracking-wide tabular-nums">
+          <span className="relative shrink-0 rounded bg-secondary px-1 text-xs font-semibold tracking-wide tabular-nums">
             {group.ticker ?? group.issuer_ticker_raw ?? "—"}
+            <WatchMark ticker={group.ticker} corner />
           </span>
           <span className="truncate font-semibold">{company}</span>
         </Link>
         <IndexMarks indexes={group.indexes} />
+        <TickerMarks ticker={group.ticker} compact />
         {group.amendment_count > 0 && (
           <Badge variant="outline" className="h-5 shrink-0 px-1 text-xs">{t("ui.feed.amendment")}</Badge>
         )}
         <AnimatePresence>
           {mark && (
-            <motion.span className="shrink-0" initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}>
+            <m.span className="shrink-0" initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}>
               <Badge className="h-5 bg-primary px-1.5 text-xs text-primary-foreground">{t(`ui.feed.mark.${mark}`)}</Badge>
-            </motion.span>
+            </m.span>
           )}
         </AnimatePresence>
       </div>
@@ -243,7 +248,7 @@ export const FeedCard = memo(function FeedCard({ group, mark }: { group: FeedGro
         </ul>
         <AnimatePresence initial={false}>
           {expanded && hidden > 0 && (
-            <motion.ul
+            <m.ul
               initial={{ height: 0, opacity: 0 }}
               animate={{ height: "auto", opacity: 1 }}
               exit={{ height: 0, opacity: 0 }}
@@ -253,7 +258,7 @@ export const FeedCard = memo(function FeedCard({ group, mark }: { group: FeedGro
               {traders.slice(SHOWN).map((trader) => (
                 <TraderLine key={trader.id} trader={trader} anomalies={anomalies} group={group} />
               ))}
-            </motion.ul>
+            </m.ul>
           )}
         </AnimatePresence>
         {(hidden > 0 || group.next_trader_cursor) && (

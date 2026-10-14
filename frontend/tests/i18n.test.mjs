@@ -5,16 +5,19 @@ import { fileURLToPath } from "node:url";
 
 const { outputFiles } = buildSync({
   stdin: {
-    contents: 'export { localize, tm, setLanguage, locale } from "./i18n";',
+    contents: 'export { localize, tm, setLanguage, locale, initialize, prepareMessages } from "./i18n";',
     resolveDir: fileURLToPath(new URL("../src", import.meta.url)),
     loader: "ts",
   },
   bundle: true, write: false, platform: "node", format: "esm",
 });
-const { localize, tm, setLanguage, locale } = await import(`data:text/javascript;base64,${Buffer.from(outputFiles[0].text).toString("base64")}`);
+const { localize, tm, setLanguage, locale, initialize, prepareMessages } = await import(`data:text/javascript;base64,${Buffer.from(outputFiles[0].text).toString("base64")}`);
+await initialize();
+
 const msg = (code, params = {}) => JSON.stringify({ code, params });
 
-test("English is the default language, with the same messages and list formatters", () => {
+test("English is the default language, with the same messages and list formatters", async () => {
+  await prepareMessages(msg("events.set_title.earnings_more"));
   assert.equal(locale(), "en-US");
   assert.equal(tm(msg("stage.waiting_channel", { source: "Yahoo", stage: msg("stage.market_history") })),
     "Waiting for the Yahoo channel · Filling daily price history");
@@ -50,4 +53,13 @@ test("responses are localized in place; data with a code field and old text stay
     error: "升级前写入的中文原文",
     value: 3,
   });
+});
+
+test("legacy Chinese message recognition survives loading only the English dictionary", async () => {
+  await setLanguage("en");
+  await prepareMessages("补齐历史日线");
+  assert.equal(tm("补齐历史日线"), "Filling daily price history");
+  await prepareMessages("AAPL · 财报 2018—2026");
+  assert.equal(tm("AAPL · 财报 2018—2026"), "AAPL · earnings 2018–2026");
+  assert.equal(tm("等待 Yahoo 通道 · 补齐历史日线"), "Waiting for the Yahoo channel · Filling daily price history");
 });

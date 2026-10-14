@@ -12,12 +12,15 @@ import {
   useNavigationType,
 } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { MotionConfig } from "motion/react";
+import { LazyMotion, domAnimation, MotionConfig } from "motion/react";
 import { FileSearch } from "lucide-react";
 import { AppShell } from "./components/shell/AppShell";
 import { BlockSkeleton } from "./components/ui/states";
 import { RefreshProvider } from "./lib/refresh";
-import { FEATURES } from "./features";
+import { FEATURES, TICKER_MARKS, WATCHLIST_NEWS } from "./features";
+import { WatchlistNewsSources } from "./lib/watchlistNews";
+import { TickerMarkSources } from "./lib/tickerMarks";
+import { PageLanguage } from "./components/PageLanguage";
 import { HomePage } from "./pages/Home";
 const DataPage = lazy(() =>
   import("./pages/Data").then((m) => ({ default: m.DataPage })),
@@ -36,6 +39,15 @@ const InsidersPage = lazy(() =>
 );
 const EntityPage = lazy(() =>
   import("./pages/Entity").then((m) => ({ default: m.EntityPage })),
+);
+const NotablePage = lazy(() =>
+  import("./pages/Notable").then((m) => ({ default: m.NotablePage })),
+);
+const NotableTradePage = lazy(() =>
+  import("./pages/NotableTrade").then((m) => ({ default: m.NotableTradePage })),
+);
+const NotablePersonPage = lazy(() =>
+  import("./pages/NotablePerson").then((m) => ({ default: m.NotablePersonPage })),
 );
 const TransactionPage = lazy(() =>
   import("./pages/Transaction").then((m) => ({ default: m.TransactionPage })),
@@ -164,38 +176,41 @@ function Workbench() {
       >
         <Routes>
           <Route path="/" element={<HomePage />} />
-          <Route path="/insiders" element={<InsidersPage />} />
-          <Route path="/sectors" element={<SectorsPage />} />
+          <Route path="/insiders" element={<PageLanguage namespaces={["insider", "translation"]}><InsidersPage /></PageLanguage>} />
+          <Route path="/notable" element={<NotablePage />} />
+          <Route path="/notable/trades/:id" element={<PageLanguage namespaces={["insider", "translation"]}><NotableTradePage /></PageLanguage>} />
+          <Route path="/notable/:source/:id" element={<NotablePersonPage />} />
+          <Route path="/sectors" element={<PageLanguage namespaces={["sectors", "translation"]}><SectorsPage /></PageLanguage>} />
           <Route
             path="/analysis/monthly"
-            element={<SeasonalPage key="monthly" kind="monthly" />}
+            element={<PageLanguage namespaces={["analysis", "translation"]}><SeasonalPage key="monthly" kind="monthly" /></PageLanguage>}
           />
           <Route
             path="/analysis/interval"
-            element={<SeasonalPage key="interval" kind="interval" />}
+            element={<PageLanguage namespaces={["analysis", "translation"]}><SeasonalPage key="interval" kind="interval" /></PageLanguage>}
           />
           <Route
             path="/analysis/earnings"
-            element={<EventsPage key="earnings" kind="earnings" />}
+            element={<PageLanguage namespaces={["events", "analysis", "translation"]}><EventsPage key="earnings" kind="earnings" /></PageLanguage>}
           />
           <Route
             path="/analysis/events"
-            element={<EventsPage key="custom" kind="custom" />}
+            element={<PageLanguage namespaces={["events", "analysis", "translation"]}><EventsPage key="custom" kind="custom" /></PageLanguage>}
           />
-          <Route path="/data" element={<DataPage />} />
-          <Route path="/data/diagnostics" element={<DiagnosticsPage />} />
+          <Route path="/data" element={<PageLanguage namespaces={["data", "translation"]}><DataPage /></PageLanguage>} />
+          <Route path="/data/diagnostics" element={<PageLanguage namespaces={["data", "translation"]}><DiagnosticsPage /></PageLanguage>} />
           <Route
             path="/companies/:id"
-            element={<EntityPage key="company" kind="company" />}
+            element={<PageLanguage namespaces={["insider", "translation"]}><EntityPage key="company" kind="company" /></PageLanguage>}
           />
           <Route
             path="/people/:id"
-            element={<EntityPage key="person" kind="person" />}
+            element={<PageLanguage namespaces={["insider", "translation"]}><EntityPage key="person" kind="person" /></PageLanguage>}
           />
-          <Route path="/transactions/:id" element={<TransactionPage />} />
-          <Route path="/market/:symbol" element={<MarketDetailPage />} />
+          <Route path="/transactions/:id" element={<PageLanguage namespaces={["insider", "translation"]}><TransactionPage /></PageLanguage>} />
+          <Route path="/market/:symbol" element={<PageLanguage namespaces={["insider", "translation"]}><MarketDetailPage /></PageLanguage>} />
           {FEATURES.flatMap((feature) =>
-            feature.routes.map((route) => <Route key={route.path} path={route.path} element={route.element} />),
+            feature.routes.map((route) => <Route key={route.path} path={route.path} element={<PageLanguage namespaces={[feature.key, "translation"]}>{route.element}</PageLanguage>} />),
           )}
           <Route
             path="*"
@@ -218,9 +233,15 @@ function Workbench() {
 export function App() {
   return (
     <MotionConfig reducedMotion="user">
-      <RefreshProvider>
-        <Workbench />
-      </RefreshProvider>
+      <LazyMotion features={domAnimation}>
+        <RefreshProvider>
+          <TickerMarkSources.Provider value={TICKER_MARKS}>
+            <WatchlistNewsSources.Provider value={WATCHLIST_NEWS}>
+              <Workbench />
+            </WatchlistNewsSources.Provider>
+          </TickerMarkSources.Provider>
+        </RefreshProvider>
+      </LazyMotion>
     </MotionConfig>
   );
 }

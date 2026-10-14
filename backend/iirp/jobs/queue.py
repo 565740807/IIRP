@@ -28,10 +28,15 @@ from iirp.models import (
 )
 
 TITLES = {
+    "political_index": msg("political.title.index"),
+    "political_document": msg("political.title.document"),
+    "political_manifest": msg("political.title.page"),
+    "political_page": msg("political.title.page"),
     "fixture_check": msg("job.title.fixture_check"),
     "market_probe": msg("job.title.market_probe"),
     "sec_probe": msg("job.title.sec_probe"),
     "sec_identity": msg("job.title.sec_lookup"),
+    "notification_push": msg("notifications.title.push"),
 }
 
 

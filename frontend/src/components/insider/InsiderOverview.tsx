@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useLocation, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
@@ -15,6 +15,8 @@ import {
 import { readableCase } from "@/lib/insider";
 import {
   INDICES,
+  SECTOR_FORM,
+  sectorChoice,
   useOverviewChoice,
   useStockQuotes,
   type CompanyOverview,
@@ -32,6 +34,10 @@ import { ErrorState, TableSkeleton } from "@/components/ui/states";
 import { TabBar } from "@/components/ui/tab-bar";
 import { IndexFilter, IndexStatus } from "./IndexFilter";
 import { IndexMarks } from "./IndexMarks";
+import { TickerBatch, TickerMarks } from "@/lib/tickerMarks";
+import { WatchMark } from "@/components/watchlist/Watch";
+import { useWatchFilter, WatchFilter } from "@/components/watchlist/WatchFilter";
+import { WATCH_DEPENDENT } from "@/lib/watchlist";
 import { CurrentPrice, CurrentQuoteStatus, MismatchRatio, TradePrice } from "./InsiderPrice";
 
 type Overview = Schemas["InsiderOverview"];
@@ -60,10 +66,21 @@ function CompanyLink({ row }: { row: CompanyRef }) {
     className="flex min-w-0 items-baseline gap-2 hover:underline"
     title={name}
   >
-    <span className="shrink-0 rounded bg-secondary px-1 text-xs font-semibold">{row.ticker ?? "—"}</span>
+    <span className="relative shrink-0 rounded bg-secondary px-1 text-xs font-semibold">
+      {row.ticker ?? "—"}
+      <WatchMark ticker={row.ticker} corner/>
+    </span>
     <span className="truncate font-medium">{name}</span>
     <IndexMarks indexes={row.indexes} />
   </Link>;
+}
+
+/** The company link, then the marks beside its code (outside the link: a mark has its own target). */
+function Company({ row }: { row: CompanyRef }) {
+  return <span className="flex min-w-0 items-baseline gap-1.5">
+    <CompanyLink row={row}/>
+    <TickerMarks ticker={row.ticker} compact className="self-center"/>
+  </span>;
 }
 
 type AmountProps = { amount?: string | null; estimated?: boolean; direction?: "buy" | "sell" };
@@ -100,8 +117,12 @@ type BlockProps = {
   footer?: React.ReactNode;
 };
 
+/** Whether the overview shows only the watched companies (empty lists then say so). */
+const WatchScope = createContext(false);
+
 function Block({ title, section, children, actions, footer }: BlockProps) {
   const { t } = useTranslation();
+  const watched = useContext(WatchScope);
   const shown = section.items.length;
   const mismatched = section.price_mismatch_rows ?? 0;
   return <section className="min-w-0 overflow-hidden rounded-lg border bg-card">
@@ -116,7 +137,7 @@ function Block({ title, section, children, actions, footer }: BlockProps) {
       {actions && <div className="ml-auto">{actions}</div>}
     </header>
     {shown === 0
-      ? <p className="px-3 py-5 text-xs text-muted-foreground">{t("ui.overview.empty")}</p>
+      ? <p className="px-3 py-5 text-xs text-muted-foreground">{t(watched ? "ui.watchlist.overview_empty" : "ui.overview.empty")}</p>
       : <div className="overflow-x-auto">{children}</div>}
     {footer}
   </section>;
@@ -140,7 +161,7 @@ const CLUSTER_WIDTHS = ["w-[27%]", "w-[8%]", "w-[14%]", "w-[13%]", "w-[24%]", "w
 function ClusterRow({ row, sale }: { row: CompanyOverview; sale?: boolean }) {
   const price = sale ? row.sell_price : row.buy_price;
   return <tr className={rowStyle}>
-    <td className="overflow-hidden px-3 py-2"><CompanyLink row={row}/></td>
+    <td className="overflow-hidden px-3 py-2"><Company row={row}/></td>
     <td className={cellStyle}>{sale ? row.sell_people : row.buy_people}</td>
     <td className={cellStyle}>
       <Amount
@@ -151,7 +172,7 @@ function ClusterRow({ row, sale }: { row: CompanyOverview; sale?: boolean }) {
       <AmountNotes missing={row.missing_price_rows} mismatched={row.price_mismatch_rows}/>
     </td>
     <td className={cellStyle}><TradePrice price={price} average/></td>
-    <td className={cellStyle}><CurrentPrice price={price}/></td>
+    <td className={cellStyle}><CurrentPrice price={price} narrow/></td>
     <td className={cn(cellStyle, "text-muted-foreground")}>{formatDayRange([row.start_date, row.end_date])}</td>
   </tr>;
 }
@@ -184,7 +205,7 @@ type TradeRowProps = { row: OverviewTrade; sale?: boolean; holdings?: boolean };
 function TradeRow({ row, sale, holdings }: TradeRowProps) {
   const location = useLocation();
   return <tr className={rowStyle}>
-    <td className="overflow-hidden px-3 py-2"><CompanyLink row={row}/></td>
+    <td className="overflow-hidden px-3 py-2"><Company row={row}/></td>
     <td className="truncate px-3 py-2"><Owners owners={row.owners}/></td>
     <td className={cellStyle}>
       <Amount amount={row.amount} estimated={row.amount_estimated} direction={sale ? "sell" : "buy"}/>
@@ -192,7 +213,7 @@ function TradeRow({ row, sale, holdings }: TradeRowProps) {
     <td className={cellStyle}>{holdings
       ? <span className="text-up">{formatSignedPercent(row.holding_change)}</span>
       : <TradePrice price={row.price}/>}</td>
-    <td className={cellStyle}><CurrentPrice price={row.price}/></td>
+    <td className={cellStyle}><CurrentPrice price={row.price} narrow/></td>
     <td className={cellStyle}>
       <Link
         to={`/transactions/${row.id}`}
@@ -220,7 +241,7 @@ const COMPANY_WIDTHS = ["w-[28%]", "w-[8%]", "w-[13%]", "w-[8%]", "w-[13%]", "w-
 function CompanyRow({ row }: { row: CompanyOverview }) {
   const current = row.buy_price.current_price != null ? row.buy_price : row.sell_price;
   return <tr className={rowStyle}>
-    <td className="overflow-hidden px-3 py-2"><CompanyLink row={row}/></td>
+    <td className="overflow-hidden px-3 py-2"><Company row={row}/></td>
     <td className={cellStyle}>{row.buy_people}</td>
     <td className={cellStyle}>
       <Amount amount={row.buy_amount} estimated={row.buy_price.estimated} direction="buy"/>
@@ -233,7 +254,7 @@ function CompanyRow({ row }: { row: CompanyOverview }) {
       <Amount amount={row.net_amount} estimated={row.amount_estimated}/>
       <AmountNotes missing={row.missing_price_rows} mismatched={row.price_mismatch_rows}/>
     </td>
-    <td className={cellStyle}><CurrentPrice price={current}/></td>
+    <td className={cellStyle}><CurrentPrice price={current} narrow/></td>
   </tr>;
 }
 
@@ -281,11 +302,15 @@ function useFilters() {
   const [excludeCluster, setExcludeCluster] = useOverviewChoice(
     "exclude_cluster_plans", ["true", "false"], "true");
   const [companySort, setCompanySort] = useOverviewChoice("company_sort", COMPANY_SORTS, "net_buy");
-  const values = { index, days, role, minimum, exclude, clusterDays, clusterPeople, excludeCluster, companySort };
+  const [sector, setSector] = useOverviewChoice("sector", SECTOR_FORM, "all");
+  const [watchlist, setWatchlist] = useOverviewChoice("watchlist", ["true", "false"], "false");
+  const values = { index, days, role, minimum, exclude, clusterDays, clusterPeople, excludeCluster, companySort, sector, watchlist };
   const setters = {
     setIndex, setDays, setRole, setMinimum, setExclude,
-    setClusterDays, setClusterPeople, setExcludeCluster, setCompanySort,
+    setClusterDays, setClusterPeople, setExcludeCluster, setCompanySort, setSector, setWatchlist,
   };
+  // "Watchlist only" applies while the watchlist has codes; an empty one leaves every company.
+  const watch = useWatchFilter(watchlist === "true").active;
   const query = {
     index: index as Index,
     days: Number(days) as 7 | 30 | 90,
@@ -296,6 +321,8 @@ function useFilters() {
     cluster_people: Number(clusterPeople) as 2 | 3,
     exclude_cluster_plans: excludeCluster === "true",
     company_sort: companySort as CompanySort,
+    sector,
+    watchlist: watch,
   };
   return { values, setters, query };
 }
@@ -304,9 +331,13 @@ type Filters = ReturnType<typeof useFilters>;
 
 /** Write the effective defaults into the URL once, so a shared link reproduces the view. */
 function useFiltersInUrl(query: Filters["query"]) {
+  const pathname = useRef(useLocation().pathname).current;
   const [params, setParams] = useSearchParams();
   const signature = JSON.stringify(query);
   useEffect(() => {
+    // A lazy destination keeps this page mounted during the route transition.
+    // Its late default normalization must not navigate back to this route.
+    if (window.location.pathname !== pathname) return;
     const next = new URLSearchParams(window.location.search);
     let changed = false;
     for (const [name, value] of Object.entries(JSON.parse(signature) as Record<string, unknown>)) {
@@ -315,7 +346,7 @@ function useFiltersInUrl(query: Filters["query"]) {
       changed = true;
     }
     if (changed) setParams(next, { replace: true });
-  }, [params, setParams, signature]);
+  }, [params, setParams, signature, pathname]);
 }
 
 /** Number of secondary filters that differ from their defaults, shown on the "More" button. */
@@ -324,13 +355,26 @@ function changedSecondary(values: Filters["values"]) {
     values.clusterDays !== "7", values.excludeCluster !== "true"].filter(Boolean).length;
 }
 
-/** One row: index, period and role; the minimum amount, plan exclusions and the cluster rule under "More". */
-function FilterBar({ values, setters, status }: Pick<Filters, "values" | "setters"> & { status?: React.ReactNode }) {
+/** Every sector the server offers, then companies without a saved sector. */
+function SectorChoice({ value, choose, sectors }: { value: string; choose: (value: string) => void; sectors: readonly string[] }) {
+  const { t } = useTranslation();
+  const options = ["all", ...new Set([...sectors, ...(value !== "all" && value !== "unclassified" ? [value] : [])]), "unclassified"];
+  return <span className="flex items-center gap-1">
+    <Choice label={t("ui.overview.sector_label")} value={value} choose={choose} options={options}
+      text={(item) => item === "all" || item === "unclassified" ? t(`ui.overview.sector.${item}`) : t(`ui.sectors.name.${item}`)}/>
+    <InfoTip>{t("ui.overview.sector_rule")}</InfoTip>
+  </span>;
+}
+
+/** One row: index, sector, period and role; the minimum amount, plan exclusions and the cluster rule under "More". */
+function FilterBar({ values, setters, status, sectors }: Pick<Filters, "values" | "setters"> & { status?: React.ReactNode; sectors: readonly string[] }) {
   const { t } = useTranslation();
   const days = (count: string | number) => t("ui.overview.days", { count: Number(count) });
   const changed = changedSecondary(values);
   return <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
     <IndexFilter value={values.index as Index} choose={setters.setIndex}/>
+    <WatchFilter chosen={values.watchlist === "true"} choose={(on) => setters.setWatchlist(String(on))}/>
+    <SectorChoice value={values.sector} choose={setters.setSector} sectors={sectors}/>
     <Choice label={t("ui.overview.time_label")} value={values.days} choose={setters.setDays}
       options={[7, 30, 90]} text={days}/>
     <Choice label={t("ui.overview.role_label")} value={values.role} choose={setters.setRole}
@@ -380,7 +424,8 @@ function useOverview(query: Filters["query"], companyLimit: number | undefined) 
   const [askedAt, setAskedAt] = useState<number | null>(null);
   const params = { ...query, ...(companyLimit ? { company_limit: companyLimit } : {}) };
   const result = useQuery({
-    queryKey: ["insider-overview", params],
+    // A watchlist-only overview is read again whenever the watchlist changes.
+    queryKey: ["insider-overview", params, ...(query.watchlist ? [WATCH_DEPENDENT] : [])],
     queryFn: ({ signal }) => unwrap(client.GET("/api/v1/insider/overview", { params: { query: params }, signal })),
     enabled: visible,
     placeholderData: (previous) => previous,
@@ -434,7 +479,8 @@ function Sections({ data, values, more }: { data: Overview; values: SectionValue
     holding_increases: t("ui.overview.holding_increases"),
     companies: t("ui.overview.companies"),
   };
-  return <div className="space-y-2">
+  const tickers = (data[tab].items as readonly CompanyRef[]).map((row) => row.ticker);
+  return <TickerBatch tickers={tickers}><div className="space-y-2">
     <TabBar
       label={t("ui.overview.tabs_label")}
       value={tab}
@@ -467,7 +513,7 @@ function Sections({ data, values, more }: { data: Overview; values: SectionValue
     >
       <CompaniesTable rows={data.companies.items}/>
     </Block>}
-  </div>;
+  </div></TickerBatch>;
 }
 
 function quotePrices(data: Overview) {
@@ -496,8 +542,13 @@ export function InsiderOverview() {
     if (data) setCompanyLimit(data.companies.items.length + data.company_page_rows);
   };
   const sectionValues = { ...values, chooseSort: setters.setCompanySort };
+  // Once the server has named its sectors, a remembered or linked unknown one falls back to all.
+  const sectors = data?.sectors ?? null;
+  useEffect(() => {
+    if (sectors && sectorChoice(values.sector, sectors) !== values.sector) setters.setSector("all");
+  }, [sectors, values.sector, setters]);
   return <div className="space-y-2.5">
-    <FilterBar values={values} setters={setters} status={<>
+    <FilterBar values={values} setters={setters} sectors={sectors ?? []} status={<>
       {data && <span className="tabular-nums">{t("ui.feed.as_of", { time: formatEt(data.as_of) })}</span>}
       {overview.isFetching && <LoaderCircle className="size-3 motion-safe:animate-spin"/>}
       <InfoTip side="left">{t("ui.overview.scope_rule")}</InfoTip>
@@ -511,7 +562,9 @@ export function InsiderOverview() {
     {!data && overview.isPending
       ? <TableSkeleton rows={10} columns={6}/>
       : data && <MismatchRatio.Provider value={data.price_mismatch_ratio}>
-        <Sections data={data} values={sectionValues} more={more}/>
+        <WatchScope.Provider value={data.watchlist}>
+          <Sections data={data} values={sectionValues} more={more}/>
+        </WatchScope.Provider>
       </MismatchRatio.Provider>}
   </div>;
 }

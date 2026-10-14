@@ -15,7 +15,7 @@ import { directionClass, formatDay, formatPrice } from "@/lib/format";
 import { SectorBadge } from "@/components/analysis/References";
 import { UpShare } from "@/components/analysis/UpShare";
 import { cn } from "@/lib/utils";
-import { useTableColumns } from "@/components/ui/column-settings";
+import { useTableColumns } from "@/components/ui/table-columns";
 
 // Column value types differ per column; TanStack needs `any` to hold them in one list.
 /* eslint-disable @typescript-eslint/no-explicit-any */

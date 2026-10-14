@@ -20,7 +20,7 @@ export function LongPricesSection() {
     onSuccess: () => { setAction(null); void queryClient.invalidateQueries({ queryKey: ["long-prices"] }); },
   });
   const data = query.data;
-  return <section className="space-y-3 border-t pt-4" aria-label={t("ui.long_prices.title")}>
+  return <section className="space-y-3" aria-label={t("ui.long_prices.title")}>
     <h3 className="text-sm font-semibold">{t("ui.long_prices.title")}</h3>
     <Explain summary={t("ui.long_prices.hint", { years: data?.history_years ?? 10 })} />
     {data && <>

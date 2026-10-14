@@ -140,7 +140,9 @@ def trade_windows(s, items: list[dict], n: int, *, today: date | None = None) ->
         grid = _Sessions(min(days), max(days), n, calendar)
         cutoff = completed_through(today, calendar)
         today_session = current if sessions(current, current, calendar) else None
-        bars, _ = price_bars(s, security.id, cache.id) if cache else ([], None)
+        # Only the sessions around these trades are looked up (exact dates), so only they are read.
+        span = [(grid.days[0], grid.days[-1])] if grid.days else None
+        bars, _ = price_bars(s, security.id, cache.id, ranges=span) if cache else ([], None)
         index = _bars_by_date(bars)
         needed_start, needed_end = None, None
         for row, day in zip(rows, days, strict=True):

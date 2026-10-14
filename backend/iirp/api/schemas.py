@@ -542,12 +542,18 @@ class SystemOutput(Output):
 
 class SearchItem(Output):
     id: str
-    kind: Literal["company", "person", "security"]
+    kind: Literal["company", "person", "security", "politician"]
     name: str
     href: str
     ticker: str | None = None
     security_id: str | None = None
     issuer_id: str | None = None
+    # The other name (config/aliases.toml) that found this item, as written there.
+    alias: str | None = None
+    # A person who can be followed (iirp.notable.people keys): SEC filers and politicians.
+    notable_key: str | None = None
+    # A politician's district (House) or position (OGE).
+    detail: str | None = None
 
 
 class SearchData(Output):

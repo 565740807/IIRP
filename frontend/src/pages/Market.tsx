@@ -11,6 +11,10 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PriceChart } from "@/components/insider/PriceChart";
+import { WatchStar } from "@/components/watchlist/Watch";
+
+/** Stocks and funds can be watched; indexes (^GSPC), futures (ES=F) and rates cannot. */
+const STOCK_CODE = /^[A-Za-z0-9]{1,10}([.-][A-Za-z0-9]{1,5}){0,2}$/;
 
 function Fact({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -85,9 +89,10 @@ export function MarketDetailPage() {
           <section className="rounded-lg border bg-card px-5 py-4">
             <div className="flex flex-wrap items-start gap-x-6 gap-y-3">
               <div className="min-w-0">
-                <h1 className="text-lg font-semibold tracking-tight">
+                <h1 className="flex flex-wrap items-center gap-x-2 text-lg font-semibold tracking-tight">
                   {tm(quote.name)}
-                  <span className="ml-2 text-sm font-normal text-muted-foreground">{symbol}</span>
+                  <span className="text-sm font-normal text-muted-foreground">{symbol}</span>
+                  {STOCK_CODE.test(symbol) && <WatchStar ticker={symbol} className="-mx-1"/>}
                 </h1>
                 <div className="mt-1 flex flex-wrap items-baseline gap-x-3 gap-y-1">
                   <span className="text-3xl font-semibold tabular-nums">

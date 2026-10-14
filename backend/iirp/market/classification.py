@@ -189,3 +189,47 @@ def request_refresh(s, symbol: str) -> dict:
     s.add(Subscription(job_id=job.id, source="manual"))
     s.flush()
     return classify(s, symbol)
+
+
+class SavedSectors:
+    """The saved classification of many companies at once, in ``classify``'s order.
+
+    The S&P 500 list's GICS sector and industry group (the company matched by CIK,
+    else by ticker), else Yahoo's sector saved by the identity check (no industry
+    group), else none. Nothing is refreshed or requested: a company without a saved
+    sector stays unclassified.
+    """
+
+    def __init__(self, s, symbols=()):
+        from iirp.analysis.sectors import sector_map
+
+        sectors, groups = gics()["sectors"], sub_industry_groups()
+        self.by_cik: dict[str, tuple] = {}
+        self.by_ticker: dict[str, tuple] = {}
+        for ticker, cik, industry, sub_industry in s.execute(
+                select(IndexConstituent.ticker, IndexConstituent.cik, IndexConstituent.industry,
+                       IndexConstituent.sub_industry).where(IndexConstituent.index_name == "sp500")):
+            if industry not in sectors:
+                continue
+            value = (sectors[industry], groups.get(sub_industry or ""))
+            self.by_ticker[_ticker(ticker)] = value
+            if cik:
+                self.by_cik[cik] = value
+        yahoo = sector_map()["yahoo_sectors"]
+        self.by_symbol: dict[str, tuple] = {}
+        wanted = sorted({_ticker(symbol) for symbol in symbols if symbol})
+        if wanted:
+            # The first security of a symbol answers, as in ``classify``.
+            for symbol, metadata in s.execute(select(Security.symbol, Security.metadata_json)
+                                              .where(Security.symbol.in_(wanted)).order_by(Security.id)):
+                sector = yahoo.get((metadata or {}).get("sector") or "")
+                self.by_symbol.setdefault(symbol, (sector, None) if sector else (None, None))
+
+    def of(self, cik=None, ticker=None) -> tuple[str | None, str | None]:
+        """(sector id, industry group id); either may be None."""
+        if cik and cik in self.by_cik:
+            return self.by_cik[cik]
+        key = _ticker(ticker)
+        if key in self.by_ticker:
+            return self.by_ticker[key]
+        return self.by_symbol.get(key, (None, None))

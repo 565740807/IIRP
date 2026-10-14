@@ -61,16 +61,23 @@ def _canonical_kind(kind):
     }.get(kind, kind)
 
 
-def open_feed_session(s: Session, kind: str, order: str, **extra) -> FeedSession:
-    """A reading session is a watermark plus filters; no revision list is stored."""
-    from iirp.insider.feed_index import count, new_watermark
+def open_feed_session(s: Session, kind: str, order: str, groups=None, **extra) -> FeedSession:
+    """A reading session is a watermark plus filters; no revision list is stored.
+
+    With ``watchlist`` (the watched codes when the session opens) the session keeps
+    those codes, so its pages and updates read the same companies even if the
+    watchlist changes meanwhile; a page asks for a new session after a change.
+    """
+    from iirp.insider.feed_index import count, new_watermark, scope
 
     watermark = new_watermark(s)
+    if groups is None:
+        groups = scope(s, extra.get("index", "all"), extra.get("watchlist"))
+    total = count(s, watermark, _canonical_kind(kind), order, groups)
     saved = FeedSession(
         revision_ids=[],
         filters={"purpose": "feed", "kind": kind, "order": order, "as_of": now().isoformat(),
-                 "watermark": watermark, "total_groups": count(s, watermark, _canonical_kind(kind), order, index=extra.get("index", "all")),
-                 **extra},
+                 "watermark": watermark, "total_groups": total, **extra},
         expires_at=now() + timedelta(hours=12),
     )
     s.add(saved)
@@ -127,21 +134,29 @@ def feed_groups(s: Session, page_ids: list[str], kind: str, order: str) -> list[
     return groups
 
 
-def feed(s: Session, session_id: str = "", cursor: str = "", kind: str = "all", order="transaction", index="all") -> dict:
-    """Return twenty company/date groups of one reading session; session creation is local only."""
-    from iirp.insider.feed_index import PAGE_SIZE, decode_cursor, encode_cursor, listing
+def feed(s: Session, session_id: str = "", cursor: str = "", kind: str = "all", order="transaction", index="all",
+         watchlist=False) -> dict:
+    """Return twenty company/date groups of one reading session; session creation is local only.
+    ``watchlist`` keeps the companies whose ticker states a watched code."""
+    from iirp.insider.feed_index import PAGE_SIZE, decode_cursor, encode_cursor, listing, scope
 
     _matches({}, kind)
     if order not in {"transaction", "accepted"}:
         raise UserError("feed.order_invalid")
     if session_id:
         saved = _session(s, session_id, "feed")
-        if saved.filters.get("kind") != kind or saved.filters.get("order") != order or saved.filters.get("index", "all") != index:
+        if (saved.filters.get("kind") != kind or saved.filters.get("order") != order
+                or saved.filters.get("index", "all") != index or ("watchlist" in saved.filters) != watchlist):
             raise UserError("feed.filters_changed")
+        groups = scope(s, index, saved.filters.get("watchlist"))
     else:
-        saved = open_feed_session(s, kind, order, index=index)
+        from iirp.watchlist import keys
+
+        extra = {"watchlist": keys(s)} if watchlist else {}
+        groups = scope(s, index, extra.get("watchlist"))
+        saved = open_feed_session(s, kind, order, groups, index=index, **extra)
     entries = listing(s, feed_watermark(saved), _canonical_kind(kind), order,
-                      after=decode_cursor(cursor) if cursor else None, index=index)
+                      after=decode_cursor(cursor) if cursor else None, groups=groups)
     page = entries[:PAGE_SIZE]
     page_ids, total = [entry[2] for entry in page], saved.filters["total_groups"]
     next_cursor = encode_cursor(page[-1][0]) if len(entries) > PAGE_SIZE else None

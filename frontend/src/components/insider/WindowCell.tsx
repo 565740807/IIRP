@@ -19,12 +19,15 @@ export function WindowCell({
   side,
   n,
   className,
+  basis = "trade",
 }: {
   change: Change | null | undefined;
   ticker: Prices | undefined;
   side: "before" | "after";
   n: number;
   className?: string;
+  /** The day the window starts from: the trade date, or the day the trade was published. */
+  basis?: "trade" | "published";
 }) {
   const { t } = useTranslation();
   const range = change?.start_date && change?.end_date
@@ -37,7 +40,7 @@ export function WindowCell({
         <TooltipTrigger asChild>
           <span className={cn(base, "cursor-default font-medium", directionClass(change.value))}>{formatSignedRatio(change.value)}</span>
         </TooltipTrigger>
-        <TooltipContent>{t(`ui.window.${side}_tip`, { n, range })}</TooltipContent>
+        <TooltipContent>{t(basis === "published" ? `ui.window.published_${side}_tip` : `ui.window.${side}_tip`, { n, range })}</TooltipContent>
       </Tooltip>
     );
   // Prices still on their way: a quiet dash (the reason on hover), never a column of spinners.

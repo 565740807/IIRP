@@ -9,7 +9,7 @@ import type { Schemas } from "@/lib/api-client";
 import { formatDay, formatEt, formatLocal, formatSigned } from "@/lib/format";
 import { homeQuery } from "@/lib/queries";
 import { indexFuturesTrading } from "@/lib/marketHours";
-import { useDisplaySettings } from "@/components/shell/Settings";
+import { useDisplaySettings } from "@/lib/display";
 import { usePageVisible, useRefresh, useRefreshIntervals } from "@/lib/refresh";
 import { sourceContext } from "@/lib/navigation";
 import { cn } from "@/lib/utils";

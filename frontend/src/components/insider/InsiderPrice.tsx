@@ -74,18 +74,21 @@ export function TradePrice({ price, average = false, compact = false }: { price?
   </Tooltip>;
 }
 
-/** The current price and its change from the trade price; ``relation`` adds the higher / near / lower tag. */
-export function CurrentPrice({ price, compact = false, relation = true }: { price?: PriceComparison | null; compact?: boolean; relation?: boolean }) {
+/**
+ * The current price and its change from the trade price; ``relation`` adds the higher / near / lower tag.
+ * ``narrow`` (fixed-width table columns) shows the foreign-listing note as an icon; its hover explains it.
+ */
+export function CurrentPrice({ price, compact = false, relation = true, narrow = false }: { price?: PriceComparison | null; compact?: boolean; relation?: boolean; narrow?: boolean }) {
   const { t } = useTranslation();
   const suspect = price?.price_check === "mismatch";
   return <Tooltip>
     <TooltipTrigger asChild>
-      <span className={cn("inline-flex cursor-default items-baseline justify-end gap-1 whitespace-nowrap tabular-nums", compact && "text-xs")}>
+      <span data-current-price className={cn("inline-flex cursor-default items-baseline justify-end gap-1 whitespace-nowrap tabular-nums", compact && "text-xs")}>
         <span>{formatPrice(price?.current_price)}</span>
         {/* A suspect reported price makes the comparison meaningless. */}
         {!suspect && price?.change_percent != null && <span className={directionClass(price.change_percent)}>{formatSignedPercent(price.change_percent)}</span>}
         {!suspect && relation && price?.relation && <span className="rounded bg-secondary px-1 text-xs text-muted-foreground">{t(`ui.overview.relation.${price.relation}`)}</span>}
-        {price?.foreign_listing && (compact
+        {price?.foreign_listing && (compact || narrow
           ? <Globe className="size-3 shrink-0 self-center text-warn" aria-label={t("ui.overview.foreign_note")}/>
           : <span className="rounded border border-warn/40 px-1 text-xs text-warn">{t("ui.overview.foreign_tag")}</span>)}
       </span>

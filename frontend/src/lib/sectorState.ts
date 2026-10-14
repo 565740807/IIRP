@@ -11,7 +11,8 @@ export const RANGES = ["3m", "6m", "1y", "ytd"] as const;
 export type ChartRange = (typeof RANGES)[number];
 export const INTERVALS = ["day", "week", "month"] as const;
 export type Interval = (typeof INTERVALS)[number];
-export const SORT_COLUMNS = ["name", "etf", ...PERIODS] as const;
+/** Columns the tables sort by; "insider" is the open-market Insider net amount. */
+export const SORT_COLUMNS = ["name", "etf", ...PERIODS, "insider"] as const;
 export type SortColumn = (typeof SORT_COLUMNS)[number];
 export const LEVELS = ["sector", "group"] as const;
 export type Level = (typeof LEVELS)[number];

@@ -53,6 +53,8 @@
   /* Entries the AI marked uncertain: highlighted yellow, with a text label. */
   --doubt: oklch(0.45 0.09 85);
   --doubt-soft: oklch(0.96 0.07 98);
+  /* Watched stocks: a gold star, yellow enough to stay apart from every down color. */
+  --watch: oklch(0.68 0.14 88);
 }
 
 @theme inline {
@@ -89,6 +91,7 @@
   --color-warn-soft: var(--warn-soft);
   --color-doubt: var(--doubt);
   --color-doubt-soft: var(--doubt-soft);
+  --color-watch: var(--watch);
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);

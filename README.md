@@ -44,7 +44,8 @@ starts PostgreSQL, the web server and the background worker. Then open
 and a real e-mail address. Until you add one, a notice at the top of the home page
 says so and nothing is requested from SEC. Click **Add SEC contact**, enter your name
 and e-mail, and insider filings start updating within a minute. It is stored only in
-the local database and sent only to SEC. (You can instead set `IIRP_SEC_USER_AGENT`
+the local database and identifies requests to SEC and government disclosure
+websites. (You can instead set `IIRP_SEC_USER_AGENT`
 in `deploy/.env`, for example `Jane Doe jane.doe@your-mail.com`; that value wins and
 the page then shows it as set in the config file.)
 
@@ -108,6 +109,80 @@ the top right.
   totals; a price with nothing to compare against yet is marked unchecked.
 
 ![Company page: daily candles with insider buys and sales marked, and the trade table](docs/images/company.png)
+
+### Followed people
+
+**Followed people** (in the sidebar after Insiders) puts the trades of people you follow
+in one timeline, newest publication first: SEC Form 4 filers by CIK, House members
+from their periodic transaction reports, and the President and cabinet-level officials
+from their OGE 278-T reports. Each row shows the publication day, the person and role
+(CEO, director, 10% owner, Representative CA11, Commerce Secretary …), the stock or
+asset (bonds say so), buy or sell (a Form 4 sale says whether it was under a 10b5-1
+plan), the amount (exact for Form 4, the reported range for House and OGE), the trade
+date with how many days later it was published, and a link to the original. Filter by
+person, source, buy or sell, stock and date; "All" adds every House member and OGE
+filer stored locally. Filters live in the page link.
+
+- Rows read from a scanned report carry a neutral **Scanned** mark; **Needs review** is
+  kept for rows with a stated doubt (direction unknown, code inferred from the name, a
+  missing or implausible date or amount), each named on hover. Check them against the
+  original.
+- Each coded stock trade shows the change n sessions before the trade, n sessions after
+  it, and n sessions after publication (from the last close before the filing or report
+  could move the price), with the same windows and n control as the Insider pages.
+  Prices come from the stored long-term history or, for rows on screen only, from the
+  usual 24-hour price fetch. Options count as their underlying stock; bonds, funds and
+  rows without a code show —. Click a row to open the trade with its candles, the trade
+  and publication days marked and the windows shaded.
+- A person's page lists all their trades from every source, links to the original
+  filings, and has one line of description: for buys and for sales, the median change
+  n sessions after the trade and after publication and how many rose (x / N), from
+  prices already stored. Past moves do not predict future ones.
+- A company page lists followed people's trades in that stock over the last 90 days.
+- Follow or stop following with ☆ on a person's page, a timeline row or a search
+  result; **Settings → Followed people** lists everyone and can restore the default
+  list. The list starts once from `config/notable-people.toml` (35 SEC filers, 16 House
+  members, the President and 15 cabinet-level officials, reviewed every six months);
+  after that your changes are kept in the local database and its backups.
+
+These are publicly disclosed trades: they do not indicate wrongdoing and are not
+advice. Congress and OGE reports may be published up to 45 days after a trade, and
+U.S. Treasury securities may be exempt from reporting.
+
+### Notifications
+
+Notifications are off until you turn them on in **Settings → Notifications**. Once on,
+the worker notifies each new SEC filing (when the SEC accepts it) or House and OGE report
+(when all its pages have been read) of someone you follow, once per filing or report;
+sales say whether they were under a 10b5-1 plan, and an amended filing or report is
+marked as an amendment. Rule reminders look at SEC open-market purchases by anyone: a CEO
+or CFO buying at least $100,000 in one filing, or three or more people buying the same
+company within seven days (as on the Insider overview), in the S&P 500, the Nasdaq-100 and
+your watchlist unless you choose all companies; plan trades are left out by default and
+the thresholds can be changed. Nothing from before notifications were turned on, or
+before a person was followed, is notified.
+
+- **In the app**: the bell in the top bar shows the unread count and the latest
+  notifications; each opens the trade, the person or the company.
+- **Desktop**: a switch per browser; the browser asks for permission. It only works while
+  an IIRP page is open (it may be in the background).
+- **Phone (ntfy)**: when turned on, IIRP makes a long random topic, stored in the local
+  database, which you can copy or replace. Install the ntfy app (App Store, Google Play or
+  F-Droid), subscribe to that topic, and send a test notification from the settings.
+
+**What phone pushes send, and where.** With phone notifications on, the worker publishes
+each notification to the ntfy server, `https://ntfy.sh` by default, under your topic:
+who, which stock, buy or sell, the amount, the trade and publication dates, and the
+public link of the original SEC filing or House or OGE report. Nothing else leaves the
+computer (no local address, no other data). Anyone who knows the topic can read it on a
+public server, so keep it private, or replace it in the settings. More than five
+notifications in the same minute go as one digest; messages are at least five seconds
+apart and at most 200 go out in 24 hours; failures are retried with growing waits.
+
+**Your own ntfy server.** Run ntfy yourself (for example its Docker image
+`binwiederhier/ntfy` with `serve`, see the ntfy documentation), enter its address (such as
+`https://ntfy.example.org`) as the server in **Settings → Notifications**, and in the
+app subscribe with "use another server" set to the same address.
 
 ### Sectors
 
@@ -268,6 +343,13 @@ resume automatic market updates to download the retained range again.
 - **SEC EDGAR**: insider filings come from SEC's public EDGAR system. Read SEC's
   [guidance on accessing EDGAR data](https://www.sec.gov/search-filings/edgar-search-assistance/accessing-edgar-data):
   automated access must identify itself, and IIRP stays far below SEC's rate limit.
+- **Government transaction disclosures**: the worker collects House STOCK Act PTR
+  and publicly linked OGE 278-T files from official indexes. Senate access is best
+  effort through its ordinary consent session, subject to the official personal
+  research terms. Data & tasks shows each source, archived reports, review rows
+  and OCR progress. Scans or uncertain fields are marked for review; amount ranges
+  are not exact trade values. US Treasury transactions may be exempt from reporting; voluntarily reported entries are retained.
+  These are separate from SEC Form 4 filings.
 - **Prices** come through [yfinance](https://github.com/ranaroussi/yfinance), an
   open-source library that reads Yahoo Finance's public endpoints. yfinance is **not
   an official Yahoo product** and is not affiliated with Yahoo; the data is subject to
@@ -282,8 +364,8 @@ resume automatic market updates to download the retained range again.
   internet or your local network. To use it from another computer, use an SSH tunnel.
 - Everything is stored locally in Docker volumes (`iirp2_postgres-data`,
   `iirp2_app-runtime`): filings, prices, your event lists, prompt templates, SEC
-  contact and backups. The only things sent out are your SEC contact (to SEC, in each
-  request) and ticker symbols (to Yahoo).
+  contact and backups. Contact information identifies requests to SEC and the
+  government disclosure websites; ticker symbols are sent to Yahoo.
 - `deploy/.env` holds the database password; it is ignored by git. Do not share it.
 
 ## How it works
@@ -304,6 +386,7 @@ in the Python backend; the React frontend only displays results. Details (in Chi
 
 ```bash
 ./iirp check             # Ruff, backend tests, OpenAPI, frontend tests and build
+./iirp e2e               # isolated Chromium smoke tests (separate from check)
 ./iirp test tests/sec    # some backend tests
 ./iirp frontend npm test # frontend tests
 ```

@@ -124,6 +124,10 @@ def health() -> dict:
                                    "message": msg("health.sec_poll_stale", time=poll.last_success_at.isoformat()),
                                    "action": {"kind": "tasks", "value": "sec"}})
         for budget in s.scalars(select(SourceBudget)):
+            # Government disclosure sources report their availability on the Data page;
+            # a source that stays unavailable must not keep the whole system in "issues".
+            if budget.provider.startswith("political_"):
+                continue
             if budget.next_allowed_at > current + timedelta(seconds=60):
                 groups.append({"key": f"cooldown|{budget.provider}", "severity": "info",
                                "message": msg("health.source_cooldown", source=budget.provider,

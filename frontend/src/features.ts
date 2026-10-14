@@ -1,7 +1,8 @@
 /// <reference types="vite/client" />
 import type { ReactNode } from "react";
 import type { LucideIcon } from "lucide-react";
-import i18n from "@/i18n";
+import type { TickerMark } from "@/lib/tickerMarks";
+import type { WatchlistNewsSource } from "@/lib/watchlistNews";
 
 /**
  * Optional features: each directory under features/ with an index.tsx adds its
@@ -17,13 +18,17 @@ export type Feature = {
   /** Place in the sidebar: home 10, insiders 20, sectors 30, analysis 40, data 50. */
   order: number;
   routes: { path: string; element: ReactNode }[];
+  /** A small mark beside stock codes on shared pages (see lib/tickerMarks). */
+  tickerMark?: TickerMark;
+  /** Entries of the home page's watchlist notice (see lib/watchlistNews). */
+  watchlistNews?: WatchlistNewsSource;
 };
-
-const locales = import.meta.glob<{ default: Record<string, string> }>("./features/*/locales/*.json", { eager: true });
-for (const [path, module] of Object.entries(locales)) {
-  const language = /\/locales\/(\w+)\.json$/.exec(path)?.[1];
-  if (language) i18n.addResourceBundle(language, "translation", module.default, true, false);
-}
 
 const modules = import.meta.glob<{ feature: Feature }>("./features/*/index.tsx", { eager: true });
 export const FEATURES: Feature[] = Object.values(modules).map((module) => module.feature).sort((a, b) => a.order - b.order);
+
+/** Marks beside stock codes, one per feature that has one. */
+export const TICKER_MARKS: TickerMark[] = FEATURES.flatMap((feature) => (feature.tickerMark ? [feature.tickerMark] : []));
+
+/** Watchlist news sources, one per feature that has one. */
+export const WATCHLIST_NEWS: WatchlistNewsSource[] = FEATURES.flatMap((feature) => (feature.watchlistNews ? [feature.watchlistNews] : []));

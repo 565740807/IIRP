@@ -15,9 +15,12 @@ from iirp.models import (
 
 
 def _public(values):
-    """The SEC contact and the display settings share the row but have their own
-    endpoints (iirp.sec.contact, iirp.display)."""
-    return {key: value for key, value in values.items() if key not in ("sec_contact", "display", "long_prices")}
+    """The SEC contact, the display settings, the long-term price controls, the
+    watchlist's acknowledgement time, the followed people's marks and the notification
+    settings share the row but have their own endpoints (iirp.sec.contact, iirp.display,
+    iirp.market.long_prices, iirp.watchlist, iirp.notable, iirp.notifications)."""
+    return {key: value for key, value in values.items()
+            if key not in ("sec_contact", "display", "long_prices", "watchlist", "notable", "notifications")}
 
 
 def get_preferences():
